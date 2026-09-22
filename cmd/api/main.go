@@ -55,7 +55,7 @@ func main() {
 		os.Exit(1)
 	}
 	identityMiddleware := identity.NewMiddleware(identityService, cfg.Session)
-	identityHandler := identity.NewHandler(identityService, ratelimit.New(redisClient, "opensnow:"), cfg.Session)
+	identityHandler := identity.NewHandler(identityService, ratelimit.New(redisClient, "opensnow:"), cfg.Session, cfg.Auth)
 
 	healthHandler := health.New(
 		func(ctx context.Context) error {
@@ -67,7 +67,7 @@ func main() {
 		func(ctx context.Context) error { return cache.Ping(ctx, redisClient, cfg.Redis.PingTimeout) },
 	)
 	server := &http.Server{
-		Addr:              cfg.HTTPAddr,
+		Addr: cfg.HTTPAddr,
 		Handler: httpserver.Router(logger, healthHandler, func(r chi.Router) {
 			identity.RegisterRoutes(r, identityHandler, identityMiddleware)
 		}),
