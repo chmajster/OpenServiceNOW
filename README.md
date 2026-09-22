@@ -1,47 +1,98 @@
 # OpenServiceNOW
 
-OpenServiceNOW is a planned enterprise ITSM / IT Operations platform with its own implementation and interface, targeting a functional class similar to large service-management platforms without copying ServiceNow code, branding, or UI.
+OpenServiceNOW is an enterprise ITSM / IT Operations platform implemented independently from ServiceNow code, branding, and UI.
 
 ## Current state
 
-The project is in **Phase 0 — Architecture**.
+Phase 1 — Foundation is in progress.
 
-There is not yet a runnable application. The repository currently defines the architecture, implementation roadmap, project status, backlog, and core technical decisions.
+The repository now contains a working Go API foundation with:
 
-Do not treat missing runtime commands as defects in Phase 0 and do not add fake startup instructions before the corresponding runtime exists.
+- validated environment configuration,
+- structured JSON logging,
+- request IDs and structured HTTP access logs,
+- graceful shutdown,
+- MySQL 8.x connectivity through `database/sql`,
+- configurable MySQL connection pool,
+- Redis connectivity,
+- explicit SQL migrations through `golang-migrate`,
+- liveness and readiness endpoints,
+- readiness validation of both dependencies and migrated schema,
+- Docker Compose development dependencies,
+- baseline unit/race/build/smoke CI.
+
+Identity, authentication, tenants, RBAC, audit runtime, worker/scheduler workloads, frontend, and business modules are not implemented yet.
 
 ## Target stack
 
 Backend:
 
-- Go,
-- net/http + chi,
-- database/sql,
-- go-sql-driver/mysql,
-- explicit SQL migrations,
-- Go worker,
-- Go scheduler.
+- Go 1.27,
+- `net/http` + chi,
+- `database/sql`,
+- `go-sql-driver/mysql`,
+- explicit SQL migrations.
 
 Data:
 
-- MySQL 8.x as the primary durable system of record,
-- Redis for cache, locks, rate limits, temporary coordination, and job support.
+- MySQL 8.x as the durable system of record,
+- Redis for cache, locks, rate limits, temporary coordination, and jobs.
 
-Frontend:
+Frontend target:
 
 - React,
 - TypeScript,
 - API-driven architecture.
 
-Development/operations direction:
+## Local development
 
-- Docker Compose for local dependencies,
-- reverse proxy for production,
-- Kubernetes-compatible deployment model later.
+Start MySQL and Redis:
 
-## Architecture
+```bash
+make dev
+```
 
-See:
+Set runtime configuration:
+
+```bash
+cp .env.example .env
+set -a
+source .env
+set +a
+```
+
+Apply the foundation migration:
+
+```bash
+make migrate-up
+```
+
+Start the API:
+
+```bash
+go run ./cmd/api
+```
+
+Health endpoints:
+
+```text
+GET /health/live
+GET /health/ready
+```
+
+The readiness endpoint returns HTTP 503 until MySQL, Redis, and the required foundation schema are available.
+
+## Development commands
+
+```bash
+make build
+make test
+make lint
+make migrate-up
+make migrate-down
+```
+
+## Architecture and project state
 
 - [ARCHITECTURE.md](ARCHITECTURE.md)
 - [ROADMAP.md](ROADMAP.md)
@@ -49,40 +100,4 @@ See:
 - [STATUS.md](STATUS.md)
 - [docs/adr](docs/adr)
 
-## Intended product scope
-
-The roadmap includes:
-
-- Incident Management,
-- Request Management,
-- Service Catalog,
-- Change Management,
-- Problem Management,
-- CMDB,
-- Asset Management,
-- Knowledge Base,
-- SLA,
-- Workflow,
-- Approvals,
-- Automation,
-- Notifications,
-- Integrations,
-- Reporting,
-- Dashboards,
-- Self-Service Portal,
-- Agent Workspace,
-- Administration,
-- Audit,
-- RBAC,
-- multi-tenancy,
-- webhooks,
-- background jobs,
-- dynamic forms.
-
-The project is intentionally delivered in phases. A module is not considered complete until its applicable code, database migrations, API, RBAC, tenant isolation, UI, error handling, tests, and documentation are complete.
-
-## Contributing / agent workflow
-
 Repository working rules are defined in [AGENTS.md](AGENTS.md).
-
-Every implementation task should use a dedicated branch and Draft Pull Request, with the PR description kept current throughout the work.
