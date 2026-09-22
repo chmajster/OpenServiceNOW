@@ -6,14 +6,16 @@ import (
 	"time"
 
 	"github.com/chmajster/OpenServiceNOW/internal/platform/health"
+	"github.com/chmajster/OpenServiceNOW/internal/platform/httpapi"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-func Router(logger *slog.Logger, healthHandler *health.Handler) http.Handler {
+type RouteRegistrar func(chi.Router)
+
+func Router(logger *slog.Logger, healthHandler *health.Handler, registrars ...RouteRegistrar) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
 	r.Use(accessLog(logger))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
@@ -22,6 +24,19 @@ func Router(logger *slog.Logger, healthHandler *health.Handler) http.Handler {
 
 	r.Get("/health/live", healthHandler.Live)
 	r.Get("/health/ready", healthHandler.Ready)
+
+	for _, register := range registrars {
+		if register != nil {
+			register(r)
+		}
+	}
+
+	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		httpapi.WriteError(w, r, http.StatusNotFound, "ROUTE_NOT_FOUND", "Route not found")
+	})
+	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
+		httpapi.WriteError(w, r, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
+	})
 	return r
 }
 
