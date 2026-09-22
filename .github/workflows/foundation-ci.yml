@@ -115,6 +115,30 @@ jobs:
           csrf_token="$(awk '$6 == "opensnow_csrf" {print $7}' cookies.txt)"
           test -n "$csrf_token"
 
+          created_user="$(
+            curl --fail --silent --show-error               -b cookies.txt               -H 'Content-Type: application/json'               -H "X-CSRF-Token: $csrf_token"               --data '{"email":"operator@example.test","display_name":"CI Operator","password":"operator-password-1234"}'               http://127.0.0.1:18080/api/v1/admin/users/
+          )"
+          user_id="$(printf '%s' "$created_user" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')"
+          test -n "$user_id"
+
+          created_role="$(
+            curl --fail --silent --show-error               -b cookies.txt               -H 'Content-Type: application/json'               -H "X-CSRF-Token: $csrf_token"               --data '{"name":"ci_operator","description":"CI smoke role","permissions":["tenant.read"]}'               http://127.0.0.1:18080/api/v1/admin/rbac/roles
+          )"
+          role_id="$(printf '%s' "$created_role" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')"
+          test -n "$role_id"
+
+          curl --fail --silent --show-error             -o /dev/null             -b cookies.txt             -H "X-CSRF-Token: $csrf_token"             -X POST             "http://127.0.0.1:18080/api/v1/admin/rbac/users/$user_id/roles/$role_id"
+
+          user_login="$(
+            curl --fail --silent --show-error               -c operator-cookies.txt               -H 'Content-Type: application/json'               --data '{"tenant":"ci","email":"operator@example.test","password":"operator-password-1234"}'               http://127.0.0.1:18080/api/v1/auth/login
+          )"
+          printf '%s' "$user_login" | grep -q '"operator@example.test"'
+
+          operator_me="$(
+            curl --fail --silent --show-error               -b operator-cookies.txt               http://127.0.0.1:18080/api/v1/auth/me
+          )"
+          printf '%s' "$operator_me" | grep -q '"tenant.read"'
+
           logout_status="$(
             curl --silent --show-error               -o /dev/null               -w '%{http_code}'               -b cookies.txt               -H "X-CSRF-Token: $csrf_token"               -X POST               http://127.0.0.1:18080/api/v1/auth/logout
           )"
