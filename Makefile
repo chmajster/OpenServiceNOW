@@ -10,7 +10,8 @@ test:
 	go test ./...
 
 lint:
-	gofmt -w $$(find . -name '*.go' -type f) && go vet ./...
+	test -z "$(gofmt -l .)"
+	go vet ./...
 
 migrate-up:
 	go run ./cmd/migrate up
