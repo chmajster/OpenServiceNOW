@@ -86,7 +86,7 @@ func (s *Service) Login(ctx context.Context, input LoginInput, meta RequestMeta)
 		var createErr error
 		sessionID, createErr = s.repo.CreateSession(
 			ctx, exec, tenant.ID, user.ID, sessionHash, csrfHash, expiresAt,
-			meta.IPAddress, truncate(meta.UserAgent, 512),
+			meta.IPAddress, truncateText(meta.UserAgent, 512),
 		)
 		if createErr != nil {
 			return createErr
@@ -181,9 +181,10 @@ func newToken() (string, [32]byte, error) {
 	return token, sha256.Sum256([]byte(token)), nil
 }
 
-func truncate(value string, max int) string {
-	if len(value) <= max {
-		return value
+func truncateText(value string, max int) string {
+	runes := []rune(strings.ToValidUTF8(value, ""))
+	if len(runes) <= max {
+		return string(runes)
 	}
-	return value[:max]
+	return string(runes[:max])
 }
