@@ -260,9 +260,11 @@ func (r *MySQLRepository) AddGroupMember(
 		FROM groups g
 		JOIN tenant_memberships tm ON tm.tenant_id = g.tenant_id AND tm.user_id = ? AND tm.active = TRUE
 		WHERE g.tenant_id = ? AND g.id = ?
-		ON DUPLICATE KEY UPDATE user_id = user_id
 	`, tenantID, userID, tenantID, groupID)
 	if err != nil {
+		if isDuplicate(err) {
+			return nil
+		}
 		return fmt.Errorf("add group member: %w", err)
 	}
 	affected, err := result.RowsAffected()
@@ -312,9 +314,11 @@ func (r *MySQLRepository) AssignRoleToUser(
 		FROM roles r
 		JOIN tenant_memberships tm ON tm.tenant_id = r.tenant_id AND tm.user_id = ? AND tm.active = TRUE
 		WHERE r.tenant_id = ? AND r.id = ?
-		ON DUPLICATE KEY UPDATE role_id = role_id
 	`, tenantID, userID, tenantID, roleID)
 	if err != nil {
+		if isDuplicate(err) {
+			return nil
+		}
 		return fmt.Errorf("assign role to user: %w", err)
 	}
 	if affected, err := result.RowsAffected(); err != nil {
@@ -362,9 +366,11 @@ func (r *MySQLRepository) AssignRoleToGroup(
 		FROM groups g
 		JOIN roles r ON r.tenant_id = g.tenant_id AND r.id = ?
 		WHERE g.tenant_id = ? AND g.id = ?
-		ON DUPLICATE KEY UPDATE role_id = role_id
 	`, tenantID, roleID, tenantID, groupID)
 	if err != nil {
+		if isDuplicate(err) {
+			return nil
+		}
 		return fmt.Errorf("assign role to group: %w", err)
 	}
 	if affected, err := result.RowsAffected(); err != nil {
