@@ -1,0 +1,94 @@
+name: foundation-ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: opensnow
+          MYSQL_USER: opensnow
+          MYSQL_PASSWORD: opensnow-test
+          MYSQL_ROOT_PASSWORD: root-test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot-test"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+      redis:
+        image: redis:8.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+
+    env:
+      APP_ENV: test
+      HTTP_ADDR: 127.0.0.1:18080
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: opensnow
+      MYSQL_USER: opensnow
+      MYSQL_PASSWORD: opensnow-test
+      REDIS_ADDR: 127.0.0.1:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.27.x'
+          cache: true
+
+      - name: Verify formatting
+        run: test -z "$(gofmt -l .)"
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Unit tests
+        run: go test ./...
+
+      - name: Race tests
+        run: go test -race ./...
+
+      - name: Build
+        run: go build ./...
+
+      - name: Apply migrations
+        run: go run ./cmd/migrate up
+
+      - name: Smoke test API
+        shell: bash
+        run: |
+          set -euo pipefail
+          go run ./cmd/api >api.log 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid" 2>/dev/null || true; cat api.log' EXIT
+
+          for _ in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:18080/health/ready | grep -q '"status":"ok"'; then
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo "API readiness failed"
+          exit 1
+
+      - name: Roll back migration
+        run: go run ./cmd/migrate down
