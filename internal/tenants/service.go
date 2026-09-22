@@ -51,9 +51,10 @@ func (s *Service) UpdateName(
 		if err := s.repo.UpdateName(ctx, exec, actor.TenantID, expectedVersion, name); err != nil {
 			return err
 		}
-		updated = current
-		updated.Name = name
-		updated.Version++
+		updated, err = s.repo.GetForUpdate(ctx, exec, actor.TenantID)
+		if err != nil {
+			return err
+		}
 
 		return s.audit.Append(ctx, exec, audit.Event{
 			TenantID:    &actor.TenantID,
