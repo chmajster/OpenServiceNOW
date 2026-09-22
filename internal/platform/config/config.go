@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	mysqlDriver "github.com/go-sql-driver/mysql"
 )
 
 type Config struct {
@@ -180,5 +182,21 @@ func envDuration(key string, fallback time.Duration) (time.Duration, error) {
 }
 
 func (c MySQLConfig) DSN() string {
-	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&loc=UTC&charset=utf8mb4&collation=utf8mb4_0900_ai_ci&timeout=5s&readTimeout=10s&writeTimeout=10s&multiStatements=false", c.User, c.Password, c.Host, c.Port, c.Database)
+	cfg := mysqlDriver.Config{
+		User:         c.User,
+		Passwd:       c.Password,
+		Net:          "tcp",
+		Addr:         net.JoinHostPort(c.Host, strconv.Itoa(c.Port)),
+		DBName:       c.Database,
+		ParseTime:    true,
+		Loc:          time.UTC,
+		Collation:    "utf8mb4_0900_ai_ci",
+		Timeout:      5 * time.Second,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		Params: map[string]string{
+			"charset": "utf8mb4",
+		},
+	}
+	return cfg.FormatDSN()
 }
