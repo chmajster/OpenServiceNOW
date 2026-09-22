@@ -10,11 +10,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/chmajster/OpenServiceNOW/internal/audit"
+	"github.com/chmajster/OpenServiceNOW/internal/identity"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/cache"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/health"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/httpserver"
+	"github.com/chmajster/OpenServiceNOW/internal/platform/ratelimit"
+	"github.com/go-chi/chi/v5"
 )
 
 func main() {
@@ -42,6 +46,17 @@ func main() {
 	}
 	defer redisClient.Close()
 
+	txManager := database.NewTxManager(db)
+	auditRepo := audit.NewMySQLRepository()
+	identityRepo := identity.NewMySQLRepository(db)
+	identityService, err := identity.NewService(identityRepo, txManager, auditRepo, cfg.Session)
+	if err != nil {
+		logger.Error("identity service initialization failed", "error", err)
+		os.Exit(1)
+	}
+	identityMiddleware := identity.NewMiddleware(identityService, cfg.Session)
+	identityHandler := identity.NewHandler(identityService, ratelimit.New(redisClient, "opensnow:"), cfg.Session)
+
 	healthHandler := health.New(
 		func(ctx context.Context) error {
 			if err := database.Ping(ctx, db, cfg.MySQL.PingTimeout); err != nil {
@@ -53,7 +68,9 @@ func main() {
 	)
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           httpserver.Router(logger, healthHandler),
+		Handler: httpserver.Router(logger, healthHandler, func(r chi.Router) {
+			identity.RegisterRoutes(r, identityHandler, identityMiddleware)
+		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,
