@@ -12,6 +12,7 @@ import (
 
 	"github.com/chmajster/OpenServiceNOW/internal/audit"
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
+	"github.com/chmajster/OpenServiceNOW/internal/rbac"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/cache"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
@@ -57,6 +58,10 @@ func main() {
 	identityMiddleware := identity.NewMiddleware(identityService, cfg.Session)
 	identityHandler := identity.NewHandler(identityService, ratelimit.New(redisClient, "opensnow:"), cfg.Session, cfg.Auth)
 
+	rbacRepo := rbac.NewMySQLRepository(db)
+	rbacService := rbac.NewService(rbacRepo, txManager, auditRepo)
+	rbacHandler := rbac.NewHandler(rbacService)
+
 	healthHandler := health.New(
 		func(ctx context.Context) error {
 			if err := database.Ping(ctx, db, cfg.MySQL.PingTimeout); err != nil {
@@ -68,9 +73,16 @@ func main() {
 	)
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           httpserver.Router(logger, healthHandler, func(r chi.Router) {
-			identity.RegisterRoutes(r, identityHandler, identityMiddleware)
-		}),
+		Handler: httpserver.Router(
+			logger,
+			healthHandler,
+			func(r chi.Router) {
+				identity.RegisterRoutes(r, identityHandler, identityMiddleware)
+			},
+			func(r chi.Router) {
+				rbac.RegisterRoutes(r, rbacHandler, identityMiddleware)
+			},
+		),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,
