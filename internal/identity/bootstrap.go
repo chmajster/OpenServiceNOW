@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/mail"
 	"regexp"
 	"strings"
 
@@ -61,7 +62,8 @@ func (b *Bootstrapper) Run(ctx context.Context, input BootstrapInput) (Bootstrap
 	if input.TenantName == "" || input.AdminName == "" || input.AdminEmail == "" {
 		return BootstrapResult{}, errors.New("bootstrap tenant name, admin name and admin email are required")
 	}
-	if !strings.Contains(input.AdminEmail, "@") {
+	address, err := mail.ParseAddress(input.AdminEmail)
+	if err != nil || address.Address != input.AdminEmail {
 		return BootstrapResult{}, errors.New("bootstrap admin email is invalid")
 	}
 
@@ -133,8 +135,8 @@ func ensureTenant(ctx context.Context, exec platformdb.Executor, slug, name stri
 	result, err := exec.ExecContext(ctx, `
 		INSERT INTO tenants (slug, name)
 		VALUES (?, ?)
-		ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)
-	`, slug, name)
+		ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), name = ?
+	`, slug, name, name)
 	if err != nil {
 		return 0, fmt.Errorf("ensure tenant: %w", err)
 	}
@@ -146,30 +148,27 @@ func ensureTenant(ctx context.Context, exec platformdb.Executor, slug, name stri
 }
 
 func ensureUser(ctx context.Context, exec platformdb.Executor, email, name, passwordHash string) (uint64, bool, error) {
+	var existingID uint64
+	err := exec.QueryRowContext(ctx, `SELECT id FROM users WHERE email = ? FOR UPDATE`, email).Scan(&existingID)
+	if err == nil {
+		return existingID, false, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return 0, false, fmt.Errorf("find existing user: %w", err)
+	}
+
 	result, err := exec.ExecContext(ctx, `
-		INSERT IGNORE INTO users (email, display_name, password_hash)
+		INSERT INTO users (email, display_name, password_hash)
 		VALUES (?, ?, ?)
 	`, email, name, passwordHash)
 	if err != nil {
-		return 0, false, fmt.Errorf("ensure user: %w", err)
+		return 0, false, fmt.Errorf("create user: %w", err)
 	}
-	affected, err := result.RowsAffected()
+	id, err := result.LastInsertId()
 	if err != nil {
-		return 0, false, fmt.Errorf("read user insert result: %w", err)
+		return 0, false, fmt.Errorf("read new user id: %w", err)
 	}
-	if affected == 1 {
-		id, err := result.LastInsertId()
-		if err != nil {
-			return 0, false, fmt.Errorf("read new user id: %w", err)
-		}
-		return uint64(id), true, nil
-	}
-
-	var id uint64
-	if err := exec.QueryRowContext(ctx, `SELECT id FROM users WHERE email = ?`, email).Scan(&id); err != nil {
-		return 0, false, fmt.Errorf("find existing user: %w", err)
-	}
-	return id, false, nil
+	return uint64(id), true, nil
 }
 
 func ensureMembership(ctx context.Context, exec platformdb.Executor, tenantID, userID uint64) error {
@@ -188,8 +187,8 @@ func ensureRole(ctx context.Context, exec platformdb.Executor, tenantID uint64, 
 	result, err := exec.ExecContext(ctx, `
 		INSERT INTO roles (tenant_id, name, description, system_role)
 		VALUES (?, ?, ?, TRUE)
-		ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), description = VALUES(description), system_role = TRUE
-	`, tenantID, name, description)
+		ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), description = ?, system_role = TRUE
+	`, tenantID, name, description, description)
 	if err != nil {
 		return 0, fmt.Errorf("ensure role: %w", err)
 	}
@@ -204,8 +203,8 @@ func ensurePermission(ctx context.Context, exec platformdb.Executor, key, descri
 	result, err := exec.ExecContext(ctx, `
 		INSERT INTO permissions (permission_key, description)
 		VALUES (?, ?)
-		ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), description = VALUES(description)
-	`, key, description)
+		ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), description = ?
+	`, key, description, description)
 	if err != nil {
 		return 0, fmt.Errorf("ensure permission: %w", err)
 	}
@@ -218,7 +217,8 @@ func ensurePermission(ctx context.Context, exec platformdb.Executor, key, descri
 
 func ensureRolePermission(ctx context.Context, exec platformdb.Executor, roleID, permissionID uint64) error {
 	_, err := exec.ExecContext(ctx, `
-		INSERT IGNORE INTO role_permissions (role_id, permission_id) VALUES (?, ?)
+		INSERT INTO role_permissions (role_id, permission_id) VALUES (?, ?)
+		ON DUPLICATE KEY UPDATE role_id = role_id
 	`, roleID, permissionID)
 	if err != nil {
 		return fmt.Errorf("ensure role permission: %w", err)
@@ -228,8 +228,9 @@ func ensureRolePermission(ctx context.Context, exec platformdb.Executor, roleID,
 
 func ensureUserRole(ctx context.Context, exec platformdb.Executor, tenantID, userID, roleID uint64) error {
 	_, err := exec.ExecContext(ctx, `
-		INSERT IGNORE INTO user_role_assignments (tenant_id, user_id, role_id)
+		INSERT INTO user_role_assignments (tenant_id, user_id, role_id)
 		VALUES (?, ?, ?)
+		ON DUPLICATE KEY UPDATE role_id = role_id
 	`, tenantID, userID, roleID)
 	if err != nil {
 		return fmt.Errorf("ensure user role: %w", err)
