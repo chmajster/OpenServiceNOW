@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestDefaultConfigValid(t *testing.T) {
 	cfg, err := Load()
@@ -42,5 +45,25 @@ func TestValidateRejectsInvalidPool(t *testing.T) {
 	}
 	if err := cfg.Validate(); err == nil {
 		t.Fatal("expected validation error")
+	}
+}
+
+func TestDSNSupportsSpecialCharacters(t *testing.T) {
+	cfg := MySQLConfig{
+		Host: "127.0.0.1",
+		Port: 3306,
+		Database: "open snow",
+		User: "user@domain",
+		Password: "p@ss:/?#[]",
+	}
+	dsn := cfg.DSN()
+	if dsn == "" {
+		t.Fatal("DSN must not be empty")
+	}
+	if !strings.Contains(dsn, "user@domain:") {
+		t.Fatalf("DSN does not contain expected user: %q", dsn)
+	}
+	if !strings.Contains(dsn, "/open+snow?") {
+		t.Fatalf("database name was not escaped: %q", dsn)
 	}
 }
