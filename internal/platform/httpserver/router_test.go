@@ -2,6 +2,8 @@ package httpserver
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,8 +13,9 @@ import (
 
 func TestRouterSecurityHeaders(t *testing.T) {
 	h := health.New(func(context.Context) error { return nil }, func(context.Context) error { return nil })
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
 	rr := httptest.NewRecorder()
-	Router(h).ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/health/live", nil))
+	Router(logger, h).ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/health/live", nil))
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status = %d", rr.Code)
 	}
