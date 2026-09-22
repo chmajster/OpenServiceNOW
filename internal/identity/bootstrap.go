@@ -17,19 +17,19 @@ import (
 var tenantSlugPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$`)
 
 var platformAdminPermissions = map[string]string{
-	"admin.access":        "Access administrative APIs and interfaces",
-	"admin.users.manage":  "Manage users and tenant memberships",
-	"admin.rbac.manage":   "Manage groups, roles and permissions",
-	"admin.audit.read":    "Read tenant audit events",
-	"tenant.read":         "Read tenant configuration",
-	"tenant.manage":       "Manage tenant configuration",
+	"admin.access":       "Access administrative APIs and interfaces",
+	"admin.users.manage": "Manage users and tenant memberships",
+	"admin.rbac.manage":  "Manage groups, roles and permissions",
+	"admin.audit.read":   "Read tenant audit events",
+	"tenant.read":        "Read tenant configuration",
+	"tenant.manage":      "Manage tenant configuration",
 }
 
 type BootstrapInput struct {
-	TenantSlug   string
-	TenantName   string
-	AdminEmail   string
-	AdminName    string
+	TenantSlug    string
+	TenantName    string
+	AdminEmail    string
+	AdminName     string
 	AdminPassword string
 }
 
