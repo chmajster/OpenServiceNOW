@@ -26,3 +26,16 @@ func TestRouterSecurityHeaders(t *testing.T) {
 		t.Fatalf("X-Frame-Options = %q", got)
 	}
 }
+
+func TestRouterUsesConsistentNotFoundError(t *testing.T) {
+	h := health.New(func(context.Context) error { return nil }, func(context.Context) error { return nil })
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	rr := httptest.NewRecorder()
+	Router(logger, h).ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/missing", nil))
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("status = %d", rr.Code)
+	}
+	if got := rr.Header().Get("Content-Type"); got != "application/json" {
+		t.Fatalf("Content-Type = %q", got)
+	}
+}
