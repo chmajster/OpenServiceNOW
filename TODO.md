@@ -74,17 +74,19 @@ Completed:
 
 ## Phase 1 — Foundation
 
-[P0] [ ] Initialize Go module and executable entry points.
+[P1] [-] Initialize Go runtime and executable entry points.
 
-Required:
+Completed:
 - go.mod,
 - cmd/api,
-- cmd/worker,
-- cmd/scheduler,
-- clean package boundaries,
-- buildable binaries.
+- cmd/migrate,
+- clean platform package boundaries.
 
-[P0] [ ] Implement configuration subsystem.
+Remaining:
+- cmd/worker when a real asynchronous workload exists,
+- cmd/scheduler when a real scheduled workload exists.
+
+[P0] [x] Implement configuration subsystem.
 
 Required:
 - environment parsing,
@@ -95,7 +97,7 @@ Required:
 - no secret logging,
 - tests.
 
-[P0] [ ] Implement structured logging.
+[P0] [x] Implement structured logging.
 
 Required:
 - level,
@@ -107,7 +109,7 @@ Required:
 - redaction rules,
 - tests for sensitive fields where practical.
 
-[P0] [ ] Implement HTTP server foundation.
+[P0] [x] Implement HTTP server foundation.
 
 Required:
 - chi router,
@@ -121,7 +123,7 @@ Required:
 - graceful shutdown,
 - httptest coverage.
 
-[P0] [ ] Implement MySQL connection layer.
+[P0] [x] Implement MySQL connection layer.
 
 Required:
 - database/sql,
@@ -132,7 +134,7 @@ Required:
 - error handling,
 - integration test harness.
 
-[P0] [ ] Implement migration runner.
+[P0] [x] Implement migration runner.
 
 Required:
 - explicit up/down SQL migrations,
@@ -141,11 +143,11 @@ Required:
 - MySQL integration tests,
 - no AutoMigrate.
 
-[P0] [ ] Add first schema migration.
+[P0] [x] Add first schema migration.
 
 Initial scope should cover only foundational entities that are actually implemented in the same phase, not speculative tables for all future modules.
 
-[P0] [ ] Implement Redis connection layer.
+[P0] [x] Implement Redis connection layer.
 
 Required:
 - configuration,
@@ -154,7 +156,7 @@ Required:
 - graceful shutdown,
 - tests.
 
-[P0] [ ] Implement health/readiness endpoints.
+[P0] [x] Implement health/readiness endpoints.
 
 Required:
 - process liveness,
@@ -202,9 +204,9 @@ Required:
 
 [P1] [ ] Establish OpenAPI contract generation/validation approach.
 
-[P1] [ ] Add Docker Compose for MySQL and Redis development dependencies.
+[P1] [x] Add Docker Compose for MySQL and Redis development dependencies.
 
-[P1] [ ] Add Makefile targets.
+[P1] [-] Add Makefile targets.
 
 Expected:
 - make dev,
@@ -217,7 +219,15 @@ Expected:
 - make frontend,
 - make e2e.
 
-Targets should only be added when the underlying command exists and works.
+Implemented now:
+- make dev,
+- make build,
+- make test,
+- make lint,
+- make migrate-up,
+- make migrate-down.
+
+Remaining targets are added only when their underlying subsystem exists.
 
 [P1] [ ] Add frontend foundation.
 
@@ -230,7 +240,7 @@ Required:
 - error/loading primitives,
 - test/build baseline.
 
-[P1] [ ] Add CI once build/test commands exist.
+[P1] [x] Add CI for the implemented backend foundation.
 
 Required:
 - backend build,
