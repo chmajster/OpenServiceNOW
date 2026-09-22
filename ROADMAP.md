@@ -1,0 +1,508 @@
+# OpenServiceNOW Roadmap
+
+## Principles
+
+The roadmap is incremental. A phase is not considered complete because skeleton files, empty endpoints, static mock UI, or placeholder implementations exist.
+
+For runtime phases, completion requires applicable code, migrations, API behavior, RBAC, tenant isolation, UI, tests, documentation, and end-to-end verification.
+
+Priority order when starting any work session:
+
+1. broken build or application startup,
+2. migration/database failures,
+3. security defects,
+4. regressions,
+5. work explicitly marked IN PROGRESS,
+6. missing tests for critical existing behavior,
+7. remaining work in the active phase,
+8. next phase,
+9. refactoring that is justified by concrete problems.
+
+## Phase 0 — Architecture
+
+Goal: establish architecture, boundaries, implementation order, and project state tracking before runtime implementation.
+
+Deliverables:
+
+- repository analysis,
+- target architecture for Go + MySQL,
+- modular-monolith boundaries,
+- data-access and transaction strategy,
+- multi-tenancy and RBAC architecture,
+- worker/scheduler/event architecture,
+- frontend architecture,
+- security/performance/testing principles,
+- ROADMAP.md,
+- TODO.md,
+- STATUS.md,
+- CHANGELOG.md,
+- architecture ADRs.
+
+Exit criteria:
+
+- architecture documents are internally consistent,
+- runtime work is clearly separated into later phases,
+- no nonexistent runtime feature is represented as complete,
+- next implementation tasks are explicit.
+
+## Phase 1 — Foundation
+
+Goal: create a production-oriented executable foundation.
+
+Backend:
+
+- initialize Go module,
+- `cmd/api`,
+- `cmd/worker`,
+- `cmd/scheduler`,
+- validated configuration,
+- structured logging,
+- graceful shutdown,
+- HTTP server with chi,
+- request ID middleware,
+- security headers and body limits,
+- consistent error model,
+- OpenAPI bootstrap.
+
+Infrastructure:
+
+- MySQL 8.x connectivity through `database/sql`,
+- configurable connection pool,
+- Redis connectivity,
+- migration runner,
+- Docker Compose for MySQL and Redis,
+- health/readiness checks,
+- development Makefile.
+
+Identity/security foundation:
+
+- tenants,
+- local users,
+- password hashing,
+- authentication session/token strategy,
+- groups,
+- roles,
+- permissions,
+- scoped assignments,
+- backend authorization middleware/service,
+- audit foundation.
+
+Testing:
+
+- unit test baseline,
+- `httptest`,
+- MySQL integration test harness,
+- tenant isolation tests,
+- RBAC tests,
+- startup/configuration tests.
+
+Exit criteria:
+
+- local development environment is reproducible,
+- API starts and shuts down correctly,
+- database migrations apply/revert in test environment,
+- authentication, tenant resolution, RBAC, and audit foundations work,
+- tests and build pass.
+
+## Phase 2 — Task Foundation
+
+Goal: implement common work-record capabilities shared by ITSM domains.
+
+Deliverables:
+
+- concurrency-safe business numbering,
+- assignment model,
+- comments,
+- work notes,
+- watchers,
+- attachments,
+- activity timeline,
+- status/history primitives,
+- related-record links,
+- optimistic locking,
+- reusable list/filter/pagination contracts.
+
+Exit criteria:
+
+- common services are reusable without forcing all domains into one universal table,
+- cross-tenant access tests pass,
+- attachment and timeline security is verified.
+
+## Phase 3 — Incident Management
+
+Goal: production-capable incident lifecycle.
+
+Deliverables:
+
+- incident data model and migrations,
+- create/read/update/list,
+- assignment and assignment groups,
+- impact/urgency/priority,
+- status lifecycle,
+- categories/subcategories,
+- reporter/requester,
+- service/CI relations,
+- parent/child incidents,
+- major incident flag/workflow foundation,
+- comments/work notes/attachments/timeline integration,
+- templates,
+- bulk actions,
+- agent UI.
+
+Exit criteria:
+
+- complete API/UI flow,
+- lifecycle transitions enforced on backend,
+- RBAC and tenant isolation tested,
+- optimistic locking handles concurrent updates,
+- list queries avoid N+1 behavior.
+
+## Phase 4 — SLA
+
+Goal: asynchronous SLA engine.
+
+Deliverables:
+
+- SLA definitions,
+- start/pause/stop conditions,
+- business calendars,
+- working hours,
+- holidays,
+- task-SLA instances,
+- warning/breach evaluation,
+- scheduler integration,
+- escalation events,
+- UI indicators and administration.
+
+Exit criteria:
+
+- SLA progresses without opening a record,
+- calendar pause/resume behavior is tested,
+- retries/restarts do not double-apply transitions.
+
+## Phase 5 — Requests and Service Catalog
+
+Goal: request fulfillment lifecycle with metadata-driven catalog forms.
+
+Deliverables:
+
+- Request,
+- Requested Item,
+- fulfillment Task,
+- catalog/category/item hierarchy,
+- dynamic field definitions,
+- validation,
+- visibility rules,
+- form values,
+- fulfillment mappings,
+- initial self-service submission UI.
+
+Exit criteria:
+
+- request creation and child records are transactionally consistent,
+- form rules are server validated,
+- catalog access respects tenant/RBAC.
+
+## Phase 6 — Workflow and Approval
+
+Goal: durable execution engine.
+
+Workflow:
+
+- definitions,
+- immutable versions,
+- draft/published states,
+- execution instances,
+- execution nodes,
+- retry/timeout/error state,
+- condition,
+- task creation,
+- record update,
+- notification,
+- wait/timer,
+- webhook/HTTP request,
+- automation node,
+- parallel/join,
+- subworkflow.
+
+Approval:
+
+- user/group approvals,
+- sequential/parallel policies,
+- approve/reject,
+- delegation,
+- timeout,
+- reminders,
+- escalation.
+
+Exit criteria:
+
+- executions survive process restarts,
+- published definition version is fixed for active executions,
+- duplicate execution is controlled,
+- approval decisions are audited.
+
+## Phase 7 — Change and Problem Management
+
+Change:
+
+- STANDARD/NORMAL/EMERGENCY,
+- risk/impact,
+- approvals,
+- CAB,
+- implementation/test/rollback plans,
+- maintenance windows,
+- CI impact,
+- conflict detection,
+- change tasks.
+
+Problem:
+
+- root cause,
+- known error,
+- workaround,
+- related incidents,
+- related changes,
+- problem tasks,
+- knowledge integration.
+
+Exit criteria:
+
+- workflows and approvals integrate through stable domain APIs/events,
+- conflicts and relationships are tenant-safe.
+
+## Phase 8 — CMDB and Asset Management
+
+CMDB:
+
+- CI classes,
+- inheritance strategy,
+- configuration items,
+- custom attributes,
+- typed relations,
+- dependency graph,
+- infrastructure/application/service CI types.
+
+Asset management:
+
+- hardware,
+- software,
+- licenses,
+- serial identifiers,
+- ownership,
+- lifecycle,
+- location,
+- purchasing,
+- warranty,
+- vendor,
+- cost center,
+- CI linkage.
+
+Exit criteria:
+
+- CI and Asset remain distinct concepts,
+- graph queries are bounded and indexed,
+- relationship authorization prevents cross-tenant exposure.
+
+## Phase 9 — Knowledge
+
+Deliverables:
+
+- knowledge bases,
+- categories,
+- articles,
+- drafts,
+- versions,
+- review/approval,
+- publication,
+- expiration,
+- permissions,
+- feedback,
+- MySQL-backed search.
+
+Exit criteria:
+
+- publication lifecycle is enforced server-side,
+- search is tenant/RBAC filtered.
+
+## Phase 10 — Notifications and Integrations
+
+Notifications:
+
+- in-app,
+- email,
+- webhook,
+- template system,
+- retries and delivery records.
+
+Integration framework:
+
+- LDAP/AD,
+- SMTP/IMAP,
+- Microsoft Graph,
+- Teams,
+- Slack,
+- Jira,
+- monitoring,
+- virtualization,
+- cloud APIs,
+- generic REST,
+- generic webhooks.
+
+Exit criteria:
+
+- secrets encrypted,
+- outbound HTTP has SSRF controls and timeouts,
+- delivery/retry state is durable and observable.
+
+## Phase 11 — Automation
+
+Goal: durable audited automation execution.
+
+Targets:
+
+- REST,
+- webhook,
+- SSH,
+- PowerShell,
+- Ansible,
+- Terraform,
+- cloud APIs,
+- virtualization APIs.
+
+Capabilities:
+
+- execution IDs,
+- status,
+- logs,
+- timeout,
+- retry,
+- cancellation,
+- ownership,
+- audit,
+- job integration,
+- credential references.
+
+Exit criteria:
+
+- long-running execution is outside HTTP handlers,
+- secrets are never returned in logs,
+- retries are idempotency-aware.
+
+## Phase 12 — Reporting and Dashboards
+
+Deliverables:
+
+- safe dataset definitions,
+- filters,
+- aggregations,
+- tables,
+- charts,
+- CSV,
+- XLSX,
+- scheduled reports,
+- dashboards,
+- KPIs.
+
+Exit criteria:
+
+- users cannot execute unrestricted arbitrary SQL,
+- large exports run as jobs,
+- dataset access is tenant/RBAC filtered.
+
+## Phase 13 — Self-Service Portal
+
+Deliverables:
+
+- request catalog browsing,
+- request submission,
+- request status,
+- incident submission/status,
+- approvals for end users where appropriate,
+- knowledge search,
+- notifications.
+
+Exit criteria:
+
+- mobile/responsive behavior verified,
+- permissions match backend policy,
+- no agent/admin-only data leaks into self-service APIs.
+
+## Phase 14 — Advanced Administration
+
+Deliverables:
+
+- catalog designer,
+- workflow designer,
+- dynamic form designer,
+- role/permission administration,
+- tenant settings,
+- integration settings,
+- notification configuration,
+- system settings,
+- audit views.
+
+Exit criteria:
+
+- every visible administrative action has real backend support,
+- destructive actions have confirmation and audit,
+- configuration validation prevents invalid published states.
+
+## Phase 15 — Hardening
+
+Security:
+
+- threat-model review,
+- dependency review,
+- authorization/IDOR review,
+- SSRF/path traversal/attachment hardening,
+- secret rotation procedures.
+
+Performance:
+
+- MySQL query analysis,
+- index review,
+- load tests,
+- connection-pool tuning,
+- worker concurrency tuning,
+- large-table pagination review.
+
+Reliability:
+
+- race tests,
+- graceful degradation,
+- backup/restore,
+- migration rollback/forward recovery,
+- worker restart recovery,
+- scheduler leader behavior,
+- observability/alerting.
+
+Quality:
+
+- expanded E2E suite,
+- accessibility review,
+- UI responsive review,
+- disaster-recovery documentation.
+
+Exit criteria:
+
+- no known release blockers,
+- restore procedure is tested,
+- critical user journeys pass E2E,
+- performance and security baselines are documented and verified.
+
+## Post-15 evolution
+
+Potential later work should be driven by evidence rather than pre-created complexity:
+
+- selective service extraction,
+- external event broker,
+- OpenSearch/Elasticsearch if MySQL search is insufficient,
+- dedicated analytics store,
+- multi-region deployment,
+- advanced service mapping,
+- discovery agents,
+- AIOps capabilities,
+- mobile-specific clients.
+
+Each material architectural shift requires an ADR.
