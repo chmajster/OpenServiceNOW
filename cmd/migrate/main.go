@@ -1,14 +1,16 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
+	platformdb "github.com/chmajster/OpenServiceNOW/internal/platform/database"
 	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/mysql"
+	migratemysql "github.com/golang-migrate/migrate/v4/database/mysql"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
@@ -24,7 +26,20 @@ func main() {
 		os.Exit(2)
 	}
 
-	m, err := migrate.New("file://migrations", "mysql://"+cfg.MySQL.DSN())
+	db, err := platformdb.OpenMySQL(context.Background(), cfg.MySQL)
+	if err != nil {
+		logger.Error("mysql unavailable", "error", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	driver, err := migratemysql.WithInstance(db, &migratemysql.Config{})
+	if err != nil {
+		logger.Error("create migration database driver", "error", err)
+		os.Exit(1)
+	}
+
+	m, err := migrate.NewWithDatabaseInstance("file://migrations", "mysql", driver)
 	if err != nil {
 		logger.Error("create migrator", "error", err)
 		os.Exit(1)
@@ -41,6 +56,5 @@ func main() {
 		logger.Error("migration failed", "direction", os.Args[1], "error", err)
 		os.Exit(1)
 	}
-	fmt.Printf("migration %s complete
-", os.Args[1])
+	fmt.Printf("migration %s complete\n", os.Args[1])
 }
