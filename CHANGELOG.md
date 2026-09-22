@@ -26,3 +26,27 @@ The project is pre-release and currently in architecture/foundation development.
 ### Runtime status
 
 No runtime application was introduced in Phase 0. Go code, schema migrations, frontend code, Docker Compose, and tests are intentionally deferred to Phase 1 so the repository does not contain non-functional placeholders represented as complete.
+
+## 2026-09-22 — Phase 1 core foundation
+
+### Added
+
+- Go 1.27 module and API runtime,
+- fail-fast environment configuration validation,
+- structured JSON application and HTTP access logging,
+- request IDs, security headers, body limits, and server timeouts,
+- graceful API shutdown,
+- MySQL connection pool and readiness checks,
+- Redis client and readiness checks,
+- explicit migration runner without embedding database credentials in migration URLs,
+- foundation schema metadata migration,
+- liveness and schema-aware readiness endpoints,
+- Docker Compose development services,
+- Makefile build/test/lint/migration commands,
+- configuration, health, and router unit tests,
+- GitHub Actions build, vet, race, migration, and API smoke workflow.
+
+### Security
+
+- migration execution reuses an existing database handle to avoid propagating credential-bearing DSNs through migration error paths,
+- malformed numeric and duration environment values fail startup instead of silently falling back.
