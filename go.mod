@@ -7,4 +7,5 @@ require (
 	github.com/go-sql-driver/mysql v1.10.1
 	github.com/golang-migrate/migrate/v4 v4.20.1
 	github.com/redis/go-redis/v9 v9.22.0
+	golang.org/x/crypto v0.57.0
 )
