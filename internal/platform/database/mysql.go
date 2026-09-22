@@ -34,3 +34,13 @@ func Ping(ctx context.Context, db *sql.DB, timeout time.Duration) error {
 	defer cancel()
 	return db.PingContext(pingCtx)
 }
+
+func SchemaReady(ctx context.Context, db *sql.DB, timeout time.Duration) error {
+	checkCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	var id uint64
+	if err := db.QueryRowContext(checkCtx, "SELECT id FROM platform_metadata WHERE id = 1").Scan(&id); err != nil {
+		return fmt.Errorf("foundation schema not ready: %w", err)
+	}
+	return nil
+}
