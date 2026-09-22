@@ -51,6 +51,8 @@ func main() {
 
 	txManager := database.NewTxManager(db)
 	auditRepo := audit.NewMySQLRepository()
+	auditReader := audit.NewReader(db)
+	auditHandler := audit.NewHandler(auditReader)
 	identityRepo := identity.NewMySQLRepository(db)
 	identityService, err := identity.NewService(identityRepo, txManager, auditRepo, cfg.Session)
 	if err != nil {
@@ -97,6 +99,9 @@ func main() {
 			},
 			func(r chi.Router) {
 				tenants.RegisterRoutes(r, tenantsHandler, identityMiddleware)
+			},
+			func(r chi.Router) {
+				audit.RegisterRoutes(r, auditHandler, identityMiddleware)
 			},
 		),
 		ReadHeaderTimeout: 5 * time.Second,
