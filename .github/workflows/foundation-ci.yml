@@ -45,6 +45,11 @@ jobs:
       MYSQL_USER: opensnow
       MYSQL_PASSWORD: opensnow-test
       REDIS_ADDR: 127.0.0.1:6379
+      BOOTSTRAP_TENANT_SLUG: ci
+      BOOTSTRAP_TENANT_NAME: CI Tenant
+      BOOTSTRAP_ADMIN_EMAIL: admin@example.test
+      BOOTSTRAP_ADMIN_NAME: CI Administrator
+      BOOTSTRAP_ADMIN_PASSWORD: ci-bootstrap-password-1234
 
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +57,7 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: '1.27.x'
-          cache: true
+          cache: false
 
       - name: Verify formatting
         run: test -z "$(gofmt -l .)"
@@ -72,7 +77,10 @@ jobs:
       - name: Apply migrations
         run: go run ./cmd/migrate up
 
-      - name: Smoke test API
+      - name: Bootstrap tenant and administrator
+        run: go run ./cmd/bootstrap
+
+      - name: Smoke test API and authentication
         shell: bash
         run: |
           set -euo pipefail
@@ -80,15 +88,45 @@ jobs:
           api_pid=$!
           trap 'kill "$api_pid" 2>/dev/null || true; cat api.log' EXIT
 
+          ready=0
           for _ in {1..30}; do
             if curl --fail --silent http://127.0.0.1:18080/health/ready | grep -q '"status":"ok"'; then
-              exit 0
+              ready=1
+              break
             fi
             sleep 1
           done
+          if [ "$ready" -ne 1 ]; then
+            echo "API readiness failed"
+            exit 1
+          fi
 
-          echo "API readiness failed"
-          exit 1
+          login_response="$(
+            curl --fail --silent --show-error               -c cookies.txt               -H 'Content-Type: application/json'               --data '{"tenant":"ci","email":"admin@example.test","password":"ci-bootstrap-password-1234"}'               http://127.0.0.1:18080/api/v1/auth/login
+          )"
+          printf '%s' "$login_response" | grep -q '"email":"admin@example.test"'
+          printf '%s' "$login_response" | grep -q '"slug":"ci"'
 
-      - name: Roll back migration
+          me_response="$(
+            curl --fail --silent --show-error               -b cookies.txt               http://127.0.0.1:18080/api/v1/auth/me
+          )"
+          printf '%s' "$me_response" | grep -q '"admin.rbac.manage"'
+
+          csrf_token="$(awk '$6 == "opensnow_csrf" {print $7}' cookies.txt)"
+          test -n "$csrf_token"
+
+          logout_status="$(
+            curl --silent --show-error               -o /dev/null               -w '%{http_code}'               -b cookies.txt               -H "X-CSRF-Token: $csrf_token"               -X POST               http://127.0.0.1:18080/api/v1/auth/logout
+          )"
+          test "$logout_status" = "204"
+
+          me_after_logout="$(
+            curl --silent --show-error               -o /dev/null               -w '%{http_code}'               -b cookies.txt               http://127.0.0.1:18080/api/v1/auth/me
+          )"
+          test "$me_after_logout" = "401"
+
+      - name: Roll back identity migration
+        run: go run ./cmd/migrate down
+
+      - name: Roll back foundation migration
         run: go run ./cmd/migrate down
