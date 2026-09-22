@@ -18,6 +18,7 @@ type Config struct {
 	ShutdownTimeout time.Duration
 	MySQL           MySQLConfig
 	Redis           RedisConfig
+	Session         SessionConfig
 }
 
 type MySQLConfig struct {
@@ -40,7 +41,15 @@ type RedisConfig struct {
 	PingTimeout time.Duration
 }
 
+type SessionConfig struct {
+	TTL            time.Duration
+	CookieSecure   bool
+	CookieName     string
+	CSRFCookieName string
+}
+
 func Load() (Config, error) {
+	appEnv := getenv("APP_ENV", "development")
 	mysqlPort, err := envInt("MYSQL_PORT", 3306)
 	if err != nil {
 		return Config{}, err
@@ -77,9 +86,17 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	sessionTTL, err := envDuration("SESSION_TTL", 12*time.Hour)
+	if err != nil {
+		return Config{}, err
+	}
+	cookieSecure, err := envBool("SESSION_COOKIE_SECURE", appEnv != "development" && appEnv != "test")
+	if err != nil {
+		return Config{}, err
+	}
 
 	cfg := Config{
-		AppEnv:          getenv("APP_ENV", "development"),
+		AppEnv:          appEnv,
 		HTTPAddr:        getenv("HTTP_ADDR", ":8080"),
 		ShutdownTimeout: shutdownTimeout,
 		MySQL: MySQLConfig{
@@ -99,6 +116,12 @@ func Load() (Config, error) {
 			Password:    os.Getenv("REDIS_PASSWORD"),
 			DB:          redisDB,
 			PingTimeout: redisPingTimeout,
+		},
+		Session: SessionConfig{
+			TTL:            sessionTTL,
+			CookieSecure:   cookieSecure,
+			CookieName:     getenv("SESSION_COOKIE_NAME", "opensnow_session"),
+			CSRFCookieName: getenv("CSRF_COOKIE_NAME", "opensnow_csrf"),
 		},
 	}
 	if err := cfg.Validate(); err != nil {
@@ -147,6 +170,15 @@ func (c Config) Validate() error {
 	if c.ShutdownTimeout <= 0 {
 		errs = append(errs, errors.New("SHUTDOWN_TIMEOUT must be positive"))
 	}
+	if c.Session.TTL <= 0 {
+		errs = append(errs, errors.New("SESSION_TTL must be positive"))
+	}
+	if strings.TrimSpace(c.Session.CookieName) == "" || strings.TrimSpace(c.Session.CSRFCookieName) == "" {
+		errs = append(errs, errors.New("session cookie names must not be empty"))
+	}
+	if c.Session.CookieName == c.Session.CSRFCookieName {
+		errs = append(errs, errors.New("session and CSRF cookie names must differ"))
+	}
 	return errors.Join(errs...)
 }
 
@@ -167,6 +199,18 @@ func envInt(key string, fallback int) (int, error) {
 		return 0, fmt.Errorf("%s must be an integer: %w", key, err)
 	}
 	return n, nil
+}
+
+func envBool(key string, fallback bool) (bool, error) {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback, nil
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return false, fmt.Errorf("%s must be a boolean: %w", key, err)
+	}
+	return b, nil
 }
 
 func envDuration(key string, fallback time.Duration) (time.Duration, error) {
