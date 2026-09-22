@@ -15,11 +15,11 @@ type contextKey string
 const identityContextKey contextKey = "identity"
 
 type Middleware struct {
-	service *Service
+	service AuthService
 	session config.SessionConfig
 }
 
-func NewMiddleware(service *Service, session config.SessionConfig) *Middleware {
+func NewMiddleware(service AuthService, session config.SessionConfig) *Middleware {
 	return &Middleware{service: service, session: session}
 }
 
