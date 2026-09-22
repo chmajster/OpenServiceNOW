@@ -6,7 +6,7 @@ Last updated: 2026-09-22
 
 Phase 0 — Architecture
 
-Phase 0 documentation has been created on the working branch. The repository does not yet contain a runtime application.
+Phase 0 documentation has been created. The repository does not yet contain a runtime application.
 
 ## Last completed
 
