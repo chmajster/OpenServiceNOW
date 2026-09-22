@@ -3,16 +3,14 @@ package identity
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
-	"io"
-	"net"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/httpapi"
+	"github.com/chmajster/OpenServiceNOW/internal/platform/requestinfo"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
@@ -36,12 +34,12 @@ type loginRequest struct {
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	var request loginRequest
-	if err := decodeJSON(r, &request); err != nil {
+	if err := httpapi.DecodeJSON(r, &request); err != nil {
 		httpapi.WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "Invalid JSON request")
 		return
 	}
 
-	ip := clientIP(r)
+	ip := requestinfo.DirectPeerIP(r)
 	allowed, err := h.allowLogin(r, request.Tenant, request.Email, ip)
 	if err != nil {
 		httpapi.WriteError(w, r, http.StatusServiceUnavailable, "AUTH_RATE_LIMIT_UNAVAILABLE", "Authentication temporarily unavailable")
@@ -124,7 +122,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := h.service.Logout(r.Context(), identity, RequestMeta{
 		RequestID: middleware.GetReqID(r.Context()),
-		IPAddress: clientIP(r),
+		IPAddress: requestinfo.DirectPeerIP(r),
 		UserAgent: r.UserAgent(),
 	}); err != nil {
 		httpapi.WriteError(w, r, http.StatusInternalServerError, "LOGOUT_FAILED", "Logout failed")
@@ -195,23 +193,3 @@ func (h *Handler) clearSessionCookies(w http.ResponseWriter) {
 	}
 }
 
-func decodeJSON(r *http.Request, target any) error {
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(target); err != nil {
-		return err
-	}
-	var extra any
-	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
-		return errors.New("request body must contain exactly one JSON value")
-	}
-	return nil
-}
-
-func clientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err == nil {
-		return host
-	}
-	return strings.TrimSpace(r.RemoteAddr)
-}
