@@ -1,4 +1,4 @@
-.PHONY: dev build test lint migrate-up migrate-down
+.PHONY: dev build test lint migrate-up migrate-down bootstrap
 
 dev:
 	docker compose up -d
@@ -18,3 +18,6 @@ migrate-up:
 
 migrate-down:
 	go run ./cmd/migrate down
+
+bootstrap:
+	go run ./cmd/bootstrap
