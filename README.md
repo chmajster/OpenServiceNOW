@@ -6,66 +6,67 @@ OpenServiceNOW is an enterprise ITSM / IT Operations platform implemented indepe
 
 Phase 1 — Foundation is in progress.
 
-The repository now contains a working Go API foundation with:
+Implemented foundation capabilities:
 
+- Go API runtime with graceful shutdown,
 - validated environment configuration,
-- structured JSON logging,
-- request IDs and structured HTTP access logs,
-- graceful shutdown,
-- MySQL 8.x connectivity through `database/sql`,
-- configurable MySQL connection pool,
-- Redis connectivity,
-- explicit SQL migrations through `golang-migrate`,
-- liveness and readiness endpoints,
-- readiness validation of both dependencies and migrated schema,
-- Docker Compose development dependencies,
-- baseline unit/race/build/smoke CI.
+- structured JSON application/access logs and request IDs,
+- MySQL 8.x through `database/sql`,
+- Redis,
+- explicit versioned migrations,
+- liveness and schema-aware readiness,
+- transaction manager,
+- tenant/user/group/RBAC/session/audit schema,
+- local password authentication with Argon2id,
+- opaque database-backed sessions,
+- CSRF double-submit validation,
+- login rate limiting in Redis,
+- backend permission evaluation,
+- initial tenant/admin bootstrap command,
+- Docker Compose development services,
+- unit/race/build/migration/authentication smoke CI.
 
-Identity, authentication, tenants, RBAC, audit runtime, worker/scheduler workloads, frontend, and business modules are not implemented yet.
+Worker/scheduler workloads, external identity providers, user/RBAC administration APIs, OpenAPI, frontend, and ITSM business modules are not implemented yet.
 
 ## Target stack
 
-Backend:
-
 - Go 1.27,
 - `net/http` + chi,
-- `database/sql`,
-- `go-sql-driver/mysql`,
-- explicit SQL migrations.
-
-Data:
-
-- MySQL 8.x as the durable system of record,
-- Redis for cache, locks, rate limits, temporary coordination, and jobs.
-
-Frontend target:
-
-- React,
-- TypeScript,
-- API-driven architecture.
+- `database/sql` + `go-sql-driver/mysql`,
+- MySQL 8.x,
+- Redis,
+- React + TypeScript frontend.
 
 ## Local development
 
-Start MySQL and Redis:
+Start dependencies:
 
 ```bash
 make dev
 ```
 
-Set runtime configuration:
+Create local configuration:
 
 ```bash
 cp .env.example .env
+```
+
+Set a strong value for `BOOTSTRAP_ADMIN_PASSWORD`, then load the environment:
+
+```bash
 set -a
 source .env
 set +a
 ```
 
-Apply the foundation migration:
+Apply migrations and create the first tenant/admin:
 
 ```bash
 make migrate-up
+make bootstrap
 ```
+
+The bootstrap is idempotent for tenant membership, role and permission assignment. Re-running it does not reset the password of an existing user.
 
 Start the API:
 
@@ -80,7 +81,27 @@ GET /health/live
 GET /health/ready
 ```
 
-The readiness endpoint returns HTTP 503 until MySQL, Redis, and the required foundation schema are available.
+Authentication endpoints:
+
+```text
+POST /api/v1/auth/login
+GET  /api/v1/auth/me
+POST /api/v1/auth/logout
+```
+
+Login expects:
+
+```json
+{
+  "tenant": "default",
+  "email": "admin@example.test",
+  "password": "your-password"
+}
+```
+
+The server sets an HttpOnly session cookie and a separate CSRF cookie. Unsafe authenticated requests require the CSRF cookie value in the `X-CSRF-Token` header.
+
+The API does not trust `X-Forwarded-For` by default. Until trusted-proxy configuration is implemented, rate limiting and audit IPs use the direct peer address.
 
 ## Development commands
 
@@ -90,7 +111,10 @@ make test
 make lint
 make migrate-up
 make migrate-down
+make bootstrap
 ```
+
+`make migrate-down` rolls back one migration.
 
 ## Architecture and project state
 
