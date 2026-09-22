@@ -67,8 +67,8 @@ func main() {
 		func(ctx context.Context) error { return cache.Ping(ctx, redisClient, cfg.Redis.PingTimeout) },
 	)
 	server := &http.Server{
-		Addr: cfg.HTTPAddr,
-		Handler: httpserver.Router(logger, healthHandler, func(r chi.Router) {
+		Addr:              cfg.HTTPAddr,
+		Handler:           httpserver.Router(logger, healthHandler, func(r chi.Router) {
 			identity.RegisterRoutes(r, identityHandler, identityMiddleware)
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
