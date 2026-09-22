@@ -13,6 +13,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/audit"
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
 	"github.com/chmajster/OpenServiceNOW/internal/rbac"
+	"github.com/chmajster/OpenServiceNOW/internal/users"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/cache"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
@@ -62,6 +63,10 @@ func main() {
 	rbacService := rbac.NewService(rbacRepo, txManager, auditRepo)
 	rbacHandler := rbac.NewHandler(rbacService)
 
+	usersRepo := users.NewMySQLRepository(db)
+	usersService := users.NewService(usersRepo, txManager, auditRepo)
+	usersHandler := users.NewHandler(usersService)
+
 	healthHandler := health.New(
 		func(ctx context.Context) error {
 			if err := database.Ping(ctx, db, cfg.MySQL.PingTimeout); err != nil {
@@ -81,6 +86,9 @@ func main() {
 			},
 			func(r chi.Router) {
 				rbac.RegisterRoutes(r, rbacHandler, identityMiddleware)
+			},
+			func(r chi.Router) {
+				users.RegisterRoutes(r, usersHandler, identityMiddleware)
 			},
 		),
 		ReadHeaderTimeout: 5 * time.Second,
