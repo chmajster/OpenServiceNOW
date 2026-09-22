@@ -13,18 +13,17 @@ import (
 
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/httpapi"
-	"github.com/chmajster/OpenServiceNOW/internal/platform/ratelimit"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
 type Handler struct {
-	service *Service
-	limiter *ratelimit.Limiter
+	service AuthService
+	limiter LoginLimiter
 	session config.SessionConfig
 	auth    config.AuthConfig
 }
 
-func NewHandler(service *Service, limiter *ratelimit.Limiter, session config.SessionConfig, auth config.AuthConfig) *Handler {
+func NewHandler(service AuthService, limiter LoginLimiter, session config.SessionConfig, auth config.AuthConfig) *Handler {
 	return &Handler{service: service, limiter: limiter, session: session, auth: auth}
 }
 
