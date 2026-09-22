@@ -21,10 +21,11 @@ type Handler struct {
 	service *Service
 	limiter *ratelimit.Limiter
 	session config.SessionConfig
+	auth    config.AuthConfig
 }
 
-func NewHandler(service *Service, limiter *ratelimit.Limiter, session config.SessionConfig) *Handler {
-	return &Handler{service: service, limiter: limiter, session: session}
+func NewHandler(service *Service, limiter *ratelimit.Limiter, session config.SessionConfig, auth config.AuthConfig) *Handler {
+	return &Handler{service: service, limiter: limiter, session: session, auth: auth}
 }
 
 type loginRequest struct {
@@ -34,6 +35,7 @@ type loginRequest struct {
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	var request loginRequest
 	if err := decodeJSON(r, &request); err != nil {
 		httpapi.WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "Invalid JSON request")
@@ -85,6 +87,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	identity, ok := FromContext(r.Context())
 	if !ok {
 		httpapi.WriteError(w, r, http.StatusUnauthorized, "UNAUTHENTICATED", "Authentication required")
@@ -136,13 +139,18 @@ func (h *Handler) allowLogin(r *http.Request, tenant, email, ip string) (bool, e
 	if ip == "" {
 		ip = "unknown"
 	}
-	allowed, err := h.limiter.Allow(r.Context(), "login:ip:"+ip, 10, time.Minute)
+	allowed, err := h.limiter.Allow(r.Context(), "login:ip:"+ip, int64(h.auth.LoginIPLimit), h.auth.LoginIPWindow)
 	if err != nil || !allowed {
 		return allowed, err
 	}
 
 	account := sha256.Sum256([]byte(strings.ToLower(strings.TrimSpace(tenant)) + "\x00" + strings.ToLower(strings.TrimSpace(email))))
-	return h.limiter.Allow(r.Context(), "login:account:"+hex.EncodeToString(account[:]), 20, 15*time.Minute)
+	return h.limiter.Allow(
+		r.Context(),
+		"login:account:"+hex.EncodeToString(account[:]),
+		int64(h.auth.LoginAccountLimit),
+		h.auth.LoginAccountWindow,
+	)
 }
 
 func (h *Handler) setSessionCookies(w http.ResponseWriter, result LoginResult) {
