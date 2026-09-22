@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: openservicenow_root_test
+          MYSQL_DATABASE: openservicenow
+          MYSQL_USER: openservicenow
+          MYSQL_PASSWORD: openservicenow_test
+          TZ: UTC
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -popenservicenow_root_test --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+      redis:
+        image: redis:8.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+
+    env:
+      APP_ENV: test
+      LOG_LEVEL: debug
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: "3306"
+      MYSQL_DATABASE: openservicenow
+      MYSQL_USER: openservicenow
+      MYSQL_PASSWORD: openservicenow_test
+      REDIS_ADDR: 127.0.0.1:6379
+      MIGRATIONS_DIR: migrations
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: 1.27.1
+          cache: true
+
+      - name: Resolve modules
+        run: go mod tidy
+
+      - name: Print resolved module files
+        run: |
+          cat go.mod
+          echo '--- GO.SUM ---'
+          cat go.sum
+
+      - name: Formatting
+        run: make fmt-check
+
+      - name: Vet
+        run: make vet
+
+      - name: Unit tests
+        run: make test
+
+      - name: Dependency integration tests
+        run: RUN_INTEGRATION_TESTS=1 go test ./internal/platform/integration
+
+      - name: Race tests
+        run: make race
+
+      - name: Build
+        run: make build
+
+      - name: Migration up
+        run: make migrate-up
+
+      - name: Migration status
+        run: make migrate-status
+
+      - name: API smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          go run ./cmd/api > /tmp/openservicenow-api.log 2>&1 &
+          pid=$!
+          cleanup() {
+            kill "$pid" 2>/dev/null || true
+            wait "$pid" 2>/dev/null || true
+            cat /tmp/openservicenow-api.log
+          }
+          trap cleanup EXIT
+          for _ in {1..30}; do
+            if curl -fsS http://127.0.0.1:8080/health/ready >/tmp/ready.json; then
+              break
+            fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8080/health/live
+          curl -fsS http://127.0.0.1:8080/health/ready
+
+      - name: Migration down and re-apply
+        run: |
+          make migrate-down
+          make migrate-up
