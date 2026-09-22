@@ -19,6 +19,7 @@ type Config struct {
 	MySQL           MySQLConfig
 	Redis           RedisConfig
 	Session         SessionConfig
+	Auth            AuthConfig
 }
 
 type MySQLConfig struct {
@@ -46,6 +47,13 @@ type SessionConfig struct {
 	CookieSecure   bool
 	CookieName     string
 	CSRFCookieName string
+}
+
+type AuthConfig struct {
+	LoginIPLimit       int
+	LoginIPWindow      time.Duration
+	LoginAccountLimit  int
+	LoginAccountWindow time.Duration
 }
 
 func Load() (Config, error) {
@@ -94,6 +102,22 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	loginIPLimit, err := envInt("AUTH_LOGIN_IP_LIMIT", 10)
+	if err != nil {
+		return Config{}, err
+	}
+	loginIPWindow, err := envDuration("AUTH_LOGIN_IP_WINDOW", time.Minute)
+	if err != nil {
+		return Config{}, err
+	}
+	loginAccountLimit, err := envInt("AUTH_LOGIN_ACCOUNT_LIMIT", 20)
+	if err != nil {
+		return Config{}, err
+	}
+	loginAccountWindow, err := envDuration("AUTH_LOGIN_ACCOUNT_WINDOW", 15*time.Minute)
+	if err != nil {
+		return Config{}, err
+	}
 
 	cfg := Config{
 		AppEnv:          appEnv,
@@ -122,6 +146,12 @@ func Load() (Config, error) {
 			CookieSecure:   cookieSecure,
 			CookieName:     getenv("SESSION_COOKIE_NAME", "opensnow_session"),
 			CSRFCookieName: getenv("CSRF_COOKIE_NAME", "opensnow_csrf"),
+		},
+		Auth: AuthConfig{
+			LoginIPLimit:       loginIPLimit,
+			LoginIPWindow:      loginIPWindow,
+			LoginAccountLimit:  loginAccountLimit,
+			LoginAccountWindow: loginAccountWindow,
 		},
 	}
 	if err := cfg.Validate(); err != nil {
@@ -178,6 +208,12 @@ func (c Config) Validate() error {
 	}
 	if c.Session.CookieName == c.Session.CSRFCookieName {
 		errs = append(errs, errors.New("session and CSRF cookie names must differ"))
+	}
+	if c.Auth.LoginIPLimit < 1 || c.Auth.LoginAccountLimit < 1 {
+		errs = append(errs, errors.New("authentication rate limits must be at least 1"))
+	}
+	if c.Auth.LoginIPWindow <= 0 || c.Auth.LoginAccountWindow <= 0 {
+		errs = append(errs, errors.New("authentication rate limit windows must be positive"))
 	}
 	return errors.Join(errs...)
 }
