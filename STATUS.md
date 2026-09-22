@@ -4,116 +4,103 @@ Last updated: 2026-09-22
 
 ## Current phase
 
-Phase 0 — Architecture
+Phase 1 — Foundation
 
-Phase 0 documentation has been created. The repository does not yet contain a runtime application.
+The first runtime foundation slice is implemented on the active branch.
 
 ## Last completed
 
-- repository baseline analysis,
-- target Go modular-monolith architecture,
-- MySQL persistence architecture,
-- multi-tenant/RBAC/security direction,
-- worker/scheduler/event architecture,
-- frontend/testing/deployment direction,
-- phased roadmap,
-- ADRs for Go and MySQL.
+Phase 0 architecture is merged.
 
-## Currently implemented
+Current foundation slice implements:
 
-Documentation only:
-
-- AGENTS.md,
-- ARCHITECTURE.md,
-- ROADMAP.md,
-- TODO.md,
-- STATUS.md,
-- CHANGELOG.md,
-- docs/README.md,
-- docs/adr/ADR-0001-go-modular-monolith.md,
-- docs/adr/ADR-0002-mysql-persistence.md.
-
-No production runtime functionality is implemented yet.
+- Go module targeting Go 1.27,
+- API executable,
+- migration executable,
+- validated environment configuration,
+- structured JSON logging,
+- structured HTTP access logs with request IDs,
+- HTTP security headers and request body limit,
+- HTTP server timeouts and graceful shutdown,
+- MySQL connection pool and bounded health checks,
+- Redis client and bounded health checks,
+- explicit SQL migration runner,
+- first foundation migration,
+- liveness/readiness endpoints,
+- schema-aware readiness,
+- Docker Compose for MySQL and Redis,
+- Makefile commands,
+- unit tests for configuration, health, and router behavior,
+- GitHub Actions build/vet/unit/race/migration/API smoke workflow.
 
 ## Currently in progress
 
-No runtime implementation is in progress.
+Phase 1 remains in progress.
 
-The next active phase is Phase 1 — Foundation.
+Not yet implemented:
+
+- `cmd/worker`,
+- `cmd/scheduler`,
+- tenant runtime,
+- local users/authentication,
+- groups,
+- roles,
+- permissions,
+- authorization enforcement,
+- audit runtime,
+- OpenAPI contract,
+- frontend foundation.
 
 ## Known problems
 
-There are no known defects in application runtime because application runtime does not yet exist.
+No known application defect is currently documented in the implemented foundation slice.
 
-Expected missing foundation components:
-
-- Go module,
-- API process,
-- worker process,
-- scheduler process,
-- MySQL schema/migrations,
-- Redis integration,
-- authentication,
-- tenants,
-- RBAC,
-- audit runtime,
-- frontend,
-- CI,
-- runtime tests.
-
-These are planned work, not regressions.
+Local verification is constrained in the assistant execution environment because it cannot download the Go 1.27 toolchain or external modules. Repository CI is therefore the authoritative execution verification for this PR.
 
 ## Tests
 
-Current state:
+Implemented automated checks:
 
-- no Go code exists,
-- no frontend code exists,
-- no runtime test suite exists,
-- no integration environment exists.
+- `gofmt` verification,
+- `go vet ./...`,
+- `go test ./...`,
+- `go test -race ./...`,
+- `go build ./...`,
+- migration apply,
+- API readiness smoke test against MySQL and Redis,
+- migration rollback.
 
-Therefore `go test`, frontend tests, integration tests, E2E tests, and migration tests are not applicable in Phase 0.
-
-Phase 0 verification is document consistency and repository/PR diff review.
+CI result must be green before merge.
 
 ## Database migrations
 
-None exist yet.
+Implemented:
 
-Migration strategy:
+- `000001_foundation.up.sql`,
+- `000001_foundation.down.sql`.
 
-- versioned SQL up/down migrations,
-- MySQL 8.x,
-- explicit migration runner,
-- no production AutoMigrate.
-
-First migrations belong to Phase 1 and should be limited to actually implemented foundation domains.
+The migration creates the singleton `platform_metadata` record used by readiness validation to distinguish a reachable database from a correctly migrated database.
 
 ## Technical debt
 
-No runtime technical debt has been created yet.
+Current implementation deliberately does not add empty worker/scheduler executables, fake identity endpoints, placeholder frontend screens, or speculative business-domain tables.
 
-Architectural risks to control during implementation:
+Items still to address in Phase 1:
 
-- domain package coupling,
-- missing tenant predicates,
-- authorization applied only in UI,
-- transaction boundaries duplicated across services,
-- events emitted without reliable persistence when durability is required,
-- unbounded worker concurrency,
-- speculative schemas for future modules,
-- N+1 queries,
-- secrets in logs/configuration.
+- transaction manager,
+- authentication/session design implementation,
+- tenant isolation foundation and automated cross-tenant tests,
+- RBAC model and middleware/service enforcement,
+- audit persistence,
+- OpenAPI,
+- worker/scheduler runtime once real workloads exist,
+- frontend and its test baseline.
 
 ## Next recommended tasks
 
-1. Initialize Go module and executable boundaries.
-2. Implement validated configuration and structured logging.
-3. Implement HTTP server and graceful shutdown.
-4. Implement MySQL connectivity, pool, migration runner, and integration test harness.
-5. Implement Redis connectivity.
-6. Implement health/readiness.
-7. Implement tenants, users, authentication, RBAC, and audit foundation.
-8. Add Docker Compose and Makefile only with working commands.
-9. Establish frontend foundation.
-10. Add CI after build/test commands exist.
+1. Verify and merge the core foundation PR after CI passes.
+2. Implement tenant, user, authentication, group, role, permission, and audit schema/services.
+3. Add backend RBAC/tenant enforcement tests.
+4. Add OpenAPI baseline.
+5. Add worker/scheduler when the first real asynchronous/scheduled foundation workload is implemented.
+6. Establish React + TypeScript frontend foundation.
