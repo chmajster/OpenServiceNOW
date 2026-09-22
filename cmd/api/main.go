@@ -43,7 +43,12 @@ func main() {
 	defer redisClient.Close()
 
 	healthHandler := health.New(
-		func(ctx context.Context) error { return database.Ping(ctx, db, cfg.MySQL.PingTimeout) },
+		func(ctx context.Context) error {
+			if err := database.Ping(ctx, db, cfg.MySQL.PingTimeout); err != nil {
+				return err
+			}
+			return database.SchemaReady(ctx, db, cfg.MySQL.PingTimeout)
+		},
 		func(ctx context.Context) error { return cache.Ping(ctx, redisClient, cfg.Redis.PingTimeout) },
 	)
 	server := &http.Server{
