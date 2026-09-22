@@ -1,8 +1,9 @@
 package config
 
 import (
-	"strings"
 	"testing"
+
+	mysqlDriver "github.com/go-sql-driver/mysql"
 )
 
 func TestDefaultConfigValid(t *testing.T) {
@@ -56,14 +57,11 @@ func TestDSNSupportsSpecialCharacters(t *testing.T) {
 		User: "user@domain",
 		Password: "p@ss:/?#[]",
 	}
-	dsn := cfg.DSN()
-	if dsn == "" {
-		t.Fatal("DSN must not be empty")
+	parsed, err := mysqlDriver.ParseDSN(cfg.DSN())
+	if err != nil {
+		t.Fatalf("ParseDSN() error = %v", err)
 	}
-	if !strings.Contains(dsn, "user@domain:") {
-		t.Fatalf("DSN does not contain expected user: %q", dsn)
-	}
-	if !strings.Contains(dsn, "/open+snow?") {
-		t.Fatalf("database name was not escaped: %q", dsn)
+	if parsed.User != cfg.User || parsed.Passwd != cfg.Password || parsed.DBName != cfg.Database {
+		t.Fatalf("DSN round trip mismatch: user=%q db=%q", parsed.User, parsed.DBName)
 	}
 }
