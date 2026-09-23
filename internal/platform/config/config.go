@@ -245,8 +245,8 @@ func (c Config) Validate() error {
 	if c.Auth.LoginIPLimit < 1 || c.Auth.LoginAccountLimit < 1 {
 		errs = append(errs, errors.New("authentication rate limits must be at least 1"))
 	}
-	if c.Auth.LoginIPWindow <= 0 || c.Auth.LoginAccountWindow <= 0 {
-		errs = append(errs, errors.New("authentication rate limit windows must be positive"))
+	if c.Auth.LoginIPWindow < time.Millisecond || c.Auth.LoginAccountWindow < time.Millisecond {
+		errs = append(errs, errors.New("authentication rate limit windows must be at least 1ms"))
 	}
 	for _, cidr := range c.TrustedProxyCIDRs {
 		if _, _, err := net.ParseCIDR(cidr); err != nil {
