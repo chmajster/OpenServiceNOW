@@ -119,6 +119,49 @@ func TestOpenAPIOperationIDsAreUnique(t *testing.T) {
 	}
 }
 
+func TestOpenAPIBigIntValuesUseDecimalStrings(t *testing.T) {
+	raw := loadDocument(t)
+	var root map[string]any
+	if err := json.Unmarshal(raw, &root); err != nil {
+		t.Fatalf("parse OpenAPI document: %v", err)
+	}
+
+	for _, ref := range []string{
+		"#/components/parameters/UserID/schema",
+		"#/components/parameters/RoleID/schema",
+		"#/components/parameters/GroupID/schema",
+		"#/components/schemas/AuthUser/properties/id",
+		"#/components/schemas/AuthTenant/properties/id",
+		"#/components/schemas/Tenant/properties/id",
+		"#/components/schemas/Tenant/properties/version",
+		"#/components/schemas/User/properties/id",
+		"#/components/schemas/UserListResponse/properties/next_after_id",
+		"#/components/schemas/Role/properties/id",
+		"#/components/schemas/Role/properties/version",
+		"#/components/schemas/RoleListResponse/properties/next_after_id",
+		"#/components/schemas/Group/properties/id",
+		"#/components/schemas/Group/properties/version",
+		"#/components/schemas/GroupListResponse/properties/next_after_id",
+		"#/components/schemas/AuditRecord/properties/id",
+		"#/components/schemas/AuditPage/properties/next_before_id",
+	} {
+		value, err := resolveLocalRef(root, ref)
+		if err != nil {
+			t.Fatalf("%s: %v", ref, err)
+		}
+		schema, ok := value.(map[string]any)
+		if !ok {
+			t.Fatalf("%s is not an object", ref)
+		}
+		if schema["type"] != "string" {
+			t.Errorf("%s type = %#v, want string", ref, schema["type"])
+		}
+		if schema["pattern"] == "" {
+			t.Errorf("%s is missing decimal-string pattern", ref)
+		}
+	}
+}
+
 func loadDocument(t *testing.T) []byte {
 	t.Helper()
 	data, err := os.ReadFile("openapi.json")
