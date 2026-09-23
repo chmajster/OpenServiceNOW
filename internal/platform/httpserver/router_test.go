@@ -136,3 +136,39 @@ func TestRouterIgnoresClientSuppliedRequestID(t *testing.T) {
 		t.Fatalf("server request ID length = %d", len(got))
 	}
 }
+
+func TestPanicRecoveryDoesNotAppendJSONAfterResponseStarted(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	handler := panicRecovery(logger)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = w.Write([]byte("partial"))
+		panic("boom")
+	}))
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/", nil))
+
+	if rr.Code != http.StatusAccepted {
+		t.Fatalf("status = %d", rr.Code)
+	}
+	if rr.Body.String() != "partial" {
+		t.Fatalf("body = %q", rr.Body.String())
+	}
+}
+
+func TestPanicRecoveryReturnsJSON500BeforeResponseStarts(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	handler := panicRecovery(logger)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		panic("boom")
+	}))
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/", nil))
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `"code":"INTERNAL_SERVER_ERROR"`) {
+		t.Fatalf("body = %s", rr.Body.String())
+	}
+}
