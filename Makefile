@@ -10,7 +10,7 @@ test:
 	go test ./...
 
 lint:
-	test -z "$(gofmt -l .)"
+	test -z "$$(gofmt -l .)"
 	go vet ./...
 
 migrate-up:
