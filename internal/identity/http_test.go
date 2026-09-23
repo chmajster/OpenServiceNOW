@@ -227,3 +227,32 @@ func TestLoginRejectsOversizedIdentifiersBeforeRateLimiter(t *testing.T) {
 		t.Fatalf("rate limiter calls = %d", limiter.calls)
 	}
 }
+
+func TestLoginReturns503WhenPasswordVerifierIsBusy(t *testing.T) {
+	limiter := &fakeLimiter{allowed: true}
+	service := fakeAuthService{
+		loginFn: func(context.Context, LoginInput, RequestMeta) (LoginResult, error) {
+			return LoginResult{}, ErrAuthBusy
+		},
+	}
+	handler := NewHandler(service, limiter, testSessionConfig(), testAuthConfig())
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/auth/login",
+		strings.NewReader(`{"tenant":"default","email":"admin@example.test","password":"not-a-real-password"}`),
+	)
+	request.RemoteAddr = "192.0.2.10:12345"
+	rr := httptest.NewRecorder()
+	handler.Login(rr, request)
+
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	if got := rr.Header().Get("Retry-After"); got != "1" {
+		t.Fatalf("Retry-After = %q", got)
+	}
+	if !strings.Contains(rr.Body.String(), `"code":"AUTH_BUSY"`) {
+		t.Fatalf("body = %s", rr.Body.String())
+	}
+}
