@@ -367,7 +367,7 @@ export function RbacPage() {
           <div className="panel-heading"><h2>Edytuj uprawnienia roli</h2></div>
           <form className="form-stack form-stack--compact" onSubmit={(event) => void saveRolePermissions(event)}>
             <label>
-              Rola
+              Rola do edycji
               <select value={editRoleID} onChange={(event) => selectRoleForEdit(event.target.value)}>
                 <option value="">Wybierz niesystemową rolę z załadowanych wyników</option>
                 {roles.filter((role) => !role.system_role).map((role) => (
@@ -443,7 +443,7 @@ export function RbacPage() {
                   </select>
                 </label>
                 <label>
-                  Rola
+                  Rola do przypisania
                   <select value={assignmentRole} onChange={(event) => setAssignmentRole(event.target.value)} required>
                     <option value="">Wybierz z załadowanych ról</option>
                     {roles.map((role) => (
