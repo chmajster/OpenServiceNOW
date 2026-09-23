@@ -12,6 +12,11 @@ import (
 	mysqlDriver "github.com/go-sql-driver/mysql"
 )
 
+const (
+	SessionCookieName = "opensnow_session"
+	CSRFCookieName    = "opensnow_csrf"
+)
+
 type Config struct {
 	AppEnv          string
 	HTTPAddr        string
@@ -159,8 +164,8 @@ func Load() (Config, error) {
 		Session: SessionConfig{
 			TTL:              sessionTTL,
 			CookieSecure:     cookieSecure,
-			CookieName:       getenv("SESSION_COOKIE_NAME", "opensnow_session"),
-			CSRFCookieName:   getenv("CSRF_COOKIE_NAME", "opensnow_csrf"),
+			CookieName:       SessionCookieName,
+			CSRFCookieName:   CSRFCookieName,
 			CleanupInterval:  sessionCleanupInterval,
 			CleanupBatch:     sessionCleanupBatch,
 			RevokedRetention: sessionRevokedRetention,
