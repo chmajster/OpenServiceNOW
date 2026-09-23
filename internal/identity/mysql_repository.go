@@ -280,19 +280,38 @@ func (r *MySQLRepository) CleanupSessions(
 	if limit < 1 || limit > 10000 {
 		return 0, fmt.Errorf("cleanup session limit out of range")
 	}
-	result, err := r.db.ExecContext(ctx, `
+
+	expiredResult, err := r.db.ExecContext(ctx, `
 		DELETE FROM sessions
 		WHERE expires_at <= UTC_TIMESTAMP(6)
-		   OR (revoked_at IS NOT NULL AND revoked_at <= ?)
-		ORDER BY id
+		ORDER BY expires_at, id
 		LIMIT ?
-	`, revokedBefore.UTC(), limit)
+	`, limit)
 	if err != nil {
-		return 0, fmt.Errorf("cleanup sessions: %w", err)
+		return 0, fmt.Errorf("cleanup expired sessions: %w", err)
 	}
-	affected, err := result.RowsAffected()
+	expired, err := expiredResult.RowsAffected()
 	if err != nil {
-		return 0, fmt.Errorf("read cleanup session result: %w", err)
+		return 0, fmt.Errorf("read expired session cleanup result: %w", err)
 	}
-	return affected, nil
+	if expired >= int64(limit) {
+		return expired, nil
+	}
+
+	remaining := limit - int(expired)
+	revokedResult, err := r.db.ExecContext(ctx, `
+		DELETE FROM sessions
+		WHERE revoked_at IS NOT NULL
+		  AND revoked_at <= ?
+		ORDER BY revoked_at, id
+		LIMIT ?
+	`, revokedBefore.UTC(), remaining)
+	if err != nil {
+		return 0, fmt.Errorf("cleanup revoked sessions: %w", err)
+	}
+	revoked, err := revokedResult.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("read revoked session cleanup result: %w", err)
+	}
+	return expired + revoked, nil
 }
