@@ -74,6 +74,9 @@ func (s *Service) CreateRole(ctx context.Context, actor Actor, input CreateRoleI
 	if err := validateName(input.Name, 150); err != nil {
 		return 0, err
 	}
+	if strings.EqualFold(input.Name, "platform_admin") {
+		return 0, fmt.Errorf("%w: role name platform_admin is reserved", ErrInvalid)
+	}
 	if utf8.RuneCountInString(input.Description) > 500 {
 		return 0, fmt.Errorf("%w: description exceeds 500 characters", ErrInvalid)
 	}
