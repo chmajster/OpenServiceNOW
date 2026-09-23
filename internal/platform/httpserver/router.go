@@ -30,7 +30,7 @@ func Router(
 		}
 	}
 	r.Use(accessLog(logger))
-	r.Use(middleware.Recoverer)
+	r.Use(panicRecovery(logger))
 	r.Use(middleware.Timeout(30 * time.Second))
 	r.Use(securityHeaders)
 	r.Use(limitBody(2 << 20))
@@ -51,6 +51,31 @@ func Router(
 		httpapi.WriteError(w, r, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
 	})
 	return r
+}
+
+func panicRecovery(logger *slog.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer func() {
+				if recover() != nil {
+					logger.Error(
+						"http panic recovered",
+						"request_id", middleware.GetReqID(r.Context()),
+						"method", r.Method,
+						"path", r.URL.Path,
+					)
+					httpapi.WriteError(
+						w,
+						r,
+						http.StatusInternalServerError,
+						"INTERNAL_SERVER_ERROR",
+						"Internal server error",
+					)
+				}
+			}()
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func accessLog(logger *slog.Logger) func(http.Handler) http.Handler {
