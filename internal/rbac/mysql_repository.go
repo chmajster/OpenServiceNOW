@@ -299,12 +299,19 @@ func (r *MySQLRepository) RemoveGroupMember(
 	exec platformdb.Executor,
 	tenantID, groupID, userID uint64,
 ) error {
-	_, err := exec.ExecContext(ctx, `
+	result, err := exec.ExecContext(ctx, `
 		DELETE FROM group_memberships
 		WHERE tenant_id = ? AND group_id = ? AND user_id = ?
 	`, tenantID, groupID, userID)
 	if err != nil {
 		return fmt.Errorf("remove group member: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read removed group membership result: %w", err)
+	}
+	if affected == 0 {
+		return ErrNotFound
 	}
 	return nil
 }
@@ -351,12 +358,19 @@ func (r *MySQLRepository) RemoveRoleFromUser(
 	exec platformdb.Executor,
 	tenantID, roleID, userID uint64,
 ) error {
-	_, err := exec.ExecContext(ctx, `
+	result, err := exec.ExecContext(ctx, `
 		DELETE FROM user_role_assignments
 		WHERE tenant_id = ? AND user_id = ? AND role_id = ?
 	`, tenantID, userID, roleID)
 	if err != nil {
 		return fmt.Errorf("remove role from user: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read removed user role result: %w", err)
+	}
+	if affected == 0 {
+		return ErrNotFound
 	}
 	return nil
 }
@@ -403,12 +417,19 @@ func (r *MySQLRepository) RemoveRoleFromGroup(
 	exec platformdb.Executor,
 	tenantID, roleID, groupID uint64,
 ) error {
-	_, err := exec.ExecContext(ctx, `
+	result, err := exec.ExecContext(ctx, `
 		DELETE FROM group_role_assignments
 		WHERE tenant_id = ? AND group_id = ? AND role_id = ?
 	`, tenantID, groupID, roleID)
 	if err != nil {
 		return fmt.Errorf("remove role from group: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read removed group role result: %w", err)
+	}
+	if affected == 0 {
+		return ErrNotFound
 	}
 	return nil
 }
