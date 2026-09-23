@@ -11,7 +11,7 @@ func TestDefaultConfigValid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
-	if cfg.HTTPAddr != ":8080" {
+	if cfg.HTTPAddr != "127.0.0.1:8080" {
 		t.Fatalf("HTTPAddr = %q", cfg.HTTPAddr)
 	}
 	if cfg.MySQL.Port != 3306 {
