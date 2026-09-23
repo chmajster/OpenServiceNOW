@@ -580,6 +580,9 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
           "413": {
             "$ref": "#/components/responses/PayloadTooLarge"
           }
@@ -1446,9 +1449,15 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
+          "version",
           "permissions"
         ],
         "properties": {
+          "version": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 1
+          },
           "permissions": {
             "type": "array",
             "items": {
