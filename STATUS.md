@@ -64,6 +64,7 @@ Implemented on the Phase 1 branch:
 - frontend permission-aware navigation and route guards,
 - frontend responsive/loading/error/empty states,
 - frontend API-client unit tests,
+- Playwright browser E2E for the critical admin-to-least-privilege-user journey,
 - mobile-safe logout and permission-aware read-only tenant UI,
 - server-side bounded search/pagination controls in user/RBAC screens,
 - role permission editor using optimistic locking,
@@ -143,6 +144,7 @@ Test code exists for:
 - frontend API client CSRF behavior and error mapping,
 - OpenAPI route inventory, local $ref resolution, unique operation IDs and decimal-string BIGINT contract,
 - role permission optimistic-lock conflicts and no-op version stability,
+- explicit linking of an existing global account to a second tenant without password mutation,
 - audit cursor pagination and tenant isolation,
 - safe bootstrap re-entry for existing users,
 - bounded password-verifier saturation behavior,
@@ -170,7 +172,8 @@ CI is configured to run:
 - migration rollback,
 - frontend TypeScript typecheck,
 - frontend unit tests,
-- frontend production build.
+- frontend production build,
+- full-stack Playwright Chromium E2E through UI → API → MySQL.
 
 These checks are authored but are not recorded as passing until the runner executes them.
 
