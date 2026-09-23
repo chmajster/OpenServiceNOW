@@ -172,3 +172,19 @@ func TestPanicRecoveryReturnsJSON500BeforeResponseStarts(t *testing.T) {
 		t.Fatalf("body = %s", rr.Body.String())
 	}
 }
+
+func TestTimeoutJSONWritesGatewayTimeoutEnvelope(t *testing.T) {
+	handler := timeoutJSON(5 * time.Millisecond)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	}))
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/", nil))
+
+	if rr.Code != http.StatusGatewayTimeout {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `"code":"REQUEST_TIMEOUT"`) {
+		t.Fatalf("body = %s", rr.Body.String())
+	}
+}
