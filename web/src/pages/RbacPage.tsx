@@ -11,17 +11,19 @@ import type {
   TenantUser,
   UsersResponse
 } from "../api/types";
-import { PageState } from "../components/PageState";
 import { useAuth } from "../auth/AuthContext";
+import { PageState } from "../components/PageState";
 
 export function RbacPage() {
   const { hasPermission } = useAuth();
   const canManageUsers = hasPermission("admin.users.manage");
+
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [users, setUsers] = useState<TenantUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchingUsers, setSearchingUsers] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [roleName, setRoleName] = useState("");
@@ -29,6 +31,7 @@ export function RbacPage() {
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
+  const [userSearch, setUserSearch] = useState("");
   const [assignmentUser, setAssignmentUser] = useState("");
   const [assignmentRole, setAssignmentRole] = useState("");
   const [busy, setBusy] = useState(false);
@@ -36,21 +39,17 @@ export function RbacPage() {
 
   const activeUsers = useMemo(() => users.filter((user) => user.membership_active), [users]);
 
-  async function load() {
+  async function loadCore() {
     setLoading(true);
     try {
-      const [permissionResponse, roleResponse, groupResponse, userResponse] = await Promise.all([
+      const [permissionResponse, roleResponse, groupResponse] = await Promise.all([
         api<PermissionsResponse>("/api/v1/admin/rbac/permissions"),
         api<RolesResponse>("/api/v1/admin/rbac/roles"),
-        api<GroupsResponse>("/api/v1/admin/rbac/groups"),
-        canManageUsers
-          ? api<UsersResponse>("/api/v1/admin/users/")
-          : Promise.resolve<UsersResponse>({ users: [] })
+        api<GroupsResponse>("/api/v1/admin/rbac/groups")
       ]);
       setPermissions(permissionResponse.permissions);
       setRoles(roleResponse.roles);
       setGroups(groupResponse.groups);
-      setUsers(userResponse.users);
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Nie udało się pobrać konfiguracji RBAC.");
@@ -59,8 +58,37 @@ export function RbacPage() {
     }
   }
 
+  async function searchUsers(query = userSearch) {
+    if (!canManageUsers) {
+      setUsers([]);
+      return;
+    }
+    setSearchingUsers(true);
+    try {
+      const params = new URLSearchParams({ limit: "50" });
+      if (query.trim()) {
+        params.set("q", query.trim());
+      }
+      const response = await api<UsersResponse>(`/api/v1/admin/users/?${params.toString()}`);
+      setUsers(response.users);
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Nie udało się wyszukać użytkowników.");
+    } finally {
+      setSearchingUsers(false);
+    }
+  }
+
   useEffect(() => {
-    void load();
+    void loadCore();
+  }, []);
+
+  useEffect(() => {
+    if (canManageUsers) {
+      void searchUsers("");
+    } else {
+      setUsers([]);
+    }
   }, [canManageUsers]);
 
   function togglePermission(key: string) {
@@ -86,7 +114,7 @@ export function RbacPage() {
       setRoleName("");
       setRoleDescription("");
       setSelectedPermissions([]);
-      await load();
+      await loadCore();
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 409) {
         setError("Rola o tej nazwie już istnieje.");
@@ -110,12 +138,18 @@ export function RbacPage() {
       });
       setGroupName("");
       setGroupDescription("");
-      await load();
+      await loadCore();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Utworzenie grupy nie powiodło się.");
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleUserSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAssignmentUser("");
+    await searchUsers();
   }
 
   async function assignRole(event: FormEvent<HTMLFormElement>) {
@@ -152,7 +186,9 @@ export function RbacPage() {
           <h1>Role i RBAC</h1>
           <p className="muted">Uprawnienia są zawsze egzekwowane przez backend.</p>
         </div>
-        <button className="button button--secondary" onClick={() => void load()} disabled={loading}>Odśwież</button>
+        <button className="button button--secondary" onClick={() => void loadCore()} disabled={loading}>
+          Odśwież
+        </button>
       </div>
 
       {error ? <div className="inline-error" role="alert">{error}</div> : null}
@@ -208,33 +244,49 @@ export function RbacPage() {
 
           <div className="panel-heading"><h2>Przypisz rolę użytkownikowi</h2></div>
           {canManageUsers ? (
-            <form className="form-stack form-stack--compact" onSubmit={(event) => void assignRole(event)}>
-              <label>
-                Użytkownik
-                <select value={assignmentUser} onChange={(event) => setAssignmentUser(event.target.value)} required>
-                  <option value="">Wybierz użytkownika</option>
-                  {activeUsers.map((user) => (
-                    <option key={user.id} value={user.id}>{user.display_name} — {user.email}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Rola
-                <select value={assignmentRole} onChange={(event) => setAssignmentRole(event.target.value)} required>
-                  <option value="">Wybierz rolę</option>
-                  {roles.map((role) => (
-                    <option key={role.id} value={role.id}>{role.name}</option>
-                  ))}
-                </select>
-              </label>
-              <button className="button button--secondary" type="submit" disabled={busy}>Przypisz rolę</button>
-            </form>
+            <>
+              <form className="search-row search-row--compact" onSubmit={(event) => void handleUserSearch(event)}>
+                <label className="search-field">
+                  Wyszukaj użytkownika
+                  <input
+                    value={userSearch}
+                    onChange={(event) => setUserSearch(event.target.value)}
+                    maxLength={200}
+                    placeholder="nazwa lub e-mail"
+                  />
+                </label>
+                <button className="button button--secondary" type="submit" disabled={searchingUsers}>
+                  {searchingUsers ? "Szukanie…" : "Szukaj"}
+                </button>
+              </form>
+              <form className="form-stack form-stack--compact" onSubmit={(event) => void assignRole(event)}>
+                <label>
+                  Użytkownik
+                  <select value={assignmentUser} onChange={(event) => setAssignmentUser(event.target.value)} required>
+                    <option value="">Wybierz z maks. 50 wyników</option>
+                    {activeUsers.map((user) => (
+                      <option key={user.id} value={user.id}>{user.display_name} — {user.email}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Rola
+                  <select value={assignmentRole} onChange={(event) => setAssignmentRole(event.target.value)} required>
+                    <option value="">Wybierz rolę</option>
+                    {roles.map((role) => (
+                      <option key={role.id} value={role.id}>{role.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <button className="button button--secondary" type="submit" disabled={busy}>Przypisz rolę</button>
+              </form>
+            </>
           ) : (
             <PageState
               title="Lista użytkowników niedostępna"
               detail="Przypisywanie roli użytkownikowi z tego widoku wymaga również admin.users.manage."
             />
-          )
+          )}
         </div>
       </div>
 
