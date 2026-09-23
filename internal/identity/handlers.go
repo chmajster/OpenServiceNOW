@@ -39,7 +39,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip := requestinfo.DirectPeerIP(r)
+	ip := requestinfo.ClientIP(r)
 	allowed, err := h.allowLogin(r, request.Tenant, request.Email, ip)
 	if err != nil {
 		httpapi.WriteError(w, r, http.StatusServiceUnavailable, "AUTH_RATE_LIMIT_UNAVAILABLE", "Authentication temporarily unavailable")
@@ -122,7 +122,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := h.service.Logout(r.Context(), identity, RequestMeta{
 		RequestID: middleware.GetReqID(r.Context()),
-		IPAddress: requestinfo.DirectPeerIP(r),
+		IPAddress: requestinfo.ClientIP(r),
 		UserAgent: r.UserAgent(),
 	}); err != nil {
 		httpapi.WriteError(w, r, http.StatusInternalServerError, "LOGOUT_FAILED", "Logout failed")
