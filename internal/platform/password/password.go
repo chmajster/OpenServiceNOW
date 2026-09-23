@@ -12,6 +12,8 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
+const MaxPasswordBytes = 1024
+
 type Params struct {
 	Memory      uint32
 	Iterations  uint32
@@ -34,7 +36,10 @@ func Hash(plain string) (string, error) {
 
 func HashWithParams(plain string, p Params) (string, error) {
 	if len(plain) < 12 {
-		return "", errors.New("password must contain at least 12 characters")
+		return "", errors.New("password must contain at least 12 bytes")
+	}
+	if len(plain) > MaxPasswordBytes {
+		return "", fmt.Errorf("password exceeds %d bytes", MaxPasswordBytes)
 	}
 	if p.Memory == 0 || p.Iterations == 0 || p.Parallelism == 0 || p.SaltLength < 16 || p.KeyLength < 16 {
 		return "", errors.New("invalid Argon2id parameters")
@@ -57,6 +62,9 @@ func HashWithParams(plain string, p Params) (string, error) {
 }
 
 func Verify(encoded, plain string) (bool, error) {
+	if len(plain) > MaxPasswordBytes {
+		return false, nil
+	}
 	p, salt, expected, err := parse(encoded)
 	if err != nil {
 		return false, err
