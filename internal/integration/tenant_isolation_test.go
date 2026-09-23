@@ -286,6 +286,29 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	if err := rbacService.AssignRoleToUser(ctx, actorA, platformAdminRoleID, secondAdminID); err != nil {
 		t.Fatalf("assign platform_admin to second admin: %v", err)
 	}
+
+	firstPage, err := usersService.List(ctx, adminA.TenantID, 0, 1, "")
+	if err != nil {
+		t.Fatalf("list first user page: %v", err)
+	}
+	if len(firstPage.Users) != 1 || firstPage.NextAfterID == 0 {
+		t.Fatalf("first user page = %+v", firstPage)
+	}
+	secondPage, err := usersService.List(ctx, adminA.TenantID, firstPage.NextAfterID, 1, "")
+	if err != nil {
+		t.Fatalf("list second user page: %v", err)
+	}
+	if len(secondPage.Users) != 1 || secondPage.Users[0].ID == firstPage.Users[0].ID {
+		t.Fatalf("second user page = %+v", secondPage)
+	}
+	searchPage, err := usersService.List(ctx, adminA.TenantID, 0, 50, "Second Admin")
+	if err != nil {
+		t.Fatalf("search users: %v", err)
+	}
+	if len(searchPage.Users) != 1 || searchPage.Users[0].ID != secondAdminID {
+		t.Fatalf("search result = %+v, want second admin %d", searchPage.Users, secondAdminID)
+	}
+
 	if err := usersService.SetMembershipActive(ctx, users.Actor{
 		TenantID: adminA.TenantID, UserID: secondAdminID, RequestID: "integration",
 	}, adminA.UserID, false); err != nil {
