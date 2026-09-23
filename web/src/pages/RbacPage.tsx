@@ -23,8 +23,8 @@ export function RbacPage() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [users, setUsers] = useState<TenantUser[]>([]);
 
-  const [nextRoleAfterID, setNextRoleAfterID] = useState<number | undefined>();
-  const [nextGroupAfterID, setNextGroupAfterID] = useState<number | undefined>();
+  const [nextRoleAfterID, setNextRoleAfterID] = useState<string | undefined>();
+  const [nextGroupAfterID, setNextGroupAfterID] = useState<string | undefined>();
   const [roleSearch, setRoleSearch] = useState("");
   const [activeRoleSearch, setActiveRoleSearch] = useState("");
   const [groupSearch, setGroupSearch] = useState("");
@@ -51,10 +51,10 @@ export function RbacPage() {
 
   const activeUsers = useMemo(() => users.filter((user) => user.membership_active), [users]);
 
-  function listParams(afterID: number | undefined, query: string) {
+  function listParams(afterID: string | undefined, query: string) {
     const params = new URLSearchParams({ limit: "50" });
     if (afterID) {
-      params.set("after_id", String(afterID));
+      params.set("after_id", afterID);
     }
     if (query.trim()) {
       params.set("q", query.trim());
@@ -62,7 +62,7 @@ export function RbacPage() {
     return params;
   }
 
-  async function loadRoles(afterID?: number, append = false, query = activeRoleSearch) {
+  async function loadRoles(afterID?: string, append = false, query = activeRoleSearch) {
     append ? setLoadingMoreRoles(true) : setLoading(true);
     setError(null);
     try {
@@ -79,7 +79,7 @@ export function RbacPage() {
     }
   }
 
-  async function loadGroups(afterID?: number, append = false, query = activeGroupSearch) {
+  async function loadGroups(afterID?: string, append = false, query = activeGroupSearch) {
     append ? setLoadingMoreGroups(true) : setLoading(true);
     setError(null);
     try {
@@ -156,7 +156,7 @@ export function RbacPage() {
 
   function selectRoleForEdit(roleID: string) {
     setEditRoleID(roleID);
-    const role = roles.find((item) => item.id === Number(roleID));
+    const role = roles.find((item) => item.id === roleID);
     setEditRolePermissions(role?.permissions.map((permission) => permission.key) ?? []);
   }
 
@@ -197,7 +197,7 @@ export function RbacPage() {
 
   async function saveRolePermissions(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const role = roles.find((item) => item.id === Number(editRoleID));
+    const role = roles.find((item) => item.id === editRoleID);
     if (!role || role.system_role) {
       return;
     }
@@ -291,8 +291,8 @@ export function RbacPage() {
 
   async function assignRole(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const userID = Number(assignmentUser);
-    const roleID = Number(assignmentRole);
+    const userID = assignmentUser;
+    const roleID = assignmentRole;
     if (!userID || !roleID) {
       return;
     }
