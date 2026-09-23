@@ -97,9 +97,9 @@ func parse(encoded string) (Params, []byte, []byte, error) {
 		return Params{}, nil, nil, errors.New("unsupported Argon2id version")
 	}
 
-	var p Params
-	if _, err := fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &p.Memory, &p.Iterations, &p.Parallelism); err != nil {
-		return Params{}, nil, nil, errors.New("invalid Argon2id parameters")
+	p, err := parseParams(parts[3])
+	if err != nil {
+		return Params{}, nil, nil, err
 	}
 
 	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
@@ -117,6 +117,44 @@ func parse(encoded string) (Params, []byte, []byte, error) {
 		return Params{}, nil, nil, err
 	}
 	return p, salt, expected, nil
+}
+
+func parseParams(raw string) (Params, error) {
+	parts := strings.Split(raw, ",")
+	if len(parts) != 3 {
+		return Params{}, errors.New("invalid Argon2id parameters")
+	}
+
+	memory, err := parseParam(parts[0], "m", 32)
+	if err != nil {
+		return Params{}, err
+	}
+	iterations, err := parseParam(parts[1], "t", 32)
+	if err != nil {
+		return Params{}, err
+	}
+	parallelism, err := parseParam(parts[2], "p", 8)
+	if err != nil {
+		return Params{}, err
+	}
+
+	return Params{
+		Memory:      uint32(memory),
+		Iterations:  uint32(iterations),
+		Parallelism: uint8(parallelism),
+	}, nil
+}
+
+func parseParam(raw, expectedKey string, bitSize int) (uint64, error) {
+	key, value, ok := strings.Cut(raw, "=")
+	if !ok || key != expectedKey || value == "" {
+		return 0, errors.New("invalid Argon2id parameters")
+	}
+	parsed, err := strconv.ParseUint(value, 10, bitSize)
+	if err != nil {
+		return 0, errors.New("invalid Argon2id parameters")
+	}
+	return parsed, nil
 }
 
 func validateParams(p Params) error {
