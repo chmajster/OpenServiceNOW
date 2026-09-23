@@ -134,3 +134,36 @@ Backend and frontend GitHub Actions jobs still fail before runner allocation wit
 - privilege-reducing operations serialize on the tenant row and guarantee at least one active effective `platform_admin` remains,
 - last-admin protection covers tenant membership deactivation, direct role removal, group membership removal and group-role removal,
 - lock ordering is consistently tenant-first to reduce deadlock risk during concurrent administrative changes.
+
+## 2026-09-23 — Phase 1 runtime, pagination and authentication hardening
+
+### Changed
+
+- separated audit HTTP transport into `internal/auditapi` to remove the `identity -> audit -> identity` import cycle,
+- added cursor pagination and bounded search for tenant users, roles and groups,
+- changed audit pagination to `limit+1` lookahead,
+- added optimistic locking to role permission replacement,
+- made `platform_admin` dynamically inherit every permission in the live permission catalog,
+- made tenant/user no-op updates and idempotent RBAC assignments avoid false audit churn,
+- normalized request client addresses to valid canonical IPv4/IPv6 only,
+- forced MySQL session timezone to UTC,
+- added optional MySQL and Redis TLS configuration,
+- bound development API/MySQL/Redis listeners to loopback by default,
+- added full OpenAPI local-reference and operation-ID validation.
+
+### Security
+
+- added bounded concurrent Argon2 verification to cap authentication memory pressure,
+- bounded stored Argon2 work factors before expensive verification,
+- rejected trust-all proxy CIDRs and attacker-controlled all-trusted X-Forwarded-For chains,
+- sanitized client-provided request IDs before logging/audit persistence,
+- added controlled JSON panic recovery and panic-safe transaction rollback,
+- required an existing user's current password before bootstrap can grant that identity administrator membership,
+- reserved the `platform_admin` role name,
+- returned explicit `LAST_PLATFORM_ADMIN` conflicts for operations that would remove the final effective administrator,
+- enforced production secure cookies and bounded HTTP header size,
+- added `Cache-Control: no-store` and restrictive response security headers.
+
+### Verification status
+
+Static checks performed through the GitHub branch confirm zero local package import cycles, no stale pre-pagination list signatures, no TODO/FIXME implementation markers, and an OpenAPI document with 16 paths / 23 unique operations / zero unresolved local references. Executable build/test verification remains blocked by GitHub Actions runner allocation and missing dependency lock files.
