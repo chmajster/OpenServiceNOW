@@ -79,9 +79,15 @@ func ClientIP(request *http.Request) string {
 }
 
 func DirectPeerIP(request *http.Request) string {
-	host, _, err := net.SplitHostPort(request.RemoteAddr)
-	if err == nil {
-		return host
+	raw := strings.TrimSpace(request.RemoteAddr)
+	if host, _, err := net.SplitHostPort(raw); err == nil {
+		if ip := net.ParseIP(host); ip != nil {
+			return ip.String()
+		}
+		return ""
 	}
-	return strings.TrimSpace(request.RemoteAddr)
+	if ip := net.ParseIP(raw); ip != nil {
+		return ip.String()
+	}
+	return ""
 }
