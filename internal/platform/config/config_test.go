@@ -219,3 +219,23 @@ func clearConfigEnv(t *testing.T) {
 		t.Setenv(key, "")
 	}
 }
+
+func TestMySQLDSNForcesUTCSessionTimezone(t *testing.T) {
+	cfg := MySQLConfig{
+		Host: "127.0.0.1",
+		Port: 3306,
+		Database: "opensnow",
+		User: "opensnow",
+		Password: "secret",
+	}
+	parsed, err := mysqlDriver.ParseDSN(cfg.DSN())
+	if err != nil {
+		t.Fatalf("ParseDSN() error = %v", err)
+	}
+	if got := parsed.Params["time_zone"]; got != "'+00:00'" {
+		t.Fatalf("time_zone = %q", got)
+	}
+	if parsed.Loc.String() != "UTC" {
+		t.Fatalf("Loc = %q", parsed.Loc.String())
+	}
+}
