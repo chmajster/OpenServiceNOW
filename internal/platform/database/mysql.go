@@ -11,7 +11,15 @@ import (
 )
 
 func OpenMySQL(ctx context.Context, cfg config.MySQLConfig) (*sql.DB, error) {
-	db, err := sql.Open("mysql", cfg.DSN())
+	return openMySQL(ctx, cfg, cfg.DSN())
+}
+
+func OpenMySQLForMigrations(ctx context.Context, cfg config.MySQLConfig) (*sql.DB, error) {
+	return openMySQL(ctx, cfg, cfg.MigrationDSN())
+}
+
+func openMySQL(ctx context.Context, cfg config.MySQLConfig, dsn string) (*sql.DB, error) {
+	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open mysql: %w", err)
 	}
