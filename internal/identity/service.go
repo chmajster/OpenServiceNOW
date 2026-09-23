@@ -167,7 +167,10 @@ func (s *Service) VerifyCSRF(identity SessionIdentity, token string) bool {
 
 func (s *Service) Logout(ctx context.Context, identity SessionIdentity, meta RequestMeta) error {
 	return s.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec platformdb.Executor) error {
-		if err := s.repo.RevokeSession(ctx, exec, identity.SessionID, identity.TenantID, identity.UserID); err != nil && !errors.Is(err, ErrNotFound) {
+		if err := s.repo.RevokeSession(ctx, exec, identity.SessionID, identity.TenantID, identity.UserID); err != nil {
+			if errors.Is(err, ErrNotFound) {
+				return nil
+			}
 			return err
 		}
 		return s.audit.Append(ctx, exec, audit.Event{
