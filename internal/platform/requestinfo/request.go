@@ -49,19 +49,17 @@ func (r *Resolver) Resolve(request *http.Request) string {
 	}
 
 	parts := strings.Split(values, ",")
-	candidate := direct
 	for i := len(parts) - 1; i >= 0; i-- {
 		raw := strings.TrimSpace(parts[i])
 		ip := net.ParseIP(raw)
 		if ip == nil {
 			return direct
 		}
-		candidate = ip.String()
 		if !r.isTrusted(ip) {
-			return candidate
+			return ip.String()
 		}
 	}
-	return candidate
+	return direct
 }
 
 func (r *Resolver) isTrusted(ip net.IP) bool {
