@@ -23,7 +23,7 @@ Implemented foundation capabilities:
 - login rate limiting in Redis,
 - backend permission evaluation,
 - tenant/admin bootstrap command,
-- cursor-paginated/searchable tenant user administration,
+- cursor-paginated/searchable tenant user administration, including linking an existing active global identity to another tenant without changing its credentials/profile,
 - tenant administration with optimistic locking,
 - cursor-paginated/searchable RBAC administration for groups, roles, permissions and assignments,
 - immutable system-role permissions, optimistic-lock role edits, dynamic superadmin permission inheritance, self-removal protection and a transactional guarantee that each tenant retains at least one active effective platform administrator,
@@ -203,9 +203,23 @@ make e2e
 
 `make migrate-down` rolls back one migration. `make migrate-down-all` rolls the schema back to no applied version. Readiness requires the exact current migration version and rejects dirty or stale schemas.
 
+### Browser E2E
+
+`make e2e` runs the Playwright suite against an already running local API/frontend. Before using it locally:
+
+1. start MySQL/Redis and apply migrations,
+2. bootstrap the E2E tenant/admin,
+3. start the API,
+4. start Vite on `127.0.0.1:5173`,
+5. export `E2E_TENANT`, `E2E_ADMIN_EMAIL`, `E2E_ADMIN_PASSWORD`, `E2E_OPERATOR_EMAIL`, and `E2E_OPERATOR_PASSWORD`,
+6. install Chromium once with `cd web && npx playwright install chromium`,
+7. run `make e2e`.
+
+CI performs those infrastructure/bootstrap/startup steps automatically in its dedicated `e2e` job.
+
 ## Verification status
 
-The repository contains CI definitions for backend and frontend, but GitHub-hosted jobs currently fail before runner allocation with no executed steps. Therefore this branch does **not** claim that build, tests, migrations or frontend compilation pass.
+The workflow YAML parser defect has been fixed and GitHub now creates the `test`, `frontend`, and `e2e` jobs. However, those jobs still terminate before their first step with no job logs. A temporary one-step diagnostic workflow showed the same pre-step failure and was removed afterward. Therefore this branch does **not** claim that build, tests, migrations, frontend compilation, or browser E2E pass.
 
 Two dependency lock artifacts are intentionally still missing because dependency resolution has not successfully executed:
 
