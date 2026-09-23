@@ -52,7 +52,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		TenantID:  session.TenantID,
 		UserID:    session.UserID,
 		RequestID: middleware.GetReqID(r.Context()),
-		IPAddress: requestinfo.DirectPeerIP(r),
+		IPAddress: requestinfo.ClientIP(r),
 	}, request.Version, request.Name)
 	if err != nil {
 		writeError(w, r, err)
