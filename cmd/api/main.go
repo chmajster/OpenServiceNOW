@@ -12,15 +12,15 @@ import (
 
 	"github.com/chmajster/OpenServiceNOW/internal/audit"
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
-	"github.com/chmajster/OpenServiceNOW/internal/rbac"
-	"github.com/chmajster/OpenServiceNOW/internal/tenants"
-	"github.com/chmajster/OpenServiceNOW/internal/users"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/cache"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/health"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/httpserver"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/ratelimit"
+	"github.com/chmajster/OpenServiceNOW/internal/rbac"
+	"github.com/chmajster/OpenServiceNOW/internal/tenants"
+	"github.com/chmajster/OpenServiceNOW/internal/users"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -84,7 +84,7 @@ func main() {
 		func(ctx context.Context) error { return cache.Ping(ctx, redisClient, cfg.Redis.PingTimeout) },
 	)
 	server := &http.Server{
-		Addr:              cfg.HTTPAddr,
+		Addr: cfg.HTTPAddr,
 		Handler: httpserver.Router(
 			logger,
 			healthHandler,
