@@ -2,8 +2,11 @@ import { useEffect, useState, type FormEvent } from "react";
 import { ApiError, api, jsonBody } from "../api/client";
 import type { Tenant, TenantResponse } from "../api/types";
 import { PageState } from "../components/PageState";
+import { useAuth } from "../auth/AuthContext";
 
 export function TenantPage() {
+  const { hasPermission } = useAuth();
+  const canManageTenant = hasPermission("tenant.manage");
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(true);
@@ -31,7 +34,7 @@ export function TenantPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!tenant) {
+    if (!tenant || !canManageTenant) {
       return;
     }
     setSaving(true);
@@ -78,7 +81,13 @@ export function TenantPage() {
         <form className="form-stack form-stack--compact" onSubmit={(event) => void handleSubmit(event)}>
           <label>
             Nazwa organizacji
-            <input value={name} onChange={(event) => setName(event.target.value)} maxLength={200} required />
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              maxLength={200}
+              disabled={!canManageTenant}
+              required
+            />
           </label>
           <dl className="detail-grid">
             <div><dt>Slug</dt><dd>{tenant.slug}</dd></div>
@@ -86,10 +95,16 @@ export function TenantPage() {
             <div><dt>Wersja</dt><dd>{tenant.version}</dd></div>
             <div><dt>Aktualizacja</dt><dd>{new Date(tenant.updated_at).toLocaleString("pl-PL")}</dd></div>
           </dl>
+          {!canManageTenant ? (
+            <PageState
+              title="Tryb tylko do odczytu"
+              detail="Zmiana organizacji wymaga uprawnienia tenant.manage."
+            />
+          ) : null}
           {error ? <div className="inline-error" role="alert">{error}</div> : null}
           {message ? <div className="inline-success" role="status">{message}</div> : null}
           <div>
-            <button className="button button--primary" type="submit" disabled={saving || name.trim() === tenant.name}>
+            <button className="button button--primary" type="submit" disabled={!canManageTenant || saving || name.trim() === tenant.name}>
               {saving ? "Zapisywanie…" : "Zapisz zmianę"}
             </button>
           </div>
