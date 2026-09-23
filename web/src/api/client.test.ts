@@ -47,7 +47,7 @@ describe("api client", () => {
     );
 
     await expect(api("/api/v1/admin/rbac/roles")).rejects.toEqual(
-      expect.objectContaining<ApiError>({
+      expect.objectContaining({
         status: 403,
         code: "FORBIDDEN",
         requestId: "req-1"
