@@ -461,7 +461,36 @@
           "403": {
             "$ref": "#/components/responses/Forbidden"
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          },
+          {
+            "name": "after_id",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          }
+        ]
       },
       "post": {
         "tags": [
@@ -585,7 +614,36 @@
           "403": {
             "$ref": "#/components/responses/Forbidden"
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          },
+          {
+            "name": "after_id",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          }
+        ]
       },
       "post": {
         "tags": [
@@ -1352,6 +1410,10 @@
             "items": {
               "$ref": "#/components/schemas/Role"
             }
+          },
+          "next_after_id": {
+            "type": "integer",
+            "format": "uint64"
           }
         }
       },
@@ -1435,6 +1497,10 @@
             "items": {
               "$ref": "#/components/schemas/Group"
             }
+          },
+          "next_after_id": {
+            "type": "integer",
+            "format": "uint64"
           }
         }
       },
