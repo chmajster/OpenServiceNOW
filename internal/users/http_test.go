@@ -45,6 +45,10 @@ type fakeUsersService struct {
 	listLimit    int
 	listQuery    string
 	listCalls    int
+	addActor     Actor
+	addInput     AddExistingInput
+	addID        uint64
+	addErr       error
 }
 
 func (f *fakeUsersService) List(
@@ -69,6 +73,16 @@ func (f *fakeUsersService) List(
 
 func (*fakeUsersService) Create(context.Context, Actor, CreateInput) (uint64, error) {
 	return 0, nil
+}
+
+func (f *fakeUsersService) AddExistingMembership(
+	_ context.Context,
+	actor Actor,
+	input AddExistingInput,
+) (uint64, error) {
+	f.addActor = actor
+	f.addInput = input
+	return f.addID, f.addErr
 }
 
 func (*fakeUsersService) SetMembershipActive(context.Context, Actor, uint64, bool) error {
@@ -128,7 +142,7 @@ func TestListPassesCursorLimitAndSearch(t *testing.T) {
 			service.listQuery,
 		)
 	}
-	if !strings.Contains(recorder.Body.String(), `"next_after_id":88`) {
+	if !strings.Contains(recorder.Body.String(), `"next_after_id":"88"`) {
 		t.Fatalf("body = %s", recorder.Body.String())
 	}
 }
@@ -146,5 +160,53 @@ func TestListRejectsInvalidCursor(t *testing.T) {
 	}
 	if service.listCalls != 0 {
 		t.Fatalf("list calls = %d", service.listCalls)
+	}
+}
+
+func TestAddExistingMembershipUsesAuthenticatedTenantAndStringID(t *testing.T) {
+	const largeID uint64 = 9007199254740993
+	service := &fakeUsersService{addID: largeID}
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/admin/users/memberships",
+		strings.NewReader(`{"email":"existing@example.test"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-CSRF-Token", "csrf-token")
+	request.AddCookie(&http.Cookie{Name: "session", Value: "opaque-token"})
+	request.AddCookie(&http.Cookie{Name: "csrf", Value: "csrf-token"})
+
+	recorder := httptest.NewRecorder()
+	usersTestRouter(service).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("status = %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if service.addActor.TenantID != 7 || service.addActor.UserID != 1 {
+		t.Fatalf("actor = %+v", service.addActor)
+	}
+	if service.addInput.Email != "existing@example.test" {
+		t.Fatalf("input = %+v", service.addInput)
+	}
+	if !strings.Contains(recorder.Body.String(), `"id":"9007199254740993"`) {
+		t.Fatalf("body = %s", recorder.Body.String())
+	}
+}
+
+func TestAddExistingMembershipRequiresCSRF(t *testing.T) {
+	service := &fakeUsersService{addID: 1}
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/admin/users/memberships",
+		strings.NewReader(`{"email":"existing@example.test"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(&http.Cookie{Name: "session", Value: "opaque-token"})
+
+	recorder := httptest.NewRecorder()
+	usersTestRouter(service).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d body=%s", recorder.Code, recorder.Body.String())
 	}
 }
