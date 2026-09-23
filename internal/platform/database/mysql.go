@@ -46,8 +46,8 @@ func Ping(ctx context.Context, db *sql.DB, timeout time.Duration) error {
 func SchemaReady(ctx context.Context, db *sql.DB, timeout time.Duration) error {
 	checkCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	var id uint64
-	if err := db.QueryRowContext(checkCtx, "SELECT id FROM platform_metadata WHERE id = 1").Scan(&id); err != nil {
+	var count uint64
+	if err := db.QueryRowContext(checkCtx, "SELECT COUNT(*) FROM platform_metadata").Scan(&count); err != nil {
 		return fmt.Errorf("foundation schema not ready: %w", err)
 	}
 	return nil
