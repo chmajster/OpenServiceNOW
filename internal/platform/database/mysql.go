@@ -57,6 +57,14 @@ func SchemaReady(ctx context.Context, db *sql.DB, timeout time.Duration) error {
 	if err := ValidateSchemaVersion(version, dirty); err != nil {
 		return err
 	}
+
+	var installedAt time.Time
+	if err := db.QueryRowContext(
+		checkCtx,
+		"SELECT installed_at FROM platform_metadata WHERE id = 1",
+	).Scan(&installedAt); err != nil {
+		return fmt.Errorf("read platform installation metadata: %w", err)
+	}
 	return nil
 }
 
