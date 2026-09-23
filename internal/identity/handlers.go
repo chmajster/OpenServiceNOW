@@ -84,12 +84,12 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	h.setSessionCookies(w, result)
 	httpapi.WriteJSON(w, http.StatusOK, map[string]any{
 		"user": map[string]any{
-			"id":           result.Identity.UserID,
+			"id":           strconv.FormatUint(result.Identity.UserID, 10),
 			"email":        result.Identity.Email,
 			"display_name": result.Identity.DisplayName,
 		},
 		"tenant": map[string]any{
-			"id":   result.Identity.TenantID,
+			"id":   strconv.FormatUint(result.Identity.TenantID, 10),
 			"slug": result.Identity.TenantSlug,
 			"name": result.Identity.TenantName,
 		},
@@ -114,12 +114,12 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	}
 	httpapi.WriteJSON(w, http.StatusOK, map[string]any{
 		"user": map[string]any{
-			"id":           identity.UserID,
+			"id":           strconv.FormatUint(identity.UserID, 10),
 			"email":        identity.Email,
 			"display_name": identity.DisplayName,
 		},
 		"tenant": map[string]any{
-			"id":   identity.TenantID,
+			"id":   strconv.FormatUint(identity.TenantID, 10),
 			"slug": identity.TenantSlug,
 			"name": identity.TenantName,
 		},
