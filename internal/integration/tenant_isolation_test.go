@@ -266,6 +266,40 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	); err != nil {
 		t.Fatalf("replace versioned role permissions: %v", err)
 	}
+
+	updatedRoles, err := rbacService.ListRoles(ctx, adminA.TenantID, 0, 50, "versioned-role-")
+	if err != nil {
+		t.Fatalf("reload versioned role: %v", err)
+	}
+	var updatedVersionedRole rbac.Role
+	for _, role := range updatedRoles.Roles {
+		if role.ID == versionedRole.ID {
+			updatedVersionedRole = role
+			break
+		}
+	}
+	if updatedVersionedRole.Version != versionedRole.Version+1 {
+		t.Fatalf("updated role version = %d want %d", updatedVersionedRole.Version, versionedRole.Version+1)
+	}
+	if err := rbacService.SetRolePermissions(
+		ctx,
+		actorA,
+		updatedVersionedRole.ID,
+		updatedVersionedRole.Version,
+		[]string{"tenant.manage", "tenant.read"},
+	); err != nil {
+		t.Fatalf("idempotent role permission update: %v", err)
+	}
+	afterNoopRoles, err := rbacService.ListRoles(ctx, adminA.TenantID, 0, 50, "versioned-role-")
+	if err != nil {
+		t.Fatalf("reload role after no-op permission update: %v", err)
+	}
+	for _, role := range afterNoopRoles.Roles {
+		if role.ID == updatedVersionedRole.ID && role.Version != updatedVersionedRole.Version {
+			t.Fatalf("no-op role update changed version from %d to %d", updatedVersionedRole.Version, role.Version)
+		}
+	}
+
 	if err := rbacService.SetRolePermissions(
 		ctx,
 		actorA,
