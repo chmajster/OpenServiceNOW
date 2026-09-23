@@ -422,6 +422,38 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 			t.Fatal("tenant A audit event leaked into tenant B audit page")
 		}
 	}
+
+	if _, err := db.ExecContext(ctx, "UPDATE tenants SET status = 'DISABLED' WHERE id = ?", adminB.TenantID); err != nil {
+		t.Fatalf("disable tenant B for bootstrap test: %v", err)
+	}
+	if _, err := bootstrap.Run(ctx, identity.BootstrapInput{
+		TenantSlug: tenantBSlug,
+		TenantName: "Isolation B",
+		AdminEmail: adminBEmail,
+		AdminName: "Admin B",
+		AdminPassword: "integration-password-b",
+	}); err == nil {
+		t.Fatal("bootstrap must reject disabled existing tenant")
+	}
+	if _, err := db.ExecContext(ctx, "UPDATE tenants SET status = 'ACTIVE' WHERE id = ?", adminB.TenantID); err != nil {
+		t.Fatalf("restore tenant B status: %v", err)
+	}
+
+	if _, err := db.ExecContext(ctx, "UPDATE users SET active = FALSE WHERE id = ?", adminB.UserID); err != nil {
+		t.Fatalf("disable admin B for bootstrap test: %v", err)
+	}
+	if _, err := bootstrap.Run(ctx, identity.BootstrapInput{
+		TenantSlug: tenantBSlug,
+		TenantName: "Isolation B",
+		AdminEmail: adminBEmail,
+		AdminName: "Admin B",
+		AdminPassword: "integration-password-b",
+	}); err == nil {
+		t.Fatal("bootstrap must reject globally disabled existing admin")
+	}
+	if _, err := db.ExecContext(ctx, "UPDATE users SET active = TRUE WHERE id = ?", adminB.UserID); err != nil {
+		t.Fatalf("restore admin B state: %v", err)
+	}
 }
 
 func containsUser(values []users.User, userID uint64) bool {
