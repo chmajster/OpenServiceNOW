@@ -48,15 +48,24 @@ func (s *Service) ListPermissions(ctx context.Context) ([]Permission, error) {
 	return result, nil
 }
 
-func (s *Service) ListRoles(ctx context.Context, tenantID uint64) ([]Role, error) {
-	result, err := s.repo.ListRoles(ctx, tenantID)
+func (s *Service) ListRoles(
+	ctx context.Context,
+	tenantID, afterID uint64,
+	limit int,
+	query string,
+) (RolePage, error) {
+	query, err := normalizeListInput(limit, query)
 	if err != nil {
-		return nil, err
+		return RolePage{}, err
 	}
-	if result == nil {
-		result = []Role{}
+	page, err := s.repo.ListRoles(ctx, tenantID, afterID, limit, query)
+	if err != nil {
+		return RolePage{}, err
 	}
-	return result, nil
+	if page.Roles == nil {
+		page.Roles = []Role{}
+	}
+	return page, nil
 }
 
 func (s *Service) CreateRole(ctx context.Context, actor Actor, input CreateRoleInput) (uint64, error) {
@@ -135,15 +144,24 @@ func (s *Service) SetRolePermissions(
 	})
 }
 
-func (s *Service) ListGroups(ctx context.Context, tenantID uint64) ([]Group, error) {
-	result, err := s.repo.ListGroups(ctx, tenantID)
+func (s *Service) ListGroups(
+	ctx context.Context,
+	tenantID, afterID uint64,
+	limit int,
+	query string,
+) (GroupPage, error) {
+	query, err := normalizeListInput(limit, query)
 	if err != nil {
-		return nil, err
+		return GroupPage{}, err
 	}
-	if result == nil {
-		result = []Group{}
+	page, err := s.repo.ListGroups(ctx, tenantID, afterID, limit, query)
+	if err != nil {
+		return GroupPage{}, err
 	}
-	return result, nil
+	if page.Groups == nil {
+		page.Groups = []Group{}
+	}
+	return page, nil
 }
 
 func (s *Service) CreateGroup(ctx context.Context, actor Actor, input CreateGroupInput) (uint64, error) {
@@ -359,4 +377,15 @@ func (s *Service) withAdminSafety(
 		return fmt.Errorf("%w: tenant must retain at least one active platform administrator", ErrInvalid)
 	}
 	return nil
+}
+
+func normalizeListInput(limit int, query string) (string, error) {
+	if limit < 1 || limit > 200 {
+		return "", fmt.Errorf("%w: limit must be between 1 and 200", ErrInvalid)
+	}
+	query = strings.TrimSpace(query)
+	if utf8.RuneCountInString(query) > 200 {
+		return "", fmt.Errorf("%w: query exceeds 200 characters", ErrInvalid)
+	}
+	return query, nil
 }
