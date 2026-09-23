@@ -102,6 +102,42 @@ func (s *Service) Create(ctx context.Context, actor Actor, input CreateInput) (u
 	return userID, nil
 }
 
+func (s *Service) AddExistingMembership(
+	ctx context.Context,
+	actor Actor,
+	input AddExistingInput,
+) (uint64, error) {
+	email := strings.ToLower(strings.TrimSpace(input.Email))
+	address, err := mail.ParseAddress(email)
+	if err != nil || address.Address != email || len(email) > 254 {
+		return 0, fmt.Errorf("%w: invalid email", ErrInvalid)
+	}
+
+	var userID uint64
+	err = s.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec platformdb.Executor) error {
+		var addErr error
+		userID, addErr = s.repo.AddExistingMembership(ctx, exec, actor.TenantID, email)
+		if addErr != nil {
+			return addErr
+		}
+		return s.audit.Append(ctx, exec, audit.Event{
+			TenantID:    &actor.TenantID,
+			ActorUserID: &actor.UserID,
+			Action:      "user.membership.add",
+			ObjectType:  "user",
+			ObjectID:    fmt.Sprint(userID),
+			NewValues:   map[string]any{"email": email, "membership_active": true},
+			RequestID:   actor.RequestID,
+			Source:      "api",
+			IPAddress:   actor.IPAddress,
+		})
+	})
+	if err != nil {
+		return 0, err
+	}
+	return userID, nil
+}
+
 func (s *Service) SetMembershipActive(ctx context.Context, actor Actor, userID uint64, active bool) error {
 	if actor.UserID == userID && !active {
 		return fmt.Errorf("%w: cannot disable own tenant membership", ErrInvalid)
