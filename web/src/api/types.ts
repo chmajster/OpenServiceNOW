@@ -76,6 +76,7 @@ export type Role = {
 
 export type RolesResponse = {
   roles: Role[];
+  next_after_id?: number;
 };
 
 export type Group = {
@@ -88,6 +89,7 @@ export type Group = {
 
 export type GroupsResponse = {
   groups: Group[];
+  next_after_id?: number;
 };
 
 export type PermissionsResponse = {
