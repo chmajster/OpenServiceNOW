@@ -53,7 +53,10 @@ func TestRedisOptionsUsesExplicitTLSServerName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("redisOptions() error = %v", err)
 	}
-	if options.TLSConfig == nil || options.TLSConfig.ServerName != "redis.internal.example" {
+	if options.TLSConfig == nil {
+		t.Fatal("TLSConfig is nil")
+	}
+	if options.TLSConfig.ServerName != "redis.internal.example" {
 		t.Fatalf("TLS ServerName = %q", options.TLSConfig.ServerName)
 	}
 }
