@@ -1,4 +1,4 @@
-.PHONY: dev build test lint migrate-up migrate-down bootstrap scheduler-once frontend frontend-test
+.PHONY: dev build test lint migrate-up migrate-down migrate-down-all migrate-version bootstrap scheduler-once frontend frontend-test
 
 dev:
 	docker compose up -d
@@ -18,6 +18,12 @@ migrate-up:
 
 migrate-down:
 	go run ./cmd/migrate down
+
+migrate-down-all:
+	go run ./cmd/migrate down-all
+
+migrate-version:
+	go run ./cmd/migrate version
 
 bootstrap:
 	go run ./cmd/bootstrap
