@@ -357,6 +357,10 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+.sidebar-error {
+  color: #fca5a5 !important;
+}
+
 .workspace {
   min-width: 0;
 }
