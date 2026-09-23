@@ -258,6 +258,7 @@ func TestLoadRejectsInvalidPasswordVerifierConcurrency(t *testing.T) {
 }
 
 func TestLoadRejectsExcessiveSessionTTL(t *testing.T) {
+	clearConfigEnv(t)
 	t.Setenv("SESSION_TTL", "721h")
 	if _, err := Load(); err == nil {
 		t.Fatal("expected session TTL upper-bound validation error")
@@ -265,6 +266,7 @@ func TestLoadRejectsExcessiveSessionTTL(t *testing.T) {
 }
 
 func TestLoadRejectsExcessiveAuthenticationLimit(t *testing.T) {
+	clearConfigEnv(t)
 	t.Setenv("AUTH_LOGIN_IP_LIMIT", "10001")
 	if _, err := Load(); err == nil {
 		t.Fatal("expected authentication rate-limit upper-bound validation error")
@@ -272,6 +274,7 @@ func TestLoadRejectsExcessiveAuthenticationLimit(t *testing.T) {
 }
 
 func TestLoadRejectsExcessiveAuthenticationWindow(t *testing.T) {
+	clearConfigEnv(t)
 	t.Setenv("AUTH_LOGIN_ACCOUNT_WINDOW", "25h")
 	if _, err := Load(); err == nil {
 		t.Fatal("expected authentication window upper-bound validation error")
@@ -279,6 +282,7 @@ func TestLoadRejectsExcessiveAuthenticationWindow(t *testing.T) {
 }
 
 func TestLoadRejectsExcessivePasswordVerifierConcurrency(t *testing.T) {
+	clearConfigEnv(t)
 	t.Setenv("AUTH_MAX_CONCURRENT_PASSWORD_CHECKS", "17")
 	if _, err := Load(); err == nil {
 		t.Fatal("expected password verifier concurrency validation error")
