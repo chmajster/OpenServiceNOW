@@ -74,7 +74,7 @@ func (f *fakeRBAC) CreateRole(context.Context, Actor, CreateRoleInput) (uint64, 
 	return 9, nil
 }
 
-func (f *fakeRBAC) SetRolePermissions(context.Context, Actor, uint64, []string) error {
+func (f *fakeRBAC) SetRolePermissions(context.Context, Actor, uint64, uint64, []string) error {
 	return nil
 }
 
@@ -277,5 +277,30 @@ func TestRBACRoleListPassesCursorAndSearch(t *testing.T) {
 	}
 	if !strings.Contains(rr.Body.String(), `"next_after_id":99`) {
 		t.Fatalf("body = %s", rr.Body.String())
+	}
+}
+
+func TestSetRolePermissionsRequiresVersion(t *testing.T) {
+	service := &fakeRBAC{}
+	router := newRouter(fakeAuth{
+		identity:    identity.SessionIdentity{UserID: 1, TenantID: 2},
+		permission: true,
+		csrf:       true,
+	}, service)
+
+	request := authenticatedRequest(
+		http.MethodPut,
+		"/api/v1/admin/rbac/roles/9/permissions",
+		`{"permissions":["tenant.read"]}`,
+	)
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(&http.Cookie{Name: "csrf", Value: "csrf-token"})
+	request.Header.Set("X-CSRF-Token", "csrf-token")
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, request)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
 	}
 }
