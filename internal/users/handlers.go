@@ -50,7 +50,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	var request createRequest
 	if err := httpapi.DecodeJSON(r, &request); err != nil {
-		httpapi.WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "Invalid JSON request")
+		httpapi.WriteDecodeError(w, r, err)
 		return
 	}
 	actor, ok := actorFromRequest(r)
