@@ -280,6 +280,14 @@ func pathID(w http.ResponseWriter, r *http.Request, name string) (uint64, bool) 
 
 func writeServiceError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
+	case errors.Is(err, identity.ErrLastPlatformAdmin):
+		httpapi.WriteError(
+			w,
+			r,
+			http.StatusConflict,
+			"LAST_PLATFORM_ADMIN",
+			"Tenant must retain at least one active platform administrator",
+		)
 	case errors.Is(err, ErrInvalid):
 		httpapi.WriteError(w, r, http.StatusBadRequest, "INVALID_RBAC_INPUT", "Invalid RBAC input")
 	case errors.Is(err, ErrNotFound):
