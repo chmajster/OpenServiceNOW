@@ -25,6 +25,15 @@ func TestRouterSecurityHeaders(t *testing.T) {
 	if got := rr.Header().Get("X-Frame-Options"); got != "DENY" {
 		t.Fatalf("X-Frame-Options = %q", got)
 	}
+	if got := rr.Header().Get("Cache-Control"); got != "no-store" {
+		t.Fatalf("Cache-Control = %q", got)
+	}
+	if got := rr.Header().Get("Permissions-Policy"); got == "" {
+		t.Fatal("Permissions-Policy is missing")
+	}
+	if got := rr.Header().Get("X-Request-ID"); got == "" {
+		t.Fatal("X-Request-ID is missing")
+	}
 }
 
 func TestRouterUsesConsistentNotFoundError(t *testing.T) {
