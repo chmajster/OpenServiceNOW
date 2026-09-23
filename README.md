@@ -198,6 +198,7 @@ make bootstrap
 make scheduler-once
 make frontend
 make frontend-test
+make e2e
 ```
 
 `make migrate-down` rolls back one migration. `make migrate-down-all` rolls the schema back to no applied version. Readiness requires the exact current migration version and rejects dirty or stale schemas.
@@ -212,6 +213,8 @@ Two dependency lock artifacts are intentionally still missing because dependency
 - `web/package-lock.json`.
 
 Both must be generated and committed before the Phase 1 PR is considered merge-ready.
+
+The browser E2E suite uses Playwright/Chromium and validates the critical full-stack path: administrator login → local user creation → least-privilege role creation → role assignment → logout → login as the new user → permission-aware tenant-only UI.
 
 ## Architecture and project state
 
