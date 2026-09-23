@@ -16,7 +16,7 @@ type Tenant struct {
 	Slug      string    `json:"slug"`
 	Name      string    `json:"name"`
 	Status    string    `json:"status"`
-	Version   uint64    `json:"version"`
+	Version   uint64    `json:"version,string"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
