@@ -65,7 +65,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
   );
 
   const logout = useCallback(async () => {
-    await api<void>("/api/v1/auth/logout", { method: "POST" });
+    try {
+      await api<void>("/api/v1/auth/logout", { method: "POST" });
+    } catch (cause) {
+      if (!(cause instanceof ApiError) || cause.status !== 401) {
+        throw cause;
+      }
+    }
     setSession(null);
     setStatus("anonymous");
     setError(null);
