@@ -239,3 +239,11 @@ func TestMySQLDSNForcesUTCSessionTimezone(t *testing.T) {
 		t.Fatalf("Loc = %q", parsed.Loc.String())
 	}
 }
+
+func TestLoadRejectsTrustAllProxyCIDR(t *testing.T) {
+	clearConfigEnv(t)
+	t.Setenv("TRUSTED_PROXY_CIDRS", "0.0.0.0/0")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected trust-all proxy CIDR validation error")
+	}
+}
