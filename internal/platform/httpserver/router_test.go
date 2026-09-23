@@ -115,3 +115,24 @@ func TestRouterRecoversPanicWithJSONError(t *testing.T) {
 		t.Fatalf("request ID missing from body: %s", rr.Body.String())
 	}
 }
+
+func TestRouterIgnoresClientSuppliedRequestID(t *testing.T) {
+	h := health.New(func(context.Context) error { return nil }, func(context.Context) error { return nil })
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	request := httptest.NewRequest(http.MethodGet, "/health/live", nil)
+	request.Header.Set("X-Request-Id", strings.Repeat("client-controlled-", 20))
+
+	rr := httptest.NewRecorder()
+	Router(logger, h, nil).ServeHTTP(rr, request)
+
+	got := rr.Header().Get("X-Request-ID")
+	if got == "" {
+		t.Fatal("X-Request-ID is missing")
+	}
+	if got == request.Header.Get("X-Request-Id") {
+		t.Fatal("server must not trust client-supplied request IDs")
+	}
+	if len(got) > 128 {
+		t.Fatalf("server request ID length = %d", len(got))
+	}
+}
