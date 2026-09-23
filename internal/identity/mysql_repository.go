@@ -204,3 +204,28 @@ func (r *MySQLRepository) HasPermission(ctx context.Context, tenantID, userID ui
 	}
 	return allowed, nil
 }
+
+func (r *MySQLRepository) CleanupSessions(
+	ctx context.Context,
+	revokedBefore time.Time,
+	limit int,
+) (int64, error) {
+	if limit < 1 || limit > 10000 {
+		return 0, fmt.Errorf("cleanup session limit out of range")
+	}
+	result, err := r.db.ExecContext(ctx, `
+		DELETE FROM sessions
+		WHERE expires_at <= UTC_TIMESTAMP(6)
+		   OR (revoked_at IS NOT NULL AND revoked_at <= ?)
+		ORDER BY id
+		LIMIT ?
+	`, revokedBefore.UTC(), limit)
+	if err != nil {
+		return 0, fmt.Errorf("cleanup sessions: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("read cleanup session result: %w", err)
+	}
+	return affected, nil
+}
