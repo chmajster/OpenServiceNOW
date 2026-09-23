@@ -18,7 +18,8 @@ type Service struct {
 	repo        *MySQLRepository
 	tx          *platformdb.TxManager
 	audit       *audit.MySQLRepository
-	adminSafety *identity.AdminSafetyRepository
+	adminSafety  *identity.AdminSafetyRepository
+	identityRepo *identity.MySQLRepository
 }
 
 func NewService(
@@ -26,8 +27,15 @@ func NewService(
 	tx *platformdb.TxManager,
 	auditRepo *audit.MySQLRepository,
 	adminSafety *identity.AdminSafetyRepository,
+	identityRepo *identity.MySQLRepository,
 ) *Service {
-	return &Service{repo: repo, tx: tx, audit: auditRepo, adminSafety: adminSafety}
+	return &Service{
+		repo: repo,
+		tx: tx,
+		audit: auditRepo,
+		adminSafety: adminSafety,
+		identityRepo: identityRepo,
+	}
 }
 
 func (s *Service) List(
@@ -121,6 +129,9 @@ func (s *Service) SetMembershipActive(ctx context.Context, actor Actor, userID u
 			}
 			if count == 0 {
 				return identity.ErrLastPlatformAdmin
+			}
+			if _, err := s.identityRepo.RevokeUserSessions(ctx, exec, actor.TenantID, userID); err != nil {
+				return err
 			}
 		}
 		return s.audit.Append(ctx, exec, audit.Event{
