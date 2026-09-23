@@ -141,3 +141,45 @@ func (r *MySQLRepository) EnsureUserRole(
 	}
 	return nil
 }
+
+func (r *MySQLRepository) TenantStatusForUpdate(
+	ctx context.Context,
+	exec platformdb.Executor,
+	tenantID uint64,
+) (string, error) {
+	var status string
+	err := exec.QueryRowContext(ctx, `
+		SELECT status
+		FROM tenants
+		WHERE id = ?
+		FOR UPDATE
+	`, tenantID).Scan(&status)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("read bootstrap tenant status: %w", err)
+	}
+	return status, nil
+}
+
+func (r *MySQLRepository) UserActiveForUpdate(
+	ctx context.Context,
+	exec platformdb.Executor,
+	userID uint64,
+) (bool, error) {
+	var active bool
+	err := exec.QueryRowContext(ctx, `
+		SELECT active
+		FROM users
+		WHERE id = ?
+		FOR UPDATE
+	`, userID).Scan(&active)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, ErrNotFound
+	}
+	if err != nil {
+		return false, fmt.Errorf("read bootstrap user state: %w", err)
+	}
+	return active, nil
+}
