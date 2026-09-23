@@ -4,5 +4,3 @@ CREATE TABLE platform_metadata (
     PRIMARY KEY (id),
     CONSTRAINT chk_platform_metadata_singleton CHECK (id = 1)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-INSERT INTO platform_metadata (id) VALUES (1);
