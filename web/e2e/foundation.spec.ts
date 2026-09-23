@@ -51,7 +51,9 @@ test("admin creates a least-privilege tenant reader through the UI", async ({ pa
     .check();
 
   await createRolePanel.getByRole("button", { name: "Utwórz rolę" }).click();
-  await expect(page.getByText(roleName, { exact: true })).toBeVisible();
+  const createdRoleCard = page.locator(".list-card").filter({ hasText: roleName });
+  await expect(createdRoleCard).toHaveCount(1);
+  await expect(createdRoleCard.getByText(roleName, { exact: true })).toBeVisible();
 
   const assignmentPanel = page
     .getByRole("heading", { name: "Przypisz rolę użytkownikowi" })
