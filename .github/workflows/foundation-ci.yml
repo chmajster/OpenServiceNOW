@@ -224,7 +224,7 @@ jobs:
         run: npm run build
 
       - name: Verify frontend build did not modify source manifests
-        run: git diff --exit-code -- package.json tsconfig.json tsconfig.app.json tsconfig.node.json vite.config.ts src
+        run: git diff --exit-code -- package.json tsconfig.json tsconfig.app.json tsconfig.node.json tsconfig.e2e.json vite.config.ts playwright.config.ts src e2e
 
   e2e:
     runs-on: ubuntu-24.04
