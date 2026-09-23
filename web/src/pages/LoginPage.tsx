@@ -2,9 +2,10 @@ import { useState, type FormEvent } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { PageState } from "../components/PageState";
 
 export function LoginPage() {
-  const { status, login } = useAuth();
+  const { status, login, error: sessionError, refresh } = useAuth();
   const navigate = useNavigate();
   const [tenant, setTenant] = useState("default");
   const [email, setEmail] = useState("");
@@ -14,6 +15,37 @@ export function LoginPage() {
 
   if (status === "authenticated") {
     return <Navigate to="/" replace />;
+  }
+
+  if (status === "loading") {
+    return (
+      <main className="login-layout">
+        <section className="login-panel">
+          <PageState title="Sprawdzanie sesji" detail="Łączenie z backendem i weryfikacja aktywnej sesji." />
+        </section>
+      </main>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <main className="login-layout">
+        <section className="login-panel">
+          <PageState
+            title="Nie można sprawdzić sesji"
+            detail={sessionError ?? "Backend nie odpowiada poprawnie."}
+            tone="error"
+          />
+          <button
+            className="button button--primary"
+            type="button"
+            onClick={() => void refresh().catch(() => undefined)}
+          >
+            Spróbuj ponownie
+          </button>
+        </section>
+      </main>
+    );
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
