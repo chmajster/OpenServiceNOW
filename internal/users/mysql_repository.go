@@ -102,6 +102,39 @@ func (r *MySQLRepository) CreateLocal(
 	return userID, nil
 }
 
+func (r *MySQLRepository) AddExistingMembership(
+	ctx context.Context,
+	exec platformdb.Executor,
+	tenantID uint64,
+	email string,
+) (uint64, error) {
+	var userID uint64
+	err := exec.QueryRowContext(ctx, `
+		SELECT id
+		FROM users
+		WHERE email = ? AND active = TRUE
+		FOR UPDATE
+	`, email).Scan(&userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, ErrNotFound
+	}
+	if err != nil {
+		return 0, fmt.Errorf("find existing active user: %w", err)
+	}
+
+	_, err = exec.ExecContext(ctx, `
+		INSERT INTO tenant_memberships (tenant_id, user_id, active)
+		VALUES (?, ?, TRUE)
+	`, tenantID, userID)
+	if err != nil {
+		if isDuplicate(err) {
+			return 0, ErrConflict
+		}
+		return 0, fmt.Errorf("add existing tenant membership: %w", err)
+	}
+	return userID, nil
+}
+
 func (r *MySQLRepository) SetMembershipActive(
 	ctx context.Context,
 	exec platformdb.Executor,
