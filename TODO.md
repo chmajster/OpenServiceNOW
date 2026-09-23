@@ -74,162 +74,179 @@ Completed:
 
 ## Phase 1 — Foundation
 
-[P1] [-] Initialize Go runtime and executable entry points.
+[P1] [-] Go runtime and executable boundaries.
 
-Completed:
-- go.mod,
-- cmd/api,
-- cmd/migrate,
-- clean platform package boundaries.
+Implemented:
+- `go.mod`,
+- `cmd/api`,
+- `cmd/migrate`,
+- `cmd/bootstrap`,
+- `cmd/scheduler` with real session-cleanup workload,
+- clean platform/domain package boundaries.
 
 Remaining:
-- cmd/worker when a real asynchronous workload exists,
-- cmd/scheduler when a real scheduled workload exists.
+- executable CI verification,
+- `cmd/worker` only when a real durable job workload exists.
 
-[P0] [x] Implement configuration subsystem.
+[P0] [-] Configuration, logging and HTTP foundation.
 
-Required:
-- environment parsing,
-- required/optional values,
-- safe defaults,
-- typed durations/integers,
-- startup validation,
-- no secret logging,
-- tests.
-
-[P0] [x] Implement structured logging.
-
-Required:
-- level,
-- timestamp,
-- request_id,
-- tenant/user context where available,
-- module/operation,
-- duration,
-- redaction rules,
-- tests for sensitive fields where practical.
-
-[P0] [x] Implement HTTP server foundation.
-
-Required:
-- chi router,
-- request ID,
-- panic recovery,
-- access logging,
-- body-size limit,
+Implemented:
+- typed environment parsing,
+- fail-fast validation,
+- structured JSON logging,
+- request IDs and access logs,
+- body limits,
 - security headers,
-- timeouts,
-- consistent error envelope,
+- request/server timeouts,
 - graceful shutdown,
-- httptest coverage.
+- consistent JSON error envelope,
+- unit tests authored.
 
-[P0] [x] Implement MySQL connection layer.
+Remaining:
+- execute format/vet/unit/race/build checks successfully.
 
-Required:
-- database/sql,
-- go-sql-driver/mysql,
-- DSN construction without logging password,
+[P0] [-] MySQL, transactions and migrations.
+
+Implemented:
+- `database/sql` + go-sql-driver/mysql,
+- safe DSN generation through driver config,
 - configurable pool,
-- PingContext health test,
-- error handling,
-- integration test harness.
+- bounded PingContext,
+- central transaction manager,
+- explicit migration runner,
+- migration 000001 foundation,
+- migration 000002 identity/RBAC/audit,
+- migration rollback files,
+- integration test source.
 
-[P0] [x] Implement migration runner.
+Remaining:
+- successful migration/integration verification,
+- generate and commit `go.sum`.
 
-Required:
-- explicit up/down SQL migrations,
-- deterministic startup/CLI behavior,
-- migration status visibility,
-- MySQL integration tests,
-- no AutoMigrate.
+[P0] [-] Redis foundation.
 
-[P0] [x] Add first schema migration.
+Implemented:
+- client configuration,
+- bounded ping,
+- login rate-limit storage,
+- readiness integration.
 
-Initial scope should cover only foundational entities that are actually implemented in the same phase, not speculative tables for all future modules.
+Remaining:
+- executable verification in CI.
 
-[P0] [x] Implement Redis connection layer.
+[P0] [-] Health/readiness.
 
-Required:
-- configuration,
-- health behavior,
-- context/timeout,
-- graceful shutdown,
-- tests.
-
-[P0] [x] Implement health/readiness endpoints.
-
-Required:
-- process liveness,
+Implemented:
+- liveness,
 - MySQL readiness,
-- Redis readiness according to service dependency semantics,
-- bounded timeouts,
-- no secret leakage.
+- Redis readiness,
+- migrated-schema readiness,
+- tests authored.
 
-[P0] [ ] Implement tenant foundation.
+Remaining:
+- executable verification.
 
-Required:
-- tenants table/model,
-- request tenant context,
-- tenant-safe repository helpers/patterns,
-- cross-tenant denial tests.
+[P0] [-] Tenant foundation.
 
-[P0] [ ] Implement local users and authentication foundation.
+Implemented:
+- tenants schema/model/repository/service/API,
+- authenticated tenant scope,
+- no client-supplied tenant selector on admin APIs,
+- optimistic locking via `version`,
+- audit integration,
+- cross-tenant integration tests authored.
 
-Required:
-- local user model,
-- Argon2id or bcrypt,
-- login/session or token strategy,
-- logout/revocation semantics,
-- secure cookie/token handling,
-- brute-force/rate-limit plan,
-- tests.
+Remaining:
+- execute MySQL isolation/locking tests successfully.
 
-[P0] [ ] Implement groups, roles, permissions, and assignments.
+[P0] [-] Local users and authentication foundation.
 
-Required:
+Implemented:
+- local users and tenant memberships,
+- Argon2id hashing,
+- opaque session tokens stored only as hashes,
+- CSRF token binding,
+- login/logout/me flow,
+- session revocation,
+- Redis login throttling,
+- secure cookie settings,
+- bootstrap tenant/admin command,
+- tenant-scoped user administration,
+- session cleanup scheduler,
+- unit and smoke tests authored.
+
+Remaining:
+- executable verification,
+- trusted-proxy configuration before forwarded IP support.
+
+[P0] [-] Groups, roles, permissions and assignments.
+
+Implemented:
 - schema,
 - repositories,
 - service layer,
-- backend authorization enforcement,
-- tests.
+- group membership,
+- role assignments to users/groups,
+- permission replacement,
+- backend `RequirePermission` middleware,
+- tenant-scoped administration API,
+- audit integration,
+- auth/permission/CSRF route tests authored.
 
-[P0] [ ] Implement audit foundation.
+Remaining:
+- executable integration verification.
 
-Required:
-- append-oriented audit schema,
-- actor/tenant/object/request metadata,
-- old/new values where applicable,
-- integration with privileged foundation actions,
-- tests.
+[P0] [-] Audit foundation.
 
-[P1] [ ] Establish OpenAPI contract generation/validation approach.
+Implemented:
+- append-oriented audit table,
+- actor/tenant/object/request/source/IP metadata,
+- old/new JSON values,
+- audit events in privileged transactions,
+- tenant-scoped paginated audit reader/API.
 
-[P1] [x] Add Docker Compose for MySQL and Redis development dependencies.
+Remaining:
+- executable verification and later retention policy.
 
-[P1] [-] Add Makefile targets.
+[P1] [-] OpenAPI contract.
 
-Expected:
-- make dev,
-- make build,
-- make test,
-- make lint,
-- make migrate-up,
-- make migrate-down,
-- make seed,
-- make frontend,
-- make e2e.
+Implemented:
+- OpenAPI 3.1 JSON document,
+- only currently implemented endpoints are documented,
+- cookie session and CSRF security schemes,
+- contract test checking parseability and route inventory.
 
-Implemented now:
-- make dev,
-- make build,
-- make test,
-- make lint,
-- make migrate-up,
-- make migrate-down.
+Remaining:
+- execute contract test successfully,
+- later introduce stricter schema validation/generation if useful.
 
-Remaining targets are added only when their underlying subsystem exists.
+[P1] [-] Docker Compose development environment.
 
-[P1] [ ] Add frontend foundation.
+Implemented:
+- MySQL 8.4,
+- Redis 8.2,
+- health checks,
+- persistent MySQL development volume.
+
+Remaining:
+- successful end-to-end execution in an environment with Docker.
+
+[P1] [-] Makefile commands.
+
+Implemented:
+- `make dev`,
+- `make build`,
+- `make test`,
+- `make lint`,
+- `make migrate-up`,
+- `make migrate-down`,
+- `make bootstrap`,
+- `make scheduler-once`.
+
+Remaining:
+- frontend/e2e targets after those subsystems exist.
+
+[P1] [ ] React + TypeScript frontend foundation.
 
 Required:
 - React,
@@ -237,18 +254,32 @@ Required:
 - router,
 - API client boundary,
 - authentication state,
-- error/loading primitives,
+- loading/empty/error primitives,
 - test/build baseline.
 
-[P1] [x] Add CI for the implemented backend foundation.
+[P1] [!] Execute CI successfully.
 
-Required:
-- backend build,
-- gofmt verification,
-- go vet,
-- go test,
-- frontend typecheck/build/test,
-- integration tests where infrastructure is available.
+Implemented workflow:
+- formatting,
+- vet,
+- unit,
+- race,
+- build,
+- migrations,
+- MySQL integration tests,
+- bootstrap,
+- auth/RBAC/user smoke flow,
+- scheduler one-shot,
+- rollback.
+
+Blocked:
+- GitHub job repeatedly ends before checkout with no runner and no steps.
+
+[P1] [!] Generate and commit `go.sum`.
+
+Blocked:
+- dependency network is unavailable in the assistant runtime,
+- GitHub Actions runner has not started far enough to resolve modules.
 
 ## Phase 2+
 
