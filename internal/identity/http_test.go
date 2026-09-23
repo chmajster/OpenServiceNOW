@@ -286,3 +286,18 @@ func TestLoginRequiresJSONContentType(t *testing.T) {
 		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
 	}
 }
+
+func TestAuthenticateRejectsMalformedTokenLength(t *testing.T) {
+	service := &Service{}
+	_, err := service.Authenticate(context.Background(), "short-token")
+	if !errors.Is(err, ErrUnauthenticated) {
+		t.Fatalf("Authenticate() error = %v", err)
+	}
+}
+
+func TestVerifyCSRFRejectsMalformedTokenLength(t *testing.T) {
+	service := &Service{}
+	if service.VerifyCSRF(SessionIdentity{}, "short-token") {
+		t.Fatal("malformed CSRF token must be rejected")
+	}
+}
