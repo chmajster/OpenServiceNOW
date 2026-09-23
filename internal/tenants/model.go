@@ -12,7 +12,7 @@ var (
 )
 
 type Tenant struct {
-	ID        uint64    `json:"id"`
+	ID        uint64    `json:"id,string"`
 	Slug      string    `json:"slug"`
 	Name      string    `json:"name"`
 	Status    string    `json:"status"`
