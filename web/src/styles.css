@@ -780,3 +780,26 @@ tbody tr:last-child td {
     padding: 0.65rem 0.5rem;
   }
 }
+
+.search-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  gap: 0.75rem;
+  align-items: end;
+  margin: 1rem 0;
+}
+
+.search-row--compact {
+  grid-template-columns: minmax(180px, 1fr) auto;
+}
+
+.search-field {
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .search-row,
+  .search-row--compact {
+    grid-template-columns: 1fr;
+  }
+}
