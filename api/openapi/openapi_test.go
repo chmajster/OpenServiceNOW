@@ -33,6 +33,7 @@ func TestOpenAPIContractParsesAndContainsImplementedRoutes(t *testing.T) {
 		"/api/v1/auth/logout",
 		"/api/v1/admin/tenant/",
 		"/api/v1/admin/users/",
+		"/api/v1/admin/users/memberships",
 		"/api/v1/admin/users/{userID}/membership",
 		"/api/v1/admin/rbac/permissions",
 		"/api/v1/admin/rbac/roles",
