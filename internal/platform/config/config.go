@@ -259,8 +259,8 @@ func (c Config) Validate() error {
 	if c.ShutdownTimeout <= 0 {
 		errs = append(errs, errors.New("SHUTDOWN_TIMEOUT must be positive"))
 	}
-	if c.Session.TTL <= 0 {
-		errs = append(errs, errors.New("SESSION_TTL must be positive"))
+	if c.Session.TTL <= 0 || c.Session.TTL > 30*24*time.Hour {
+		errs = append(errs, errors.New("SESSION_TTL must be greater than 0 and at most 30 days"))
 	}
 	if strings.TrimSpace(c.Session.CookieName) == "" || strings.TrimSpace(c.Session.CSRFCookieName) == "" {
 		errs = append(errs, errors.New("session cookie names must not be empty"))
@@ -277,11 +277,13 @@ func (c Config) Validate() error {
 	if c.Session.CleanupBatch < 1 || c.Session.CleanupBatch > 10000 {
 		errs = append(errs, errors.New("SESSION_CLEANUP_BATCH must be between 1 and 10000"))
 	}
-	if c.Auth.LoginIPLimit < 1 || c.Auth.LoginAccountLimit < 1 {
-		errs = append(errs, errors.New("authentication rate limits must be at least 1"))
+	if c.Auth.LoginIPLimit < 1 || c.Auth.LoginIPLimit > 10000 ||
+		c.Auth.LoginAccountLimit < 1 || c.Auth.LoginAccountLimit > 10000 {
+		errs = append(errs, errors.New("authentication rate limits must be between 1 and 10000"))
 	}
-	if c.Auth.LoginIPWindow < time.Millisecond || c.Auth.LoginAccountWindow < time.Millisecond {
-		errs = append(errs, errors.New("authentication rate limit windows must be at least 1ms"))
+	if c.Auth.LoginIPWindow < time.Millisecond || c.Auth.LoginIPWindow > 24*time.Hour ||
+		c.Auth.LoginAccountWindow < time.Millisecond || c.Auth.LoginAccountWindow > 24*time.Hour {
+		errs = append(errs, errors.New("authentication rate limit windows must be between 1ms and 24h"))
 	}
 	if c.Auth.MaxConcurrentPasswordChecks < 1 || c.Auth.MaxConcurrentPasswordChecks > 64 {
 		errs = append(errs, errors.New("AUTH_MAX_CONCURRENT_PASSWORD_CHECKS must be between 1 and 64"))
