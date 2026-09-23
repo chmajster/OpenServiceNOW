@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/chmajster/OpenServiceNOW/internal/audit"
+	"github.com/chmajster/OpenServiceNOW/internal/identity"
 	platformdb "github.com/chmajster/OpenServiceNOW/internal/platform/database"
 )
 
@@ -20,13 +21,19 @@ type Actor struct {
 }
 
 type Service struct {
-	repo  *MySQLRepository
-	tx    *platformdb.TxManager
-	audit *audit.MySQLRepository
+	repo        *MySQLRepository
+	tx          *platformdb.TxManager
+	audit       *audit.MySQLRepository
+	adminSafety *identity.AdminSafetyRepository
 }
 
-func NewService(repo *MySQLRepository, tx *platformdb.TxManager, auditRepo *audit.MySQLRepository) *Service {
-	return &Service{repo: repo, tx: tx, audit: auditRepo}
+func NewService(
+	repo *MySQLRepository,
+	tx *platformdb.TxManager,
+	auditRepo *audit.MySQLRepository,
+	adminSafety *identity.AdminSafetyRepository,
+) *Service {
+	return &Service{repo: repo, tx: tx, audit: auditRepo, adminSafety: adminSafety}
 }
 
 func (s *Service) ListPermissions(ctx context.Context) ([]Permission, error) {
@@ -199,7 +206,9 @@ func (s *Service) RemoveGroupMember(ctx context.Context, actor Actor, groupID, u
 		groupID,
 		map[string]any{"user_id": userID},
 		func(exec platformdb.Executor) error {
-			return s.repo.RemoveGroupMember(ctx, exec, actor.TenantID, groupID, userID)
+			return s.withAdminSafety(ctx, exec, actor.TenantID, func() error {
+				return s.repo.RemoveGroupMember(ctx, exec, actor.TenantID, groupID, userID)
+			})
 		},
 	)
 }
@@ -236,7 +245,9 @@ func (s *Service) RemoveRoleFromUser(ctx context.Context, actor Actor, roleID, u
 					return fmt.Errorf("%w: cannot remove own system role", ErrInvalid)
 				}
 			}
-			return s.repo.RemoveRoleFromUser(ctx, exec, actor.TenantID, roleID, userID)
+			return s.withAdminSafety(ctx, exec, actor.TenantID, func() error {
+				return s.repo.RemoveRoleFromUser(ctx, exec, actor.TenantID, roleID, userID)
+			})
 		},
 	)
 }
@@ -264,7 +275,9 @@ func (s *Service) RemoveRoleFromGroup(ctx context.Context, actor Actor, groupID,
 		groupID,
 		map[string]any{"role_id": roleID},
 		func(exec platformdb.Executor) error {
-			return s.repo.RemoveRoleFromGroup(ctx, exec, actor.TenantID, roleID, groupID)
+			return s.withAdminSafety(ctx, exec, actor.TenantID, func() error {
+				return s.repo.RemoveRoleFromGroup(ctx, exec, actor.TenantID, roleID, groupID)
+			})
 		},
 	)
 }
@@ -320,4 +333,26 @@ func normalizePermissionKeys(values []string) ([]string, error) {
 	}
 	sort.Strings(result)
 	return result, nil
+}
+
+func (s *Service) withAdminSafety(
+	ctx context.Context,
+	exec platformdb.Executor,
+	tenantID uint64,
+	write func() error,
+) error {
+	if err := s.adminSafety.LockTenant(ctx, exec, tenantID); err != nil {
+		return err
+	}
+	if err := write(); err != nil {
+		return err
+	}
+	count, err := s.adminSafety.CountEffectivePlatformAdmins(ctx, exec, tenantID)
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return fmt.Errorf("%w: tenant must retain at least one active platform administrator", ErrInvalid)
+	}
+	return nil
 }
