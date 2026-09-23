@@ -37,6 +37,9 @@ func (m *Middleware) Authenticate(next http.Handler) http.Handler {
 			return
 		}
 		if err != nil {
+			if httpapi.WriteContextError(w, r, err) {
+				return
+			}
 			httpapi.WriteError(w, r, http.StatusInternalServerError, "AUTHENTICATION_FAILED", "Authentication failed")
 			return
 		}
@@ -76,6 +79,9 @@ func (m *Middleware) RequirePermission(permission string) func(http.Handler) htt
 			}
 			allowed, err := m.service.HasPermission(r.Context(), identity, permission)
 			if err != nil {
+				if httpapi.WriteContextError(w, r, err) {
+					return
+				}
 				httpapi.WriteError(w, r, http.StatusInternalServerError, "AUTHORIZATION_FAILED", "Authorization check failed")
 				return
 			}
