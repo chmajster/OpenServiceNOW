@@ -23,12 +23,15 @@ Implemented foundation capabilities:
 - login rate limiting in Redis,
 - backend permission evaluation,
 - tenant/admin bootstrap command,
-- tenant-scoped user administration,
+- cursor-paginated/searchable tenant user administration,
 - tenant administration with optimistic locking,
-- RBAC administration for groups, roles, permissions and assignments,
-- immutable system-role permissions, self-removal protection and a transactional guarantee that each tenant retains at least one active effective platform administrator,
+- cursor-paginated/searchable RBAC administration for groups, roles, permissions and assignments,
+- immutable system-role permissions, optimistic-lock role edits, dynamic superadmin permission inheritance, self-removal protection and a transactional guarantee that each tenant retains at least one active effective platform administrator,
 - tenant-scoped paginated audit API,
 - trusted-proxy-aware client IP resolution,
+- optional MySQL/Redis TLS and forced UTC MySQL sessions,
+- bounded Argon2 password verification concurrency,
+- panic-safe transactions and JSON panic recovery,
 - bounded session-cleanup scheduler,
 - OpenAPI 3.1 contract,
 - React + TypeScript administration frontend,
@@ -135,7 +138,19 @@ Example for an internal reverse-proxy network:
 TRUSTED_PROXY_CIDRS=10.20.0.0/16,fd00:20::/64
 ```
 
-When the direct peer is not trusted, rate limiting and audit use `RemoteAddr`, preventing a client from spoofing `X-Forwarded-For`.
+When the direct peer is not trusted, rate limiting and audit use the canonical direct peer IP, preventing a client from spoofing `X-Forwarded-For`. Trust-all CIDRs are rejected.
+
+### Datastore TLS
+
+Development defaults to loopback plaintext connections. Production deployments can enable verified TLS with:
+
+```text
+MYSQL_TLS_MODE=true
+REDIS_TLS_ENABLED=true
+REDIS_TLS_SERVER_NAME=redis.internal.example
+```
+
+Compatibility modes such as MySQL `skip-verify` or Redis `REDIS_TLS_INSECURE_SKIP_VERIFY=true` are explicit operator choices. MySQL sessions always force UTC for consistent `DATETIME` handling.
 
 ## Endpoints
 
