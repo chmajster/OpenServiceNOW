@@ -26,6 +26,10 @@ type createRequest struct {
 	Password    string `json:"password"`
 }
 
+type addExistingMembershipRequest struct {
+	Email string `json:"email"`
+}
+
 type membershipRequest struct {
 	Active *bool `json:"active"`
 }
@@ -88,6 +92,29 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	userID, err := h.service.Create(r.Context(), actor, CreateInput{
 		Email: request.Email, DisplayName: request.DisplayName, Password: request.Password,
 	})
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	httpapi.WriteJSON(w, http.StatusCreated, map[string]any{"id": strconv.FormatUint(userID, 10)})
+}
+
+func (h *Handler) AddExistingMembership(w http.ResponseWriter, r *http.Request) {
+	var request addExistingMembershipRequest
+	if err := httpapi.DecodeJSON(r, &request); err != nil {
+		httpapi.WriteDecodeError(w, r, err)
+		return
+	}
+	actor, ok := actorFromRequest(r)
+	if !ok {
+		httpapi.WriteError(w, r, http.StatusUnauthorized, "UNAUTHENTICATED", "Authentication required")
+		return
+	}
+	userID, err := h.service.AddExistingMembership(
+		r.Context(),
+		actor,
+		AddExistingInput{Email: request.Email},
+	)
 	if err != nil {
 		writeError(w, r, err)
 		return
@@ -161,7 +188,7 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, ErrNotFound):
 		httpapi.WriteError(w, r, http.StatusNotFound, "USER_NOT_FOUND", "User membership not found")
 	case errors.Is(err, ErrConflict):
-		httpapi.WriteError(w, r, http.StatusConflict, "USER_CONFLICT", "User already exists")
+		httpapi.WriteError(w, r, http.StatusConflict, "USER_CONFLICT", "User or tenant membership already exists")
 	default:
 		httpapi.WriteError(w, r, http.StatusInternalServerError, "USER_OPERATION_FAILED", "User operation failed")
 	}
