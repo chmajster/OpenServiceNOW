@@ -69,6 +69,11 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		httpapi.WriteError(w, r, http.StatusUnauthorized, "INVALID_CREDENTIALS", "Invalid credentials")
 		return
 	}
+	if errors.Is(err, ErrAuthBusy) {
+		w.Header().Set("Retry-After", "1")
+		httpapi.WriteError(w, r, http.StatusServiceUnavailable, "AUTH_BUSY", "Authentication is temporarily busy")
+		return
+	}
 	if err != nil {
 		httpapi.WriteError(w, r, http.StatusInternalServerError, "LOGIN_FAILED", "Authentication failed")
 		return
