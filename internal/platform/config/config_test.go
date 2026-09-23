@@ -114,3 +114,10 @@ func TestMySQLDSNSeparatesRuntimeAndMigrationCapabilities(t *testing.T) {
 		t.Fatal("migration DSN must enable multiStatements for golang-migrate WithInstance")
 	}
 }
+
+func TestLoadRejectsSubMillisecondAuthenticationWindow(t *testing.T) {
+	t.Setenv("AUTH_LOGIN_IP_WINDOW", "1ns")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected authentication rate-limit window validation error")
+	}
+}
