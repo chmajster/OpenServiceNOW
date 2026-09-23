@@ -230,6 +230,9 @@ func TestRBACWriteAllowedWithCSRF(t *testing.T) {
 	if service.createRoleCalls != 1 {
 		t.Fatalf("create role calls = %d", service.createRoleCalls)
 	}
+	if !strings.Contains(rr.Body.String(), `"id":"9"`) {
+		t.Fatalf("created role ID is not string encoded: %s", rr.Body.String())
+	}
 }
 
 func TestRBACRoleListRejectsOversizedLimit(t *testing.T) {
