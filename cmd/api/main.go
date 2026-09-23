@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/chmajster/OpenServiceNOW/internal/audit"
+	"github.com/chmajster/OpenServiceNOW/internal/auditapi"
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/cache"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
@@ -60,7 +61,7 @@ func main() {
 	auditRepo := audit.NewMySQLRepository()
 	adminSafety := identity.NewAdminSafetyRepository()
 	auditReader := audit.NewReader(db)
-	auditHandler := audit.NewHandler(auditReader)
+	auditHandler := auditapi.NewHandler(auditReader)
 	identityRepo := identity.NewMySQLRepository(db)
 	identityService, err := identity.NewService(identityRepo, txManager, auditRepo, cfg.Session)
 	if err != nil {
@@ -110,7 +111,7 @@ func main() {
 				tenants.RegisterRoutes(r, tenantsHandler, identityMiddleware)
 			},
 			func(r chi.Router) {
-				audit.RegisterRoutes(r, auditHandler, identityMiddleware)
+				auditapi.RegisterRoutes(r, auditHandler, identityMiddleware)
 			},
 		),
 		ReadHeaderTimeout: 5 * time.Second,
