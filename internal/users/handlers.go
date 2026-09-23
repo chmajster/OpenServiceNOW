@@ -144,6 +144,9 @@ func userIDFromPath(w http.ResponseWriter, r *http.Request) (uint64, bool) {
 }
 
 func writeError(w http.ResponseWriter, r *http.Request, err error) {
+	if httpapi.WriteContextError(w, r, err) {
+		return
+	}
 	switch {
 	case errors.Is(err, identity.ErrLastPlatformAdmin):
 		httpapi.WriteError(
