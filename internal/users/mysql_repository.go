@@ -123,3 +123,24 @@ func isDuplicate(err error) bool {
 	var mysqlErr *mysqlDriver.MySQLError
 	return errors.As(err, &mysqlErr) && mysqlErr.Number == 1062
 }
+
+func (r *MySQLRepository) MembershipActiveForUpdate(
+	ctx context.Context,
+	exec platformdb.Executor,
+	tenantID, userID uint64,
+) (bool, error) {
+	var active bool
+	err := exec.QueryRowContext(ctx, `
+		SELECT active
+		FROM tenant_memberships
+		WHERE tenant_id = ? AND user_id = ?
+		FOR UPDATE
+	`, tenantID, userID).Scan(&active)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, ErrNotFound
+	}
+	if err != nil {
+		return false, fmt.Errorf("read tenant membership state: %w", err)
+	}
+	return active, nil
+}
