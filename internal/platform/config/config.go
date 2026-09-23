@@ -63,10 +63,11 @@ type SessionConfig struct {
 }
 
 type AuthConfig struct {
-	LoginIPLimit       int
-	LoginIPWindow      time.Duration
-	LoginAccountLimit  int
-	LoginAccountWindow time.Duration
+	LoginIPLimit                int
+	LoginIPWindow               time.Duration
+	LoginAccountLimit           int
+	LoginAccountWindow          time.Duration
+	MaxConcurrentPasswordChecks int
 }
 
 func Load() (Config, error) {
@@ -151,6 +152,10 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	maxConcurrentPasswordChecks, err := envInt("AUTH_MAX_CONCURRENT_PASSWORD_CHECKS", 4)
+	if err != nil {
+		return Config{}, err
+	}
 
 	trustedProxyCIDRs := envCSV("TRUSTED_PROXY_CIDRS")
 
@@ -190,10 +195,11 @@ func Load() (Config, error) {
 			RevokedRetention: sessionRevokedRetention,
 		},
 		Auth: AuthConfig{
-			LoginIPLimit:       loginIPLimit,
-			LoginIPWindow:      loginIPWindow,
-			LoginAccountLimit:  loginAccountLimit,
-			LoginAccountWindow: loginAccountWindow,
+			LoginIPLimit:                loginIPLimit,
+			LoginIPWindow:               loginIPWindow,
+			LoginAccountLimit:           loginAccountLimit,
+			LoginAccountWindow:          loginAccountWindow,
+			MaxConcurrentPasswordChecks: maxConcurrentPasswordChecks,
 		},
 		TrustedProxyCIDRs: trustedProxyCIDRs,
 	}
@@ -276,6 +282,9 @@ func (c Config) Validate() error {
 	}
 	if c.Auth.LoginIPWindow < time.Millisecond || c.Auth.LoginAccountWindow < time.Millisecond {
 		errs = append(errs, errors.New("authentication rate limit windows must be at least 1ms"))
+	}
+	if c.Auth.MaxConcurrentPasswordChecks < 1 || c.Auth.MaxConcurrentPasswordChecks > 64 {
+		errs = append(errs, errors.New("AUTH_MAX_CONCURRENT_PASSWORD_CHECKS must be between 1 and 64"))
 	}
 	for _, cidr := range c.TrustedProxyCIDRs {
 		_, network, err := net.ParseCIDR(cidr)
