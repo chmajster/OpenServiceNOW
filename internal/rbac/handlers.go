@@ -82,7 +82,7 @@ func (h *Handler) CreateRole(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, r, err)
 		return
 	}
-	httpapi.WriteJSON(w, http.StatusCreated, map[string]any{"id": roleID})
+	httpapi.WriteJSON(w, http.StatusCreated, map[string]any{"id": strconv.FormatUint(roleID, 10)})
 }
 
 func (h *Handler) SetRolePermissions(w http.ResponseWriter, r *http.Request) {
@@ -153,7 +153,7 @@ func (h *Handler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, r, err)
 		return
 	}
-	httpapi.WriteJSON(w, http.StatusCreated, map[string]any{"id": groupID})
+	httpapi.WriteJSON(w, http.StatusCreated, map[string]any{"id": strconv.FormatUint(groupID, 10)})
 }
 
 func (h *Handler) AddGroupMember(w http.ResponseWriter, r *http.Request) {
