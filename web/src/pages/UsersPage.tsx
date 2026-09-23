@@ -80,7 +80,7 @@ export function UsersPage() {
       setMessage("Lokalne konto zostało utworzone i dodane do tenanta.");
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 409) {
-        setError("Konto z tym adresem e-mail już istnieje.");
+        setError("Konto z tym adresem e-mail już istnieje globalnie. Użyj sekcji „Dodaj istniejące konto”, aby dodać membership do tego tenanta.");
       } else {
         setError(cause instanceof Error ? cause.message : "Utworzenie użytkownika nie powiodło się.");
       }
