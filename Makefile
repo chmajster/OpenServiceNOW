@@ -1,4 +1,4 @@
-.PHONY: dev build test lint migrate-up migrate-down migrate-down-all migrate-version bootstrap scheduler-once frontend frontend-test
+.PHONY: dev build test lint migrate-up migrate-down migrate-down-all migrate-version bootstrap scheduler-once frontend frontend-test e2e
 
 dev:
 	docker compose up -d
@@ -36,3 +36,6 @@ frontend:
 
 frontend-test:
 	cd web && npm run test
+
+e2e:
+	cd web && npm run e2e
