@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -65,4 +66,15 @@ func WriteDecodeError(w http.ResponseWriter, r *http.Request, err error) {
 		return
 	}
 	WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "Invalid JSON request")
+}
+
+func WriteContextError(w http.ResponseWriter, r *http.Request, err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) {
+		WriteError(w, r, http.StatusGatewayTimeout, "REQUEST_TIMEOUT", "Request timed out")
+		return true
+	}
+	if errors.Is(err, context.Canceled) {
+		return true
+	}
+	return false
 }
