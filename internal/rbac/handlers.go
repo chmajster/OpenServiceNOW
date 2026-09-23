@@ -51,12 +51,16 @@ func (h *Handler) ListRoles(w http.ResponseWriter, r *http.Request) {
 		httpapi.WriteError(w, r, http.StatusUnauthorized, "UNAUTHENTICATED", "Authentication required")
 		return
 	}
-	roles, err := h.service.ListRoles(r.Context(), session.TenantID)
+	afterID, limit, query, ok := parseListQuery(w, r)
+	if !ok {
+		return
+	}
+	page, err := h.service.ListRoles(r.Context(), session.TenantID, afterID, limit, query)
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
 	}
-	httpapi.WriteJSON(w, http.StatusOK, map[string]any{"roles": roles})
+	httpapi.WriteJSON(w, http.StatusOK, page)
 }
 
 func (h *Handler) CreateRole(w http.ResponseWriter, r *http.Request) {
@@ -108,12 +112,16 @@ func (h *Handler) ListGroups(w http.ResponseWriter, r *http.Request) {
 		httpapi.WriteError(w, r, http.StatusUnauthorized, "UNAUTHENTICATED", "Authentication required")
 		return
 	}
-	groups, err := h.service.ListGroups(r.Context(), session.TenantID)
+	afterID, limit, query, ok := parseListQuery(w, r)
+	if !ok {
+		return
+	}
+	page, err := h.service.ListGroups(r.Context(), session.TenantID, afterID, limit, query)
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
 	}
-	httpapi.WriteJSON(w, http.StatusOK, map[string]any{"groups": groups})
+	httpapi.WriteJSON(w, http.StatusOK, page)
 }
 
 func (h *Handler) CreateGroup(w http.ResponseWriter, r *http.Request) {
@@ -270,4 +278,33 @@ func writeServiceError(w http.ResponseWriter, r *http.Request, err error) {
 	default:
 		httpapi.WriteError(w, r, http.StatusInternalServerError, "RBAC_OPERATION_FAILED", "RBAC operation failed")
 	}
+}
+
+func parseListQuery(w http.ResponseWriter, r *http.Request) (uint64, int, string, bool) {
+	limit := 50
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		value, err := strconv.Atoi(raw)
+		if err != nil || value < 1 || value > 200 {
+			httpapi.WriteError(w, r, http.StatusBadRequest, "INVALID_PAGINATION", "limit must be between 1 and 200")
+			return 0, 0, "", false
+		}
+		limit = value
+	}
+
+	var afterID uint64
+	if raw := r.URL.Query().Get("after_id"); raw != "" {
+		value, err := strconv.ParseUint(raw, 10, 64)
+		if err != nil || value == 0 {
+			httpapi.WriteError(w, r, http.StatusBadRequest, "INVALID_PAGINATION", "after_id must be a positive integer")
+			return 0, 0, "", false
+		}
+		afterID = value
+	}
+
+	query := r.URL.Query().Get("q")
+	if len([]rune(query)) > 200 {
+		httpapi.WriteError(w, r, http.StatusBadRequest, "INVALID_PAGINATION", "q must not exceed 200 characters")
+		return 0, 0, "", false
+	}
+	return afterID, limit, query, true
 }
