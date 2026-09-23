@@ -269,7 +269,7 @@ func (r *MySQLRepository) AddGroupMember(
 	`, tenantID, userID, tenantID, groupID)
 	if err != nil {
 		if isDuplicate(err) {
-			return nil
+			return errNoChange
 		}
 		return fmt.Errorf("add group member: %w", err)
 	}
@@ -330,7 +330,7 @@ func (r *MySQLRepository) AssignRoleToUser(
 	`, tenantID, userID, tenantID, roleID)
 	if err != nil {
 		if isDuplicate(err) {
-			return nil
+			return errNoChange
 		}
 		return fmt.Errorf("assign role to user: %w", err)
 	}
@@ -389,7 +389,7 @@ func (r *MySQLRepository) AssignRoleToGroup(
 	`, tenantID, roleID, tenantID, groupID)
 	if err != nil {
 		if isDuplicate(err) {
-			return nil
+			return errNoChange
 		}
 		return fmt.Errorf("assign role to group: %w", err)
 	}
