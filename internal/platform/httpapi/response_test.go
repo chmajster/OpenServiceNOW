@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -9,6 +10,7 @@ import (
 
 func TestDecodeJSONRejectsOversizedBodyAs413(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"value":"123456789"}`))
+	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
 	request.Body = http.MaxBytesReader(recorder, request.Body, 5)
 
@@ -30,10 +32,28 @@ func TestDecodeJSONRejectsOversizedBodyAs413(t *testing.T) {
 
 func TestDecodeJSONRejectsUnknownFields(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"name":"ok","extra":true}`))
+	request.Header.Set("Content-Type", "application/json")
 	var payload struct {
 		Name string `json:"name"`
 	}
 	if err := DecodeJSON(request, &payload); err == nil {
 		t.Fatal("expected unknown field error")
+	}
+}
+
+func TestDecodeJSONRequiresApplicationJSON(t *testing.T) {
+	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"name":"ok"}`))
+	request.Header.Set("Content-Type", "text/plain")
+
+	var payload map[string]any
+	err := DecodeJSON(request, &payload)
+	if !errors.Is(err, ErrUnsupportedMediaType) {
+		t.Fatalf("DecodeJSON() error = %v", err)
+	}
+
+	response := httptest.NewRecorder()
+	WriteDecodeError(response, request, err)
+	if response.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("status = %d body=%s", response.Code, response.Body.String())
 	}
 }
