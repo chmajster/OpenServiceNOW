@@ -105,14 +105,14 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	})
 
 	usersRepo := users.NewMySQLRepository(db)
-	usersA, err := usersRepo.List(ctx, adminA.TenantID)
+	usersPageA, err := usersRepo.List(ctx, adminA.TenantID, 0, 50, "")
 	if err != nil {
 		t.Fatalf("list tenant A users: %v", err)
 	}
-	if containsUser(usersA, adminB.UserID) {
+	if containsUser(usersPageA.Users, adminB.UserID) {
 		t.Fatalf("tenant B user %d leaked into tenant A listing", adminB.UserID)
 	}
-	if !containsUser(usersA, adminA.UserID) {
+	if !containsUser(usersPageA.Users, adminA.UserID) {
 		t.Fatalf("tenant A admin %d missing from tenant A listing", adminA.UserID)
 	}
 
