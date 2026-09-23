@@ -9,8 +9,8 @@ var (
 	ErrNotFound           = errors.New("identity not found")
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrUnauthenticated    = errors.New("unauthenticated")
-	ErrLastPlatformAdmin = errors.New("tenant must retain at least one active platform administrator")
-	ErrAuthBusy          = errors.New("authentication password verifier is busy")
+	ErrLastPlatformAdmin  = errors.New("tenant must retain at least one active platform administrator")
+	ErrAuthBusy           = errors.New("authentication password verifier is busy")
 )
 
 type User struct {
