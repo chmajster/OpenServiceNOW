@@ -91,6 +91,14 @@ func (b *Bootstrapper) Run(ctx context.Context, input BootstrapInput) (Bootstrap
 		if err != nil {
 			return err
 		}
+		tenantStatus, err := b.repo.TenantStatusForUpdate(ctx, exec, tenantID)
+		if err != nil {
+			return err
+		}
+		if tenantStatus != "ACTIVE" {
+			return fmt.Errorf("bootstrap tenant %q is not active", input.TenantSlug)
+		}
+
 		userID, created, existingPasswordHash, err := b.repo.EnsureUser(
 			ctx,
 			exec,
@@ -102,6 +110,13 @@ func (b *Bootstrapper) Run(ctx context.Context, input BootstrapInput) (Bootstrap
 			return err
 		}
 		if !created {
+			active, activeErr := b.repo.UserActiveForUpdate(ctx, exec, userID)
+			if activeErr != nil {
+				return activeErr
+			}
+			if !active {
+				return errors.New("bootstrap admin account already exists but is globally disabled")
+			}
 			valid, verifyErr := password.Verify(existingPasswordHash, input.AdminPassword)
 			if verifyErr != nil {
 				return fmt.Errorf("verify existing bootstrap admin password: %w", verifyErr)
