@@ -45,11 +45,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setSession(null);
       setStatus("error");
       setError(cause instanceof Error ? cause.message : "Nie udało się odczytać sesji");
+      throw cause;
     }
   }, []);
 
   useEffect(() => {
-    void refresh();
+    void refresh().catch(() => undefined);
   }, [refresh]);
 
   const login = useCallback(
