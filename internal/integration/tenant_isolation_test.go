@@ -311,6 +311,77 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	}
 
 	usersService := users.NewService(usersRepo, tx, auditRepo, adminSafety, identityRepo)
+
+	var adminBPasswordHashBefore string
+	if err := db.QueryRowContext(
+		ctx,
+		"SELECT password_hash FROM users WHERE id = ?",
+		adminB.UserID,
+	).Scan(&adminBPasswordHashBefore); err != nil {
+		t.Fatalf("read admin B password hash before tenant membership: %v", err)
+	}
+
+	addedExistingID, err := usersService.AddExistingMembership(
+		ctx,
+		users.Actor{
+			TenantID: adminA.TenantID,
+			UserID: adminA.UserID,
+			RequestID: "integration",
+		},
+		users.AddExistingInput{Email: adminBEmail},
+	)
+	if err != nil {
+		t.Fatalf("add existing global account to tenant A: %v", err)
+	}
+	if addedExistingID != adminB.UserID {
+		t.Fatalf("added existing user id = %d want %d", addedExistingID, adminB.UserID)
+	}
+
+	var adminBPasswordHashAfter string
+	if err := db.QueryRowContext(
+		ctx,
+		"SELECT password_hash FROM users WHERE id = ?",
+		adminB.UserID,
+	).Scan(&adminBPasswordHashAfter); err != nil {
+		t.Fatalf("read admin B password hash after tenant membership: %v", err)
+	}
+	if adminBPasswordHashAfter != adminBPasswordHashBefore {
+		t.Fatal("adding existing tenant membership changed the global account password hash")
+	}
+
+	linkedUser, linkedTenant, err := identityRepo.FindForLogin(ctx, tenantASlug, adminBEmail)
+	if err != nil {
+		t.Fatalf("find linked existing account for tenant A login: %v", err)
+	}
+	if linkedUser.ID != adminB.UserID || linkedTenant.ID != adminA.TenantID {
+		t.Fatalf(
+			"linked login identity user=%d tenant=%d want user=%d tenant=%d",
+			linkedUser.ID,
+			linkedTenant.ID,
+			adminB.UserID,
+			adminA.TenantID,
+		)
+	}
+
+	if _, err := usersService.AddExistingMembership(
+		ctx,
+		users.Actor{
+			TenantID: adminA.TenantID,
+			UserID: adminA.UserID,
+			RequestID: "integration",
+		},
+		users.AddExistingInput{Email: adminBEmail},
+	); !errors.Is(err, users.ErrConflict) {
+		t.Fatalf("duplicate existing membership error = %v, want ErrConflict", err)
+	}
+
+	linkedPage, err := usersService.List(ctx, adminA.TenantID, 0, 50, adminBEmail)
+	if err != nil {
+		t.Fatalf("search linked existing account in tenant A: %v", err)
+	}
+	if len(linkedPage.Users) != 1 || linkedPage.Users[0].ID != adminB.UserID {
+		t.Fatalf("linked existing account search result = %+v", linkedPage.Users)
+	}
 	if err := usersService.SetMembershipActive(ctx, users.Actor{
 		TenantID: adminA.TenantID, UserID: 999999, RequestID: "integration",
 	}, adminA.UserID, false); !errors.Is(err, identity.ErrLastPlatformAdmin) {
