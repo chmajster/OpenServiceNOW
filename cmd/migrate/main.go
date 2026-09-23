@@ -26,7 +26,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	db, err := platformdb.OpenMySQL(context.Background(), cfg.MySQL)
+	db, err := platformdb.OpenMySQLForMigrations(context.Background(), cfg.MySQL)
 	if err != nil {
 		logger.Error("mysql unavailable", "error", err)
 		os.Exit(1)
