@@ -53,6 +53,33 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	if err != nil {
 		t.Fatalf("bootstrap tenant A: %v", err)
 	}
+
+	if _, err := bootstrap.Run(ctx, identity.BootstrapInput{
+		TenantSlug: tenantASlug, TenantName: "Unexpected Rename",
+		AdminEmail: adminAEmail, AdminName: "Different Name",
+		AdminPassword: "wrong-existing-password",
+	}); err == nil {
+		t.Fatal("re-bootstrap with wrong existing password must fail")
+	}
+	rebootstrap, err := bootstrap.Run(ctx, identity.BootstrapInput{
+		TenantSlug: tenantASlug, TenantName: "Unexpected Rename",
+		AdminEmail: adminAEmail, AdminName: "Different Name",
+		AdminPassword: "integration-password-a",
+	})
+	if err != nil {
+		t.Fatalf("re-bootstrap tenant A with matching password: %v", err)
+	}
+	if rebootstrap.TenantID != adminA.TenantID || rebootstrap.UserID != adminA.UserID || rebootstrap.UserCreated {
+		t.Fatalf("unexpected re-bootstrap result: %+v", rebootstrap)
+	}
+	var persistedTenantName string
+	if err := db.QueryRowContext(ctx, "SELECT name FROM tenants WHERE id = ?", adminA.TenantID).Scan(&persistedTenantName); err != nil {
+		t.Fatalf("read tenant name after re-bootstrap: %v", err)
+	}
+	if persistedTenantName != "Isolation A" {
+		t.Fatalf("tenant name changed during re-bootstrap: %q", persistedTenantName)
+	}
+
 	adminB, err := bootstrap.Run(ctx, identity.BootstrapInput{
 		TenantSlug: tenantBSlug, TenantName: "Isolation B",
 		AdminEmail: adminBEmail, AdminName: "Admin B",
