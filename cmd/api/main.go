@@ -76,7 +76,7 @@ func main() {
 	rbacHandler := rbac.NewHandler(rbacService)
 
 	usersRepo := users.NewMySQLRepository(db)
-	usersService := users.NewService(usersRepo, txManager, auditRepo, adminSafety)
+	usersService := users.NewService(usersRepo, txManager, auditRepo, adminSafety, identityRepo)
 	usersHandler := users.NewHandler(usersService)
 
 	tenantsRepo := tenants.NewMySQLRepository(db)
