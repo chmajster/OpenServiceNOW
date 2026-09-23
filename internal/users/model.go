@@ -32,3 +32,8 @@ type Actor struct {
 	RequestID string
 	IPAddress string
 }
+
+type Page struct {
+	Users       []User `json:"users"`
+	NextAfterID uint64 `json:"next_after_id,omitempty"`
+}
