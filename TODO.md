@@ -183,6 +183,7 @@ Implemented:
 - secure cookie settings,
 - bootstrap tenant/admin command,
 - tenant-scoped user administration with bounded cursor pagination/search,
+- explicit membership linking for an already-existing active global identity without changing its password/profile,
 - session cleanup scheduler with MySQL advisory-lock replica coordination,
 - explicit trusted-proxy CIDRs and safe forwarded-IP resolution,
 - bounded login/password input sizes,
