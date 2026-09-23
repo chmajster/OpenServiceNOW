@@ -62,7 +62,7 @@ func (h *Handler) ListRoles(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) CreateRole(w http.ResponseWriter, r *http.Request) {
 	var request createRoleRequest
 	if err := httpapi.DecodeJSON(r, &request); err != nil {
-		httpapi.WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "Invalid JSON request")
+		httpapi.WriteDecodeError(w, r, err)
 		return
 	}
 	actor, ok := actorFromRequest(r)
@@ -87,7 +87,7 @@ func (h *Handler) SetRolePermissions(w http.ResponseWriter, r *http.Request) {
 	}
 	var request setRolePermissionsRequest
 	if err := httpapi.DecodeJSON(r, &request); err != nil {
-		httpapi.WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "Invalid JSON request")
+		httpapi.WriteDecodeError(w, r, err)
 		return
 	}
 	actor, ok := actorFromRequest(r)
@@ -119,7 +119,7 @@ func (h *Handler) ListGroups(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 	var request createGroupRequest
 	if err := httpapi.DecodeJSON(r, &request); err != nil {
-		httpapi.WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "Invalid JSON request")
+		httpapi.WriteDecodeError(w, r, err)
 		return
 	}
 	actor, ok := actorFromRequest(r)
