@@ -15,7 +15,7 @@ func TestRouterSecurityHeaders(t *testing.T) {
 	h := health.New(func(context.Context) error { return nil }, func(context.Context) error { return nil })
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
 	rr := httptest.NewRecorder()
-	Router(logger, h).ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/health/live", nil))
+	Router(logger, h, nil).ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/health/live", nil))
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status = %d", rr.Code)
 	}
@@ -31,7 +31,7 @@ func TestRouterUsesConsistentNotFoundError(t *testing.T) {
 	h := health.New(func(context.Context) error { return nil }, func(context.Context) error { return nil })
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
 	rr := httptest.NewRecorder()
-	Router(logger, h).ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/missing", nil))
+	Router(logger, h, nil).ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/missing", nil))
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("status = %d", rr.Code)
 	}
