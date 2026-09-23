@@ -58,6 +58,7 @@ func main() {
 
 	txManager := database.NewTxManager(db)
 	auditRepo := audit.NewMySQLRepository()
+	adminSafety := identity.NewAdminSafetyRepository()
 	auditReader := audit.NewReader(db)
 	auditHandler := audit.NewHandler(auditReader)
 	identityRepo := identity.NewMySQLRepository(db)
@@ -70,11 +71,11 @@ func main() {
 	identityHandler := identity.NewHandler(identityService, ratelimit.New(redisClient, "opensnow:"), cfg.Session, cfg.Auth)
 
 	rbacRepo := rbac.NewMySQLRepository(db)
-	rbacService := rbac.NewService(rbacRepo, txManager, auditRepo)
+	rbacService := rbac.NewService(rbacRepo, txManager, auditRepo, adminSafety)
 	rbacHandler := rbac.NewHandler(rbacService)
 
 	usersRepo := users.NewMySQLRepository(db)
-	usersService := users.NewService(usersRepo, txManager, auditRepo)
+	usersService := users.NewService(usersRepo, txManager, auditRepo, adminSafety)
 	usersHandler := users.NewHandler(usersService)
 
 	tenantsRepo := tenants.NewMySQLRepository(db)
