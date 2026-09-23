@@ -28,6 +28,7 @@ type createRoleRequest struct {
 }
 
 type setRolePermissionsRequest struct {
+	Version     uint64   `json:"version"`
 	Permissions []string `json:"permissions"`
 }
 
@@ -99,7 +100,17 @@ func (h *Handler) SetRolePermissions(w http.ResponseWriter, r *http.Request) {
 		httpapi.WriteError(w, r, http.StatusUnauthorized, "UNAUTHENTICATED", "Authentication required")
 		return
 	}
-	if err := h.service.SetRolePermissions(r.Context(), actor, roleID, request.Permissions); err != nil {
+	if request.Version == 0 {
+		httpapi.WriteError(w, r, http.StatusBadRequest, "INVALID_RBAC_INPUT", "Role version is required")
+		return
+	}
+	if err := h.service.SetRolePermissions(
+		r.Context(),
+		actor,
+		roleID,
+		request.Version,
+		request.Permissions,
+	); err != nil {
 		writeServiceError(w, r, err)
 		return
 	}
