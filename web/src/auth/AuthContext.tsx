@@ -64,13 +64,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
   );
 
   const logout = useCallback(async () => {
-    try {
-      await api<void>("/api/v1/auth/logout", { method: "POST" });
-    } finally {
-      setSession(null);
-      setStatus("anonymous");
-      setError(null);
-    }
+    await api<void>("/api/v1/auth/logout", { method: "POST" });
+    setSession(null);
+    setStatus("anonymous");
+    setError(null);
   }, []);
 
   const hasPermission = useCallback(
