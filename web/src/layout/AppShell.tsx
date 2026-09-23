@@ -80,7 +80,17 @@ export function AppShell() {
             <strong>{session?.tenant.name}</strong>
             <span className="muted"> / {session?.tenant.slug}</span>
           </div>
-          <span className="status-pill">Sesja aktywna</span>
+          <div className="topbar-actions">
+            <span className="status-pill">Sesja aktywna</span>
+            {logoutError ? <span className="topbar-error" role="alert">{logoutError}</span> : null}
+            <button
+              className="button button--small button--secondary topbar-logout"
+              onClick={() => void handleLogout()}
+              disabled={loggingOut}
+            >
+              {loggingOut ? "Wylogowywanie…" : "Wyloguj"}
+            </button>
+          </div>
         </header>
         <div className="workspace-content">
           <Outlet />
