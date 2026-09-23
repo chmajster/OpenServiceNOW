@@ -1,65 +1,113 @@
 # Current Project Status
 
-Last updated: 2026-09-22
+Last updated: 2026-09-23
 
 ## Current phase
 
 Phase 1 — Foundation
 
-The first runtime foundation slice is implemented on the active branch.
+The backend foundation is substantially implemented on the active branch, but Phase 1 is not complete because executable CI verification is blocked and the frontend foundation is still missing.
 
 ## Last completed
 
-Phase 0 architecture is merged.
+Phase 0 architecture is merged into `main`.
 
-Current foundation slice implements:
+Implemented on the Phase 1 branch:
 
-- Go module targeting Go 1.27,
-- API executable,
-- migration executable,
+- Go 1.27 module,
+- `cmd/api`,
+- `cmd/migrate`,
+- `cmd/bootstrap`,
+- `cmd/scheduler` with real session-cleanup work and `--once` verification mode,
 - validated environment configuration,
-- structured JSON logging,
-- structured HTTP access logs with request IDs,
-- HTTP security headers and request body limit,
-- HTTP server timeouts and graceful shutdown,
-- MySQL connection pool and bounded health checks,
-- Redis client and bounded health checks,
-- explicit SQL migration runner,
-- first foundation migration,
-- liveness/readiness endpoints,
-- schema-aware readiness,
-- Docker Compose for MySQL and Redis,
+- structured JSON logging and request IDs,
+- HTTP access logging, body limits, security headers and timeouts,
+- graceful API and scheduler shutdown,
+- MySQL connection pool using `database/sql`,
+- Redis connectivity,
+- central transaction manager,
+- explicit migrations,
+- schema-aware liveness/readiness,
+- local users and tenant memberships,
+- Argon2id password hashing,
+- opaque database-backed sessions,
+- CSRF double-submit validation,
+- Redis-backed login throttling,
+- tenant bootstrap with initial platform administrator,
+- groups, roles, permission catalog and assignments,
+- backend permission middleware,
+- tenant-scoped user administration,
+- current-tenant administration with optimistic locking,
+- append-oriented audit persistence,
+- tenant-scoped paginated audit API,
+- OpenAPI 3.1 document for implemented endpoints,
+- Docker Compose,
 - Makefile commands,
-- unit tests for configuration, health, and router behavior,
-- GitHub Actions build/vet/unit/race/migration/API smoke workflow.
+- unit tests for configuration, HTTP, password hashing, authentication gates, RBAC gates and scheduler cleanup,
+- MySQL integration test source for cross-tenant isolation and optimistic locking,
+- CI workflow covering format, vet, unit, race, build, migrations, integration tests, bootstrap, authenticated smoke flow, scheduler and rollback.
 
 ## Currently in progress
 
-Phase 1 remains in progress.
+Phase 1 remains IN PROGRESS.
 
-Not yet implemented:
+Remaining implementation work:
 
-- `cmd/worker`,
-- `cmd/scheduler`,
-- tenant runtime,
-- local users/authentication,
-- groups,
-- roles,
-- permissions,
-- authorization enforcement,
-- audit runtime,
-- OpenAPI contract,
-- frontend foundation.
+- React + TypeScript frontend foundation,
+- frontend authentication state and API client,
+- frontend tests/build,
+- `cmd/worker` only when the first real asynchronous job workload is introduced,
+- trusted-proxy configuration before honoring forwarded client IP headers,
+- external identity providers such as LDAP/OIDC in later Phase 1/10 work as planned.
+
+Remaining verification work:
+
+- obtain a GitHub-hosted runner that actually executes workflow steps,
+- generate and commit `go.sum` from a successful module resolution,
+- run `gofmt`, `go vet ./...`, `go test ./...`, `go test -race ./...`, integration tests and build,
+- execute migrations and complete API/auth/RBAC smoke flow,
+- execute migration rollback verification.
 
 ## Known problems
 
-No known application defect is currently documented in the implemented foundation slice.
+### BLOCKER — GitHub Actions runner is not executing the job
 
-Local verification is constrained in the assistant execution environment because it cannot download the Go 1.27 toolchain or external modules. Repository CI is therefore the authoritative execution verification for this PR.
+Repeated workflow runs finish as failure before the first workflow step:
+
+- `runner_id = 0`,
+- empty runner name,
+- empty step list.
+
+This does not constitute a failing build or failing test because no checkout/build/test command is executed.
+
+The assistant execution environment contains Go 1.23.2 and cannot resolve `proxy.golang.org`, so it cannot independently download the Go 1.27 toolchain or module dependencies.
+
+### Dependency lock file
+
+`go.sum` is not present yet because module resolution has not successfully run in an environment with dependency network access. It must be generated and committed before this PR is considered release-ready.
 
 ## Tests
 
-Implemented automated checks:
+Test code exists for:
+
+- configuration validation,
+- MySQL DSN round-trip handling,
+- health endpoints,
+- HTTP security/error behavior,
+- Argon2id hashing and verification,
+- authentication middleware,
+- CSRF rejection,
+- backend permission enforcement,
+- login throttling,
+- effective-permission response,
+- RBAC route authorization,
+- session cleanup scheduling,
+- OpenAPI route inventory,
+- cross-tenant user isolation,
+- cross-tenant RBAC membership rejection,
+- tenant optimistic locking.
+
+CI is configured to run:
 
 - `gofmt` verification,
 - `go vet ./...`,
@@ -67,40 +115,57 @@ Implemented automated checks:
 - `go test -race ./...`,
 - `go build ./...`,
 - migration apply,
-- API readiness smoke test against MySQL and Redis,
+- MySQL integration tests,
+- tenant/admin bootstrap,
+- API readiness smoke test,
+- admin login,
+- tenant user creation,
+- role creation and assignment,
+- login as the created user and effective-permission verification,
+- logout/revocation,
+- one scheduler cleanup iteration,
 - migration rollback.
 
-CI result must be green before merge.
+These checks are authored but are not recorded as passing until the runner executes them.
 
 ## Database migrations
 
 Implemented:
 
 - `000001_foundation.up.sql`,
-- `000001_foundation.down.sql`.
+- `000001_foundation.down.sql`,
+- `000002_identity.up.sql`,
+- `000002_identity.down.sql`.
 
-The migration creates the singleton `platform_metadata` record used by readiness validation to distinguish a reachable database from a correctly migrated database.
+The identity migration contains:
+
+- tenants,
+- users,
+- tenant memberships,
+- groups and memberships,
+- permissions,
+- roles,
+- user/group role assignments,
+- sessions,
+- audit events.
 
 ## Technical debt
 
-Current implementation deliberately does not add empty worker/scheduler executables, fake identity endpoints, placeholder frontend screens, or speculative business-domain tables.
+Known non-blocking design work:
 
-Items still to address in Phase 1:
+- forwarded client IPs are intentionally ignored until trusted-proxy configuration exists,
+- scheduler should remain a single logical scheduler instance until distributed locking/leader coordination is implemented,
+- `cmd/worker` is intentionally absent until a real durable job workload exists,
+- frontend foundation is still absent,
+- external authentication providers are not implemented yet.
 
-- transaction manager,
-- authentication/session design implementation,
-- tenant isolation foundation and automated cross-tenant tests,
-- RBAC model and middleware/service enforcement,
-- audit persistence,
-- OpenAPI,
-- worker/scheduler runtime once real workloads exist,
-- frontend and its test baseline.
+No fake endpoint, placeholder UI or empty worker executable is used to hide these gaps.
 
 ## Next recommended tasks
 
-1. Verify and merge the core foundation PR after CI passes.
-2. Implement tenant, user, authentication, group, role, permission, and audit schema/services.
-3. Add backend RBAC/tenant enforcement tests.
-4. Add OpenAPI baseline.
-5. Add worker/scheduler when the first real asynchronous/scheduled foundation workload is implemented.
-6. Establish React + TypeScript frontend foundation.
+1. Restore executable CI and generate `go.sum`.
+2. Fix any build/test/migration defects exposed by the first real CI execution.
+3. Establish React + TypeScript frontend foundation.
+4. Implement login/session bootstrap in the frontend.
+5. Add frontend build/test to CI.
+6. Re-run the complete Phase 1 end-to-end verification before merge.
