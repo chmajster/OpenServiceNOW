@@ -92,7 +92,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	httpapi.WriteJSON(w, http.StatusCreated, map[string]any{"id": userID})
+	httpapi.WriteJSON(w, http.StatusCreated, map[string]any{"id": strconv.FormatUint(userID, 10)})
 }
 
 func (h *Handler) SetMembership(w http.ResponseWriter, r *http.Request) {
