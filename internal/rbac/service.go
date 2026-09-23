@@ -385,7 +385,7 @@ func (s *Service) withAdminSafety(
 		return err
 	}
 	if count == 0 {
-		return fmt.Errorf("%w: tenant must retain at least one active platform administrator", ErrInvalid)
+		return identity.ErrLastPlatformAdmin
 	}
 	return nil
 }
