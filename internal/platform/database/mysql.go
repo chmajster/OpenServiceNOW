@@ -43,12 +43,29 @@ func Ping(ctx context.Context, db *sql.DB, timeout time.Duration) error {
 	return db.PingContext(pingCtx)
 }
 
+const RequiredSchemaVersion uint64 = 13
+
 func SchemaReady(ctx context.Context, db *sql.DB, timeout time.Duration) error {
 	checkCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	var count uint64
-	if err := db.QueryRowContext(checkCtx, "SELECT COUNT(*) FROM platform_metadata").Scan(&count); err != nil {
-		return fmt.Errorf("foundation schema not ready: %w", err)
+
+	var version uint64
+	var dirty bool
+	if err := db.QueryRowContext(checkCtx, "SELECT version, dirty FROM schema_migrations LIMIT 1").Scan(&version, &dirty); err != nil {
+		return fmt.Errorf("read schema migration state: %w", err)
+	}
+	if err := ValidateSchemaVersion(version, dirty); err != nil {
+		return err
+	}
+	return nil
+}
+
+func ValidateSchemaVersion(version uint64, dirty bool) error {
+	if dirty {
+		return fmt.Errorf("database schema is dirty at version %d", version)
+	}
+	if version != RequiredSchemaVersion {
+		return fmt.Errorf("database schema version %d does not match required version %d", version, RequiredSchemaVersion)
 	}
 	return nil
 }
