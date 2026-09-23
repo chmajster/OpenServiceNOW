@@ -188,7 +188,7 @@ export function UsersPage() {
         <div className="panel-heading">
           <div>
             <h2>Dodaj istniejące konto</h2>
-            <p className="muted">Dodaje membership do aktywnego globalnego konta. Hasło i profil konta nie są zmieniane.</p>
+            <p className="muted">Dodaje członkostwo aktywnego globalnego konta w bieżącym tenancie. Hasło i profil konta nie są zmieniane.</p>
           </div>
         </div>
         <form className="search-row search-row--compact" onSubmit={(event) => void handleAddExisting(event)}>
@@ -203,7 +203,7 @@ export function UsersPage() {
             />
           </label>
           <button className="button button--secondary" type="submit" disabled={addingExisting}>
-            {addingExisting ? "Dodawanie…" : "Dodaj membership"}
+            {addingExisting ? "Dodawanie…" : "Dodaj członkostwo"}
           </button>
         </form>
       </div>
