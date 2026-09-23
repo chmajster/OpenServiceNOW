@@ -131,6 +131,12 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create second admin user: %v", err)
 	}
+	t.Cleanup(func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cleanupCancel()
+		_, _ = db.ExecContext(cleanupCtx, "DELETE FROM users WHERE id = ?", secondAdminID)
+	})
+
 	if err := rbacService.AssignRoleToUser(ctx, actorA, platformAdminRoleID, secondAdminID); err != nil {
 		t.Fatalf("assign platform_admin to second admin: %v", err)
 	}
