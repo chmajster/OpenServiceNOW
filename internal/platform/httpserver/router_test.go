@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/chmajster/OpenServiceNOW/internal/platform/health"
+	"github.com/go-chi/chi/v5"
 )
 
 func TestRouterSecurityHeaders(t *testing.T) {
@@ -82,5 +83,35 @@ func TestRouterReplacesUnsafeIncomingRequestID(t *testing.T) {
 	}
 	if len(got) > 128 {
 		t.Fatalf("generated X-Request-ID is unexpectedly long: %d", len(got))
+	}
+}
+
+func TestRouterRecoversPanicWithJSONError(t *testing.T) {
+	h := health.New(func(context.Context) error { return nil }, func(context.Context) error { return nil })
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+
+	handler := Router(logger, h, nil, func(r chi.Router) {
+		r.Get("/panic", func(http.ResponseWriter, *http.Request) {
+			panic("sensitive panic detail")
+		})
+	})
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/panic", nil))
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	if got := rr.Header().Get("Content-Type"); got != "application/json" {
+		t.Fatalf("Content-Type = %q", got)
+	}
+	if !strings.Contains(rr.Body.String(), `"code":"INTERNAL_SERVER_ERROR"`) {
+		t.Fatalf("body = %s", rr.Body.String())
+	}
+	if strings.Contains(rr.Body.String(), "sensitive panic detail") {
+		t.Fatalf("panic detail leaked in body: %s", rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `"request_id"`) {
+		t.Fatalf("request ID missing from body: %s", rr.Body.String())
 	}
 }
