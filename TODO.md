@@ -266,10 +266,11 @@ Implemented:
 - `make bootstrap`,
 - `make scheduler-once`,
 - `make frontend`,
-- `make frontend-test`.
+- `make frontend-test`,
+- `make e2e`.
 
 Remaining:
-- E2E target when a browser-level E2E suite is introduced.
+- successful browser E2E execution in CI.
 
 [P1] [-] React + TypeScript frontend foundation.
 
@@ -288,7 +289,8 @@ Implemented:
 - responsive layout,
 - loading/error/empty/success states,
 - API-client unit tests,
-- CI typecheck/test/build job.
+- Playwright browser E2E covering admin login, user creation, role creation/assignment, logout, least-privilege login and permission-aware navigation,
+- CI typecheck/test/build/E2E jobs.
 
 Remaining:
 - successful typecheck/test/build execution,
@@ -311,7 +313,8 @@ Implemented workflow:
 - rollback,
 - frontend typecheck,
 - frontend tests,
-- frontend build.
+- frontend build,
+- full-stack Playwright E2E.
 
 Blocked:
 - workflow YAML parsing defect has been fixed,
