@@ -200,3 +200,30 @@ func TestMeReturnsEffectivePermissions(t *testing.T) {
 		t.Fatalf("body = %s", rr.Body.String())
 	}
 }
+
+func TestLoginRejectsOversizedIdentifiersBeforeRateLimiter(t *testing.T) {
+	limiter := &fakeLimiter{allowed: true}
+	service := fakeAuthService{
+		loginFn: func(context.Context, LoginInput, RequestMeta) (LoginResult, error) {
+			t.Fatal("Login must not run for oversized identifiers")
+			return LoginResult{}, nil
+		},
+	}
+	handler := NewHandler(service, limiter, testSessionConfig(), testAuthConfig())
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/auth/login",
+		strings.NewReader(`{"tenant":"`+strings.Repeat("a", 101)+`","email":"admin@example.test","password":"not-a-real-password"}`),
+	)
+	request.RemoteAddr = "192.0.2.10:12345"
+	rr := httptest.NewRecorder()
+	handler.Login(rr, request)
+
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	if limiter.calls != 0 {
+		t.Fatalf("rate limiter calls = %d", limiter.calls)
+	}
+}
