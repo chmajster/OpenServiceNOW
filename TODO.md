@@ -173,11 +173,12 @@ Implemented:
 - bootstrap tenant/admin command,
 - tenant-scoped user administration,
 - session cleanup scheduler,
+- explicit trusted-proxy CIDRs and safe forwarded-IP resolution,
+- bounded login/password input sizes,
 - unit and smoke tests authored.
 
 Remaining:
-- executable verification,
-- trusted-proxy configuration before forwarded IP support.
+- executable verification.
 
 [P0] [-] Groups, roles, permissions and assignments.
 
@@ -241,21 +242,36 @@ Implemented:
 - `make migrate-up`,
 - `make migrate-down`,
 - `make bootstrap`,
-- `make scheduler-once`.
+- `make scheduler-once`,
+- `make frontend`,
+- `make frontend-test`.
 
 Remaining:
-- frontend/e2e targets after those subsystems exist.
+- E2E target when a browser-level E2E suite is introduced.
 
-[P1] [ ] React + TypeScript frontend foundation.
+[P1] [-] React + TypeScript frontend foundation.
 
-Required:
-- React,
-- TypeScript,
-- router,
-- API client boundary,
-- authentication state,
-- loading/empty/error primitives,
-- test/build baseline.
+Implemented:
+- React + TypeScript + React Router + Vite,
+- same-origin API proxy for development,
+- API client with cookie credentials and automatic CSRF header,
+- session/authentication context,
+- permission-aware navigation and route guards,
+- login screen,
+- overview/health screen,
+- tenant administration with optimistic-lock conflict handling,
+- tenant user administration,
+- RBAC role/group/assignment administration,
+- paginated audit screen,
+- responsive layout,
+- loading/error/empty/success states,
+- API-client unit tests,
+- CI typecheck/test/build job.
+
+Remaining:
+- successful typecheck/test/build execution,
+- generate and commit `web/package-lock.json`,
+- production static-frontend/reverse-proxy packaging in deployment work.
 
 [P1] [!] Execute CI successfully.
 
@@ -270,16 +286,23 @@ Implemented workflow:
 - bootstrap,
 - auth/RBAC/user smoke flow,
 - scheduler one-shot,
-- rollback.
+- rollback,
+- frontend typecheck,
+- frontend tests,
+- frontend build.
 
 Blocked:
-- GitHub job repeatedly ends before checkout with no runner and no steps.
+- both backend and frontend GitHub jobs repeatedly end before checkout with no runner and no steps.
 
-[P1] [!] Generate and commit `go.sum`.
+[P1] [!] Generate and commit dependency lock files.
+
+Required:
+- `go.sum`,
+- `web/package-lock.json`.
 
 Blocked:
 - dependency network is unavailable in the assistant runtime,
-- GitHub Actions runner has not started far enough to resolve modules.
+- GitHub Actions runners have not started far enough to resolve dependencies.
 
 ## Phase 2+
 
