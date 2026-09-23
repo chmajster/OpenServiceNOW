@@ -59,16 +59,21 @@ jobs:
           go-version: '1.27.x'
           cache: false
 
-      - name: Resolve Go modules
-        run: go mod download all
+      - name: Resolve and tidy Go modules
+        run: go mod tidy
 
-      - name: Preserve generated Go lock file
+      - name: Preserve generated Go module files
         uses: actions/upload-artifact@v4
         with:
-          name: phase1-go-lock
-          path: go.sum
+          name: phase1-go-module-files
+          path: |
+            go.mod
+            go.sum
           if-no-files-found: error
           retention-days: 7
+
+      - name: Verify go.mod is committed
+        run: git diff --exit-code -- go.mod
 
       - name: Verify formatting
         run: test -z "$(gofmt -l .)"
@@ -194,6 +199,9 @@ jobs:
           path: web/package-lock.json
           if-no-files-found: error
           retention-days: 7
+
+      - name: Verify package.json is unchanged
+        run: git diff --exit-code -- package.json
 
       - name: Typecheck frontend
         run: npm run typecheck
