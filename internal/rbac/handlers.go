@@ -245,7 +245,7 @@ func actorFromRequest(r *http.Request) (Actor, bool) {
 		TenantID:  session.TenantID,
 		UserID:    session.UserID,
 		RequestID: middleware.GetReqID(r.Context()),
-		IPAddress: requestinfo.DirectPeerIP(r),
+		IPAddress: requestinfo.ClientIP(r),
 	}, true
 }
 
