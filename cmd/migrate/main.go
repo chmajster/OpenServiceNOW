@@ -21,9 +21,15 @@ func main() {
 		logger.Error("configuration invalid", "error", err)
 		os.Exit(1)
 	}
-	if len(os.Args) != 2 || (os.Args[1] != "up" && os.Args[1] != "down") {
-		logger.Error("usage", "command", "migrate up|down")
-		os.Exit(2)
+	if len(os.Args) != 2 {
+		usage(logger)
+	}
+
+	command := os.Args[1]
+	switch command {
+	case "up", "down", "down-all", "version":
+	default:
+		usage(logger)
 	}
 
 	db, err := platformdb.OpenMySQLForMigrations(context.Background(), cfg.MySQL)
@@ -46,15 +52,39 @@ func main() {
 	}
 	defer func() { _, _ = m.Close() }()
 
-	switch os.Args[1] {
+	switch command {
 	case "up":
 		err = m.Up()
 	case "down":
 		err = m.Steps(-1)
+	case "down-all":
+		err = m.Down()
+	case "version":
+		printVersion(logger, m)
+		return
 	}
+
 	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		logger.Error("migration failed", "direction", os.Args[1], "error", err)
+		logger.Error("migration failed", "command", command, "error", err)
 		os.Exit(1)
 	}
-	fmt.Printf("migration %s complete\n", os.Args[1])
+	fmt.Printf("migration %s complete\n", command)
+}
+
+func usage(logger *slog.Logger) {
+	logger.Error("usage", "command", "migrate up|down|down-all|version")
+	os.Exit(2)
+}
+
+func printVersion(logger *slog.Logger, m *migrate.Migrate) {
+	version, dirty, err := m.Version()
+	if errors.Is(err, migrate.ErrNilVersion) {
+		fmt.Println("version: none dirty: false")
+		return
+	}
+	if err != nil {
+		logger.Error("read migration version", "error", err)
+		os.Exit(1)
+	}
+	fmt.Printf("version: %d dirty: %t\n", version, dirty)
 }
