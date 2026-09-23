@@ -4,7 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"math"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -47,13 +49,13 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ip := requestinfo.ClientIP(r)
-	allowed, err := h.allowLogin(r, request.Tenant, request.Email, ip)
+	allowed, retryAfter, err := h.allowLogin(r, request.Tenant, request.Email, ip)
 	if err != nil {
 		httpapi.WriteError(w, r, http.StatusServiceUnavailable, "AUTH_RATE_LIMIT_UNAVAILABLE", "Authentication temporarily unavailable")
 		return
 	}
 	if !allowed {
-		w.Header().Set("Retry-After", "60")
+		w.Header().Set("Retry-After", strconv.Itoa(max(1, int(math.Ceil(retryAfter.Seconds())))))
 		httpapi.WriteError(w, r, http.StatusTooManyRequests, "AUTH_RATE_LIMITED", "Too many authentication attempts")
 		return
 	}
