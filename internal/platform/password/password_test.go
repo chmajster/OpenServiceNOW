@@ -98,3 +98,17 @@ func TestHashRejectsOversizedArgonParameters(t *testing.T) {
 		t.Fatal("expected Argon2 parameter validation error")
 	}
 }
+
+func TestVerifyRejectsArgonParameterTrailingJunk(t *testing.T) {
+	encoded := "$argon2id$v=19$m=8192,t=1,p=1junk$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAA"
+	if _, err := Verify(encoded, "correct horse battery staple"); err == nil {
+		t.Fatal("expected malformed Argon2id parameter error")
+	}
+}
+
+func TestVerifyRejectsUnexpectedArgonParameterOrder(t *testing.T) {
+	encoded := "$argon2id$v=19$t=1,m=8192,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAA"
+	if _, err := Verify(encoded, "correct horse battery staple"); err == nil {
+		t.Fatal("expected unexpected Argon2id parameter order error")
+	}
+}
