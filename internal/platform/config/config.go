@@ -18,13 +18,13 @@ const (
 )
 
 type Config struct {
-	AppEnv          string
-	HTTPAddr        string
-	ShutdownTimeout time.Duration
-	MySQL           MySQLConfig
-	Redis           RedisConfig
-	Session         SessionConfig
-	Auth            AuthConfig
+	AppEnv            string
+	HTTPAddr          string
+	ShutdownTimeout   time.Duration
+	MySQL             MySQLConfig
+	Redis             RedisConfig
+	Session           SessionConfig
+	Auth              AuthConfig
 	TrustedProxyCIDRs []string
 }
 
@@ -59,7 +59,7 @@ type SessionConfig struct {
 	CSRFCookieName    string
 	CleanupInterval   time.Duration
 	CleanupBatch      int
-	RevokedRetention time.Duration
+	RevokedRetention  time.Duration
 }
 
 type AuthConfig struct {
