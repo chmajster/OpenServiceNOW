@@ -95,9 +95,12 @@ Implemented:
 - fail-fast validation,
 - structured JSON logging,
 - request IDs and access logs,
-- body limits,
-- security headers,
+- body limits and HTTP 413 handling,
+- security/privacy headers and no-store responses,
+- bounded request IDs,
+- controlled JSON panic recovery,
 - request/server timeouts,
+- panic-safe transaction rollback,
 - graceful shutdown,
 - consistent JSON error envelope,
 - unit tests authored.
@@ -110,6 +113,8 @@ Remaining:
 Implemented:
 - `database/sql` + go-sql-driver/mysql,
 - safe DSN generation through driver config,
+- optional MySQL TLS modes,
+- UTC MySQL session timezone,
 - configurable pool,
 - bounded PingContext,
 - central transaction manager,
@@ -131,6 +136,7 @@ Remaining:
 
 Implemented:
 - client configuration,
+- optional TLS with minimum TLS 1.2,
 - bounded ping,
 - login rate-limit storage,
 - readiness integration.
@@ -179,6 +185,9 @@ Implemented:
 - session cleanup scheduler,
 - explicit trusted-proxy CIDRs and safe forwarded-IP resolution,
 - bounded login/password input sizes,
+- bounded stored Argon2 work factors,
+- bounded concurrent Argon2 verification with AUTH_BUSY overload handling,
+- safe idempotent bootstrap requiring the existing user's password,
 - unit and smoke tests authored.
 
 Remaining:
@@ -192,9 +201,12 @@ Implemented:
 - service layer,
 - group membership,
 - role assignments to users/groups,
-- permission replacement,
+- cursor pagination/search for roles and groups,
+- optimistic-lock permission replacement,
 - immutable system-role permissions,
 - protection against removing the last active effective `platform_admin`,
+- dynamic `platform_admin` inheritance of every permission present in the live catalog,
+- reserved `platform_admin` role name,
 - idempotent assignments without false audit events,
 - backend `RequirePermission` middleware,
 - tenant-scoped administration API,
@@ -222,7 +234,7 @@ Implemented:
 - OpenAPI 3.1 JSON document,
 - only currently implemented endpoints are documented,
 - cookie session and CSRF security schemes,
-- contract test checking parseability and route inventory.
+- contract tests checking parseability, route inventory, local $ref resolution and unique operation IDs.
 
 Remaining:
 - execute contract test successfully,
