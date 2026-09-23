@@ -153,7 +153,7 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 		t.Fatalf("get tenant A: %v", err)
 	}
 	updated, err := tenantService.UpdateName(ctx, tenants.Actor{
-		TenantID: adminA.TenantID, UserID: adminA.UserID, RequestID: "integration",
+		TenantID: adminA.TenantID, UserID: secondAdminID, RequestID: "integration",
 	}, current.Version, "Isolation A Updated")
 	if err != nil {
 		t.Fatalf("update tenant A: %v", err)
@@ -162,7 +162,7 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 		t.Fatalf("tenant version = %d want %d", updated.Version, current.Version+1)
 	}
 	_, err = tenantService.UpdateName(ctx, tenants.Actor{
-		TenantID: adminA.TenantID, UserID: adminA.UserID, RequestID: "integration",
+		TenantID: adminA.TenantID, UserID: secondAdminID, RequestID: "integration",
 	}, current.Version, "Stale Update")
 	if !errors.Is(err, tenants.ErrConflict) {
 		t.Fatalf("stale tenant update error = %v, want ErrConflict", err)
