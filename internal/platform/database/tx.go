@@ -12,6 +12,12 @@ type Executor interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
 }
 
+type transaction interface {
+	Executor
+	Commit() error
+	Rollback() error
+}
+
 type TxManager struct {
 	db *sql.DB
 }
@@ -25,6 +31,16 @@ func (m *TxManager) WithTx(ctx context.Context, opts *sql.TxOptions, fn func(Exe
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
+	return runTransaction(tx, fn)
+}
+
+func runTransaction(tx transaction, fn func(Executor) error) (err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			_ = tx.Rollback()
+			panic(recovered)
+		}
+	}()
 
 	if err := fn(tx); err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
