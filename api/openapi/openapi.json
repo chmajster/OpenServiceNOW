@@ -91,7 +91,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthMeResponse"
+                  "$ref": "#/components/schemas/LoginResponse"
                 }
               }
             }
@@ -1458,6 +1458,26 @@
           "next_before_id": {
             "type": "integer",
             "format": "uint64"
+          }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "required": [
+          "user",
+          "tenant",
+          "expires_at"
+        ],
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/AuthUser"
+          },
+          "tenant": {
+            "$ref": "#/components/schemas/AuthTenant"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       }
