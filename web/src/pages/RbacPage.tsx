@@ -22,7 +22,18 @@ export function RbacPage() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [users, setUsers] = useState<TenantUser[]>([]);
+
+  const [nextRoleAfterID, setNextRoleAfterID] = useState<number | undefined>();
+  const [nextGroupAfterID, setNextGroupAfterID] = useState<number | undefined>();
+  const [roleSearch, setRoleSearch] = useState("");
+  const [activeRoleSearch, setActiveRoleSearch] = useState("");
+  const [groupSearch, setGroupSearch] = useState("");
+  const [activeGroupSearch, setActiveGroupSearch] = useState("");
+  const [userSearch, setUserSearch] = useState("");
+
   const [loading, setLoading] = useState(true);
+  const [loadingMoreRoles, setLoadingMoreRoles] = useState(false);
+  const [loadingMoreGroups, setLoadingMoreGroups] = useState(false);
   const [searchingUsers, setSearchingUsers] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,7 +42,6 @@ export function RbacPage() {
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
-  const [userSearch, setUserSearch] = useState("");
   const [assignmentUser, setAssignmentUser] = useState("");
   const [assignmentRole, setAssignmentRole] = useState("");
   const [busy, setBusy] = useState(false);
@@ -39,23 +49,69 @@ export function RbacPage() {
 
   const activeUsers = useMemo(() => users.filter((user) => user.membership_active), [users]);
 
-  async function loadCore() {
-    setLoading(true);
+  function listParams(afterID: number | undefined, query: string) {
+    const params = new URLSearchParams({ limit: "50" });
+    if (afterID) {
+      params.set("after_id", String(afterID));
+    }
+    if (query.trim()) {
+      params.set("q", query.trim());
+    }
+    return params;
+  }
+
+  async function loadRoles(afterID?: number, append = false, query = activeRoleSearch) {
+    append ? setLoadingMoreRoles(true) : setLoading(true);
     try {
-      const [permissionResponse, roleResponse, groupResponse] = await Promise.all([
-        api<PermissionsResponse>("/api/v1/admin/rbac/permissions"),
-        api<RolesResponse>("/api/v1/admin/rbac/roles"),
-        api<GroupsResponse>("/api/v1/admin/rbac/groups")
-      ]);
-      setPermissions(permissionResponse.permissions);
-      setRoles(roleResponse.roles);
-      setGroups(groupResponse.groups);
+      const response = await api<RolesResponse>(
+        `/api/v1/admin/rbac/roles?${listParams(afterID, query).toString()}`
+      );
+      setRoles((current) => (append ? [...current, ...response.roles] : response.roles));
+      setNextRoleAfterID(response.next_after_id);
       setError(null);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Nie udało się pobrać konfiguracji RBAC.");
+      setError(cause instanceof Error ? cause.message : "Nie udało się pobrać ról.");
     } finally {
       setLoading(false);
+      setLoadingMoreRoles(false);
     }
+  }
+
+  async function loadGroups(afterID?: number, append = false, query = activeGroupSearch) {
+    append ? setLoadingMoreGroups(true) : setLoading(true);
+    try {
+      const response = await api<GroupsResponse>(
+        `/api/v1/admin/rbac/groups?${listParams(afterID, query).toString()}`
+      );
+      setGroups((current) => (append ? [...current, ...response.groups] : response.groups));
+      setNextGroupAfterID(response.next_after_id);
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Nie udało się pobrać grup.");
+    } finally {
+      setLoading(false);
+      setLoadingMoreGroups(false);
+    }
+  }
+
+  async function loadPermissionCatalog() {
+    try {
+      const response = await api<PermissionsResponse>("/api/v1/admin/rbac/permissions");
+      setPermissions(response.permissions);
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Nie udało się pobrać katalogu uprawnień.");
+    }
+  }
+
+  async function loadCore() {
+    setLoading(true);
+    await Promise.all([
+      loadPermissionCatalog(),
+      loadRoles(undefined, false, activeRoleSearch),
+      loadGroups(undefined, false, activeGroupSearch)
+    ]);
+    setLoading(false);
   }
 
   async function searchUsers(query = userSearch) {
@@ -65,11 +121,9 @@ export function RbacPage() {
     }
     setSearchingUsers(true);
     try {
-      const params = new URLSearchParams({ limit: "50" });
-      if (query.trim()) {
-        params.set("q", query.trim());
-      }
-      const response = await api<UsersResponse>(`/api/v1/admin/users/?${params.toString()}`);
+      const response = await api<UsersResponse>(
+        `/api/v1/admin/users/?${listParams(undefined, query).toString()}`
+      );
       setUsers(response.users);
       setError(null);
     } catch (cause) {
@@ -114,7 +168,7 @@ export function RbacPage() {
       setRoleName("");
       setRoleDescription("");
       setSelectedPermissions([]);
-      await loadCore();
+      await loadRoles(undefined, false, activeRoleSearch);
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 409) {
         setError("Rola o tej nazwie już istnieje.");
@@ -138,12 +192,40 @@ export function RbacPage() {
       });
       setGroupName("");
       setGroupDescription("");
-      await loadCore();
+      await loadGroups(undefined, false, activeGroupSearch);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Utworzenie grupy nie powiodło się.");
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleRoleSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const query = roleSearch.trim();
+    setActiveRoleSearch(query);
+    setAssignmentRole("");
+    await loadRoles(undefined, false, query);
+  }
+
+  async function clearRoleSearch() {
+    setRoleSearch("");
+    setActiveRoleSearch("");
+    setAssignmentRole("");
+    await loadRoles(undefined, false, "");
+  }
+
+  async function handleGroupSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const query = groupSearch.trim();
+    setActiveGroupSearch(query);
+    await loadGroups(undefined, false, query);
+  }
+
+  async function clearGroupSearch() {
+    setGroupSearch("");
+    setActiveGroupSearch("");
+    await loadGroups(undefined, false, "");
   }
 
   async function handleUserSearch(event: FormEvent<HTMLFormElement>) {
@@ -272,7 +354,7 @@ export function RbacPage() {
                 <label>
                   Rola
                   <select value={assignmentRole} onChange={(event) => setAssignmentRole(event.target.value)} required>
-                    <option value="">Wybierz rolę</option>
+                    <option value="">Wybierz z załadowanych ról</option>
                     {roles.map((role) => (
                       <option key={role.id} value={role.id}>{role.name}</option>
                     ))}
@@ -292,8 +374,23 @@ export function RbacPage() {
 
       <div className="panel">
         <div className="panel-heading">
-          <div><h2>Role</h2><p className="muted">{roles.length} rekordów</p></div>
+          <div>
+            <h2>Role</h2>
+            <p className="muted">{roles.length} załadowanych rekordów{activeRoleSearch ? ` dla „${activeRoleSearch}”` : ""}</p>
+          </div>
         </div>
+        <form className="search-row" onSubmit={(event) => void handleRoleSearch(event)}>
+          <label className="search-field">
+            Szukaj roli
+            <input value={roleSearch} onChange={(event) => setRoleSearch(event.target.value)} maxLength={200} />
+          </label>
+          <button className="button button--secondary" type="submit" disabled={loading}>Szukaj</button>
+          {activeRoleSearch ? (
+            <button className="button button--secondary" type="button" onClick={() => void clearRoleSearch()} disabled={loading}>
+              Wyczyść
+            </button>
+          ) : null}
+        </form>
         <div className="card-list">
           {roles.map((role) => (
             <article className="list-card" key={role.id}>
@@ -308,13 +405,40 @@ export function RbacPage() {
               </div>
             </article>
           ))}
+          {roles.length === 0 ? <div className="empty-cell">Brak ról dla bieżącego filtra.</div> : null}
         </div>
+        {nextRoleAfterID ? (
+          <div className="panel-footer">
+            <button
+              className="button button--secondary"
+              disabled={loadingMoreRoles}
+              onClick={() => void loadRoles(nextRoleAfterID, true, activeRoleSearch)}
+            >
+              {loadingMoreRoles ? "Ładowanie…" : "Załaduj więcej ról"}
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <div className="panel">
         <div className="panel-heading">
-          <div><h2>Grupy</h2><p className="muted">{groups.length} rekordów</p></div>
+          <div>
+            <h2>Grupy</h2>
+            <p className="muted">{groups.length} załadowanych rekordów{activeGroupSearch ? ` dla „${activeGroupSearch}”` : ""}</p>
+          </div>
         </div>
+        <form className="search-row" onSubmit={(event) => void handleGroupSearch(event)}>
+          <label className="search-field">
+            Szukaj grupy
+            <input value={groupSearch} onChange={(event) => setGroupSearch(event.target.value)} maxLength={200} />
+          </label>
+          <button className="button button--secondary" type="submit" disabled={loading}>Szukaj</button>
+          {activeGroupSearch ? (
+            <button className="button button--secondary" type="button" onClick={() => void clearGroupSearch()} disabled={loading}>
+              Wyczyść
+            </button>
+          ) : null}
+        </form>
         <div className="card-list">
           {groups.map((group) => (
             <article className="list-card" key={group.id}>
@@ -325,8 +449,19 @@ export function RbacPage() {
               <span className="badge">{group.member_count} członków</span>
             </article>
           ))}
-          {groups.length === 0 ? <div className="empty-cell">Brak grup.</div> : null}
+          {groups.length === 0 ? <div className="empty-cell">Brak grup dla bieżącego filtra.</div> : null}
         </div>
+        {nextGroupAfterID ? (
+          <div className="panel-footer">
+            <button
+              className="button button--secondary"
+              disabled={loadingMoreGroups}
+              onClick={() => void loadGroups(nextGroupAfterID, true, activeGroupSearch)}
+            >
+              {loadingMoreGroups ? "Ładowanie…" : "Załaduj więcej grup"}
+            </button>
+          </div>
+        ) : null}
       </div>
     </section>
   );
