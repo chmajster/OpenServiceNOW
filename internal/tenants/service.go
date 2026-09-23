@@ -48,6 +48,10 @@ func (s *Service) UpdateName(
 		if current.Version != expectedVersion {
 			return ErrConflict
 		}
+		if current.Name == name {
+			updated = current
+			return nil
+		}
 		if err := s.repo.UpdateName(ctx, exec, actor.TenantID, expectedVersion, name); err != nil {
 			return err
 		}
