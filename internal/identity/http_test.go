@@ -192,7 +192,10 @@ func TestMeReturnsEffectivePermissions(t *testing.T) {
 	handler := NewHandler(service, &fakeLimiter{allowed: true}, testSessionConfig(), testAuthConfig())
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
 	request = request.WithContext(context.WithValue(request.Context(), identityContextKey, SessionIdentity{
-		UserID: 1, TenantID: 2, Email: "admin@example.test", TenantSlug: "default",
+		UserID: 9007199254740993,
+		TenantID: 9007199254740995,
+		Email: "admin@example.test",
+		TenantSlug: "default",
 	}))
 	rr := httptest.NewRecorder()
 	handler.Me(rr, request)
@@ -202,6 +205,12 @@ func TestMeReturnsEffectivePermissions(t *testing.T) {
 	}
 	if !strings.Contains(rr.Body.String(), `"admin.access"`) {
 		t.Fatalf("body = %s", rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `"id":"9007199254740993"`) {
+		t.Fatalf("user BIGINT ID is not string encoded: %s", rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `"id":"9007199254740995"`) {
+		t.Fatalf("tenant BIGINT ID is not string encoded: %s", rr.Body.String())
 	}
 }
 
