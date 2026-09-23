@@ -62,6 +62,9 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func writeError(w http.ResponseWriter, r *http.Request, err error) {
+	if httpapi.WriteContextError(w, r, err) {
+		return
+	}
 	switch {
 	case errors.Is(err, ErrInvalid):
 		httpapi.WriteError(w, r, http.StatusBadRequest, "INVALID_TENANT_INPUT", "Invalid tenant input")
