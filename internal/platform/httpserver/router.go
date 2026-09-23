@@ -13,9 +13,19 @@ import (
 
 type RouteRegistrar func(chi.Router)
 
-func Router(logger *slog.Logger, healthHandler *health.Handler, registrars ...RouteRegistrar) http.Handler {
+func Router(
+	logger *slog.Logger,
+	healthHandler *health.Handler,
+	globalMiddleware []func(http.Handler) http.Handler,
+	registrars ...RouteRegistrar,
+) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
+	for _, item := range globalMiddleware {
+		if item != nil {
+			r.Use(item)
+		}
+	}
 	r.Use(accessLog(logger))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
