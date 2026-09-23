@@ -81,3 +81,10 @@ func TestSessionCookieNamesAreStableProtocolConstants(t *testing.T) {
 		t.Fatalf("CSRF cookie name = %q", cfg.Session.CSRFCookieName)
 	}
 }
+
+func TestLoadRejectsInvalidTrustedProxyCIDR(t *testing.T) {
+	t.Setenv("TRUSTED_PROXY_CIDRS", "10.0.0.0/8,not-a-cidr")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected trusted proxy validation error")
+	}
+}
