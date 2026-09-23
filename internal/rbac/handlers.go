@@ -28,7 +28,7 @@ type createRoleRequest struct {
 }
 
 type setRolePermissionsRequest struct {
-	Version     uint64   `json:"version"`
+	Version     uint64   `json:"version,string"`
 	Permissions []string `json:"permissions"`
 }
 
