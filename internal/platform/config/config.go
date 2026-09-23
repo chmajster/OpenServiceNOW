@@ -316,6 +316,14 @@ func envDuration(key string, fallback time.Duration) (time.Duration, error) {
 }
 
 func (c MySQLConfig) DSN() string {
+	return c.dsn(false)
+}
+
+func (c MySQLConfig) MigrationDSN() string {
+	return c.dsn(true)
+}
+
+func (c MySQLConfig) dsn(multiStatements bool) string {
 	cfg := mysqlDriver.NewConfig()
 	cfg.User = c.User
 	cfg.Passwd = c.Password
@@ -328,6 +336,7 @@ func (c MySQLConfig) DSN() string {
 	cfg.Timeout = 5 * time.Second
 	cfg.ReadTimeout = 10 * time.Second
 	cfg.WriteTimeout = 10 * time.Second
+	cfg.MultiStatements = multiStatements
 	cfg.Params = map[string]string{"charset": "utf8mb4"}
 	return cfg.FormatDSN()
 }
