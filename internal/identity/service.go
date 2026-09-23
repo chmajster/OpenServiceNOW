@@ -53,6 +53,9 @@ func (s *Service) Login(ctx context.Context, input LoginInput, meta RequestMeta)
 	if tenantSlug == "" || email == "" || input.Password == "" {
 		return LoginResult{}, ErrInvalidCredentials
 	}
+	if len(tenantSlug) > 100 || len(email) > 254 || len(input.Password) > password.MaxPasswordBytes {
+		return LoginResult{}, ErrInvalidCredentials
+	}
 
 	user, tenant, err := s.repo.FindForLogin(ctx, tenantSlug, email)
 	if errors.Is(err, ErrNotFound) {
