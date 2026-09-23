@@ -134,34 +134,66 @@ func (r *MySQLRepository) RevokeSession(
 
 func (r *MySQLRepository) ListPermissions(ctx context.Context, tenantID, userID uint64) ([]string, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT permission_key
-		FROM (
-			SELECT p.permission_key
-			FROM user_role_assignments ura
-			JOIN roles r ON r.id = ura.role_id AND r.tenant_id = ura.tenant_id
-			JOIN role_permissions rp ON rp.role_id = r.id
-			JOIN permissions p ON p.id = rp.permission_id
-			WHERE ura.tenant_id = ? AND ura.user_id = ?
-
-			UNION
-
-			SELECT p.permission_key
-			FROM group_memberships gm
-			JOIN group_role_assignments gra
-				ON gra.tenant_id = gm.tenant_id AND gra.group_id = gm.group_id
-			JOIN roles r ON r.id = gra.role_id AND r.tenant_id = gra.tenant_id
-			JOIN role_permissions rp ON rp.role_id = r.id
-			JOIN permissions p ON p.id = rp.permission_id
-			WHERE gm.tenant_id = ? AND gm.user_id = ?
-		) effective_permissions
-		ORDER BY permission_key
-	`, tenantID, userID, tenantID, userID)
+		SELECT p.permission_key
+		FROM permissions p
+		WHERE EXISTS (
+			SELECT 1
+			FROM tenant_memberships tm
+			JOIN users u ON u.id = tm.user_id AND u.active = TRUE
+			WHERE tm.tenant_id = ?
+			  AND tm.user_id = ?
+			  AND tm.active = TRUE
+			  AND (
+				EXISTS (
+					SELECT 1
+					FROM user_role_assignments ura
+					JOIN roles r ON r.id = ura.role_id AND r.tenant_id = ura.tenant_id
+					WHERE ura.tenant_id = tm.tenant_id
+					  AND ura.user_id = tm.user_id
+					  AND r.name = 'platform_admin'
+					  AND r.system_role = TRUE
+				)
+				OR EXISTS (
+					SELECT 1
+					FROM group_memberships gm
+					JOIN group_role_assignments gra
+					  ON gra.tenant_id = gm.tenant_id AND gra.group_id = gm.group_id
+					JOIN roles r ON r.id = gra.role_id AND r.tenant_id = gra.tenant_id
+					WHERE gm.tenant_id = tm.tenant_id
+					  AND gm.user_id = tm.user_id
+					  AND r.name = 'platform_admin'
+					  AND r.system_role = TRUE
+				)
+				OR EXISTS (
+					SELECT 1
+					FROM user_role_assignments ura
+					JOIN roles r ON r.id = ura.role_id AND r.tenant_id = ura.tenant_id
+					JOIN role_permissions rp ON rp.role_id = r.id
+					WHERE ura.tenant_id = tm.tenant_id
+					  AND ura.user_id = tm.user_id
+					  AND rp.permission_id = p.id
+				)
+				OR EXISTS (
+					SELECT 1
+					FROM group_memberships gm
+					JOIN group_role_assignments gra
+					  ON gra.tenant_id = gm.tenant_id AND gra.group_id = gm.group_id
+					JOIN roles r ON r.id = gra.role_id AND r.tenant_id = gra.tenant_id
+					JOIN role_permissions rp ON rp.role_id = r.id
+					WHERE gm.tenant_id = tm.tenant_id
+					  AND gm.user_id = tm.user_id
+					  AND rp.permission_id = p.id
+				)
+			  )
+		)
+		ORDER BY p.permission_key
+	`, tenantID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list permissions: %w", err)
 	}
 	defer rows.Close()
 
-	var permissions []string
+	permissions := make([]string, 0)
 	for rows.Next() {
 		var permission string
 		if err := rows.Scan(&permission); err != nil {
@@ -178,27 +210,62 @@ func (r *MySQLRepository) ListPermissions(ctx context.Context, tenantID, userID 
 func (r *MySQLRepository) HasPermission(ctx context.Context, tenantID, userID uint64, permission string) (bool, error) {
 	var allowed bool
 	err := r.db.QueryRowContext(ctx, `
-		SELECT
-			EXISTS(
+		SELECT EXISTS (
+			SELECT 1
+			FROM permissions p
+			WHERE p.permission_key = ?
+			  AND EXISTS (
 				SELECT 1
-				FROM user_role_assignments ura
-				JOIN roles r ON r.id = ura.role_id AND r.tenant_id = ura.tenant_id
-				JOIN role_permissions rp ON rp.role_id = r.id
-				JOIN permissions p ON p.id = rp.permission_id
-				WHERE ura.tenant_id = ? AND ura.user_id = ? AND p.permission_key = ?
-			)
-			OR
-			EXISTS(
-				SELECT 1
-				FROM group_memberships gm
-				JOIN group_role_assignments gra
-					ON gra.tenant_id = gm.tenant_id AND gra.group_id = gm.group_id
-				JOIN roles r ON r.id = gra.role_id AND r.tenant_id = gra.tenant_id
-				JOIN role_permissions rp ON rp.role_id = r.id
-				JOIN permissions p ON p.id = rp.permission_id
-				WHERE gm.tenant_id = ? AND gm.user_id = ? AND p.permission_key = ?
-			)
-	`, tenantID, userID, permission, tenantID, userID, permission).Scan(&allowed)
+				FROM tenant_memberships tm
+				JOIN users u ON u.id = tm.user_id AND u.active = TRUE
+				WHERE tm.tenant_id = ?
+				  AND tm.user_id = ?
+				  AND tm.active = TRUE
+				  AND (
+					EXISTS (
+						SELECT 1
+						FROM user_role_assignments ura
+						JOIN roles r ON r.id = ura.role_id AND r.tenant_id = ura.tenant_id
+						WHERE ura.tenant_id = tm.tenant_id
+						  AND ura.user_id = tm.user_id
+						  AND r.name = 'platform_admin'
+						  AND r.system_role = TRUE
+					)
+					OR EXISTS (
+						SELECT 1
+						FROM group_memberships gm
+						JOIN group_role_assignments gra
+						  ON gra.tenant_id = gm.tenant_id AND gra.group_id = gm.group_id
+						JOIN roles r ON r.id = gra.role_id AND r.tenant_id = gra.tenant_id
+						WHERE gm.tenant_id = tm.tenant_id
+						  AND gm.user_id = tm.user_id
+						  AND r.name = 'platform_admin'
+						  AND r.system_role = TRUE
+					)
+					OR EXISTS (
+						SELECT 1
+						FROM user_role_assignments ura
+						JOIN roles r ON r.id = ura.role_id AND r.tenant_id = ura.tenant_id
+						JOIN role_permissions rp ON rp.role_id = r.id
+						WHERE ura.tenant_id = tm.tenant_id
+						  AND ura.user_id = tm.user_id
+						  AND rp.permission_id = p.id
+					)
+					OR EXISTS (
+						SELECT 1
+						FROM group_memberships gm
+						JOIN group_role_assignments gra
+						  ON gra.tenant_id = gm.tenant_id AND gra.group_id = gm.group_id
+						JOIN roles r ON r.id = gra.role_id AND r.tenant_id = gra.tenant_id
+						JOIN role_permissions rp ON rp.role_id = r.id
+						WHERE gm.tenant_id = tm.tenant_id
+						  AND gm.user_id = tm.user_id
+						  AND rp.permission_id = p.id
+					)
+				  )
+			  )
+		)
+	`, permission, tenantID, userID).Scan(&allowed)
 	if err != nil {
 		return false, fmt.Errorf("check permission: %w", err)
 	}
