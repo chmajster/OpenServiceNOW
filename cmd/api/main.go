@@ -18,6 +18,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/platform/health"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/httpserver"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/ratelimit"
+	"github.com/chmajster/OpenServiceNOW/internal/platform/requestinfo"
 	"github.com/chmajster/OpenServiceNOW/internal/rbac"
 	"github.com/chmajster/OpenServiceNOW/internal/tenants"
 	"github.com/chmajster/OpenServiceNOW/internal/users"
@@ -34,6 +35,12 @@ func main() {
 
 	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
+
+	clientIPResolver, err := requestinfo.NewResolver(cfg.TrustedProxyCIDRs)
+	if err != nil {
+		logger.Error("trusted proxy configuration invalid", "error", err)
+		os.Exit(1)
+	}
 
 	db, err := database.OpenMySQL(rootCtx, cfg.MySQL)
 	if err != nil {
@@ -88,6 +95,7 @@ func main() {
 		Handler: httpserver.Router(
 			logger,
 			healthHandler,
+			[]func(http.Handler) http.Handler{clientIPResolver.Middleware},
 			func(r chi.Router) {
 				identity.RegisterRoutes(r, identityHandler, identityMiddleware)
 			},
