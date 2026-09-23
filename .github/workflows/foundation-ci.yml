@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       mysql:
         image: mysql:8.4
@@ -58,6 +58,17 @@ jobs:
         with:
           go-version: '1.27.x'
           cache: false
+
+      - name: Resolve Go modules
+        run: go mod download all
+
+      - name: Preserve generated Go lock file
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase1-go-lock
+          path: go.sum
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Verify formatting
         run: test -z "$(gofmt -l .)"
@@ -162,7 +173,7 @@ jobs:
         run: go run ./cmd/migrate down
 
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: web
@@ -175,6 +186,14 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm install --no-audit --no-fund
+
+      - name: Preserve generated npm lock file
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase1-npm-lock
+          path: web/package-lock.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Typecheck frontend
         run: npm run typecheck
