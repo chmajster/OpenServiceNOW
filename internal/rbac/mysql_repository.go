@@ -81,8 +81,16 @@ func (r *MySQLRepository) ListRoles(ctx context.Context, tenantID uint64) ([]Rol
 	permissionRows, err := r.db.QueryContext(ctx, `
 		SELECT r.id, p.id, p.permission_key, COALESCE(p.description, '')
 		FROM roles r
-		JOIN role_permissions rp ON rp.role_id = r.id
-		JOIN permissions p ON p.id = rp.permission_id
+		JOIN permissions p
+		  ON (
+			(r.name = 'platform_admin' AND r.system_role = TRUE)
+			OR EXISTS (
+				SELECT 1
+				FROM role_permissions rp
+				WHERE rp.role_id = r.id
+				  AND rp.permission_id = p.id
+			)
+		  )
 		WHERE r.tenant_id = ?
 		ORDER BY r.id, p.permission_key
 	`, tenantID)
