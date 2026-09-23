@@ -132,6 +132,28 @@ func (r *MySQLRepository) RevokeSession(
 	return nil
 }
 
+func (r *MySQLRepository) RevokeUserSessions(
+	ctx context.Context,
+	exec platformdb.Executor,
+	tenantID, userID uint64,
+) (int64, error) {
+	result, err := exec.ExecContext(ctx, `
+		UPDATE sessions
+		SET revoked_at = UTC_TIMESTAMP(6)
+		WHERE tenant_id = ?
+		  AND user_id = ?
+		  AND revoked_at IS NULL
+	`, tenantID, userID)
+	if err != nil {
+		return 0, fmt.Errorf("revoke user sessions: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("read revoked user sessions result: %w", err)
+	}
+	return affected, nil
+}
+
 func (r *MySQLRepository) ListPermissions(ctx context.Context, tenantID, userID uint64) ([]string, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT p.permission_key
