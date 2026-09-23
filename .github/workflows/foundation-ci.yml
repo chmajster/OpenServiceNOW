@@ -77,6 +77,9 @@ jobs:
       - name: Apply migrations
         run: go run ./cmd/migrate up
 
+      - name: MySQL integration tests
+        run: go test -tags=integration ./internal/integration
+
       - name: Bootstrap tenant and administrator
         run: go run ./cmd/bootstrap
 
