@@ -92,6 +92,27 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 		t.Fatalf("cross-tenant group membership error = %v, want ErrNotFound", err)
 	}
 
+	roles, err := rbacService.ListRoles(ctx, adminA.TenantID)
+	if err != nil {
+		t.Fatalf("list tenant A roles: %v", err)
+	}
+	var platformAdminRoleID uint64
+	for _, role := range roles {
+		if role.Name == "platform_admin" {
+			platformAdminRoleID = role.ID
+			break
+		}
+	}
+	if platformAdminRoleID == 0 {
+		t.Fatal("platform_admin role not found")
+	}
+	if err := rbacService.SetRolePermissions(ctx, actorA, platformAdminRoleID, []string{"tenant.read"}); !errors.Is(err, rbac.ErrInvalid) {
+		t.Fatalf("system role permission update error = %v, want ErrInvalid", err)
+	}
+	if err := rbacService.RemoveRoleFromUser(ctx, actorA, platformAdminRoleID, adminA.UserID); !errors.Is(err, rbac.ErrInvalid) {
+		t.Fatalf("self system-role removal error = %v, want ErrInvalid", err)
+	}
+
 	tenantRepo := tenants.NewMySQLRepository(db)
 	tenantService := tenants.NewService(tenantRepo, tx, auditRepo)
 	current, err := tenantService.Get(ctx, adminA.TenantID)
