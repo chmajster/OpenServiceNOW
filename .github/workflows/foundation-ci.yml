@@ -166,11 +166,11 @@ jobs:
       - name: Run scheduler cleanup once
         run: go run ./cmd/scheduler --once
 
-      - name: Roll back identity migration
-        run: go run ./cmd/migrate down
+      - name: Roll back all migrations
+        run: go run ./cmd/migrate down-all
 
-      - name: Roll back foundation migration
-        run: go run ./cmd/migrate down
+      - name: Verify migration rollback state
+        run: go run ./cmd/migrate version | grep -q 'version: none dirty: false'
 
   frontend:
     runs-on: ubuntu-24.04
