@@ -6,6 +6,7 @@ var (
 	ErrNotFound = errors.New("rbac resource not found")
 	ErrConflict = errors.New("rbac resource conflict")
 	ErrInvalid  = errors.New("invalid rbac input")
+	errNoChange = errors.New("rbac operation made no change")
 )
 
 type Permission struct {
