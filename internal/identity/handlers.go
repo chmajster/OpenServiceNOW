@@ -35,7 +35,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	var request loginRequest
 	if err := httpapi.DecodeJSON(r, &request); err != nil {
-		httpapi.WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "Invalid JSON request")
+		httpapi.WriteDecodeError(w, r, err)
 		return
 	}
 
