@@ -71,3 +71,18 @@ func TestMiddlewareStoresResolvedClientIP(t *testing.T) {
 		t.Fatalf("ClientIP() = %q", got)
 	}
 }
+
+func TestResolverFallsBackToDirectPeerWhenAllForwardedHopsAreTrusted(t *testing.T) {
+	resolver, err := NewResolver([]string{"10.0.0.0/8", "192.168.0.0/16"})
+	if err != nil {
+		t.Fatalf("NewResolver() error = %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.RemoteAddr = "10.0.0.5:443"
+	request.Header.Set("X-Forwarded-For", "10.9.9.9, 192.168.1.10")
+
+	if got := resolver.Resolve(request); got != "10.0.0.5" {
+		t.Fatalf("Resolve() = %q", got)
+	}
+}
