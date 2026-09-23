@@ -59,24 +59,28 @@ func Router(
 func panicRecovery(logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 			defer func() {
-				if recover() != nil {
+				if recovered := recover(); recovered != nil {
 					logger.Error(
 						"http panic recovered",
 						"request_id", middleware.GetReqID(r.Context()),
 						"method", r.Method,
 						"path", r.URL.Path,
+						"response_started", ww.Status() != 0,
 					)
-					httpapi.WriteError(
-						w,
-						r,
-						http.StatusInternalServerError,
-						"INTERNAL_SERVER_ERROR",
-						"Internal server error",
-					)
+					if ww.Status() == 0 {
+						httpapi.WriteError(
+							ww,
+							r,
+							http.StatusInternalServerError,
+							"INTERNAL_SERVER_ERROR",
+							"Internal server error",
+						)
+					}
 				}
 			}()
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(ww, r)
 		})
 	}
 }
