@@ -5,17 +5,17 @@ import { PageState } from "../components/PageState";
 
 export function AuditPage() {
   const [events, setEvents] = useState<AuditRecord[]>([]);
-  const [nextBeforeID, setNextBeforeID] = useState<number | undefined>();
+  const [nextBeforeID, setNextBeforeID] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function load(beforeID?: number, append = false) {
+  async function load(beforeID?: string, append = false) {
     append ? setLoadingMore(true) : setLoading(true);
     try {
       const query = new URLSearchParams({ limit: "50" });
       if (beforeID) {
-        query.set("before_id", String(beforeID));
+        query.set("before_id", beforeID);
       }
       const response = await api<AuditPageResponse>(`/api/v1/admin/audit/?${query.toString()}`);
       setEvents((current) => (append ? [...current, ...response.events] : response.events));
