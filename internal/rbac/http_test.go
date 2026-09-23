@@ -45,14 +45,28 @@ func (f fakeAuth) HasPermission(context.Context, identity.SessionIdentity, strin
 
 type fakeRBAC struct {
 	createRoleCalls int
+	listRoleCalls   int
+	listRoleAfterID uint64
+	listRoleLimit   int
+	listRoleQuery   string
 }
 
 func (f *fakeRBAC) ListPermissions(context.Context) ([]Permission, error) {
 	return []Permission{{ID: 1, Key: "admin.rbac.manage"}}, nil
 }
 
-func (f *fakeRBAC) ListRoles(context.Context, uint64) ([]Role, error) {
-	return []Role{}, nil
+func (f *fakeRBAC) ListRoles(
+	_ context.Context,
+	_ uint64,
+	afterID uint64,
+	limit int,
+	query string,
+) (RolePage, error) {
+	f.listRoleCalls++
+	f.listRoleAfterID = afterID
+	f.listRoleLimit = limit
+	f.listRoleQuery = query
+	return RolePage{Roles: []Role{}, NextAfterID: 99}, nil
 }
 
 func (f *fakeRBAC) CreateRole(context.Context, Actor, CreateRoleInput) (uint64, error) {
@@ -64,8 +78,14 @@ func (f *fakeRBAC) SetRolePermissions(context.Context, Actor, uint64, []string) 
 	return nil
 }
 
-func (f *fakeRBAC) ListGroups(context.Context, uint64) ([]Group, error) {
-	return []Group{}, nil
+func (f *fakeRBAC) ListGroups(
+	context.Context,
+	uint64,
+	uint64,
+	int,
+	string,
+) (GroupPage, error) {
+	return GroupPage{Groups: []Group{}}, nil
 }
 
 func (f *fakeRBAC) CreateGroup(context.Context, Actor, CreateGroupInput) (uint64, error) {
@@ -207,5 +227,55 @@ func TestRBACWriteAllowedWithCSRF(t *testing.T) {
 	}
 	if service.createRoleCalls != 1 {
 		t.Fatalf("create role calls = %d", service.createRoleCalls)
+	}
+}
+
+func TestRBACRoleListRejectsOversizedLimit(t *testing.T) {
+	service := &fakeRBAC{}
+	router := newRouter(fakeAuth{
+		identity:    identity.SessionIdentity{UserID: 1, TenantID: 2},
+		permission: true,
+	}, service)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(
+		rr,
+		authenticatedRequest(http.MethodGet, "/api/v1/admin/rbac/roles?limit=201", ""),
+	)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	if service.listRoleCalls != 0 {
+		t.Fatalf("list role calls = %d", service.listRoleCalls)
+	}
+}
+
+func TestRBACRoleListPassesCursorAndSearch(t *testing.T) {
+	service := &fakeRBAC{}
+	router := newRouter(fakeAuth{
+		identity:    identity.SessionIdentity{UserID: 1, TenantID: 2},
+		permission: true,
+	}, service)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(
+		rr,
+		authenticatedRequest(http.MethodGet, "/api/v1/admin/rbac/roles?after_id=12&limit=25&q=operator", ""),
+	)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	if service.listRoleAfterID != 12 || service.listRoleLimit != 25 || service.listRoleQuery != "operator" {
+		t.Fatalf(
+			"list args after=%d limit=%d query=%q",
+			service.listRoleAfterID,
+			service.listRoleLimit,
+			service.listRoleQuery,
+		)
+	}
+	if !strings.Contains(rr.Body.String(), `"next_after_id":99`) {
+		t.Fatalf("body = %s", rr.Body.String())
 	}
 }
