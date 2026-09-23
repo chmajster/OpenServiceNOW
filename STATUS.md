@@ -20,8 +20,8 @@ Implemented on the Phase 1 branch:
 - `cmd/bootstrap`,
 - `cmd/scheduler` with real session-cleanup work and `--once` verification mode,
 - validated environment configuration,
-- structured JSON logging and request IDs,
-- HTTP access logging, body limits, security/privacy headers, request-ID sanitization and timeouts,
+- structured JSON logging and server-generated request IDs,
+- HTTP access logging, body limits, security/privacy headers, server-generated request IDs and timeouts,
 - controlled JSON panic recovery,
 - panic-safe transaction rollback,
 - graceful API and scheduler shutdown,
@@ -38,7 +38,7 @@ Implemented on the Phase 1 branch:
 - tenant bootstrap with initial platform administrator,
 - groups, roles, permission catalog and assignments,
 - backend permission middleware,
-- tenant-scoped user administration with cursor pagination/search,
+- tenant-scoped user administration with cursor pagination/search and membership-triggered session revocation,
 - current-tenant administration with optimistic locking,
 - role/group administration with cursor pagination/search,
 - optimistic locking for role permission replacement,
@@ -51,7 +51,7 @@ Implemented on the Phase 1 branch:
 - unit tests for configuration, HTTP, password hashing, authentication gates, RBAC gates and scheduler cleanup,
 - MySQL integration test source for cross-tenant isolation and optimistic locking,
 - trusted-proxy-aware client IP resolution with spoofing/all-trusted-chain tests,
-- canonical IP metadata and sanitized request IDs,
+- canonical IP metadata and server-generated request IDs,
 - optional verified TLS for MySQL and Redis,
 - MySQL session timezone forced to UTC,
 - bounded password input and stored Argon2 work-factor validation,
@@ -66,7 +66,7 @@ Implemented on the Phase 1 branch:
 - mobile-safe logout and permission-aware read-only tenant UI,
 - server-side bounded search/pagination controls in user/RBAC screens,
 - role permission editor using optimistic locking,
-- CI workflow covering backend format/vet/unit/race/build/migrations/integration/smoke/scheduler/rollback and frontend typecheck/test/build.
+- CI workflow covering dependency manifest stability, backend format/vet/unit/race/build/migrations/integration/smoke/advisory-lock scheduler/rollback and frontend typecheck/test/build.
 
 ## Currently in progress
 
@@ -192,7 +192,7 @@ Each up/down migration contains one SQL statement. Runtime readiness requires mi
 
 Known non-blocking design work:
 
-- scheduler should remain a single logical scheduler instance until distributed locking/leader coordination is implemented,
+- session cleanup scheduler uses a MySQL advisory lock so parallel replicas skip duplicate work; broader multi-job scheduler coordination will evolve with future workloads,
 - `cmd/worker` is intentionally absent until a real durable job workload exists,
 - production packaging for the built frontend is not defined yet,
 - external authentication providers are not implemented yet.
