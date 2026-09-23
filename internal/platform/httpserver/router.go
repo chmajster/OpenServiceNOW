@@ -3,6 +3,7 @@ package httpserver
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/chmajster/OpenServiceNOW/internal/platform/health"
@@ -20,6 +21,7 @@ func Router(
 	registrars ...RouteRegistrar,
 ) http.Handler {
 	r := chi.NewRouter()
+	r.Use(sanitizeIncomingRequestID)
 	r.Use(middleware.RequestID)
 	r.Use(requestIDHeader)
 	for _, item := range globalMiddleware {
@@ -67,6 +69,34 @@ func accessLog(logger *slog.Logger) func(http.Handler) http.Handler {
 			)
 		})
 	}
+}
+
+func sanitizeIncomingRequestID(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		const header = "X-Request-ID"
+		value := r.Header.Get(header)
+		if value != "" && !validRequestID(value) {
+			r.Header.Del(header)
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func validRequestID(value string) bool {
+	if len(value) < 1 || len(value) > 64 || strings.TrimSpace(value) != value {
+		return false
+	}
+	for _, char := range value {
+		switch {
+		case char >= 'a' && char <= 'z':
+		case char >= 'A' && char <= 'Z':
+		case char >= '0' && char <= '9':
+		case strings.ContainsRune("._:-", char):
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func requestIDHeader(next http.Handler) http.Handler {
