@@ -1,0 +1,20 @@
+CREATE TABLE audit_events (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    tenant_id BIGINT UNSIGNED NULL,
+    actor_user_id BIGINT UNSIGNED NULL,
+    event_time DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    action VARCHAR(160) NOT NULL,
+    object_type VARCHAR(100) NOT NULL,
+    object_id VARCHAR(128) NULL,
+    old_values JSON NULL,
+    new_values JSON NULL,
+    request_id VARCHAR(128) NULL,
+    source VARCHAR(64) NOT NULL,
+    ip_address VARCHAR(45) NULL,
+    PRIMARY KEY (id),
+    KEY idx_audit_tenant_time (tenant_id, event_time),
+    KEY idx_audit_object (tenant_id, object_type, object_id, event_time),
+    KEY idx_audit_actor (tenant_id, actor_user_id, event_time),
+    CONSTRAINT fk_audit_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE SET NULL,
+    CONSTRAINT fk_audit_actor FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
