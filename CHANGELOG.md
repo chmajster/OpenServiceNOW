@@ -84,3 +84,34 @@ No runtime application was introduced in Phase 0. Go code, schema migrations, fr
 ### Verification status
 
 The implementation remains unmerged because GitHub Actions jobs are repeatedly terminating before checkout with no assigned runner and no executed steps. Test/build success is not claimed until the workflow actually runs.
+
+## 2026-09-23 — Phase 1 frontend and request-security foundation
+
+### Added
+
+- React + TypeScript + React Router frontend,
+- Vite development proxy for same-origin API access,
+- cookie-session authentication context,
+- automatic CSRF header handling in the frontend API client,
+- permission-aware navigation and route guards,
+- login, overview, tenant, user, RBAC and audit screens,
+- responsive desktop/mobile layout and explicit loading/error/empty/success states,
+- frontend API-client unit tests,
+- frontend typecheck/test/build CI job,
+- explicit trusted proxy CIDR configuration,
+- safe right-to-left `X-Forwarded-For` resolution only when the direct peer is trusted,
+- trusted-proxy spoofing tests,
+- fixed session/CSRF cookie protocol names shared by backend, frontend and OpenAPI,
+- password and login input size limits.
+
+### Security
+
+- untrusted peers cannot override audit/rate-limit client IPs through forwarded headers,
+- `platform_admin` system-role permissions cannot be replaced,
+- an administrator cannot remove their own system role through the RBAC API,
+- frontend logout retains authenticated state and surfaces an error if backend revocation fails,
+- session cookie protocol names cannot be changed independently of the frontend.
+
+### Verification status
+
+Backend and frontend GitHub Actions jobs still fail before runner allocation with empty step lists. No build/test success is claimed. `go.sum` and `web/package-lock.json` remain required before merge.
