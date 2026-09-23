@@ -66,3 +66,35 @@ func TestVerifyRejectsOversizedCandidateBeforeArgon2(t *testing.T) {
 		t.Fatal("oversized password candidate must not verify")
 	}
 }
+
+func TestVerifyRejectsExcessiveStoredArgonMemory(t *testing.T) {
+	params := Params{
+		Memory: 8 * 1024, Iterations: 1, Parallelism: 1, SaltLength: 16, KeyLength: 32,
+	}
+	hash, err := HashWithParams("correct horse battery staple", params)
+	if err != nil {
+		t.Fatalf("HashWithParams() error = %v", err)
+	}
+	malicious := strings.Replace(
+		hash,
+		"m=8192,t=1,p=1",
+		"m=1048576,t=1,p=1",
+		1,
+	)
+	if _, err := Verify(malicious, "correct horse battery staple"); err == nil {
+		t.Fatal("expected excessive Argon2 memory parameter error")
+	}
+}
+
+func TestHashRejectsOversizedArgonParameters(t *testing.T) {
+	_, err := HashWithParams("correct horse battery staple", Params{
+		Memory: MaxArgonMemoryKiB + 1,
+		Iterations: 1,
+		Parallelism: 1,
+		SaltLength: 16,
+		KeyLength: 32,
+	})
+	if err == nil {
+		t.Fatal("expected Argon2 parameter validation error")
+	}
+}
