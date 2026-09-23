@@ -40,6 +40,9 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 
 	page, err := h.reader.List(r.Context(), session.TenantID, beforeID, limit)
 	if err != nil {
+		if httpapi.WriteContextError(w, r, err) {
+			return
+		}
 		httpapi.WriteError(w, r, http.StatusInternalServerError, "AUDIT_READ_FAILED", "Unable to read audit events")
 		return
 	}
