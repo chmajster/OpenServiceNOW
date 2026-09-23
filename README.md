@@ -22,30 +22,42 @@ Implemented foundation capabilities:
 - CSRF double-submit validation,
 - login rate limiting in Redis,
 - backend permission evaluation,
-- initial tenant/admin bootstrap command,
+- tenant/admin bootstrap command,
 - tenant-scoped user administration,
 - tenant administration with optimistic locking,
 - RBAC administration for groups, roles, permissions and assignments,
+- immutable system-role permissions and protection against self-removal of the platform-admin system role,
 - tenant-scoped paginated audit API,
-- real session-cleanup scheduler,
+- trusted-proxy-aware client IP resolution,
+- bounded session-cleanup scheduler,
 - OpenAPI 3.1 contract,
+- React + TypeScript administration frontend,
 - Docker Compose development services,
-- unit/integration/race/build/migration/authentication/RBAC smoke CI definitions.
+- unit/integration/race/build/migration/authentication/RBAC/frontend CI definitions.
 
-The frontend, external identity providers, durable background-job worker and ITSM business modules are not implemented yet. The backend branch is not considered verified until CI actually receives a runner and executes its steps.
+The durable background-job worker, external identity providers and ITSM business modules are not implemented yet. The Phase 1 branch is not considered verified until CI actually receives runners and executes its steps.
 
-## Target stack
+## Stack
+
+Backend:
 
 - Go 1.27,
 - `net/http` + chi,
 - `database/sql` + `go-sql-driver/mysql`,
 - MySQL 8.x,
-- Redis,
-- React + TypeScript frontend.
+- Redis.
+
+Frontend:
+
+- React,
+- TypeScript,
+- React Router,
+- Vite,
+- same-origin cookie session + CSRF model.
 
 ## Local development
 
-Start dependencies:
+Start MySQL and Redis:
 
 ```bash
 make dev
@@ -74,28 +86,25 @@ make bootstrap
 
 The bootstrap is idempotent for tenant membership, role and permission assignment. Re-running it does not reset the password of an existing user.
 
-Start the API:
+Start the backend:
 
 ```bash
 go run ./cmd/api
 ```
 
-Health endpoints:
+Start the frontend in a second shell:
 
-```text
-GET /health/live
-GET /health/ready
+```bash
+cd web
+npm install
+npm run dev
 ```
 
-Authentication endpoints:
+The Vite development server listens on `127.0.0.1:5173` and proxies `/api` and `/health` to `127.0.0.1:8080`.
 
-```text
-POST /api/v1/auth/login
-GET  /api/v1/auth/me
-POST /api/v1/auth/logout
-```
+### Initial login
 
-Login expects:
+Default example bootstrap values use tenant `default`. Login requires:
 
 ```json
 {
@@ -105,9 +114,60 @@ Login expects:
 }
 ```
 
-The server sets an HttpOnly session cookie and a separate CSRF cookie. Unsafe authenticated requests require the CSRF cookie value in the `X-CSRF-Token` header.
+The server sets:
 
-The API does not trust `X-Forwarded-For` by default. Until trusted-proxy configuration is implemented, rate limiting and audit IPs use the direct peer address.
+- `opensnow_session` — HttpOnly session cookie,
+- `opensnow_csrf` — readable CSRF cookie.
+
+Unsafe authenticated requests require the same CSRF value in the `X-CSRF-Token` header. Cookie names are protocol constants shared by backend, frontend and OpenAPI.
+
+### Reverse proxy client IP
+
+The backend ignores forwarded IP headers unless the direct peer belongs to a CIDR configured in:
+
+```text
+TRUSTED_PROXY_CIDRS
+```
+
+Example for an internal reverse-proxy network:
+
+```text
+TRUSTED_PROXY_CIDRS=10.20.0.0/16,fd00:20::/64
+```
+
+When the direct peer is not trusted, rate limiting and audit use `RemoteAddr`, preventing a client from spoofing `X-Forwarded-For`.
+
+## Endpoints
+
+Health:
+
+```text
+GET /health/live
+GET /health/ready
+```
+
+Authentication:
+
+```text
+POST /api/v1/auth/login
+GET  /api/v1/auth/me
+POST /api/v1/auth/logout
+```
+
+Administration currently covers:
+
+- current tenant,
+- local tenant users,
+- RBAC permissions/roles/groups/assignments,
+- tenant audit history.
+
+Tenant scope is derived from the authenticated session, never from a client-supplied tenant identifier.
+
+The OpenAPI document is stored at:
+
+```text
+api/openapi/openapi.json
+```
 
 ## Development commands
 
@@ -119,13 +179,22 @@ make migrate-up
 make migrate-down
 make bootstrap
 make scheduler-once
+make frontend
+make frontend-test
 ```
 
 `make migrate-down` rolls back one migration.
 
-The OpenAPI document is stored at `api/openapi/openapi.json`.
+## Verification status
 
-Administrative backend endpoints currently cover the active tenant, tenant users, RBAC and audit. Tenant scope is derived from the authenticated session rather than a client-supplied tenant identifier.
+The repository contains CI definitions for backend and frontend, but GitHub-hosted jobs currently fail before runner allocation with no executed steps. Therefore this branch does **not** claim that build, tests, migrations or frontend compilation pass.
+
+Two dependency lock artifacts are intentionally still missing because dependency resolution has not successfully executed:
+
+- `go.sum`,
+- `web/package-lock.json`.
+
+Both must be generated and committed before the Phase 1 PR is considered merge-ready.
 
 ## Architecture and project state
 
