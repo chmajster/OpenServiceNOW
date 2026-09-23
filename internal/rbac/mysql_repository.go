@@ -187,6 +187,15 @@ func (r *MySQLRepository) SetRolePermissions(
 	if incrementVersion && currentVersion != expectedVersion {
 		return ErrConflict
 	}
+	if incrementVersion {
+		currentKeys, err := r.currentRolePermissionKeys(ctx, exec, roleID)
+		if err != nil {
+			return err
+		}
+		if stringSlicesEqual(currentKeys, keys) {
+			return errNoChange
+		}
+	}
 
 	permissionIDs := make([]uint64, 0, len(keys))
 	if len(keys) > 0 {
@@ -533,4 +542,47 @@ func (r *MySQLRepository) IsSystemRole(
 		return false, fmt.Errorf("read system role flag: %w", err)
 	}
 	return systemRole, nil
+}
+
+func (r *MySQLRepository) currentRolePermissionKeys(
+	ctx context.Context,
+	exec platformdb.Executor,
+	roleID uint64,
+) ([]string, error) {
+	rows, err := exec.QueryContext(ctx, `
+		SELECT p.permission_key
+		FROM role_permissions rp
+		JOIN permissions p ON p.id = rp.permission_id
+		WHERE rp.role_id = ?
+		ORDER BY p.permission_key
+	`, roleID)
+	if err != nil {
+		return nil, fmt.Errorf("list current role permissions: %w", err)
+	}
+	defer rows.Close()
+
+	keys := make([]string, 0)
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, fmt.Errorf("scan current role permission: %w", err)
+		}
+		keys = append(keys, key)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate current role permissions: %w", err)
+	}
+	return keys, nil
+}
+
+func stringSlicesEqual(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
