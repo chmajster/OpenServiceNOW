@@ -18,21 +18,33 @@ func NewMySQLRepository(db *sql.DB) *MySQLRepository {
 	return &MySQLRepository{db: db}
 }
 
-func (r *MySQLRepository) List(ctx context.Context, tenantID uint64) ([]User, error) {
+func (r *MySQLRepository) List(
+	ctx context.Context,
+	tenantID, afterID uint64,
+	limit int,
+	query string,
+) (Page, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT
 			u.id, u.email, u.display_name, u.active, tm.active, u.created_at
 		FROM tenant_memberships tm
 		JOIN users u ON u.id = tm.user_id
 		WHERE tm.tenant_id = ?
-		ORDER BY u.display_name, u.email
-	`, tenantID)
+		  AND u.id > ?
+		  AND (
+			? = ''
+			OR LOCATE(?, u.email) > 0
+			OR LOCATE(?, u.display_name) > 0
+		  )
+		ORDER BY u.id
+		LIMIT ?
+	`, tenantID, afterID, query, query, query, limit+1)
 	if err != nil {
-		return nil, fmt.Errorf("list tenant users: %w", err)
+		return Page{}, fmt.Errorf("list tenant users: %w", err)
 	}
 	defer rows.Close()
 
-	result := make([]User, 0)
+	result := make([]User, 0, limit+1)
 	for rows.Next() {
 		var user User
 		if err := rows.Scan(
@@ -43,14 +55,20 @@ func (r *MySQLRepository) List(ctx context.Context, tenantID uint64) ([]User, er
 			&user.MembershipActive,
 			&user.CreatedAt,
 		); err != nil {
-			return nil, fmt.Errorf("scan tenant user: %w", err)
+			return Page{}, fmt.Errorf("scan tenant user: %w", err)
 		}
 		result = append(result, user)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate tenant users: %w", err)
+		return Page{}, fmt.Errorf("iterate tenant users: %w", err)
 	}
-	return result, nil
+
+	page := Page{Users: result}
+	if len(result) > limit {
+		page.Users = result[:limit]
+		page.NextAfterID = page.Users[len(page.Users)-1].ID
+	}
+	return page, nil
 }
 
 func (r *MySQLRepository) CreateLocal(
