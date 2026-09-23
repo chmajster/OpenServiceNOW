@@ -15,9 +15,9 @@ import (
 )
 
 type Service struct {
-	repo        *MySQLRepository
-	tx          *platformdb.TxManager
-	audit       *audit.MySQLRepository
+	repo         *MySQLRepository
+	tx           *platformdb.TxManager
+	audit        *audit.MySQLRepository
 	adminSafety  *identity.AdminSafetyRepository
 	identityRepo *identity.MySQLRepository
 }
@@ -30,10 +30,10 @@ func NewService(
 	identityRepo *identity.MySQLRepository,
 ) *Service {
 	return &Service{
-		repo: repo,
-		tx: tx,
-		audit: auditRepo,
-		adminSafety: adminSafety,
+		repo:         repo,
+		tx:           tx,
+		audit:        auditRepo,
+		adminSafety:  adminSafety,
 		identityRepo: identityRepo,
 	}
 }
