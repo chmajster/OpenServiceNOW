@@ -63,7 +63,7 @@ func main() {
 	auditReader := audit.NewReader(db)
 	auditHandler := auditapi.NewHandler(auditReader)
 	identityRepo := identity.NewMySQLRepository(db)
-	identityService, err := identity.NewService(identityRepo, txManager, auditRepo, cfg.Session)
+	identityService, err := identity.NewService(identityRepo, txManager, auditRepo, cfg.Session, cfg.Auth)
 	if err != nil {
 		logger.Error("identity service initialization failed", "error", err)
 		os.Exit(1)
