@@ -4,13 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"testing"
 )
 
 type fakeTransaction struct {
-	commits   int
-	rollbacks int
-	commitErr error
+	commits     int
+	rollbacks   int
+	commitErr   error
 	rollbackErr error
 }
 
@@ -83,5 +84,22 @@ func TestRunTransactionReportsCommitFailure(t *testing.T) {
 	}
 	if tx.commits != 1 {
 		t.Fatalf("commits=%d", tx.commits)
+	}
+}
+
+func TestRunTransactionReportsRollbackFailure(t *testing.T) {
+	operationErr := errors.New("operation failed")
+	rollbackErr := errors.New("rollback failed")
+	tx := &fakeTransaction{rollbackErr: rollbackErr}
+
+	err := runTransaction(tx, func(Executor) error { return operationErr })
+	if !errors.Is(err, operationErr) {
+		t.Fatalf("runTransaction() error = %v", err)
+	}
+	if tx.rollbacks != 1 {
+		t.Fatalf("rollbacks=%d", tx.rollbacks)
+	}
+	if !strings.Contains(err.Error(), "rollback failed") {
+		t.Fatalf("error does not include rollback failure: %v", err)
 	}
 }
