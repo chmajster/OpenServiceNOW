@@ -285,8 +285,8 @@ func (c Config) Validate() error {
 		c.Auth.LoginAccountWindow < time.Millisecond || c.Auth.LoginAccountWindow > 24*time.Hour {
 		errs = append(errs, errors.New("authentication rate limit windows must be between 1ms and 24h"))
 	}
-	if c.Auth.MaxConcurrentPasswordChecks < 1 || c.Auth.MaxConcurrentPasswordChecks > 64 {
-		errs = append(errs, errors.New("AUTH_MAX_CONCURRENT_PASSWORD_CHECKS must be between 1 and 64"))
+	if c.Auth.MaxConcurrentPasswordChecks < 1 || c.Auth.MaxConcurrentPasswordChecks > 16 {
+		errs = append(errs, errors.New("AUTH_MAX_CONCURRENT_PASSWORD_CHECKS must be between 1 and 16"))
 	}
 	for _, cidr := range c.TrustedProxyCIDRs {
 		_, network, err := net.ParseCIDR(cidr)
