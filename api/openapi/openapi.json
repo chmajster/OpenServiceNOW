@@ -3,7 +3,7 @@
   "info": {
     "title": "OpenServiceNOW API",
     "version": "0.1.0",
-    "description": "Phase 1 foundation API. The backend is authoritative for authentication, tenant scope and RBAC."
+    "description": "Phase 1 foundation API. The backend is authoritative for authentication, tenant scope and RBAC.\nEvery API response includes a server-generated X-Request-ID header; client-supplied request IDs are not trusted."
   },
   "servers": [
     {
@@ -1747,6 +1747,15 @@
               "$ref": "#/components/schemas/ErrorEnvelope"
             }
           }
+        }
+      }
+    },
+    "headers": {
+      "RequestID": {
+        "description": "Server-generated request correlation identifier.",
+        "schema": {
+          "type": "string",
+          "maxLength": 128
         }
       }
     }
