@@ -91,9 +91,24 @@ func (b *Bootstrapper) Run(ctx context.Context, input BootstrapInput) (Bootstrap
 		if err != nil {
 			return err
 		}
-		userID, created, err := b.repo.EnsureUser(ctx, exec, input.AdminEmail, input.AdminName, passwordHash)
+		userID, created, existingPasswordHash, err := b.repo.EnsureUser(
+			ctx,
+			exec,
+			input.AdminEmail,
+			input.AdminName,
+			passwordHash,
+		)
 		if err != nil {
 			return err
+		}
+		if !created {
+			valid, verifyErr := password.Verify(existingPasswordHash, input.AdminPassword)
+			if verifyErr != nil {
+				return fmt.Errorf("verify existing bootstrap admin password: %w", verifyErr)
+			}
+			if !valid {
+				return errors.New("bootstrap admin already exists and the supplied password does not match")
+			}
 		}
 		if err := b.repo.EnsureMembership(ctx, exec, tenantID, userID); err != nil {
 			return err
