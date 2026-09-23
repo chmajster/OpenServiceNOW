@@ -3,9 +3,9 @@ import { expect, test, type Page } from "@playwright/test";
 const tenant = process.env.E2E_TENANT ?? "e2e";
 const adminEmail = process.env.E2E_ADMIN_EMAIL ?? "admin@example.test";
 const adminPassword = requireEnv("E2E_ADMIN_PASSWORD");
-const operatorEmail = process.env.E2E_OPERATOR_EMAIL ?? "e2e-operator@example.test";
+const operatorEmailBase = process.env.E2E_OPERATOR_EMAIL ?? "e2e-operator@example.test";
 const operatorPassword = requireEnv("E2E_OPERATOR_PASSWORD");
-const roleName = "e2e_tenant_reader";
+const roleNameBase = "e2e_tenant_reader";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -13,6 +13,17 @@ function requireEnv(name: string): string {
     throw new Error(`Missing required environment variable: ${name}`);
   }
   return value;
+}
+
+function retryScopedEmail(base: string, retry: number): string {
+  if (retry === 0) {
+    return base;
+  }
+  const separator = base.lastIndexOf("@");
+  if (separator <= 0) {
+    throw new Error(`Invalid E2E operator email: ${base}`);
+  }
+  return `${base.slice(0, separator)}+retry${retry}${base.slice(separator)}`;
 }
 
 async function login(page: Page, email: string, password: string) {
@@ -24,7 +35,10 @@ async function login(page: Page, email: string, password: string) {
   await expect(page.getByText("Sesja aktywna")).toBeVisible();
 }
 
-test("admin creates a least-privilege tenant reader through the UI", async ({ page }) => {
+test("admin creates a least-privilege tenant reader through the UI", async ({ page }, testInfo) => {
+  const operatorEmail = retryScopedEmail(operatorEmailBase, testInfo.retry);
+  const roleName = testInfo.retry === 0 ? roleNameBase : `${roleNameBase}_retry${testInfo.retry}`;
+
   await login(page, adminEmail, adminPassword);
 
   await page.getByRole("link", { name: "Użytkownicy" }).click();
