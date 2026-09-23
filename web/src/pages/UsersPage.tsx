@@ -7,7 +7,11 @@ import { PageState } from "../components/PageState";
 export function UsersPage() {
   const { session } = useAuth();
   const [users, setUsers] = useState<TenantUser[]>([]);
+  const [nextAfterID, setNextAfterID] = useState<number | undefined>();
+  const [search, setSearch] = useState("");
+  const [activeSearch, setActiveSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -15,22 +19,44 @@ export function UsersPage() {
   const [creating, setCreating] = useState(false);
   const [changingID, setChangingID] = useState<number | null>(null);
 
-  async function loadUsers() {
-    setLoading(true);
+  async function loadUsers(afterID?: number, append = false, query = activeSearch) {
+    append ? setLoadingMore(true) : setLoading(true);
     try {
-      const response = await api<UsersResponse>("/api/v1/admin/users/");
-      setUsers(response.users);
+      const params = new URLSearchParams({ limit: "50" });
+      if (afterID) {
+        params.set("after_id", String(afterID));
+      }
+      if (query.trim()) {
+        params.set("q", query.trim());
+      }
+      const response = await api<UsersResponse>(`/api/v1/admin/users/?${params.toString()}`);
+      setUsers((current) => (append ? [...current, ...response.users] : response.users));
+      setNextAfterID(response.next_after_id);
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Nie udało się pobrać użytkowników.");
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }
 
   useEffect(() => {
-    void loadUsers();
+    void loadUsers(undefined, false, "");
   }, []);
+
+  async function handleSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const query = search.trim();
+    setActiveSearch(query);
+    await loadUsers(undefined, false, query);
+  }
+
+  async function clearSearch() {
+    setSearch("");
+    setActiveSearch("");
+    await loadUsers(undefined, false, "");
+  }
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -48,7 +74,7 @@ export function UsersPage() {
       setEmail("");
       setDisplayName("");
       setPassword("");
-      await loadUsers();
+      await loadUsers(undefined, false, activeSearch);
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 409) {
         setError("Konto z tym adresem e-mail już istnieje.");
@@ -68,7 +94,7 @@ export function UsersPage() {
         method: "PUT",
         body: jsonBody({ active })
       });
-      await loadUsers();
+      await loadUsers(undefined, false, activeSearch);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Zmiana członkostwa nie powiodła się.");
     } finally {
@@ -131,12 +157,39 @@ export function UsersPage() {
         <div className="panel-heading">
           <div>
             <h2>Konta w tenancie</h2>
-            <p className="muted">{users.length} rekordów</p>
+            <p className="muted">
+              {users.length} załadowanych rekordów{activeSearch ? ` dla „${activeSearch}”` : ""}
+            </p>
           </div>
-          <button className="button button--secondary" onClick={() => void loadUsers()} disabled={loading}>
+          <button
+            className="button button--secondary"
+            onClick={() => void loadUsers(undefined, false, activeSearch)}
+            disabled={loading}
+          >
             Odśwież
           </button>
         </div>
+
+        <form className="search-row" onSubmit={(event) => void handleSearch(event)}>
+          <label className="search-field">
+            Szukaj po nazwie lub e-mailu
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              maxLength={200}
+              placeholder="np. administrator albo user@example.com"
+            />
+          </label>
+          <button className="button button--secondary" type="submit" disabled={loading}>
+            Szukaj
+          </button>
+          {activeSearch ? (
+            <button className="button button--secondary" type="button" onClick={() => void clearSearch()} disabled={loading}>
+              Wyczyść
+            </button>
+          ) : null}
+        </form>
+
         <div className="table-wrap">
           <table>
             <thead>
@@ -176,12 +229,24 @@ export function UsersPage() {
               })}
               {users.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="empty-cell">Brak użytkowników.</td>
+                  <td colSpan={5} className="empty-cell">Brak użytkowników dla bieżącego filtra.</td>
                 </tr>
               ) : null}
             </tbody>
           </table>
         </div>
+
+        {nextAfterID ? (
+          <div className="panel-footer">
+            <button
+              className="button button--secondary"
+              disabled={loadingMore}
+              onClick={() => void loadUsers(nextAfterID, true, activeSearch)}
+            >
+              {loadingMore ? "Ładowanie…" : "Załaduj więcej"}
+            </button>
+          </div>
+        ) : null}
       </div>
     </section>
   );
