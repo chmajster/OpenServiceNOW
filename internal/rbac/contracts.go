@@ -6,7 +6,7 @@ type APIService interface {
 	ListPermissions(context.Context) ([]Permission, error)
 	ListRoles(context.Context, uint64, uint64, int, string) (RolePage, error)
 	CreateRole(context.Context, Actor, CreateRoleInput) (uint64, error)
-	SetRolePermissions(context.Context, Actor, uint64, []string) error
+	SetRolePermissions(context.Context, Actor, uint64, uint64, []string) error
 	ListGroups(context.Context, uint64, uint64, int, string) (GroupPage, error)
 	CreateGroup(context.Context, Actor, CreateGroupInput) (uint64, error)
 	AddGroupMember(context.Context, Actor, uint64, uint64) error
