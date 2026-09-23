@@ -3,6 +3,7 @@ package rbac
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -293,6 +294,9 @@ func (s *Service) writeAssignment(
 ) error {
 	return s.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec platformdb.Executor) error {
 		if err := write(exec); err != nil {
+			if errors.Is(err, errNoChange) {
+				return nil
+			}
 			return err
 		}
 		return s.audit.Append(ctx, exec, audit.Event{
