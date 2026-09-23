@@ -20,7 +20,7 @@ func NewHandler(service APIService) *Handler {
 
 type updateRequest struct {
 	Name    string `json:"name"`
-	Version uint64 `json:"version"`
+	Version uint64 `json:"version,string"`
 }
 
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
