@@ -29,6 +29,7 @@ export function RbacPage() {
   const [assignmentUser, setAssignmentUser] = useState("");
   const [assignmentRole, setAssignmentRole] = useState("");
   const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
   const activeUsers = useMemo(() => users.filter((user) => user.membership_active), [users]);
 
@@ -67,6 +68,7 @@ export function RbacPage() {
     event.preventDefault();
     setBusy(true);
     setError(null);
+    setMessage(null);
     try {
       await api<CreatedID>("/api/v1/admin/rbac/roles", {
         method: "POST",
@@ -95,6 +97,7 @@ export function RbacPage() {
     event.preventDefault();
     setBusy(true);
     setError(null);
+    setMessage(null);
     try {
       await api<CreatedID>("/api/v1/admin/rbac/groups", {
         method: "POST",
@@ -119,10 +122,12 @@ export function RbacPage() {
     }
     setBusy(true);
     setError(null);
+    setMessage(null);
     try {
       await api<void>(`/api/v1/admin/rbac/users/${userID}/roles/${roleID}`, { method: "POST" });
       setAssignmentUser("");
       setAssignmentRole("");
+      setMessage("Rola została przypisana użytkownikowi.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Przypisanie roli nie powiodło się.");
     } finally {
@@ -146,6 +151,7 @@ export function RbacPage() {
       </div>
 
       {error ? <div className="inline-error" role="alert">{error}</div> : null}
+      {message ? <div className="inline-success" role="status">{message}</div> : null}
 
       <div className="two-column">
         <div className="panel">
