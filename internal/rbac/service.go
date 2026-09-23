@@ -227,6 +227,15 @@ func (s *Service) RemoveRoleFromUser(ctx context.Context, actor Actor, roleID, u
 		userID,
 		map[string]any{"role_id": roleID},
 		func(exec platformdb.Executor) error {
+			if actor.UserID == userID {
+				systemRole, err := s.repo.IsSystemRole(ctx, exec, actor.TenantID, roleID)
+				if err != nil {
+					return err
+				}
+				if systemRole {
+					return fmt.Errorf("%w: cannot remove own system role", ErrInvalid)
+				}
+			}
 			return s.repo.RemoveRoleFromUser(ctx, exec, actor.TenantID, roleID, userID)
 		},
 	)
