@@ -42,3 +42,13 @@ type CreateGroupInput struct {
 	Name        string
 	Description string
 }
+
+type RolePage struct {
+	Roles       []Role `json:"roles"`
+	NextAfterID uint64 `json:"next_after_id,omitempty"`
+}
+
+type GroupPage struct {
+	Groups      []Group `json:"groups"`
+	NextAfterID uint64  `json:"next_after_id,omitempty"`
+}
