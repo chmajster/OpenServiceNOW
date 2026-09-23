@@ -91,7 +91,7 @@ func (s *Service) CreateRole(ctx context.Context, actor Actor, input CreateRoleI
 		if createErr != nil {
 			return createErr
 		}
-		if err := s.repo.SetRolePermissions(ctx, exec, actor.TenantID, roleID, input.Permissions); err != nil {
+		if err := s.repo.SetRolePermissions(ctx, exec, actor.TenantID, roleID, 0, false, input.Permissions); err != nil {
 			return err
 		}
 		return s.audit.Append(ctx, exec, audit.Event{
@@ -119,15 +119,26 @@ func (s *Service) CreateRole(ctx context.Context, actor Actor, input CreateRoleI
 func (s *Service) SetRolePermissions(
 	ctx context.Context,
 	actor Actor,
-	roleID uint64,
+	roleID, expectedVersion uint64,
 	permissionKeys []string,
 ) error {
+	if expectedVersion == 0 {
+		return fmt.Errorf("%w: role version must be greater than zero", ErrInvalid)
+	}
 	keys, err := normalizePermissionKeys(permissionKeys)
 	if err != nil {
 		return err
 	}
 	return s.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec platformdb.Executor) error {
-		if err := s.repo.SetRolePermissions(ctx, exec, actor.TenantID, roleID, keys); err != nil {
+		if err := s.repo.SetRolePermissions(
+			ctx,
+			exec,
+			actor.TenantID,
+			roleID,
+			expectedVersion,
+			true,
+			keys,
+		); err != nil {
 			return err
 		}
 		return s.audit.Append(ctx, exec, audit.Event{
@@ -136,7 +147,7 @@ func (s *Service) SetRolePermissions(
 			Action:      "rbac.role.permissions.set",
 			ObjectType:  "role",
 			ObjectID:    fmt.Sprint(roleID),
-			NewValues:   map[string]any{"permissions": keys},
+			NewValues:   map[string]any{"permissions": keys, "version": expectedVersion + 1},
 			RequestID:   actor.RequestID,
 			Source:      "api",
 			IPAddress:   actor.IPAddress,
