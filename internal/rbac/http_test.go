@@ -49,6 +49,7 @@ type fakeRBAC struct {
 	listRoleAfterID uint64
 	listRoleLimit   int
 	listRoleQuery   string
+	setRoleVersion  uint64
 }
 
 func (f *fakeRBAC) ListPermissions(context.Context) ([]Permission, error) {
@@ -74,7 +75,8 @@ func (f *fakeRBAC) CreateRole(context.Context, Actor, CreateRoleInput) (uint64, 
 	return 9, nil
 }
 
-func (f *fakeRBAC) SetRolePermissions(context.Context, Actor, uint64, uint64, []string) error {
+func (f *fakeRBAC) SetRolePermissions(_ context.Context, _ Actor, _ uint64, version uint64, _ []string) error {
+	f.setRoleVersion = version
 	return nil
 }
 
