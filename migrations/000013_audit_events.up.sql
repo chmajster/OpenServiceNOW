@@ -13,6 +13,7 @@ CREATE TABLE audit_events (
     ip_address VARCHAR(45) NULL,
     PRIMARY KEY (id),
     KEY idx_audit_tenant_time (tenant_id, event_time),
+    KEY idx_audit_tenant_id (tenant_id, id),
     KEY idx_audit_object (tenant_id, object_type, object_id, event_time),
     KEY idx_audit_actor (tenant_id, actor_user_id, event_time),
     CONSTRAINT fk_audit_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE SET NULL,
