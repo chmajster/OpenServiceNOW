@@ -219,6 +219,8 @@ export function RbacPage() {
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 409) {
         setError("Rola została zmieniona równolegle. Odśwież listę i ponów edycję.");
+        setEditRoleID("");
+        setEditRolePermissions([]);
         await loadRoles(undefined, false, activeRoleSearch);
       } else {
         setError(cause instanceof Error ? cause.message : "Aktualizacja uprawnień roli nie powiodła się.");
@@ -253,6 +255,8 @@ export function RbacPage() {
     const query = roleSearch.trim();
     setActiveRoleSearch(query);
     setAssignmentRole("");
+    setEditRoleID("");
+    setEditRolePermissions([]);
     await loadRoles(undefined, false, query);
   }
 
@@ -260,6 +264,8 @@ export function RbacPage() {
     setRoleSearch("");
     setActiveRoleSearch("");
     setAssignmentRole("");
+    setEditRoleID("");
+    setEditRolePermissions([]);
     await loadRoles(undefined, false, "");
   }
 
