@@ -64,13 +64,13 @@ export function RbacPage() {
 
   async function loadRoles(afterID?: number, append = false, query = activeRoleSearch) {
     append ? setLoadingMoreRoles(true) : setLoading(true);
+    setError(null);
     try {
       const response = await api<RolesResponse>(
         `/api/v1/admin/rbac/roles?${listParams(afterID, query).toString()}`
       );
       setRoles((current) => (append ? [...current, ...response.roles] : response.roles));
       setNextRoleAfterID(response.next_after_id);
-      setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Nie udało się pobrać ról.");
     } finally {
@@ -81,13 +81,13 @@ export function RbacPage() {
 
   async function loadGroups(afterID?: number, append = false, query = activeGroupSearch) {
     append ? setLoadingMoreGroups(true) : setLoading(true);
+    setError(null);
     try {
       const response = await api<GroupsResponse>(
         `/api/v1/admin/rbac/groups?${listParams(afterID, query).toString()}`
       );
       setGroups((current) => (append ? [...current, ...response.groups] : response.groups));
       setNextGroupAfterID(response.next_after_id);
-      setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Nie udało się pobrać grup.");
     } finally {
@@ -97,10 +97,10 @@ export function RbacPage() {
   }
 
   async function loadPermissionCatalog() {
+    setError(null);
     try {
       const response = await api<PermissionsResponse>("/api/v1/admin/rbac/permissions");
       setPermissions(response.permissions);
-      setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Nie udało się pobrać katalogu uprawnień.");
     }
@@ -108,6 +108,7 @@ export function RbacPage() {
 
   async function loadCore() {
     setLoading(true);
+    setError(null);
     await Promise.all([
       loadPermissionCatalog(),
       loadRoles(undefined, false, activeRoleSearch),
@@ -122,12 +123,12 @@ export function RbacPage() {
       return;
     }
     setSearchingUsers(true);
+    setError(null);
     try {
       const response = await api<UsersResponse>(
         `/api/v1/admin/users/?${listParams(undefined, query).toString()}`
       );
       setUsers(response.users);
-      setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Nie udało się wyszukać użytkowników.");
     } finally {
