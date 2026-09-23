@@ -256,3 +256,24 @@ func TestLoadRejectsInvalidPasswordVerifierConcurrency(t *testing.T) {
 		t.Fatal("expected password verifier concurrency validation error")
 	}
 }
+
+func TestLoadRejectsExcessiveSessionTTL(t *testing.T) {
+	t.Setenv("SESSION_TTL", "721h")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected session TTL upper-bound validation error")
+	}
+}
+
+func TestLoadRejectsExcessiveAuthenticationLimit(t *testing.T) {
+	t.Setenv("AUTH_LOGIN_IP_LIMIT", "10001")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected authentication rate-limit upper-bound validation error")
+	}
+}
+
+func TestLoadRejectsExcessiveAuthenticationWindow(t *testing.T) {
+	t.Setenv("AUTH_LOGIN_ACCOUNT_WINDOW", "25h")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected authentication window upper-bound validation error")
+	}
+}
