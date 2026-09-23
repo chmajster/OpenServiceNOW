@@ -34,6 +34,7 @@ type MySQLConfig struct {
 	Database        string
 	User            string
 	Password        string
+	TLSMode         string
 	MaxOpenConns    int
 	MaxIdleConns    int
 	ConnMaxLifetime time.Duration
@@ -42,10 +43,13 @@ type MySQLConfig struct {
 }
 
 type RedisConfig struct {
-	Addr        string
-	Password    string
-	DB          int
-	PingTimeout time.Duration
+	Addr                  string
+	Password              string
+	DB                    int
+	PingTimeout           time.Duration
+	TLSEnabled            bool
+	TLSServerName         string
+	TLSInsecureSkipVerify bool
 }
 
 type SessionConfig struct {
@@ -103,6 +107,14 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	redisTLSEnabled, err := envBool("REDIS_TLS_ENABLED", false)
+	if err != nil {
+		return Config{}, err
+	}
+	redisTLSInsecure, err := envBool("REDIS_TLS_INSECURE_SKIP_VERIFY", false)
+	if err != nil {
+		return Config{}, err
+	}
 	sessionTTL, err := envDuration("SESSION_TTL", 12*time.Hour)
 	if err != nil {
 		return Config{}, err
@@ -152,6 +164,7 @@ func Load() (Config, error) {
 			Database:        getenv("MYSQL_DATABASE", "opensnow"),
 			User:            getenv("MYSQL_USER", "opensnow"),
 			Password:        os.Getenv("MYSQL_PASSWORD"),
+			TLSMode:         getenv("MYSQL_TLS_MODE", "false"),
 			MaxOpenConns:    maxOpen,
 			MaxIdleConns:    maxIdle,
 			ConnMaxLifetime: connMaxLifetime,
@@ -159,10 +172,13 @@ func Load() (Config, error) {
 			PingTimeout:     mysqlPingTimeout,
 		},
 		Redis: RedisConfig{
-			Addr:        getenv("REDIS_ADDR", "127.0.0.1:6379"),
-			Password:    os.Getenv("REDIS_PASSWORD"),
-			DB:          redisDB,
-			PingTimeout: redisPingTimeout,
+			Addr:                  getenv("REDIS_ADDR", "127.0.0.1:6379"),
+			Password:              os.Getenv("REDIS_PASSWORD"),
+			DB:                    redisDB,
+			PingTimeout:           redisPingTimeout,
+			TLSEnabled:            redisTLSEnabled,
+			TLSServerName:         strings.TrimSpace(os.Getenv("REDIS_TLS_SERVER_NAME")),
+			TLSInsecureSkipVerify: redisTLSInsecure,
 		},
 		Session: SessionConfig{
 			TTL:              sessionTTL,
@@ -204,6 +220,11 @@ func (c Config) Validate() error {
 	if strings.TrimSpace(c.MySQL.User) == "" {
 		errs = append(errs, errors.New("MYSQL_USER must not be empty"))
 	}
+	switch c.MySQL.TLSMode {
+	case "false", "true", "skip-verify", "preferred":
+	default:
+		errs = append(errs, errors.New("MYSQL_TLS_MODE must be one of false,true,skip-verify,preferred"))
+	}
 	if c.MySQL.MaxOpenConns < 1 {
 		errs = append(errs, errors.New("MYSQL_MAX_OPEN_CONNS must be at least 1"))
 	}
@@ -223,6 +244,9 @@ func (c Config) Validate() error {
 	}
 	if c.Redis.PingTimeout <= 0 {
 		errs = append(errs, errors.New("REDIS_PING_TIMEOUT must be positive"))
+	}
+	if !c.Redis.TLSEnabled && (c.Redis.TLSServerName != "" || c.Redis.TLSInsecureSkipVerify) {
+		errs = append(errs, errors.New("Redis TLS options require REDIS_TLS_ENABLED=true"))
 	}
 	if c.ShutdownTimeout <= 0 {
 		errs = append(errs, errors.New("SHUTDOWN_TIMEOUT must be positive"))
@@ -337,6 +361,7 @@ func (c MySQLConfig) dsn(multiStatements bool) string {
 	cfg.ReadTimeout = 10 * time.Second
 	cfg.WriteTimeout = 10 * time.Second
 	cfg.MultiStatements = multiStatements
+	cfg.TLSConfig = c.TLSMode
 	cfg.Params = map[string]string{"charset": "utf8mb4"}
 	return cfg.FormatDSN()
 }
