@@ -128,13 +128,13 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 		t.Fatalf("cross-tenant group membership error = %v, want ErrNotFound", err)
 	}
 
-	roles, err := rbacService.ListRoles(ctx, adminA.TenantID)
+	rolesPage, err := rbacService.ListRoles(ctx, adminA.TenantID, 0, 50, "")
 	if err != nil {
 		t.Fatalf("list tenant A roles: %v", err)
 	}
 	var platformAdminRoleID uint64
 	var platformAdminRole rbac.Role
-	for _, role := range roles {
+	for _, role := range rolesPage.Roles {
 		if role.Name == "platform_admin" {
 			platformAdminRoleID = role.ID
 			platformAdminRole = role
