@@ -167,3 +167,24 @@ Backend and frontend GitHub Actions jobs still fail before runner allocation wit
 ### Verification status
 
 Static checks performed through the GitHub branch confirm zero local package import cycles, no stale pre-pagination list signatures, no TODO/FIXME implementation markers, and an OpenAPI document with 16 paths / 23 unique operations / zero unresolved local references. Executable build/test verification remains blocked by GitHub Actions runner allocation and missing dependency lock files.
+
+## 2026-09-23 — Phase 1 dependency, session and scheduler hardening
+
+### Fixed
+
+- corrected unpublished Go dependency pins to released versions: `go-chi/chi v5.3.1` and `go-sql-driver/mysql v1.10.0`,
+- replaced invalid TypeScript project-reference build mode with explicit no-emit typechecks suitable for Vite,
+- aligned `.env.example` development MySQL credentials with Docker Compose and made spaced values shell-source-safe,
+- added bounded cursor pagination/search to tenant user lists and RBAC user lookup,
+- made JSON request endpoints return explicit HTTP 415 for unsupported content types and 413 for oversized bodies.
+
+### Security and reliability
+
+- request correlation IDs are generated exclusively by the server; client-supplied request IDs are ignored,
+- disabling tenant membership explicitly revokes all active sessions for that tenant/user in the same transaction,
+- login throttle responses report the configured retry window,
+- session TTL and authentication throttle values have upper bounds,
+- scheduler cleanup is coordinated through a MySQL advisory lock so multiple replicas do not duplicate work,
+- session cleanup indexes now match expired/revoked batch queries,
+- API defaults and development datastore ports remain loopback-bound,
+- CI preserves generated dependency lock artifacts and validates manifest stability.
