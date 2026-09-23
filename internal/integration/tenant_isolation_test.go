@@ -82,7 +82,8 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	}
 
 	rbacRepo := rbac.NewMySQLRepository(db)
-	rbacService := rbac.NewService(rbacRepo, tx, auditRepo)
+	adminSafety := identity.NewAdminSafetyRepository()
+	rbacService := rbac.NewService(rbacRepo, tx, auditRepo, adminSafety)
 	actorA := rbac.Actor{TenantID: adminA.TenantID, UserID: adminA.UserID, RequestID: "integration"}
 	groupID, err := rbacService.CreateGroup(ctx, actorA, rbac.CreateGroupInput{Name: "isolation-group"})
 	if err != nil {
@@ -111,6 +112,32 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	}
 	if err := rbacService.RemoveRoleFromUser(ctx, actorA, platformAdminRoleID, adminA.UserID); !errors.Is(err, rbac.ErrInvalid) {
 		t.Fatalf("self system-role removal error = %v, want ErrInvalid", err)
+	}
+
+	usersService := users.NewService(usersRepo, tx, auditRepo, adminSafety)
+	if err := usersService.SetMembershipActive(ctx, users.Actor{
+		TenantID: adminA.TenantID, UserID: adminA.UserID, RequestID: "integration",
+	}, adminA.UserID, false); !errors.Is(err, users.ErrInvalid) {
+		t.Fatalf("self membership disable error = %v, want ErrInvalid", err)
+	}
+
+	secondAdminID, err := usersService.Create(ctx, users.Actor{
+		TenantID: adminA.TenantID, UserID: adminA.UserID, RequestID: "integration",
+	}, users.CreateInput{
+		Email: fmt.Sprintf("second-admin-%s@example.test", strings.ReplaceAll(suffix, ".", "")),
+		DisplayName: "Second Admin",
+		Password: "integration-password-second-admin",
+	})
+	if err != nil {
+		t.Fatalf("create second admin user: %v", err)
+	}
+	if err := rbacService.AssignRoleToUser(ctx, actorA, platformAdminRoleID, secondAdminID); err != nil {
+		t.Fatalf("assign platform_admin to second admin: %v", err)
+	}
+	if err := usersService.SetMembershipActive(ctx, users.Actor{
+		TenantID: adminA.TenantID, UserID: secondAdminID, RequestID: "integration",
+	}, adminA.UserID, false); err != nil {
+		t.Fatalf("disable first admin after second admin exists: %v", err)
 	}
 
 	tenantRepo := tenants.NewMySQLRepository(db)
