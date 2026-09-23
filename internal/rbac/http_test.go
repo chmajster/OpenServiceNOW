@@ -275,7 +275,7 @@ func TestRBACRoleListPassesCursorAndSearch(t *testing.T) {
 			service.listRoleQuery,
 		)
 	}
-	if !strings.Contains(rr.Body.String(), `"next_after_id":99`) {
+	if !strings.Contains(rr.Body.String(), `"next_after_id":"99"`) {
 		t.Fatalf("body = %s", rr.Body.String())
 	}
 }
@@ -302,5 +302,33 @@ func TestSetRolePermissionsRequiresVersion(t *testing.T) {
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestSetRolePermissionsAcceptsQuotedVersion(t *testing.T) {
+	service := &fakeRBAC{}
+	router := newRouter(fakeAuth{
+		identity:    identity.SessionIdentity{UserID: 1, TenantID: 2},
+		permission: true,
+		csrf:       true,
+	}, service)
+
+	request := authenticatedRequest(
+		http.MethodPut,
+		"/api/v1/admin/rbac/roles/9/permissions",
+		`{"version":"7","permissions":["tenant.read"]}`,
+	)
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(&http.Cookie{Name: "csrf", Value: "csrf-token"})
+	request.Header.Set("X-CSRF-Token", "csrf-token")
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, request)
+
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	if service.setRoleVersion != 7 {
+		t.Fatalf("role version = %d", service.setRoleVersion)
 	}
 }
