@@ -35,6 +35,9 @@ func NewService(
 	session config.SessionConfig,
 	auth config.AuthConfig,
 ) (*Service, error) {
+	if auth.MaxConcurrentPasswordChecks < 1 {
+		return nil, errors.New("MaxConcurrentPasswordChecks must be at least 1")
+	}
 	dummyHash, err := password.Hash("openservicenow-dummy-password")
 	if err != nil {
 		return nil, fmt.Errorf("build dummy password hash: %w", err)
