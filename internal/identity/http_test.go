@@ -168,6 +168,7 @@ func TestLoginRateLimitStopsBeforeAuthentication(t *testing.T) {
 		strings.NewReader(`{"tenant":"default","email":"admin@example.test","password":"not-a-real-password"}`),
 	)
 	request.RemoteAddr = "192.0.2.10:12345"
+	request.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	handler.Login(rr, request)
 
@@ -217,6 +218,7 @@ func TestLoginRejectsOversizedIdentifiersBeforeRateLimiter(t *testing.T) {
 		strings.NewReader(`{"tenant":"`+strings.Repeat("a", 101)+`","email":"admin@example.test","password":"not-a-real-password"}`),
 	)
 	request.RemoteAddr = "192.0.2.10:12345"
+	request.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	handler.Login(rr, request)
 
@@ -242,6 +244,7 @@ func TestLoginReturns503WhenPasswordVerifierIsBusy(t *testing.T) {
 		"/api/v1/auth/login",
 		strings.NewReader(`{"tenant":"default","email":"admin@example.test","password":"not-a-real-password"}`),
 	)
+	request.Header.Set("Content-Type", "application/json")
 	request.RemoteAddr = "192.0.2.10:12345"
 	rr := httptest.NewRecorder()
 	handler.Login(rr, request)
@@ -254,5 +257,29 @@ func TestLoginReturns503WhenPasswordVerifierIsBusy(t *testing.T) {
 	}
 	if !strings.Contains(rr.Body.String(), `"code":"AUTH_BUSY"`) {
 		t.Fatalf("body = %s", rr.Body.String())
+	}
+}
+
+func TestLoginRequiresJSONContentType(t *testing.T) {
+	limiter := &fakeLimiter{allowed: true}
+	service := fakeAuthService{
+		loginFn: func(context.Context, LoginInput, RequestMeta) (LoginResult, error) {
+			t.Fatal("Login must not run for unsupported media type")
+			return LoginResult{}, nil
+		},
+	}
+	handler := NewHandler(service, limiter, testSessionConfig(), testAuthConfig())
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/auth/login",
+		strings.NewReader(`{"tenant":"default","email":"admin@example.test","password":"not-a-real-password"}`),
+	)
+	request.Header.Set("Content-Type", "text/plain")
+	rr := httptest.NewRecorder()
+	handler.Login(rr, request)
+
+	if rr.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
 	}
 }
