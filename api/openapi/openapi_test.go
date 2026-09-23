@@ -156,7 +156,8 @@ func TestOpenAPIBigIntValuesUseDecimalStrings(t *testing.T) {
 		if schema["type"] != "string" {
 			t.Errorf("%s type = %#v, want string", ref, schema["type"])
 		}
-		if schema["pattern"] == "" {
+		pattern, ok := schema["pattern"].(string)
+		if !ok || pattern == "" {
 			t.Errorf("%s is missing decimal-string pattern", ref)
 		}
 	}
