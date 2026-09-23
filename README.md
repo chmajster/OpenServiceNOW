@@ -26,7 +26,7 @@ Implemented foundation capabilities:
 - tenant-scoped user administration,
 - tenant administration with optimistic locking,
 - RBAC administration for groups, roles, permissions and assignments,
-- immutable system-role permissions and protection against self-removal of the platform-admin system role,
+- immutable system-role permissions, self-removal protection and a transactional guarantee that each tenant retains at least one active effective platform administrator,
 - tenant-scoped paginated audit API,
 - trusted-proxy-aware client IP resolution,
 - bounded session-cleanup scheduler,
@@ -177,13 +177,15 @@ make test
 make lint
 make migrate-up
 make migrate-down
+make migrate-down-all
+make migrate-version
 make bootstrap
 make scheduler-once
 make frontend
 make frontend-test
 ```
 
-`make migrate-down` rolls back one migration.
+`make migrate-down` rolls back one migration. `make migrate-down-all` rolls the schema back to no applied version. Readiness requires the exact current migration version and rejects dirty or stale schemas.
 
 ## Verification status
 
