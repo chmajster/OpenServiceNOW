@@ -214,6 +214,7 @@ func clearConfigEnv(t *testing.T) {
 		"AUTH_LOGIN_IP_WINDOW",
 		"AUTH_LOGIN_ACCOUNT_LIMIT",
 		"AUTH_LOGIN_ACCOUNT_WINDOW",
+		"AUTH_MAX_CONCURRENT_PASSWORD_CHECKS",
 	}
 	for _, key := range keys {
 		t.Setenv(key, "")
@@ -245,5 +246,13 @@ func TestLoadRejectsTrustAllProxyCIDR(t *testing.T) {
 	t.Setenv("TRUSTED_PROXY_CIDRS", "0.0.0.0/0")
 	if _, err := Load(); err == nil {
 		t.Fatal("expected trust-all proxy CIDR validation error")
+	}
+}
+
+func TestLoadRejectsInvalidPasswordVerifierConcurrency(t *testing.T) {
+	clearConfigEnv(t)
+	t.Setenv("AUTH_MAX_CONCURRENT_PASSWORD_CHECKS", "0")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected password verifier concurrency validation error")
 	}
 }
