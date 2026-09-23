@@ -119,6 +119,8 @@ Test code exists for:
 - cross-tenant RBAC membership rejection,
 - tenant optimistic locking,
 - system-role mutation protections,
+- last-effective-platform-admin lockout protection across membership/group/role removal paths,
+- migration inventory/version invariants and one-statement migration enforcement,
 - trusted-proxy client-IP resolution and spoofing rejection,
 - password input bounds,
 - frontend API client CSRF behavior and error mapping,
@@ -150,24 +152,23 @@ These checks are authored but are not recorded as passing until the runner execu
 
 ## Database migrations
 
-Implemented:
+Implemented migration versions:
 
-- `000001_foundation.up.sql`,
-- `000001_foundation.down.sql`,
-- `000002_identity.up.sql`,
-- `000002_identity.down.sql`.
+- `000001_foundation`,
+- `000002_tenants`,
+- `000003_users`,
+- `000004_tenant_memberships`,
+- `000005_groups`,
+- `000006_group_memberships`,
+- `000007_permissions`,
+- `000008_roles`,
+- `000009_role_permissions`,
+- `000010_user_role_assignments`,
+- `000011_group_role_assignments`,
+- `000012_sessions`,
+- `000013_audit_events`.
 
-The identity migration contains:
-
-- tenants,
-- users,
-- tenant memberships,
-- groups and memberships,
-- permissions,
-- roles,
-- user/group role assignments,
-- sessions,
-- audit events.
+Each up/down migration contains one SQL statement. Runtime readiness requires migration version 13, `dirty=false`, and the foundation metadata singleton. The migration CLI supports one-step rollback, full rollback and version inspection.
 
 ## Technical debt
 
