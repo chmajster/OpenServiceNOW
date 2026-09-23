@@ -120,7 +120,7 @@ func (s *Service) SetMembershipActive(ctx context.Context, actor Actor, userID u
 				return err
 			}
 			if count == 0 {
-				return fmt.Errorf("%w: tenant must retain at least one active platform administrator", ErrInvalid)
+				return identity.ErrLastPlatformAdmin
 			}
 		}
 		return s.audit.Append(ctx, exec, audit.Event{
