@@ -178,7 +178,8 @@ jobs:
         run: go run ./cmd/migrate down-all
 
       - name: Verify migration rollback state
-        run: go run ./cmd/migrate version | grep -q 'version: none dirty: false'
+        run: |
+          go run ./cmd/migrate version | grep -q 'version: none dirty: false'
 
   frontend:
     runs-on: ubuntu-24.04
