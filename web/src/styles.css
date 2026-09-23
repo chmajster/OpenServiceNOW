@@ -803,3 +803,34 @@ tbody tr:last-child td {
     grid-template-columns: 1fr;
   }
 }
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.topbar-logout,
+.topbar-error {
+  display: none;
+}
+
+.topbar-error {
+  max-width: 15rem;
+  color: var(--danger);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 760px) {
+  .topbar-logout {
+    display: inline-flex;
+  }
+
+  .topbar-error {
+    display: inline;
+  }
+
+  .status-pill {
+    display: none;
+  }
+}
