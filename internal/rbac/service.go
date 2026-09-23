@@ -153,7 +153,7 @@ func (s *Service) SetRolePermissions(
 			Action:      "rbac.role.permissions.set",
 			ObjectType:  "role",
 			ObjectID:    fmt.Sprint(roleID),
-			NewValues:   map[string]any{"permissions": keys, "version": expectedVersion + 1},
+			NewValues:   map[string]any{"permissions": keys, "version": fmt.Sprint(expectedVersion + 1)},
 			RequestID:   actor.RequestID,
 			Source:      "api",
 			IPAddress:   actor.IPAddress,
@@ -226,7 +226,7 @@ func (s *Service) AddGroupMember(ctx context.Context, actor Actor, groupID, user
 		"rbac.group.member.add",
 		"group",
 		groupID,
-		map[string]any{"user_id": userID},
+		map[string]any{"user_id": fmt.Sprint(userID)},
 		func(exec platformdb.Executor) error {
 			return s.repo.AddGroupMember(ctx, exec, actor.TenantID, groupID, userID)
 		},
@@ -240,7 +240,7 @@ func (s *Service) RemoveGroupMember(ctx context.Context, actor Actor, groupID, u
 		"rbac.group.member.remove",
 		"group",
 		groupID,
-		map[string]any{"user_id": userID},
+		map[string]any{"user_id": fmt.Sprint(userID)},
 		func(exec platformdb.Executor) error {
 			return s.withAdminSafety(ctx, exec, actor.TenantID, func() error {
 				return s.repo.RemoveGroupMember(ctx, exec, actor.TenantID, groupID, userID)
@@ -256,7 +256,7 @@ func (s *Service) AssignRoleToUser(ctx context.Context, actor Actor, roleID, use
 		"rbac.user.role.add",
 		"user",
 		userID,
-		map[string]any{"role_id": roleID},
+		map[string]any{"role_id": fmt.Sprint(roleID)},
 		func(exec platformdb.Executor) error {
 			return s.repo.AssignRoleToUser(ctx, exec, actor.TenantID, roleID, userID)
 		},
@@ -270,7 +270,7 @@ func (s *Service) RemoveRoleFromUser(ctx context.Context, actor Actor, roleID, u
 		"rbac.user.role.remove",
 		"user",
 		userID,
-		map[string]any{"role_id": roleID},
+		map[string]any{"role_id": fmt.Sprint(roleID)},
 		func(exec platformdb.Executor) error {
 			if actor.UserID == userID {
 				systemRole, err := s.repo.IsSystemRole(ctx, exec, actor.TenantID, roleID)
@@ -295,7 +295,7 @@ func (s *Service) AssignRoleToGroup(ctx context.Context, actor Actor, groupID, r
 		"rbac.group.role.add",
 		"group",
 		groupID,
-		map[string]any{"role_id": roleID},
+		map[string]any{"role_id": fmt.Sprint(roleID)},
 		func(exec platformdb.Executor) error {
 			return s.repo.AssignRoleToGroup(ctx, exec, actor.TenantID, roleID, groupID)
 		},
@@ -309,7 +309,7 @@ func (s *Service) RemoveRoleFromGroup(ctx context.Context, actor Actor, groupID,
 		"rbac.group.role.remove",
 		"group",
 		groupID,
-		map[string]any{"role_id": roleID},
+		map[string]any{"role_id": fmt.Sprint(roleID)},
 		func(exec platformdb.Executor) error {
 			return s.withAdminSafety(ctx, exec, actor.TenantID, func() error {
 				return s.repo.RemoveRoleFromGroup(ctx, exec, actor.TenantID, roleID, groupID)
