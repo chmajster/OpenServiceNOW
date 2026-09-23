@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strconv"
 )
 
 type Reader struct {
@@ -44,7 +45,7 @@ func (r *Reader) List(ctx context.Context, tenantID, beforeID uint64, limit int)
 	events := make([]Record, 0, limit+1)
 	for rows.Next() {
 		var record Record
-		var actorID sql.NullInt64
+		var actorID sql.NullString
 		var objectID, requestID, ipAddress sql.NullString
 		var oldValues, newValues []byte
 		if err := rows.Scan(
@@ -62,8 +63,11 @@ func (r *Reader) List(ctx context.Context, tenantID, beforeID uint64, limit int)
 		); err != nil {
 			return Page{}, fmt.Errorf("scan audit event: %w", err)
 		}
-		if actorID.Valid && actorID.Int64 >= 0 {
-			value := uint64(actorID.Int64)
+		if actorID.Valid {
+			value, err := strconv.ParseUint(actorID.String, 10, 64)
+			if err != nil {
+				return Page{}, fmt.Errorf("parse audit actor id: %w", err)
+			}
 			record.ActorUserID = &value
 		}
 		if objectID.Valid {
