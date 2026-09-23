@@ -56,6 +56,7 @@ export type TenantUser = {
 
 export type UsersResponse = {
   users: TenantUser[];
+  next_after_id?: number;
 };
 
 export type Permission = {
