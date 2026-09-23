@@ -12,7 +12,16 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
-const MaxPasswordBytes = 1024
+const (
+	MaxPasswordBytes      = 1024
+	MaxEncodedHashBytes   = 512
+	MinArgonMemoryKiB     = 8 * 1024
+	MaxArgonMemoryKiB     = 256 * 1024
+	MaxArgonIterations    = 10
+	MaxArgonParallelism   = 16
+	MaxArgonSaltBytes     = 64
+	MaxArgonKeyBytes      = 64
+)
 
 type Params struct {
 	Memory      uint32
@@ -41,8 +50,8 @@ func HashWithParams(plain string, p Params) (string, error) {
 	if len(plain) > MaxPasswordBytes {
 		return "", fmt.Errorf("password exceeds %d bytes", MaxPasswordBytes)
 	}
-	if p.Memory == 0 || p.Iterations == 0 || p.Parallelism == 0 || p.SaltLength < 16 || p.KeyLength < 16 {
-		return "", errors.New("invalid Argon2id parameters")
+	if err := validateParams(p); err != nil {
+		return "", err
 	}
 
 	salt := make([]byte, p.SaltLength)
@@ -74,6 +83,9 @@ func Verify(encoded, plain string) (bool, error) {
 }
 
 func parse(encoded string) (Params, []byte, []byte, error) {
+	if len(encoded) > MaxEncodedHashBytes {
+		return Params{}, nil, nil, errors.New("encoded password hash is too large")
+	}
 	parts := strings.Split(encoded, "$")
 	if len(parts) != 6 || parts[1] != "argon2id" {
 		return Params{}, nil, nil, errors.New("invalid password hash format")
@@ -101,5 +113,25 @@ func parse(encoded string) (Params, []byte, []byte, error) {
 
 	p.SaltLength = uint32(len(salt))
 	p.KeyLength = uint32(len(expected))
+	if err := validateParams(p); err != nil {
+		return Params{}, nil, nil, err
+	}
 	return p, salt, expected, nil
+}
+
+func validateParams(p Params) error {
+	switch {
+	case p.Memory < MinArgonMemoryKiB || p.Memory > MaxArgonMemoryKiB:
+		return errors.New("Argon2id memory parameter is outside the allowed range")
+	case p.Iterations < 1 || p.Iterations > MaxArgonIterations:
+		return errors.New("Argon2id iteration parameter is outside the allowed range")
+	case p.Parallelism < 1 || p.Parallelism > MaxArgonParallelism:
+		return errors.New("Argon2id parallelism parameter is outside the allowed range")
+	case p.SaltLength < 16 || p.SaltLength > MaxArgonSaltBytes:
+		return errors.New("Argon2id salt length is outside the allowed range")
+	case p.KeyLength < 16 || p.KeyLength > MaxArgonKeyBytes:
+		return errors.New("Argon2id key length is outside the allowed range")
+	default:
+		return nil
+	}
 }
