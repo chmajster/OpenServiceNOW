@@ -207,6 +207,8 @@ func (c Config) Validate() error {
 	var errs []error
 	if strings.TrimSpace(c.HTTPAddr) == "" {
 		errs = append(errs, errors.New("HTTP_ADDR must not be empty"))
+	} else if _, _, err := net.SplitHostPort(c.HTTPAddr); err != nil {
+		errs = append(errs, fmt.Errorf("HTTP_ADDR must be host:port: %w", err))
 	}
 	if strings.TrimSpace(c.MySQL.Host) == "" {
 		errs = append(errs, errors.New("MYSQL_HOST must not be empty"))
@@ -259,6 +261,9 @@ func (c Config) Validate() error {
 	}
 	if c.Session.CookieName == c.Session.CSRFCookieName {
 		errs = append(errs, errors.New("session and CSRF cookie names must differ"))
+	}
+	if c.AppEnv != "development" && c.AppEnv != "test" && !c.Session.CookieSecure {
+		errs = append(errs, errors.New("SESSION_COOKIE_SECURE must be true outside development and test"))
 	}
 	if c.Session.CleanupInterval <= 0 || c.Session.RevokedRetention < 0 {
 		errs = append(errs, errors.New("session cleanup durations are invalid"))
