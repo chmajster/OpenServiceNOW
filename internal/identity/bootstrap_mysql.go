@@ -13,8 +13,8 @@ func (r *MySQLRepository) EnsureTenant(ctx context.Context, exec platformdb.Exec
 	result, err := exec.ExecContext(ctx, `
 		INSERT INTO tenants (slug, name)
 		VALUES (?, ?)
-		ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), name = ?
-	`, slug, name, name)
+		ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)
+	`, slug, name)
 	if err != nil {
 		return 0, fmt.Errorf("ensure tenant: %w", err)
 	}
@@ -29,14 +29,19 @@ func (r *MySQLRepository) EnsureUser(
 	ctx context.Context,
 	exec platformdb.Executor,
 	email, name, passwordHash string,
-) (uint64, bool, error) {
+) (uint64, bool, string, error) {
 	var existingID uint64
-	err := exec.QueryRowContext(ctx, `SELECT id FROM users WHERE email = ? FOR UPDATE`, email).Scan(&existingID)
+	var existingPasswordHash string
+	err := exec.QueryRowContext(
+		ctx,
+		`SELECT id, password_hash FROM users WHERE email = ? FOR UPDATE`,
+		email,
+	).Scan(&existingID, &existingPasswordHash)
 	if err == nil {
-		return existingID, false, nil
+		return existingID, false, existingPasswordHash, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
-		return 0, false, fmt.Errorf("find existing user: %w", err)
+		return 0, false, "", fmt.Errorf("find existing user: %w", err)
 	}
 
 	result, err := exec.ExecContext(ctx, `
@@ -44,13 +49,13 @@ func (r *MySQLRepository) EnsureUser(
 		VALUES (?, ?, ?)
 	`, email, name, passwordHash)
 	if err != nil {
-		return 0, false, fmt.Errorf("create user: %w", err)
+		return 0, false, "", fmt.Errorf("create user: %w", err)
 	}
 	id, err := result.LastInsertId()
 	if err != nil {
-		return 0, false, fmt.Errorf("read new user id: %w", err)
+		return 0, false, "", fmt.Errorf("read new user id: %w", err)
 	}
-	return uint64(id), true, nil
+	return uint64(id), true, "", nil
 }
 
 func (r *MySQLRepository) EnsureMembership(ctx context.Context, exec platformdb.Executor, tenantID, userID uint64) error {
