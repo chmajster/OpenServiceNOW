@@ -144,7 +144,7 @@ func Load() (Config, error) {
 
 	cfg := Config{
 		AppEnv:          appEnv,
-		HTTPAddr:        getenv("HTTP_ADDR", ":8080"),
+		HTTPAddr:        getenv("HTTP_ADDR", "127.0.0.1:8080"),
 		ShutdownTimeout: shutdownTimeout,
 		MySQL: MySQLConfig{
 			Host:            getenv("MYSQL_HOST", "127.0.0.1"),
