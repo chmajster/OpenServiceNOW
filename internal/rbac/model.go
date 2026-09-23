@@ -10,13 +10,13 @@ var (
 )
 
 type Permission struct {
-	ID          uint64 `json:"id"`
+	ID          uint64 `json:"id,string"`
 	Key         string `json:"key"`
 	Description string `json:"description,omitempty"`
 }
 
 type Role struct {
-	ID          uint64       `json:"id"`
+	ID          uint64       `json:"id,string"`
 	Name        string       `json:"name"`
 	Description string       `json:"description,omitempty"`
 	SystemRole  bool         `json:"system_role"`
@@ -25,7 +25,7 @@ type Role struct {
 }
 
 type Group struct {
-	ID          uint64 `json:"id"`
+	ID          uint64 `json:"id,string"`
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
 	Version     uint64 `json:"version"`
@@ -45,10 +45,10 @@ type CreateGroupInput struct {
 
 type RolePage struct {
 	Roles       []Role `json:"roles"`
-	NextAfterID uint64 `json:"next_after_id,omitempty"`
+	NextAfterID uint64 `json:"next_after_id,string,omitempty"`
 }
 
 type GroupPage struct {
 	Groups      []Group `json:"groups"`
-	NextAfterID uint64  `json:"next_after_id,omitempty"`
+	NextAfterID uint64  `json:"next_after_id,string,omitempty"`
 }
