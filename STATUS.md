@@ -6,7 +6,7 @@ Last updated: 2026-09-23
 
 Phase 1 — Foundation
 
-The backend and frontend foundations are substantially implemented on the active branch, but Phase 1 is not complete because executable CI verification and dependency lock generation are blocked.
+The backend and frontend foundations are substantially implemented on the active branch, but Phase 1 is not complete because executable CI verification and dependency lock generation remain blocked.
 
 ## Last completed
 
@@ -46,6 +46,7 @@ Implemented on the Phase 1 branch:
 - tenant-scoped lookahead cursor audit API,
 - audit HTTP transport separated into auditapi to preserve acyclic package dependencies,
 - OpenAPI 3.1 document for implemented endpoints,
+- precision-safe decimal-string JSON contract for MySQL BIGINT identifiers, cursors, counts and optimistic-lock versions,
 - Docker Compose,
 - Makefile commands,
 - unit tests for configuration, HTTP, password hashing, authentication gates, RBAC gates and scheduler cleanup,
@@ -90,15 +91,18 @@ Remaining verification work:
 
 ## Known problems
 
-### BLOCKER — GitHub Actions runner is not executing the job
+### BLOCKER — GitHub Actions jobs still fail before the first step
 
-Repeated workflow runs finish as failure before the first workflow step:
+A workflow YAML parsing defect was found and fixed: an inline `run:` scalar contained `version: none dirty: false`, which made GitHub treat the workflow as invalid. After the fix, GitHub correctly recognizes the workflow name and creates the `test` and `frontend` jobs.
 
-- `runner_id = 0`,
-- empty runner name,
-- empty step list.
+A temporary minimal diagnostic workflow with one `echo` step was also created and then removed. It showed the same remaining failure pattern as the real workflow:
 
-This does not constitute a failing build or failing test because no checkout/build/test command is executed.
+- job object is created,
+- job immediately finishes with `conclusion=failure`,
+- `steps=null`,
+- no job logs are available.
+
+Therefore the YAML/parser problem is resolved. The remaining CI blocker occurs before the first runner step and is separate from application build/test results.
 
 The assistant execution environment contains Go 1.23.2 and cannot resolve `proxy.golang.org`, so it cannot independently download the Go 1.27 toolchain or module dependencies.
 
@@ -137,12 +141,14 @@ Test code exists for:
 - trusted-proxy client-IP resolution and spoofing rejection,
 - password input bounds,
 - frontend API client CSRF behavior and error mapping,
-- OpenAPI route inventory, local $ref resolution and unique operation IDs,
-- role permission optimistic-lock conflicts,
+- OpenAPI route inventory, local $ref resolution, unique operation IDs and decimal-string BIGINT contract,
+- role permission optimistic-lock conflicts and no-op version stability,
 - audit cursor pagination and tenant isolation,
 - safe bootstrap re-entry for existing users,
 - bounded password-verifier saturation behavior,
-- panic-safe transaction behavior.
+- panic-safe transaction behavior,
+- precision-safe BIGINT JSON serialization above JavaScript `Number.MAX_SAFE_INTEGER`,
+- quoted optimistic-lock version decoding in tenant/RBAC HTTP transports.
 
 CI is configured to run:
 
