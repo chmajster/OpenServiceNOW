@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"strconv"
 	"os"
 	"strings"
 
@@ -51,9 +52,9 @@ func main() {
 	}
 
 	logger.Info("bootstrap complete",
-		"tenant_id", result.TenantID,
-		"user_id", result.UserID,
-		"role_id", result.RoleID,
+		"tenant_id", strconv.FormatUint(result.TenantID, 10),
+		"user_id", strconv.FormatUint(result.UserID, 10),
+		"role_id", strconv.FormatUint(result.RoleID, 10),
 		"user_created", result.UserCreated,
 	)
 }
