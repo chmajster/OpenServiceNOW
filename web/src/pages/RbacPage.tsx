@@ -40,6 +40,8 @@ export function RbacPage() {
   const [roleName, setRoleName] = useState("");
   const [roleDescription, setRoleDescription] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+  const [editRoleID, setEditRoleID] = useState("");
+  const [editRolePermissions, setEditRolePermissions] = useState<string[]>([]);
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
   const [assignmentUser, setAssignmentUser] = useState("");
@@ -151,6 +153,18 @@ export function RbacPage() {
     );
   }
 
+  function selectRoleForEdit(roleID: string) {
+    setEditRoleID(roleID);
+    const role = roles.find((item) => item.id === Number(roleID));
+    setEditRolePermissions(role?.permissions.map((permission) => permission.key) ?? []);
+  }
+
+  function toggleEditPermission(key: string) {
+    setEditRolePermissions((current) =>
+      current.includes(key) ? current.filter((value) => value !== key) : [...current, key]
+    );
+  }
+
   async function createRole(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -174,6 +188,40 @@ export function RbacPage() {
         setError("Rola o tej nazwie już istnieje.");
       } else {
         setError(cause instanceof Error ? cause.message : "Utworzenie roli nie powiodło się.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveRolePermissions(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const role = roles.find((item) => item.id === Number(editRoleID));
+    if (!role || role.system_role) {
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await api<void>(`/api/v1/admin/rbac/roles/${role.id}/permissions`, {
+        method: "PUT",
+        body: jsonBody({
+          version: role.version,
+          permissions: editRolePermissions
+        })
+      });
+      setMessage("Uprawnienia roli zostały zaktualizowane.");
+      setEditRoleID("");
+      setEditRolePermissions([]);
+      await loadRoles(undefined, false, activeRoleSearch);
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 409) {
+        setError("Rola została zmieniona równolegle. Odśwież listę i ponów edycję.");
+        await loadRoles(undefined, false, activeRoleSearch);
+      } else {
+        setError(cause instanceof Error ? cause.message : "Aktualizacja uprawnień roli nie powiodła się.");
       }
     } finally {
       setBusy(false);
@@ -305,6 +353,42 @@ export function RbacPage() {
               ))}
             </fieldset>
             <button className="button button--primary" type="submit" disabled={busy}>Utwórz rolę</button>
+          </form>
+
+          <hr />
+
+          <div className="panel-heading"><h2>Edytuj uprawnienia roli</h2></div>
+          <form className="form-stack form-stack--compact" onSubmit={(event) => void saveRolePermissions(event)}>
+            <label>
+              Rola
+              <select value={editRoleID} onChange={(event) => selectRoleForEdit(event.target.value)}>
+                <option value="">Wybierz niesystemową rolę z załadowanych wyników</option>
+                {roles.filter((role) => !role.system_role).map((role) => (
+                  <option key={role.id} value={role.id}>{role.name} — v{role.version}</option>
+                ))}
+              </select>
+            </label>
+            {editRoleID ? (
+              <fieldset className="permission-grid">
+                <legend>Uprawnienia po zmianie</legend>
+                {permissions.map((permission) => (
+                  <label className="checkbox-row" key={permission.key}>
+                    <input
+                      type="checkbox"
+                      checked={editRolePermissions.includes(permission.key)}
+                      onChange={() => toggleEditPermission(permission.key)}
+                    />
+                    <span>
+                      <strong>{permission.key}</strong>
+                      <small>{permission.description}</small>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+            ) : null}
+            <button className="button button--secondary" type="submit" disabled={busy || !editRoleID}>
+              Zapisz uprawnienia
+            </button>
           </form>
         </div>
 
