@@ -29,7 +29,7 @@ func New(client *redis.Client, prefix string) *Limiter {
 }
 
 func (l *Limiter) Allow(ctx context.Context, key string, limit int64, window time.Duration) (bool, error) {
-	if key == "" || limit < 1 || window <= 0 {
+	if key == "" || limit < 1 || window < time.Millisecond {
 		return false, fmt.Errorf("invalid rate limit configuration")
 	}
 	result, err := fixedWindowScript.Run(
