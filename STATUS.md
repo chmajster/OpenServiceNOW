@@ -38,7 +38,7 @@ Implemented on the Phase 1 branch:
 - tenant bootstrap with initial platform administrator,
 - groups, roles, permission catalog and assignments,
 - backend permission middleware,
-- tenant-scoped user administration with cursor pagination/search and membership-triggered session revocation,
+- tenant-scoped user administration with cursor pagination/search, existing-global-account membership linking and membership-triggered session revocation,
 - current-tenant administration with optimistic locking,
 - role/group administration with cursor pagination/search,
 - optimistic locking for role permission replacement,
