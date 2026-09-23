@@ -135,14 +135,20 @@ func (r *MySQLRepository) SetRolePermissions(
 	tenantID, roleID uint64,
 	keys []string,
 ) error {
-	var exists bool
-	if err := exec.QueryRowContext(ctx, `
-		SELECT EXISTS(SELECT 1 FROM roles WHERE tenant_id = ? AND id = ?)
-	`, tenantID, roleID).Scan(&exists); err != nil {
+	var systemRole bool
+	err := exec.QueryRowContext(ctx, `
+		SELECT system_role
+		FROM roles
+		WHERE tenant_id = ? AND id = ?
+	`, tenantID, roleID).Scan(&systemRole)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
 		return fmt.Errorf("check role ownership: %w", err)
 	}
-	if !exists {
-		return ErrNotFound
+	if systemRole {
+		return fmt.Errorf("%w: system role permissions are immutable", ErrInvalid)
 	}
 
 	if _, err := exec.ExecContext(ctx, `DELETE FROM role_permissions WHERE role_id = ?`, roleID); err != nil {
@@ -410,4 +416,24 @@ func (r *MySQLRepository) RemoveRoleFromGroup(
 func isDuplicate(err error) bool {
 	var mysqlErr *mysqlDriver.MySQLError
 	return errors.As(err, &mysqlErr) && mysqlErr.Number == 1062
+}
+
+func (r *MySQLRepository) IsSystemRole(
+	ctx context.Context,
+	exec platformdb.Executor,
+	tenantID, roleID uint64,
+) (bool, error) {
+	var systemRole bool
+	err := exec.QueryRowContext(ctx, `
+		SELECT system_role
+		FROM roles
+		WHERE tenant_id = ? AND id = ?
+	`, tenantID, roleID).Scan(&systemRole)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, ErrNotFound
+	}
+	if err != nil {
+		return false, fmt.Errorf("read system role flag: %w", err)
+	}
+	return systemRole, nil
 }
