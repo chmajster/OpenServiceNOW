@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"mime"
 	"net/http"
 
 	"github.com/go-chi/chi/v5/middleware"
 )
+
+var ErrUnsupportedMediaType = errors.New("unsupported media type")
 
 type ErrorEnvelope struct {
 	Error ErrorBody `json:"error"`
@@ -34,6 +37,11 @@ func WriteError(w http.ResponseWriter, r *http.Request, status int, code, messag
 }
 
 func DecodeJSON(r *http.Request, target any) error {
+	contentType := r.Header.Get("Content-Type")
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil || mediaType != "application/json" {
+		return ErrUnsupportedMediaType
+	}
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(target); err != nil {
@@ -47,6 +55,10 @@ func DecodeJSON(r *http.Request, target any) error {
 }
 
 func WriteDecodeError(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, ErrUnsupportedMediaType) {
+		WriteError(w, r, http.StatusUnsupportedMediaType, "UNSUPPORTED_MEDIA_TYPE", "Content-Type must be application/json")
+		return
+	}
 	var tooLarge *http.MaxBytesError
 	if errors.As(err, &tooLarge) {
 		WriteError(w, r, http.StatusRequestEntityTooLarge, "REQUEST_TOO_LARGE", "Request body is too large")
