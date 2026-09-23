@@ -80,12 +80,12 @@ export function TenantPage() {
             Nazwa organizacji
             <input value={name} onChange={(event) => setName(event.target.value)} maxLength={200} required />
           </label>
-          <div className="detail-grid">
+          <dl className="detail-grid">
             <div><dt>Slug</dt><dd>{tenant.slug}</dd></div>
             <div><dt>Status</dt><dd>{tenant.status}</dd></div>
             <div><dt>Wersja</dt><dd>{tenant.version}</dd></div>
             <div><dt>Aktualizacja</dt><dd>{new Date(tenant.updated_at).toLocaleString("pl-PL")}</dd></div>
-          </div>
+          </dl>
           {error ? <div className="inline-error" role="alert">{error}</div> : null}
           {message ? <div className="inline-success" role="status">{message}</div> : null}
           <div>
