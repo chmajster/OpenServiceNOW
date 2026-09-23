@@ -20,8 +20,8 @@ type Event struct {
 }
 
 type Record struct {
-	ID          uint64          `json:"id"`
-	ActorUserID *uint64         `json:"actor_user_id,omitempty"`
+	ID          uint64          `json:"id,string"`
+	ActorUserID *uint64         `json:"actor_user_id,string,omitempty"`
 	Time        time.Time       `json:"time"`
 	Action      string          `json:"action"`
 	ObjectType  string          `json:"object_type"`
@@ -35,5 +35,5 @@ type Record struct {
 
 type Page struct {
 	Events       []Record `json:"events"`
-	NextBeforeID uint64   `json:"next_before_id,omitempty"`
+	NextBeforeID uint64   `json:"next_before_id,string,omitempty"`
 }
