@@ -74,7 +74,11 @@ func (h *Handler) SetMembership(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var request membershipRequest
-	if err := httpapi.DecodeJSON(r, &request); err != nil || request.Active == nil {
+	if err := httpapi.DecodeJSON(r, &request); err != nil {
+		httpapi.WriteDecodeError(w, r, err)
+		return
+	}
+	if request.Active == nil {
 		httpapi.WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "Field active is required")
 		return
 	}
