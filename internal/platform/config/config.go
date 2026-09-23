@@ -43,10 +43,13 @@ type RedisConfig struct {
 }
 
 type SessionConfig struct {
-	TTL            time.Duration
-	CookieSecure   bool
-	CookieName     string
-	CSRFCookieName string
+	TTL             time.Duration
+	CookieSecure    bool
+	CookieName      string
+	CSRFCookieName  string
+	CleanupInterval time.Duration
+	CleanupBatch    int
+	RevokedRetention time.Duration
 }
 
 type AuthConfig struct {
@@ -102,6 +105,18 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	sessionCleanupInterval, err := envDuration("SESSION_CLEANUP_INTERVAL", 15*time.Minute)
+	if err != nil {
+		return Config{}, err
+	}
+	sessionCleanupBatch, err := envInt("SESSION_CLEANUP_BATCH", 500)
+	if err != nil {
+		return Config{}, err
+	}
+	sessionRevokedRetention, err := envDuration("SESSION_REVOKED_RETENTION", 24*time.Hour)
+	if err != nil {
+		return Config{}, err
+	}
 	loginIPLimit, err := envInt("AUTH_LOGIN_IP_LIMIT", 10)
 	if err != nil {
 		return Config{}, err
@@ -142,10 +157,13 @@ func Load() (Config, error) {
 			PingTimeout: redisPingTimeout,
 		},
 		Session: SessionConfig{
-			TTL:            sessionTTL,
-			CookieSecure:   cookieSecure,
-			CookieName:     getenv("SESSION_COOKIE_NAME", "opensnow_session"),
-			CSRFCookieName: getenv("CSRF_COOKIE_NAME", "opensnow_csrf"),
+			TTL:              sessionTTL,
+			CookieSecure:     cookieSecure,
+			CookieName:       getenv("SESSION_COOKIE_NAME", "opensnow_session"),
+			CSRFCookieName:   getenv("CSRF_COOKIE_NAME", "opensnow_csrf"),
+			CleanupInterval:  sessionCleanupInterval,
+			CleanupBatch:     sessionCleanupBatch,
+			RevokedRetention: sessionRevokedRetention,
 		},
 		Auth: AuthConfig{
 			LoginIPLimit:       loginIPLimit,
@@ -208,6 +226,12 @@ func (c Config) Validate() error {
 	}
 	if c.Session.CookieName == c.Session.CSRFCookieName {
 		errs = append(errs, errors.New("session and CSRF cookie names must differ"))
+	}
+	if c.Session.CleanupInterval <= 0 || c.Session.RevokedRetention < 0 {
+		errs = append(errs, errors.New("session cleanup durations are invalid"))
+	}
+	if c.Session.CleanupBatch < 1 || c.Session.CleanupBatch > 10000 {
+		errs = append(errs, errors.New("SESSION_CLEANUP_BATCH must be between 1 and 10000"))
 	}
 	if c.Auth.LoginIPLimit < 1 || c.Auth.LoginAccountLimit < 1 {
 		errs = append(errs, errors.New("authentication rate limits must be at least 1"))
