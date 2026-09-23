@@ -30,7 +30,9 @@ test("admin creates a least-privilege tenant reader through the UI", async ({ pa
   await page.getByRole("link", { name: "Użytkownicy" }).click();
   await expect(page.getByRole("heading", { name: "Użytkownicy" })).toBeVisible();
 
-  const createUserPanel = page.getByRole("heading", { name: "Dodaj konto lokalne" }).locator("..").locator("..");
+  const createUserPanel = page.locator(".panel").filter({
+    has: page.getByRole("heading", { name: "Dodaj konto lokalne" })
+  });
   await createUserPanel.getByLabel("E-mail").fill(operatorEmail);
   await createUserPanel.getByLabel("Nazwa wyświetlana").fill("E2E Operator");
   await createUserPanel.getByLabel("Hasło").fill(operatorPassword);
@@ -40,7 +42,9 @@ test("admin creates a least-privilege tenant reader through the UI", async ({ pa
   await page.getByRole("link", { name: "Role i RBAC" }).click();
   await expect(page.getByRole("heading", { name: "Role i RBAC" })).toBeVisible();
 
-  const createRolePanel = page.getByRole("heading", { name: "Nowa rola" }).locator("..").locator("..");
+  const createRolePanel = page.locator(".panel").filter({
+    has: page.getByRole("heading", { name: "Nowa rola" })
+  });
   await createRolePanel.getByLabel("Nazwa").fill(roleName);
   await createRolePanel.getByLabel("Opis").fill("Read-only tenant access created by Playwright E2E");
 
@@ -55,10 +59,9 @@ test("admin creates a least-privilege tenant reader through the UI", async ({ pa
   await expect(createdRoleCard).toHaveCount(1);
   await expect(createdRoleCard.getByText(roleName, { exact: true })).toBeVisible();
 
-  const assignmentPanel = page
-    .getByRole("heading", { name: "Przypisz rolę użytkownikowi" })
-    .locator("..")
-    .locator("..");
+  const assignmentPanel = page.locator(".panel").filter({
+    has: page.getByRole("heading", { name: "Przypisz rolę użytkownikowi" })
+  });
 
   await assignmentPanel.getByLabel("Wyszukaj użytkownika").fill(operatorEmail);
   await assignmentPanel.getByRole("button", { name: "Szukaj" }).click();
