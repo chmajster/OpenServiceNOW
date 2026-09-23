@@ -65,3 +65,19 @@ func TestDSNSupportsSpecialCharacters(t *testing.T) {
 		t.Fatalf("DSN round trip mismatch: user=%q db=%q", parsed.User, parsed.DBName)
 	}
 }
+
+func TestSessionCookieNamesAreStableProtocolConstants(t *testing.T) {
+	t.Setenv("SESSION_COOKIE_NAME", "unexpected-session-name")
+	t.Setenv("CSRF_COOKIE_NAME", "unexpected-csrf-name")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Session.CookieName != SessionCookieName {
+		t.Fatalf("session cookie name = %q", cfg.Session.CookieName)
+	}
+	if cfg.Session.CSRFCookieName != CSRFCookieName {
+		t.Fatalf("CSRF cookie name = %q", cfg.Session.CSRFCookieName)
+	}
+}
