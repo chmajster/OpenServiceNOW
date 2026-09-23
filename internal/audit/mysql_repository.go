@@ -53,9 +53,13 @@ func (r *MySQLRepository) Append(ctx context.Context, exec platformdb.Executor, 
 	return nil
 }
 
-func marshalNullable(value any) ([]byte, error) {
+func marshalNullable(value any) (any, error) {
 	if value == nil {
 		return nil, nil
 	}
-	return json.Marshal(value)
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	return string(encoded), nil
 }
