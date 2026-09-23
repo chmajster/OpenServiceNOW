@@ -12,8 +12,11 @@ import type {
   UsersResponse
 } from "../api/types";
 import { PageState } from "../components/PageState";
+import { useAuth } from "../auth/AuthContext";
 
 export function RbacPage() {
+  const { hasPermission } = useAuth();
+  const canManageUsers = hasPermission("admin.users.manage");
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -40,7 +43,9 @@ export function RbacPage() {
         api<PermissionsResponse>("/api/v1/admin/rbac/permissions"),
         api<RolesResponse>("/api/v1/admin/rbac/roles"),
         api<GroupsResponse>("/api/v1/admin/rbac/groups"),
-        api<UsersResponse>("/api/v1/admin/users/")
+        canManageUsers
+          ? api<UsersResponse>("/api/v1/admin/users/")
+          : Promise.resolve<UsersResponse>({ users: [] })
       ]);
       setPermissions(permissionResponse.permissions);
       setRoles(roleResponse.roles);
@@ -56,7 +61,7 @@ export function RbacPage() {
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [canManageUsers]);
 
   function togglePermission(key: string) {
     setSelectedPermissions((current) =>
@@ -202,27 +207,34 @@ export function RbacPage() {
           <hr />
 
           <div className="panel-heading"><h2>Przypisz rolę użytkownikowi</h2></div>
-          <form className="form-stack form-stack--compact" onSubmit={(event) => void assignRole(event)}>
-            <label>
-              Użytkownik
-              <select value={assignmentUser} onChange={(event) => setAssignmentUser(event.target.value)} required>
-                <option value="">Wybierz użytkownika</option>
-                {activeUsers.map((user) => (
-                  <option key={user.id} value={user.id}>{user.display_name} — {user.email}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Rola
-              <select value={assignmentRole} onChange={(event) => setAssignmentRole(event.target.value)} required>
-                <option value="">Wybierz rolę</option>
-                {roles.map((role) => (
-                  <option key={role.id} value={role.id}>{role.name}</option>
-                ))}
-              </select>
-            </label>
-            <button className="button button--secondary" type="submit" disabled={busy}>Przypisz rolę</button>
-          </form>
+          {canManageUsers ? (
+            <form className="form-stack form-stack--compact" onSubmit={(event) => void assignRole(event)}>
+              <label>
+                Użytkownik
+                <select value={assignmentUser} onChange={(event) => setAssignmentUser(event.target.value)} required>
+                  <option value="">Wybierz użytkownika</option>
+                  {activeUsers.map((user) => (
+                    <option key={user.id} value={user.id}>{user.display_name} — {user.email}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Rola
+                <select value={assignmentRole} onChange={(event) => setAssignmentRole(event.target.value)} required>
+                  <option value="">Wybierz rolę</option>
+                  {roles.map((role) => (
+                    <option key={role.id} value={role.id}>{role.name}</option>
+                  ))}
+                </select>
+              </label>
+              <button className="button button--secondary" type="submit" disabled={busy}>Przypisz rolę</button>
+            </form>
+          ) : (
+            <PageState
+              title="Lista użytkowników niedostępna"
+              detail="Przypisywanie roli użytkownikowi z tego widoku wymaga również admin.users.manage."
+            />
+          )
         </div>
       </div>
 
