@@ -127,6 +127,18 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	t.Cleanup(func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cleanupCancel()
+		_, _ = db.ExecContext(
+			cleanupCtx,
+			"DELETE FROM audit_events WHERE tenant_id IN (?, ?)",
+			adminA.TenantID,
+			adminB.TenantID,
+		)
+		_, _ = db.ExecContext(
+			cleanupCtx,
+			"DELETE FROM sessions WHERE tenant_id IN (?, ?)",
+			adminA.TenantID,
+			adminB.TenantID,
+		)
 		_, _ = db.ExecContext(cleanupCtx, "DELETE FROM tenants WHERE id IN (?, ?)", adminA.TenantID, adminB.TenantID)
 		_, _ = db.ExecContext(cleanupCtx, "DELETE FROM users WHERE id IN (?, ?)", adminA.UserID, adminB.UserID)
 	})
