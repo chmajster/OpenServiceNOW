@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"flag"
 	"log/slog"
