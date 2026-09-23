@@ -23,10 +23,16 @@ Implemented foundation capabilities:
 - login rate limiting in Redis,
 - backend permission evaluation,
 - initial tenant/admin bootstrap command,
+- tenant-scoped user administration,
+- tenant administration with optimistic locking,
+- RBAC administration for groups, roles, permissions and assignments,
+- tenant-scoped paginated audit API,
+- real session-cleanup scheduler,
+- OpenAPI 3.1 contract,
 - Docker Compose development services,
-- unit/race/build/migration/authentication smoke CI.
+- unit/integration/race/build/migration/authentication/RBAC smoke CI definitions.
 
-Worker/scheduler workloads, external identity providers, user/RBAC administration APIs, OpenAPI, frontend, and ITSM business modules are not implemented yet.
+The frontend, external identity providers, durable background-job worker and ITSM business modules are not implemented yet. The backend branch is not considered verified until CI actually receives a runner and executes its steps.
 
 ## Target stack
 
@@ -112,9 +118,14 @@ make lint
 make migrate-up
 make migrate-down
 make bootstrap
+make scheduler-once
 ```
 
 `make migrate-down` rolls back one migration.
+
+The OpenAPI document is stored at `api/openapi/openapi.json`.
+
+Administrative backend endpoints currently cover the active tenant, tenant users, RBAC and audit. Tenant scope is derived from the authenticated session rather than a client-supplied tenant identifier.
 
 ## Architecture and project state
 
