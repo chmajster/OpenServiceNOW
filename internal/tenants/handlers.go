@@ -40,7 +40,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	var request updateRequest
 	if err := httpapi.DecodeJSON(r, &request); err != nil {
-		httpapi.WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "Invalid JSON request")
+		httpapi.WriteDecodeError(w, r, err)
 		return
 	}
 	session, ok := identity.FromContext(r.Context())
