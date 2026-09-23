@@ -3,3 +3,7 @@ bin/
 coverage.out
 .DS_Store
 *.log
+
+web/node_modules/
+web/dist/
+web/.vite/
