@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/chmajster/OpenServiceNOW/internal/platform/health"
@@ -46,5 +47,40 @@ func TestRouterUsesConsistentNotFoundError(t *testing.T) {
 	}
 	if got := rr.Header().Get("Content-Type"); got != "application/json" {
 		t.Fatalf("Content-Type = %q", got)
+	}
+}
+
+func TestRouterPreservesSafeIncomingRequestID(t *testing.T) {
+	h := health.New(func(context.Context) error { return nil }, func(context.Context) error { return nil })
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	request := httptest.NewRequest(http.MethodGet, "/health/live", nil)
+	request.Header.Set("X-Request-ID", "client-req_123")
+
+	rr := httptest.NewRecorder()
+	Router(logger, h, nil).ServeHTTP(rr, request)
+
+	if got := rr.Header().Get("X-Request-ID"); got != "client-req_123" {
+		t.Fatalf("X-Request-ID = %q", got)
+	}
+}
+
+func TestRouterReplacesUnsafeIncomingRequestID(t *testing.T) {
+	h := health.New(func(context.Context) error { return nil }, func(context.Context) error { return nil })
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	request := httptest.NewRequest(http.MethodGet, "/health/live", nil)
+	request.Header.Set("X-Request-ID", strings.Repeat("x", 200))
+
+	rr := httptest.NewRecorder()
+	Router(logger, h, nil).ServeHTTP(rr, request)
+
+	got := rr.Header().Get("X-Request-ID")
+	if got == "" {
+		t.Fatal("X-Request-ID is missing")
+	}
+	if got == strings.Repeat("x", 200) {
+		t.Fatal("unsafe client request ID was preserved")
+	}
+	if len(got) > 128 {
+		t.Fatalf("generated X-Request-ID is unexpectedly long: %d", len(got))
 	}
 }
