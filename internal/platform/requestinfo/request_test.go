@@ -86,3 +86,19 @@ func TestResolverFallsBackToDirectPeerWhenAllForwardedHopsAreTrusted(t *testing.
 		t.Fatalf("Resolve() = %q", got)
 	}
 }
+
+func TestDirectPeerIPRejectsNonIPRemoteAddress(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.RemoteAddr = "not-an-ip-or-host-port"
+	if got := DirectPeerIP(request); got != "" {
+		t.Fatalf("DirectPeerIP() = %q", got)
+	}
+}
+
+func TestDirectPeerIPCanonicalizesIPv6(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.RemoteAddr = "[2001:0db8:0000:0000:0000:0000:0000:0001]:443"
+	if got := DirectPeerIP(request); got != "2001:db8::1" {
+		t.Fatalf("DirectPeerIP() = %q", got)
+	}
+}
