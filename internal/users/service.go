@@ -9,18 +9,25 @@ import (
 	"unicode/utf8"
 
 	"github.com/chmajster/OpenServiceNOW/internal/audit"
+	"github.com/chmajster/OpenServiceNOW/internal/identity"
 	platformdb "github.com/chmajster/OpenServiceNOW/internal/platform/database"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/password"
 )
 
 type Service struct {
-	repo  *MySQLRepository
-	tx    *platformdb.TxManager
-	audit *audit.MySQLRepository
+	repo        *MySQLRepository
+	tx          *platformdb.TxManager
+	audit       *audit.MySQLRepository
+	adminSafety *identity.AdminSafetyRepository
 }
 
-func NewService(repo *MySQLRepository, tx *platformdb.TxManager, auditRepo *audit.MySQLRepository) *Service {
-	return &Service{repo: repo, tx: tx, audit: auditRepo}
+func NewService(
+	repo *MySQLRepository,
+	tx *platformdb.TxManager,
+	auditRepo *audit.MySQLRepository,
+	adminSafety *identity.AdminSafetyRepository,
+) *Service {
+	return &Service{repo: repo, tx: tx, audit: auditRepo, adminSafety: adminSafety}
 }
 
 func (s *Service) List(ctx context.Context, tenantID uint64) ([]User, error) {
@@ -80,8 +87,22 @@ func (s *Service) SetMembershipActive(ctx context.Context, actor Actor, userID u
 		return fmt.Errorf("%w: cannot disable own tenant membership", ErrInvalid)
 	}
 	return s.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec platformdb.Executor) error {
+		if !active {
+			if err := s.adminSafety.LockTenant(ctx, exec, actor.TenantID); err != nil {
+				return err
+			}
+		}
 		if err := s.repo.SetMembershipActive(ctx, exec, actor.TenantID, userID, active); err != nil {
 			return err
+		}
+		if !active {
+			count, err := s.adminSafety.CountEffectivePlatformAdmins(ctx, exec, actor.TenantID)
+			if err != nil {
+				return err
+			}
+			if count == 0 {
+				return fmt.Errorf("%w: tenant must retain at least one active platform administrator", ErrInvalid)
+			}
 		}
 		return s.audit.Append(ctx, exec, audit.Event{
 			TenantID:    &actor.TenantID,
