@@ -36,7 +36,7 @@ export type Tenant = {
   slug: string;
   name: string;
   status: "ACTIVE" | "DISABLED";
-  version: number;
+  version: string;
   created_at: string;
   updated_at: string;
 };
@@ -70,7 +70,7 @@ export type Role = {
   name: string;
   description?: string;
   system_role: boolean;
-  version: number;
+  version: string;
   permissions: Permission[];
 };
 
@@ -83,8 +83,8 @@ export type Group = {
   id: string;
   name: string;
   description?: string;
-  version: number;
-  member_count: number;
+  version: string;
+  member_count: string;
 };
 
 export type GroupsResponse = {
