@@ -1,4 +1,4 @@
-.PHONY: dev build test lint migrate-up migrate-down bootstrap scheduler-once
+.PHONY: dev build test lint migrate-up migrate-down bootstrap scheduler-once frontend frontend-test
 
 dev:
 	docker compose up -d
@@ -24,3 +24,9 @@ bootstrap:
 
 scheduler-once:
 	go run ./cmd/scheduler --once
+
+frontend:
+	cd web && npm run build
+
+frontend-test:
+	cd web && npm run test
