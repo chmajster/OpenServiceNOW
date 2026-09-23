@@ -6,7 +6,7 @@ Last updated: 2026-09-23
 
 Phase 1 — Foundation
 
-The backend foundation is substantially implemented on the active branch, but Phase 1 is not complete because executable CI verification is blocked and the frontend foundation is still missing.
+The backend and frontend foundations are substantially implemented on the active branch, but Phase 1 is not complete because executable CI verification and dependency lock generation are blocked.
 
 ## Last completed
 
@@ -45,7 +45,15 @@ Implemented on the Phase 1 branch:
 - Makefile commands,
 - unit tests for configuration, HTTP, password hashing, authentication gates, RBAC gates and scheduler cleanup,
 - MySQL integration test source for cross-tenant isolation and optimistic locking,
-- CI workflow covering format, vet, unit, race, build, migrations, integration tests, bootstrap, authenticated smoke flow, scheduler and rollback.
+- trusted-proxy-aware client IP resolution with spoofing tests,
+- bounded password input validation,
+- system-role immutability protections,
+- React + TypeScript frontend with login, overview, tenant, users, RBAC and audit screens,
+- frontend API client with automatic CSRF handling,
+- frontend permission-aware navigation and route guards,
+- frontend responsive/loading/error/empty states,
+- frontend API-client unit tests,
+- CI workflow covering backend format/vet/unit/race/build/migrations/integration/smoke/scheduler/rollback and frontend typecheck/test/build.
 
 ## Currently in progress
 
@@ -53,20 +61,19 @@ Phase 1 remains IN PROGRESS.
 
 Remaining implementation work:
 
-- React + TypeScript frontend foundation,
-- frontend authentication state and API client,
-- frontend tests/build,
 - `cmd/worker` only when the first real asynchronous job workload is introduced,
-- trusted-proxy configuration before honoring forwarded client IP headers,
-- external identity providers such as LDAP/OIDC in later Phase 1/10 work as planned.
+- production reverse-proxy/static-frontend packaging when deployment work begins,
+- external identity providers such as LDAP/OIDC in later identity/integration work.
 
 Remaining verification work:
 
 - obtain a GitHub-hosted runner that actually executes workflow steps,
-- generate and commit `go.sum` from a successful module resolution,
-- run `gofmt`, `go vet ./...`, `go test ./...`, `go test -race ./...`, integration tests and build,
+- generate and commit `go.sum` from a successful Go module resolution,
+- generate and commit `web/package-lock.json` from successful npm dependency resolution,
+- run `gofmt`, `go vet ./...`, `go test ./...`, `go test -race ./...`, integration tests and backend build,
 - execute migrations and complete API/auth/RBAC smoke flow,
-- execute migration rollback verification.
+- execute scheduler and migration rollback verification,
+- run frontend typecheck, tests and production build.
 
 ## Known problems
 
@@ -82,9 +89,14 @@ This does not constitute a failing build or failing test because no checkout/bui
 
 The assistant execution environment contains Go 1.23.2 and cannot resolve `proxy.golang.org`, so it cannot independently download the Go 1.27 toolchain or module dependencies.
 
-### Dependency lock file
+### Dependency lock files
 
-`go.sum` is not present yet because module resolution has not successfully run in an environment with dependency network access. It must be generated and committed before this PR is considered release-ready.
+The following lock artifacts are not present because dependency resolution has not successfully run in an environment with network access:
+
+- `go.sum`,
+- `web/package-lock.json`.
+
+Both must be generated and committed before this PR is considered merge-ready.
 
 ## Tests
 
@@ -105,7 +117,12 @@ Test code exists for:
 - OpenAPI route inventory,
 - cross-tenant user isolation,
 - cross-tenant RBAC membership rejection,
-- tenant optimistic locking.
+- tenant optimistic locking,
+- system-role mutation protections,
+- trusted-proxy client-IP resolution and spoofing rejection,
+- password input bounds,
+- frontend API client CSRF behavior and error mapping,
+- OpenAPI route inventory.
 
 CI is configured to run:
 
@@ -124,7 +141,10 @@ CI is configured to run:
 - login as the created user and effective-permission verification,
 - logout/revocation,
 - one scheduler cleanup iteration,
-- migration rollback.
+- migration rollback,
+- frontend TypeScript typecheck,
+- frontend unit tests,
+- frontend production build.
 
 These checks are authored but are not recorded as passing until the runner executes them.
 
@@ -153,19 +173,17 @@ The identity migration contains:
 
 Known non-blocking design work:
 
-- forwarded client IPs are intentionally ignored until trusted-proxy configuration exists,
 - scheduler should remain a single logical scheduler instance until distributed locking/leader coordination is implemented,
 - `cmd/worker` is intentionally absent until a real durable job workload exists,
-- frontend foundation is still absent,
+- production packaging for the built frontend is not defined yet,
 - external authentication providers are not implemented yet.
 
 No fake endpoint, placeholder UI or empty worker executable is used to hide these gaps.
 
 ## Next recommended tasks
 
-1. Restore executable CI and generate `go.sum`.
-2. Fix any build/test/migration defects exposed by the first real CI execution.
-3. Establish React + TypeScript frontend foundation.
-4. Implement login/session bootstrap in the frontend.
-5. Add frontend build/test to CI.
-6. Re-run the complete Phase 1 end-to-end verification before merge.
+1. Restore executable CI.
+2. Generate and commit `go.sum` and `web/package-lock.json`.
+3. Fix any backend/frontend build, test or migration defects exposed by the first real CI execution.
+4. Re-run the complete Phase 1 end-to-end verification.
+5. Merge only after all required checks are green and the PR has no blockers.
