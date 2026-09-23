@@ -142,6 +142,9 @@ func (s *Service) SetRolePermissions(
 			true,
 			keys,
 		); err != nil {
+			if errors.Is(err, errNoChange) {
+				return nil
+			}
 			return err
 		}
 		return s.audit.Append(ctx, exec, audit.Event{
