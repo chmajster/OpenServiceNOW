@@ -25,6 +25,7 @@ type Config struct {
 	Redis           RedisConfig
 	Session         SessionConfig
 	Auth            AuthConfig
+	TrustedProxyCIDRs []string
 }
 
 type MySQLConfig struct {
@@ -139,6 +140,8 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
+	trustedProxyCIDRs := envCSV("TRUSTED_PROXY_CIDRS")
+
 	cfg := Config{
 		AppEnv:          appEnv,
 		HTTPAddr:        getenv("HTTP_ADDR", ":8080"),
@@ -176,6 +179,7 @@ func Load() (Config, error) {
 			LoginAccountLimit:  loginAccountLimit,
 			LoginAccountWindow: loginAccountWindow,
 		},
+		TrustedProxyCIDRs: trustedProxyCIDRs,
 	}
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err
@@ -244,6 +248,11 @@ func (c Config) Validate() error {
 	if c.Auth.LoginIPWindow <= 0 || c.Auth.LoginAccountWindow <= 0 {
 		errs = append(errs, errors.New("authentication rate limit windows must be positive"))
 	}
+	for _, cidr := range c.TrustedProxyCIDRs {
+		if _, _, err := net.ParseCIDR(cidr); err != nil {
+			errs = append(errs, fmt.Errorf("invalid TRUSTED_PROXY_CIDRS entry %q: %w", cidr, err))
+		}
+	}
 	return errors.Join(errs...)
 }
 
@@ -276,6 +285,22 @@ func envBool(key string, fallback bool) (bool, error) {
 		return false, fmt.Errorf("%s must be a boolean: %w", key, err)
 	}
 	return b, nil
+}
+
+func envCSV(key string) []string {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		value := strings.TrimSpace(part)
+		if value != "" {
+			result = append(result, value)
+		}
+	}
+	return result
 }
 
 func envDuration(key string, fallback time.Duration) (time.Duration, error) {
