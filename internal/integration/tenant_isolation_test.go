@@ -183,6 +183,19 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	); !errors.Is(err, rbac.ErrInvalid) {
 		t.Fatalf("system role permission update error = %v, want ErrInvalid", err)
 	}
+	if _, err := rbacService.CreateRole(ctx, actorA, rbac.CreateRoleInput{
+		Name: "platform_admin",
+	}); !errors.Is(err, rbac.ErrInvalid) {
+		t.Fatalf("reserved platform_admin create error = %v, want ErrInvalid", err)
+	}
+	if err := rbacService.RemoveRoleFromUser(
+		ctx,
+		rbac.Actor{TenantID: adminA.TenantID, UserID: 999999, RequestID: "integration"},
+		platformAdminRoleID,
+		adminA.UserID,
+	); !errors.Is(err, identity.ErrLastPlatformAdmin) {
+		t.Fatalf("last-admin role removal error = %v, want ErrLastPlatformAdmin", err)
+	}
 	if err := rbacService.RemoveRoleFromUser(ctx, actorA, platformAdminRoleID, adminA.UserID); !errors.Is(err, rbac.ErrInvalid) {
 		t.Fatalf("self system-role removal error = %v, want ErrInvalid", err)
 	}
@@ -231,6 +244,11 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	}
 
 	usersService := users.NewService(usersRepo, tx, auditRepo, adminSafety)
+	if err := usersService.SetMembershipActive(ctx, users.Actor{
+		TenantID: adminA.TenantID, UserID: 999999, RequestID: "integration",
+	}, adminA.UserID, false); !errors.Is(err, identity.ErrLastPlatformAdmin) {
+		t.Fatalf("last-admin membership disable error = %v, want ErrLastPlatformAdmin", err)
+	}
 	if err := usersService.SetMembershipActive(ctx, users.Actor{
 		TenantID: adminA.TenantID, UserID: adminA.UserID, RequestID: "integration",
 	}, adminA.UserID, false); !errors.Is(err, users.ErrInvalid) {
