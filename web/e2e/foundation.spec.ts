@@ -98,6 +98,12 @@ test("admin creates a least-privilege tenant reader through the UI", async ({ pa
   await expect(page.getByRole("link", { name: "Role i RBAC" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Audyt" })).toHaveCount(0);
 
+  const forbiddenUsers = await page.request.get("/api/v1/admin/users/");
+  expect(forbiddenUsers.status()).toBe(403);
+
+  await page.goto("/users");
+  await expect(page.getByText("Brak uprawnień")).toBeVisible();
+
   await page.getByRole("link", { name: "Organizacja" }).click();
   await expect(page.getByRole("heading", { name: "Organizacja" })).toBeVisible();
   await expect(page.getByText("Tryb tylko do odczytu")).toBeVisible();
