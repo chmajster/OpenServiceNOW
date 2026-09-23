@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -55,5 +56,32 @@ func TestDecodeJSONRequiresApplicationJSON(t *testing.T) {
 	WriteDecodeError(response, request, err)
 	if response.Code != http.StatusUnsupportedMediaType {
 		t.Fatalf("status = %d body=%s", response.Code, response.Body.String())
+	}
+}
+
+func TestWriteContextErrorMapsDeadlineToJSON504(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	response := httptest.NewRecorder()
+
+	if !WriteContextError(response, request, context.DeadlineExceeded) {
+		t.Fatal("expected deadline to be handled")
+	}
+	if response.Code != http.StatusGatewayTimeout {
+		t.Fatalf("status = %d body=%s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"REQUEST_TIMEOUT"`) {
+		t.Fatalf("body = %s", response.Body.String())
+	}
+}
+
+func TestWriteContextErrorConsumesCanceledRequestWithoutWriting(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	response := httptest.NewRecorder()
+
+	if !WriteContextError(response, request, context.Canceled) {
+		t.Fatal("expected canceled request to be handled")
+	}
+	if response.Code != http.StatusOK || response.Body.Len() != 0 {
+		t.Fatalf("unexpected response status=%d body=%q", response.Code, response.Body.String())
 	}
 }
