@@ -278,8 +278,14 @@ func (c Config) Validate() error {
 		errs = append(errs, errors.New("authentication rate limit windows must be at least 1ms"))
 	}
 	for _, cidr := range c.TrustedProxyCIDRs {
-		if _, _, err := net.ParseCIDR(cidr); err != nil {
+		_, network, err := net.ParseCIDR(cidr)
+		if err != nil {
 			errs = append(errs, fmt.Errorf("invalid TRUSTED_PROXY_CIDRS entry %q: %w", cidr, err))
+			continue
+		}
+		prefix, _ := network.Mask.Size()
+		if prefix == 0 {
+			errs = append(errs, fmt.Errorf("TRUSTED_PROXY_CIDRS entry %q trusts every address", cidr))
 		}
 	}
 	return errors.Join(errs...)
