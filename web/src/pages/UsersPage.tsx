@@ -17,6 +17,9 @@ export function UsersPage() {
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
   const [creating, setCreating] = useState(false);
+  const [existingEmail, setExistingEmail] = useState("");
+  const [addingExisting, setAddingExisting] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
   const [changingID, setChangingID] = useState<string | null>(null);
 
   async function loadUsers(search = appliedQuery, afterID?: string, append = false) {
@@ -58,6 +61,7 @@ export function UsersPage() {
     event.preventDefault();
     setCreating(true);
     setError(null);
+    setMessage(null);
     try {
       await api<CreatedID>("/api/v1/admin/users/", {
         method: "POST",
@@ -73,6 +77,7 @@ export function UsersPage() {
       setAppliedQuery("");
       setQuery("");
       await loadUsers("");
+      setMessage("Lokalne konto zostało utworzone i dodane do tenanta.");
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 409) {
         setError("Konto z tym adresem e-mail już istnieje.");
@@ -84,15 +89,45 @@ export function UsersPage() {
     }
   }
 
+  async function handleAddExisting(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAddingExisting(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await api<CreatedID>("/api/v1/admin/users/memberships", {
+        method: "POST",
+        body: jsonBody({ email: existingEmail })
+      });
+      setExistingEmail("");
+      setAppliedQuery("");
+      setQuery("");
+      await loadUsers("");
+      setMessage("Istniejące konto zostało dodane do bieżącego tenanta.");
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 404) {
+        setError("Nie znaleziono aktywnego globalnego konta z tym adresem e-mail.");
+      } else if (cause instanceof ApiError && cause.status === 409) {
+        setError("To konto ma już membership w tym tenancie. Jeśli membership jest wyłączony, użyj akcji „Włącz”.");
+      } else {
+        setError(cause instanceof Error ? cause.message : "Dodanie istniejącego konta nie powiodło się.");
+      }
+    } finally {
+      setAddingExisting(false);
+    }
+  }
+
   async function setMembership(user: TenantUser, active: boolean) {
     setChangingID(user.id);
     setError(null);
+    setMessage(null);
     try {
       await api<void>(`/api/v1/admin/users/${user.id}/membership`, {
         method: "PUT",
         body: jsonBody({ active })
       });
       await loadUsers(appliedQuery);
+      setMessage(active ? "Membership został włączony." : "Membership został wyłączony.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Zmiana członkostwa nie powiodła się.");
     } finally {
@@ -149,7 +184,32 @@ export function UsersPage() {
         </form>
       </div>
 
+      <div className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Dodaj istniejące konto</h2>
+            <p className="muted">Dodaje membership do aktywnego globalnego konta. Hasło i profil konta nie są zmieniane.</p>
+          </div>
+        </div>
+        <form className="search-row search-row--compact" onSubmit={(event) => void handleAddExisting(event)}>
+          <label className="search-field">
+            E-mail istniejącego konta
+            <input
+              type="email"
+              value={existingEmail}
+              onChange={(event) => setExistingEmail(event.target.value)}
+              maxLength={254}
+              required
+            />
+          </label>
+          <button className="button button--secondary" type="submit" disabled={addingExisting}>
+            {addingExisting ? "Dodawanie…" : "Dodaj membership"}
+          </button>
+        </form>
+      </div>
+
       {error ? <div className="inline-error" role="alert">{error}</div> : null}
+      {message ? <div className="inline-success" role="status">{message}</div> : null}
 
       <div className="panel">
         <div className="panel-heading">
