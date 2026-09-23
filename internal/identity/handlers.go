@@ -146,22 +146,40 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *Handler) allowLogin(r *http.Request, tenant, email, ip string) (bool, error) {
+func (h *Handler) allowLogin(r *http.Request, tenant, email, ip string) (bool, time.Duration, error) {
 	if ip == "" {
 		ip = "unknown"
 	}
-	allowed, err := h.limiter.Allow(r.Context(), "login:ip:"+ip, int64(h.auth.LoginIPLimit), h.auth.LoginIPWindow)
-	if err != nil || !allowed {
-		return allowed, err
+	allowed, err := h.limiter.Allow(
+		r.Context(),
+		"login:ip:"+ip,
+		int64(h.auth.LoginIPLimit),
+		h.auth.LoginIPWindow,
+	)
+	if err != nil {
+		return false, 0, err
+	}
+	if !allowed {
+		return false, h.auth.LoginIPWindow, nil
 	}
 
-	account := sha256.Sum256([]byte(strings.ToLower(strings.TrimSpace(tenant)) + "\x00" + strings.ToLower(strings.TrimSpace(email))))
-	return h.limiter.Allow(
+	account := sha256.Sum256([]byte(
+		strings.ToLower(strings.TrimSpace(tenant)) + "\x00" +
+			strings.ToLower(strings.TrimSpace(email)),
+	))
+	allowed, err = h.limiter.Allow(
 		r.Context(),
 		"login:account:"+hex.EncodeToString(account[:]),
 		int64(h.auth.LoginAccountLimit),
 		h.auth.LoginAccountWindow,
 	)
+	if err != nil {
+		return false, 0, err
+	}
+	if !allowed {
+		return false, h.auth.LoginAccountWindow, nil
+	}
+	return true, 0, nil
 }
 
 func (h *Handler) setSessionCookies(w http.ResponseWriter, result LoginResult) {
