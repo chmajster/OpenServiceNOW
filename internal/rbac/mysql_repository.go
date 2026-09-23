@@ -44,38 +44,59 @@ func (r *MySQLRepository) ListPermissions(ctx context.Context) ([]Permission, er
 	return result, nil
 }
 
-func (r *MySQLRepository) ListRoles(ctx context.Context, tenantID uint64) ([]Role, error) {
+func (r *MySQLRepository) ListRoles(
+	ctx context.Context,
+	tenantID, afterID uint64,
+	limit int,
+	query string,
+) (RolePage, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, name, COALESCE(description, ''), system_role, version
 		FROM roles
 		WHERE tenant_id = ?
-		ORDER BY name
-	`, tenantID)
+		  AND id > ?
+		  AND (
+			? = ''
+			OR LOCATE(?, name) > 0
+			OR LOCATE(?, COALESCE(description, '')) > 0
+		  )
+		ORDER BY id
+		LIMIT ?
+	`, tenantID, afterID, query, query, query, limit+1)
 	if err != nil {
-		return nil, fmt.Errorf("list roles: %w", err)
+		return RolePage{}, fmt.Errorf("list roles: %w", err)
 	}
+	defer rows.Close()
 
-	roles := make([]Role, 0)
-	roleIndex := make(map[uint64]int)
+	roles := make([]Role, 0, limit+1)
 	for rows.Next() {
 		var role Role
 		if err := rows.Scan(&role.ID, &role.Name, &role.Description, &role.SystemRole, &role.Version); err != nil {
-			_ = rows.Close()
-			return nil, fmt.Errorf("scan role: %w", err)
+			return RolePage{}, fmt.Errorf("scan role: %w", err)
 		}
 		role.Permissions = []Permission{}
-		roleIndex[role.ID] = len(roles)
 		roles = append(roles, role)
 	}
 	if err := rows.Err(); err != nil {
-		_ = rows.Close()
-		return nil, fmt.Errorf("iterate roles: %w", err)
+		return RolePage{}, fmt.Errorf("iterate roles: %w", err)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, fmt.Errorf("close roles: %w", err)
+
+	page := RolePage{Roles: roles}
+	if len(roles) > limit {
+		page.Roles = roles[:limit]
+		page.NextAfterID = page.Roles[len(page.Roles)-1].ID
 	}
-	if len(roles) == 0 {
-		return roles, nil
+	if len(page.Roles) == 0 {
+		return page, nil
+	}
+
+	roleIndex := make(map[uint64]int, len(page.Roles))
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(page.Roles)), ",")
+	args := make([]any, 0, len(page.Roles)+1)
+	args = append(args, tenantID)
+	for index, role := range page.Roles {
+		roleIndex[role.ID] = index
+		args = append(args, role.ID)
 	}
 
 	permissionRows, err := r.db.QueryContext(ctx, `
@@ -92,26 +113,28 @@ func (r *MySQLRepository) ListRoles(ctx context.Context, tenantID uint64) ([]Rol
 			)
 		  )
 		WHERE r.tenant_id = ?
+		  AND r.id IN (`+placeholders+`)
 		ORDER BY r.id, p.permission_key
-	`, tenantID)
+	`, args...)
 	if err != nil {
-		return nil, fmt.Errorf("list role permissions: %w", err)
+		return RolePage{}, fmt.Errorf("list role permissions: %w", err)
 	}
 	defer permissionRows.Close()
+
 	for permissionRows.Next() {
 		var roleID uint64
 		var permission Permission
 		if err := permissionRows.Scan(&roleID, &permission.ID, &permission.Key, &permission.Description); err != nil {
-			return nil, fmt.Errorf("scan role permission: %w", err)
+			return RolePage{}, fmt.Errorf("scan role permission: %w", err)
 		}
 		if index, ok := roleIndex[roleID]; ok {
-			roles[index].Permissions = append(roles[index].Permissions, permission)
+			page.Roles[index].Permissions = append(page.Roles[index].Permissions, permission)
 		}
 	}
 	if err := permissionRows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate role permissions: %w", err)
+		return RolePage{}, fmt.Errorf("iterate role permissions: %w", err)
 	}
-	return roles, nil
+	return page, nil
 }
 
 func (r *MySQLRepository) CreateRole(
@@ -209,35 +232,53 @@ func (r *MySQLRepository) SetRolePermissions(
 	return nil
 }
 
-func (r *MySQLRepository) ListGroups(ctx context.Context, tenantID uint64) ([]Group, error) {
+func (r *MySQLRepository) ListGroups(
+	ctx context.Context,
+	tenantID, afterID uint64,
+	limit int,
+	query string,
+) (GroupPage, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT
 			g.id, g.name, COALESCE(g.description, ''), g.version,
 			COUNT(gm.user_id) AS member_count
 		FROM groups g
 		LEFT JOIN group_memberships gm
-			ON gm.tenant_id = g.tenant_id AND gm.group_id = g.id
+		  ON gm.tenant_id = g.tenant_id AND gm.group_id = g.id
 		WHERE g.tenant_id = ?
+		  AND g.id > ?
+		  AND (
+			? = ''
+			OR LOCATE(?, g.name) > 0
+			OR LOCATE(?, COALESCE(g.description, '')) > 0
+		  )
 		GROUP BY g.id, g.name, g.description, g.version
-		ORDER BY g.name
-	`, tenantID)
+		ORDER BY g.id
+		LIMIT ?
+	`, tenantID, afterID, query, query, query, limit+1)
 	if err != nil {
-		return nil, fmt.Errorf("list groups: %w", err)
+		return GroupPage{}, fmt.Errorf("list groups: %w", err)
 	}
 	defer rows.Close()
 
-	var groups []Group
+	groups := make([]Group, 0, limit+1)
 	for rows.Next() {
 		var group Group
 		if err := rows.Scan(&group.ID, &group.Name, &group.Description, &group.Version, &group.MemberCount); err != nil {
-			return nil, fmt.Errorf("scan group: %w", err)
+			return GroupPage{}, fmt.Errorf("scan group: %w", err)
 		}
 		groups = append(groups, group)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate groups: %w", err)
+		return GroupPage{}, fmt.Errorf("iterate groups: %w", err)
 	}
-	return groups, nil
+
+	page := GroupPage{Groups: groups}
+	if len(groups) > limit {
+		page.Groups = groups[:limit]
+		page.NextAfterID = page.Groups[len(page.Groups)-1].ID
+	}
+	return page, nil
 }
 
 func (r *MySQLRepository) CreateGroup(
