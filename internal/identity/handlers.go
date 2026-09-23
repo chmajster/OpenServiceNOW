@@ -51,6 +51,9 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	ip := requestinfo.ClientIP(r)
 	allowed, retryAfter, err := h.allowLogin(r, request.Tenant, request.Email, ip)
 	if err != nil {
+		if httpapi.WriteContextError(w, r, err) {
+			return
+		}
 		httpapi.WriteError(w, r, http.StatusServiceUnavailable, "AUTH_RATE_LIMIT_UNAVAILABLE", "Authentication temporarily unavailable")
 		return
 	}
@@ -77,6 +80,9 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
+		if httpapi.WriteContextError(w, r, err) {
+			return
+		}
 		httpapi.WriteError(w, r, http.StatusInternalServerError, "LOGIN_FAILED", "Authentication failed")
 		return
 	}
@@ -106,6 +112,9 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	}
 	permissions, err := h.service.Permissions(r.Context(), identity)
 	if err != nil {
+		if httpapi.WriteContextError(w, r, err) {
+			return
+		}
 		httpapi.WriteError(w, r, http.StatusInternalServerError, "PERMISSIONS_FAILED", "Unable to load permissions")
 		return
 	}
@@ -139,6 +148,9 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 		IPAddress: requestinfo.ClientIP(r),
 		UserAgent: r.UserAgent(),
 	}); err != nil {
+		if httpapi.WriteContextError(w, r, err) {
+			return
+		}
 		httpapi.WriteError(w, r, http.StatusInternalServerError, "LOGOUT_FAILED", "Logout failed")
 		return
 	}
