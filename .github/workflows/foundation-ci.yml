@@ -190,7 +190,14 @@ jobs:
           node-version: "24"
 
       - name: Install frontend dependencies
-        run: npm install --no-audit --no-fund
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f package-lock.json ]; then
+            npm ci --no-audit --no-fund
+          else
+            npm install --no-audit --no-fund
+          fi
 
       - name: Preserve generated npm lock file
         uses: actions/upload-artifact@v4
