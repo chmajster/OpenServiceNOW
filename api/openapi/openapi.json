@@ -975,15 +975,19 @@
         ],
         "properties": {
           "tenant": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 100
           },
           "email": {
             "type": "string",
-            "format": "email"
+            "format": "email",
+            "maxLength": 254
           },
           "password": {
             "type": "string",
-            "format": "password"
+            "format": "password",
+            "minLength": 12,
+            "maxLength": 1024
           }
         }
       },
@@ -1187,7 +1191,8 @@
         "properties": {
           "email": {
             "type": "string",
-            "format": "email"
+            "format": "email",
+            "maxLength": 254
           },
           "display_name": {
             "type": "string",
@@ -1197,7 +1202,8 @@
           "password": {
             "type": "string",
             "format": "password",
-            "minLength": 12
+            "minLength": 12,
+            "maxLength": 1024
           }
         }
       },
