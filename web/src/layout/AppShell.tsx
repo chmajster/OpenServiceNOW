@@ -20,6 +20,7 @@ export function AppShell() {
   const { session, hasPermission, logout } = useAuth();
   const navigate = useNavigate();
   const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
 
   const visibleNavigation = navigation.filter(
     (item) => !item.permission || hasPermission(item.permission)
@@ -27,9 +28,12 @@ export function AppShell() {
 
   async function handleLogout() {
     setLoggingOut(true);
+    setLogoutError(null);
     try {
       await logout();
       navigate("/login", { replace: true });
+    } catch (cause) {
+      setLogoutError(cause instanceof Error ? cause.message : "Wylogowanie nie powiodło się.");
     } finally {
       setLoggingOut(false);
     }
@@ -63,6 +67,7 @@ export function AppShell() {
           <span>{session?.tenant.name}</span>
           <strong>{session?.user.display_name}</strong>
           <small>{session?.user.email}</small>
+          {logoutError ? <small className="sidebar-error" role="alert">{logoutError}</small> : null}
           <button className="button button--ghost" onClick={() => void handleLogout()} disabled={loggingOut}>
             {loggingOut ? "Wylogowywanie…" : "Wyloguj"}
           </button>
