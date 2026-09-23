@@ -36,6 +36,26 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	defer db.Close()
 
 	suffix := time.Now().UTC().Format("150405.000000000")
+	lockName := "opensnow-integration-" + strings.ReplaceAll(suffix, ".", "")
+	outerAcquired, err := database.WithAdvisoryLock(ctx, db, lockName, func(lockCtx context.Context) error {
+		innerAcquired, err := database.WithAdvisoryLock(lockCtx, db, lockName, func(context.Context) error {
+			return errors.New("second holder must not execute")
+		})
+		if err != nil {
+			return fmt.Errorf("second advisory lock attempt: %w", err)
+		}
+		if innerAcquired {
+			return errors.New("second advisory lock unexpectedly acquired")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("advisory lock integration: %v", err)
+	}
+	if !outerAcquired {
+		t.Fatal("first advisory lock was not acquired")
+	}
+
 	tenantASlug := "isolation-a-" + strings.ReplaceAll(suffix, ".", "")
 	tenantBSlug := "isolation-b-" + strings.ReplaceAll(suffix, ".", "")
 	adminAEmail := fmt.Sprintf("admin-a-%s@example.test", strings.ReplaceAll(suffix, ".", ""))
