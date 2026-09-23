@@ -20,7 +20,7 @@ type Role struct {
 	Name        string       `json:"name"`
 	Description string       `json:"description,omitempty"`
 	SystemRole  bool         `json:"system_role"`
-	Version     uint64       `json:"version"`
+	Version     uint64       `json:"version,string"`
 	Permissions []Permission `json:"permissions"`
 }
 
@@ -28,8 +28,8 @@ type Group struct {
 	ID          uint64 `json:"id,string"`
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
-	Version     uint64 `json:"version"`
-	MemberCount uint64 `json:"member_count"`
+	Version     uint64 `json:"version,string"`
+	MemberCount uint64 `json:"member_count,string"`
 }
 
 type CreateRoleInput struct {
