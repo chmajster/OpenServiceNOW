@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -34,7 +35,7 @@ func Router(
 	}
 	r.Use(accessLog(logger))
 	r.Use(panicRecovery(logger))
-	r.Use(middleware.Timeout(30 * time.Second))
+	r.Use(timeoutJSON(30 * time.Second))
 	r.Use(securityHeaders)
 	r.Use(limitBody(2 << 20))
 
@@ -126,6 +127,29 @@ func requestIDHeader(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func timeoutJSON(timeout time.Duration) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx, cancel := context.WithTimeout(r.Context(), timeout)
+			defer cancel()
+
+			request := r.WithContext(ctx)
+			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+			next.ServeHTTP(ww, request)
+
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) && ww.Status() == 0 {
+				httpapi.WriteError(
+					ww,
+					request,
+					http.StatusGatewayTimeout,
+					"REQUEST_TIMEOUT",
+					"Request timed out",
+				)
+			}
+		})
+	}
 }
 
 func securityHeaders(next http.Handler) http.Handler {
