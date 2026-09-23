@@ -367,6 +367,9 @@ func (c MySQLConfig) dsn(multiStatements bool) string {
 	cfg.WriteTimeout = 10 * time.Second
 	cfg.MultiStatements = multiStatements
 	cfg.TLSConfig = c.TLSMode
-	cfg.Params = map[string]string{"charset": "utf8mb4"}
+	cfg.Params = map[string]string{
+		"charset":   "utf8mb4",
+		"time_zone": "'+00:00'",
+	}
 	return cfg.FormatDSN()
 }
