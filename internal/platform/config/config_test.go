@@ -277,3 +277,10 @@ func TestLoadRejectsExcessiveAuthenticationWindow(t *testing.T) {
 		t.Fatal("expected authentication window upper-bound validation error")
 	}
 }
+
+func TestLoadRejectsExcessivePasswordVerifierConcurrency(t *testing.T) {
+	t.Setenv("AUTH_MAX_CONCURRENT_PASSWORD_CHECKS", "17")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected password verifier concurrency validation error")
+	}
+}
