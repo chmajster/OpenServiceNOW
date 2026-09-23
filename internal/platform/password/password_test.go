@@ -1,6 +1,9 @@
 package password
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestHashAndVerify(t *testing.T) {
 	params := Params{
@@ -35,5 +38,31 @@ func TestHashRejectsShortPassword(t *testing.T) {
 		Memory: 8 * 1024, Iterations: 1, Parallelism: 1, SaltLength: 16, KeyLength: 32,
 	}); err == nil {
 		t.Fatal("expected short password error")
+	}
+}
+
+func TestHashRejectsOversizedPassword(t *testing.T) {
+	plain := strings.Repeat("a", MaxPasswordBytes+1)
+	if _, err := HashWithParams(plain, Params{
+		Memory: 8 * 1024, Iterations: 1, Parallelism: 1, SaltLength: 16, KeyLength: 32,
+	}); err == nil {
+		t.Fatal("expected oversized password error")
+	}
+}
+
+func TestVerifyRejectsOversizedCandidateBeforeArgon2(t *testing.T) {
+	params := Params{
+		Memory: 8 * 1024, Iterations: 1, Parallelism: 1, SaltLength: 16, KeyLength: 32,
+	}
+	hash, err := HashWithParams("correct horse battery staple", params)
+	if err != nil {
+		t.Fatalf("HashWithParams() error = %v", err)
+	}
+	ok, err := Verify(hash, strings.Repeat("x", MaxPasswordBytes+1))
+	if err != nil {
+		t.Fatalf("Verify() error = %v", err)
+	}
+	if ok {
+		t.Fatal("oversized password candidate must not verify")
 	}
 }
