@@ -19,12 +19,13 @@ import (
 )
 
 type Service struct {
-	repo      *MySQLRepository
-	tx        *platformdb.TxManager
-	audit     *audit.MySQLRepository
-	session   config.SessionConfig
-	dummyHash string
-	now       func() time.Time
+	repo           *MySQLRepository
+	tx             *platformdb.TxManager
+	audit          *audit.MySQLRepository
+	session        config.SessionConfig
+	dummyHash      string
+	passwordChecks chan struct{}
+	now            func() time.Time
 }
 
 func NewService(
@@ -32,18 +33,20 @@ func NewService(
 	tx *platformdb.TxManager,
 	auditRepo *audit.MySQLRepository,
 	session config.SessionConfig,
+	auth config.AuthConfig,
 ) (*Service, error) {
 	dummyHash, err := password.Hash("openservicenow-dummy-password")
 	if err != nil {
 		return nil, fmt.Errorf("build dummy password hash: %w", err)
 	}
 	return &Service{
-		repo:      repo,
-		tx:        tx,
-		audit:     auditRepo,
-		session:   session,
-		dummyHash: dummyHash,
-		now:       func() time.Time { return time.Now().UTC() },
+		repo:           repo,
+		tx:             tx,
+		audit:          auditRepo,
+		session:        session,
+		dummyHash:      dummyHash,
+		passwordChecks: make(chan struct{}, auth.MaxConcurrentPasswordChecks),
+		now:            func() time.Time { return time.Now().UTC() },
 	}, nil
 }
 
@@ -59,14 +62,24 @@ func (s *Service) Login(ctx context.Context, input LoginInput, meta RequestMeta)
 
 	user, tenant, err := s.repo.FindForLogin(ctx, tenantSlug, email)
 	if errors.Is(err, ErrNotFound) {
-		_, _ = password.Verify(s.dummyHash, input.Password)
+		if err := s.withPasswordCheck(func() error {
+			_, verifyErr := password.Verify(s.dummyHash, input.Password)
+			return verifyErr
+		}); err != nil {
+			return LoginResult{}, err
+		}
 		return LoginResult{}, ErrInvalidCredentials
 	}
 	if err != nil {
 		return LoginResult{}, err
 	}
 
-	valid, err := password.Verify(user.PasswordHash, input.Password)
+	var valid bool
+	err = s.withPasswordCheck(func() error {
+		var verifyErr error
+		valid, verifyErr = password.Verify(user.PasswordHash, input.Password)
+		return verifyErr
+	})
 	if err != nil {
 		return LoginResult{}, fmt.Errorf("verify password hash: %w", err)
 	}
@@ -190,4 +203,14 @@ func truncateText(value string, max int) string {
 		return string(runes)
 	}
 	return string(runes[:max])
+}
+
+func (s *Service) withPasswordCheck(check func() error) error {
+	select {
+	case s.passwordChecks <- struct{}{}:
+		defer func() { <-s.passwordChecks }()
+		return check()
+	default:
+		return ErrAuthBusy
+	}
 }
