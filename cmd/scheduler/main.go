@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"crypto/sha256"
+	"encoding/hex"
 	"flag"
 	"log/slog"
 	"os"
@@ -41,14 +44,16 @@ func main() {
 		cfg.Session.RevokedRetention,
 	)
 
+	lockName := sessionCleanupLockName(cfg.MySQL.Database)
+
 	if *once {
-		if err := runCleanup(rootCtx, logger, cleanup); err != nil {
+		if err := runCleanupLocked(rootCtx, logger, db, lockName, cleanup); err != nil {
 			os.Exit(1)
 		}
 		return
 	}
 
-	if err := runCleanup(rootCtx, logger, cleanup); err != nil {
+	if err := runCleanupLocked(rootCtx, logger, db, lockName, cleanup); err != nil {
 		logger.Error("initial session cleanup failed", "error", err)
 	}
 
@@ -62,7 +67,7 @@ func main() {
 			logger.Info("scheduler shutdown complete")
 			return
 		case <-ticker.C:
-			if err := runCleanup(rootCtx, logger, cleanup); err != nil {
+			if err := runCleanupLocked(rootCtx, logger, db, lockName, cleanup); err != nil {
 				logger.Error("session cleanup failed", "error", err)
 			}
 		}
@@ -84,4 +89,28 @@ func runCleanup(ctx context.Context, logger *slog.Logger, cleanup *identity.Sess
 		"duration_ms", time.Since(started).Milliseconds(),
 	)
 	return nil
+}
+
+func runCleanupLocked(
+	ctx context.Context,
+	logger *slog.Logger,
+	db *sql.DB,
+	lockName string,
+	cleanup *identity.SessionCleanup,
+) error {
+	acquired, err := database.WithAdvisoryLock(ctx, db, lockName, func(lockCtx context.Context) error {
+		return runCleanup(lockCtx, logger, cleanup)
+	})
+	if err != nil {
+		return err
+	}
+	if !acquired {
+		logger.Info("session cleanup skipped", "reason", "lock_not_acquired")
+	}
+	return nil
+}
+
+func sessionCleanupLockName(databaseName string) string {
+	sum := sha256.Sum256([]byte(databaseName))
+	return "opensnow:scheduler:session-cleanup:" + hex.EncodeToString(sum[:8])
 }
