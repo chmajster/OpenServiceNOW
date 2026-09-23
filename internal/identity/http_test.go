@@ -178,6 +178,9 @@ func TestLoginRateLimitStopsBeforeAuthentication(t *testing.T) {
 	if limiter.calls != 1 {
 		t.Fatalf("rate limiter calls = %d", limiter.calls)
 	}
+	if got := rr.Header().Get("Retry-After"); got != "60" {
+		t.Fatalf("Retry-After = %q", got)
+	}
 }
 
 func TestMeReturnsEffectivePermissions(t *testing.T) {
