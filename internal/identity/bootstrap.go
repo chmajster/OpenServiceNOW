@@ -8,6 +8,7 @@ import (
 	"net/mail"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/chmajster/OpenServiceNOW/internal/audit"
 	platformdb "github.com/chmajster/OpenServiceNOW/internal/platform/database"
@@ -64,6 +65,15 @@ func (b *Bootstrapper) Run(ctx context.Context, input BootstrapInput) (Bootstrap
 	}
 	if input.TenantName == "" || input.AdminName == "" || input.AdminEmail == "" {
 		return BootstrapResult{}, errors.New("bootstrap tenant name, admin name and admin email are required")
+	}
+	if utf8.RuneCountInString(input.TenantName) > 200 {
+		return BootstrapResult{}, errors.New("bootstrap tenant name exceeds 200 characters")
+	}
+	if utf8.RuneCountInString(input.AdminName) > 200 {
+		return BootstrapResult{}, errors.New("bootstrap admin name exceeds 200 characters")
+	}
+	if len(input.AdminEmail) > 254 {
+		return BootstrapResult{}, errors.New("bootstrap admin email exceeds 254 bytes")
 	}
 	address, err := mail.ParseAddress(input.AdminEmail)
 	if err != nil || address.Address != input.AdminEmail {
