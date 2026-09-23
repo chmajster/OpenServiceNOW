@@ -18,6 +18,8 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/platform/password"
 )
 
+const tokenEncodedLength = 43
+
 type Service struct {
 	repo           *MySQLRepository
 	tx             *platformdb.TxManager
@@ -143,7 +145,7 @@ func (s *Service) Login(ctx context.Context, input LoginInput, meta RequestMeta)
 }
 
 func (s *Service) Authenticate(ctx context.Context, sessionToken string) (SessionIdentity, error) {
-	if sessionToken == "" {
+	if len(sessionToken) != tokenEncodedLength {
 		return SessionIdentity{}, ErrUnauthenticated
 	}
 	hash := sha256.Sum256([]byte(sessionToken))
@@ -158,7 +160,7 @@ func (s *Service) Authenticate(ctx context.Context, sessionToken string) (Sessio
 }
 
 func (s *Service) VerifyCSRF(identity SessionIdentity, token string) bool {
-	if token == "" {
+	if len(token) != tokenEncodedLength {
 		return false
 	}
 	hash := sha256.Sum256([]byte(token))
