@@ -113,6 +113,9 @@
           },
           "503": {
             "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
           }
         }
       }
@@ -141,6 +144,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
           }
         }
       }
@@ -167,6 +173,9 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
           }
         }
       }
@@ -198,6 +207,9 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
           }
         }
       },
@@ -251,6 +263,9 @@
           },
           "415": {
             "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
           }
         }
       }
@@ -282,6 +297,9 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
           }
         },
         "parameters": [
@@ -356,6 +374,9 @@
           },
           "415": {
             "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
           }
         }
       }
@@ -412,6 +433,9 @@
           },
           "415": {
             "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
           }
         }
       }
@@ -443,6 +467,9 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
           }
         }
       }
@@ -474,6 +501,9 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
           }
         },
         "parameters": [
@@ -548,6 +578,9 @@
           },
           "415": {
             "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
           }
         }
       }
@@ -604,6 +637,9 @@
           },
           "415": {
             "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
           }
         }
       }
@@ -635,6 +671,9 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
           }
         },
         "parameters": [
@@ -709,6 +748,9 @@
           },
           "415": {
             "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
           }
         }
       }
@@ -749,6 +791,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
           }
         }
       },
@@ -787,6 +832,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
           }
         }
       }
@@ -827,6 +875,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
           }
         }
       },
@@ -865,6 +916,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
           }
         }
       }
@@ -905,6 +959,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
           }
         }
       },
@@ -943,6 +1000,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
           }
         }
       }
@@ -997,6 +1057,9 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
           }
         }
       }
@@ -1763,6 +1826,16 @@
       },
       "UnsupportedMediaType": {
         "description": "Content-Type must be application/json",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "RequestTimeout": {
+        "description": "The request exceeded the application deadline.",
         "content": {
           "application/json": {
             "schema": {
