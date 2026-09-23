@@ -45,3 +45,12 @@ func DecodeJSON(r *http.Request, target any) error {
 	}
 	return nil
 }
+
+func WriteDecodeError(w http.ResponseWriter, r *http.Request, err error) {
+	var tooLarge *http.MaxBytesError
+	if errors.As(err, &tooLarge) {
+		WriteError(w, r, http.StatusRequestEntityTooLarge, "REQUEST_TOO_LARGE", "Request body is too large")
+		return
+	}
+	WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "Invalid JSON request")
+}
