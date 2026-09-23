@@ -103,6 +103,7 @@ Implemented:
 - panic-safe transaction rollback,
 - graceful shutdown,
 - consistent JSON error envelope,
+- precision-safe decimal-string serialization for BIGINT identifiers/cursors/versions,
 - unit tests authored.
 
 Remaining:
@@ -313,7 +314,10 @@ Implemented workflow:
 - frontend build.
 
 Blocked:
-- both backend and frontend GitHub jobs repeatedly end before checkout with no runner and no steps.
+- workflow YAML parsing defect has been fixed,
+- GitHub now creates backend/frontend jobs correctly,
+- even a temporary one-step diagnostic job fails before its first step with `steps=null` and no logs,
+- executable verification therefore remains blocked outside application code.
 
 [P1] [!] Generate and commit dependency lock files.
 
