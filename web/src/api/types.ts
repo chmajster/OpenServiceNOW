@@ -7,13 +7,13 @@ export type ApiErrorBody = {
 };
 
 export type AuthUser = {
-  id: number;
+  id: string;
   email: string;
   display_name: string;
 };
 
 export type AuthTenant = {
-  id: number;
+  id: string;
   slug: string;
   name: string;
 };
@@ -32,7 +32,7 @@ export type LoginRequest = {
 };
 
 export type Tenant = {
-  id: number;
+  id: string;
   slug: string;
   name: string;
   status: "ACTIVE" | "DISABLED";
@@ -46,7 +46,7 @@ export type TenantResponse = {
 };
 
 export type TenantUser = {
-  id: number;
+  id: string;
   email: string;
   display_name: string;
   user_active: boolean;
@@ -56,17 +56,17 @@ export type TenantUser = {
 
 export type UsersResponse = {
   users: TenantUser[];
-  next_after_id?: number;
+  next_after_id?: string;
 };
 
 export type Permission = {
-  id: number;
+  id: string;
   key: string;
   description?: string;
 };
 
 export type Role = {
-  id: number;
+  id: string;
   name: string;
   description?: string;
   system_role: boolean;
@@ -76,11 +76,11 @@ export type Role = {
 
 export type RolesResponse = {
   roles: Role[];
-  next_after_id?: number;
+  next_after_id?: string;
 };
 
 export type Group = {
-  id: number;
+  id: string;
   name: string;
   description?: string;
   version: number;
@@ -89,7 +89,7 @@ export type Group = {
 
 export type GroupsResponse = {
   groups: Group[];
-  next_after_id?: number;
+  next_after_id?: string;
 };
 
 export type PermissionsResponse = {
@@ -97,8 +97,8 @@ export type PermissionsResponse = {
 };
 
 export type AuditRecord = {
-  id: number;
-  actor_user_id?: number;
+  id: string;
+  actor_user_id?: string;
   time: string;
   action: string;
   object_type: string;
@@ -112,11 +112,11 @@ export type AuditRecord = {
 
 export type AuditPage = {
   events: AuditRecord[];
-  next_before_id?: number;
+  next_before_id?: string;
 };
 
 export type CreatedID = {
-  id: number;
+  id: string;
 };
 
 export type HealthResponse = {
