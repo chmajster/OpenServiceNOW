@@ -4,6 +4,7 @@ package integration
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
@@ -255,7 +256,7 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 		t.Fatalf("stale role permission update error = %v, want ErrConflict", err)
 	}
 
-	usersService := users.NewService(usersRepo, tx, auditRepo, adminSafety)
+	usersService := users.NewService(usersRepo, tx, auditRepo, adminSafety, identityRepo)
 	if err := usersService.SetMembershipActive(ctx, users.Actor{
 		TenantID: adminA.TenantID, UserID: 999999, RequestID: "integration",
 	}, adminA.UserID, false); !errors.Is(err, identity.ErrLastPlatformAdmin) {
@@ -309,10 +310,39 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 		t.Fatalf("search result = %+v, want second admin %d", searchPage.Users, secondAdminID)
 	}
 
+	var tokenHash [32]byte
+	var csrfHash [32]byte
+	copy(tokenHash[:], []byte("integration-session-token-hash-0001"))
+	copy(csrfHash[:], []byte("integration-session-csrf-hash-00001"))
+	sessionID, err := createIntegrationSession(
+		ctx,
+		tx,
+		identityRepo,
+		adminA.TenantID,
+		adminA.UserID,
+		tokenHash,
+		csrfHash,
+	)
+	if err != nil {
+		t.Fatalf("create integration session: %v", err)
+	}
+
 	if err := usersService.SetMembershipActive(ctx, users.Actor{
 		TenantID: adminA.TenantID, UserID: secondAdminID, RequestID: "integration",
 	}, adminA.UserID, false); err != nil {
 		t.Fatalf("disable first admin after second admin exists: %v", err)
+	}
+
+	var revoked bool
+	if err := db.QueryRowContext(ctx, `
+		SELECT revoked_at IS NOT NULL
+		FROM sessions
+		WHERE id = ?
+	`, sessionID).Scan(&revoked); err != nil {
+		t.Fatalf("read revoked session state: %v", err)
+	}
+	if !revoked {
+		t.Fatal("disabling tenant membership must revoke active sessions")
 	}
 
 	tenantRepo := tenants.NewMySQLRepository(db)
@@ -399,4 +429,30 @@ func roleContainsPermission(role rbac.Role, key string) bool {
 		}
 	}
 	return false
+}
+
+func createIntegrationSession(
+	ctx context.Context,
+	tx *database.TxManager,
+	repo *identity.MySQLRepository,
+	tenantID, userID uint64,
+	tokenHash, csrfHash [32]byte,
+) (uint64, error) {
+	var sessionID uint64
+	err := tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec database.Executor) error {
+		var err error
+		sessionID, err = repo.CreateSession(
+			ctx,
+			exec,
+			tenantID,
+			userID,
+			tokenHash,
+			csrfHash,
+			time.Now().UTC().Add(time.Hour),
+			"127.0.0.1",
+			"integration-test",
+		)
+		return err
+	})
+	return sessionID, err
 }
