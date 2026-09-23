@@ -163,15 +163,18 @@ func (r *MySQLRepository) CreateRole(
 func (r *MySQLRepository) SetRolePermissions(
 	ctx context.Context,
 	exec platformdb.Executor,
-	tenantID, roleID uint64,
+	tenantID, roleID, expectedVersion uint64,
+	incrementVersion bool,
 	keys []string,
 ) error {
 	var systemRole bool
+	var currentVersion uint64
 	err := exec.QueryRowContext(ctx, `
-		SELECT system_role
+		SELECT system_role, version
 		FROM roles
 		WHERE tenant_id = ? AND id = ?
-	`, tenantID, roleID).Scan(&systemRole)
+		FOR UPDATE
+	`, tenantID, roleID).Scan(&systemRole, &currentVersion)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrNotFound
 	}
@@ -181,52 +184,76 @@ func (r *MySQLRepository) SetRolePermissions(
 	if systemRole {
 		return fmt.Errorf("%w: system role permissions are immutable", ErrInvalid)
 	}
+	if incrementVersion && currentVersion != expectedVersion {
+		return ErrConflict
+	}
+
+	permissionIDs := make([]uint64, 0, len(keys))
+	if len(keys) > 0 {
+		placeholders := strings.TrimRight(strings.Repeat("?,", len(keys)), ",")
+		args := make([]any, 0, len(keys))
+		for _, key := range keys {
+			args = append(args, key)
+		}
+		rows, err := exec.QueryContext(ctx,
+			`SELECT id, permission_key FROM permissions WHERE permission_key IN (`+placeholders+`)`,
+			args...,
+		)
+		if err != nil {
+			return fmt.Errorf("resolve permissions: %w", err)
+		}
+
+		found := make(map[string]struct{}, len(keys))
+		for rows.Next() {
+			var id uint64
+			var key string
+			if err := rows.Scan(&id, &key); err != nil {
+				_ = rows.Close()
+				return fmt.Errorf("scan resolved permission: %w", err)
+			}
+			permissionIDs = append(permissionIDs, id)
+			found[key] = struct{}{}
+		}
+		if err := rows.Err(); err != nil {
+			_ = rows.Close()
+			return fmt.Errorf("iterate resolved permissions: %w", err)
+		}
+		if err := rows.Close(); err != nil {
+			return fmt.Errorf("close resolved permissions: %w", err)
+		}
+		for _, key := range keys {
+			if _, ok := found[key]; !ok {
+				return fmt.Errorf("%w: unknown permission %q", ErrInvalid, key)
+			}
+		}
+	}
 
 	if _, err := exec.ExecContext(ctx, `DELETE FROM role_permissions WHERE role_id = ?`, roleID); err != nil {
 		return fmt.Errorf("clear role permissions: %w", err)
-	}
-	if len(keys) == 0 {
-		return nil
-	}
-
-	placeholders := strings.TrimRight(strings.Repeat("?,", len(keys)), ",")
-	args := make([]any, 0, len(keys))
-	for _, key := range keys {
-		args = append(args, key)
-	}
-	rows, err := exec.QueryContext(ctx,
-		`SELECT id, permission_key FROM permissions WHERE permission_key IN (`+placeholders+`)`,
-		args...,
-	)
-	if err != nil {
-		return fmt.Errorf("resolve permissions: %w", err)
-	}
-	defer rows.Close()
-
-	permissionIDs := make([]uint64, 0, len(keys))
-	found := make(map[string]struct{}, len(keys))
-	for rows.Next() {
-		var id uint64
-		var key string
-		if err := rows.Scan(&id, &key); err != nil {
-			return fmt.Errorf("scan resolved permission: %w", err)
-		}
-		permissionIDs = append(permissionIDs, id)
-		found[key] = struct{}{}
-	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("iterate resolved permissions: %w", err)
-	}
-	for _, key := range keys {
-		if _, ok := found[key]; !ok {
-			return fmt.Errorf("%w: unknown permission %q", ErrInvalid, key)
-		}
 	}
 	for _, permissionID := range permissionIDs {
 		if _, err := exec.ExecContext(ctx, `
 			INSERT INTO role_permissions (role_id, permission_id) VALUES (?, ?)
 		`, roleID, permissionID); err != nil {
 			return fmt.Errorf("assign role permission: %w", err)
+		}
+	}
+
+	if incrementVersion {
+		result, err := exec.ExecContext(ctx, `
+			UPDATE roles
+			SET version = version + 1
+			WHERE tenant_id = ? AND id = ? AND version = ?
+		`, tenantID, roleID, expectedVersion)
+		if err != nil {
+			return fmt.Errorf("increment role version: %w", err)
+		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("read role version update result: %w", err)
+		}
+		if affected != 1 {
+			return ErrConflict
 		}
 	}
 	return nil
