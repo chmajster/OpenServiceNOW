@@ -62,6 +62,41 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 		t.Fatalf("bootstrap tenant B: %v", err)
 	}
 
+	futurePermission := "future.permission." + strings.ReplaceAll(suffix, ".", "")
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO permissions (permission_key, description)
+		VALUES (?, 'integration dynamic permission')
+	`, futurePermission); err != nil {
+		t.Fatalf("insert future permission: %v", err)
+	}
+	t.Cleanup(func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cleanupCancel()
+		_, _ = db.ExecContext(cleanupCtx, "DELETE FROM permissions WHERE permission_key = ?", futurePermission)
+	})
+
+	allowed, err := identityRepo.HasPermission(ctx, adminA.TenantID, adminA.UserID, futurePermission)
+	if err != nil {
+		t.Fatalf("check dynamic platform admin permission: %v", err)
+	}
+	if !allowed {
+		t.Fatal("platform_admin must automatically receive new catalog permissions")
+	}
+	allowed, err = identityRepo.HasPermission(ctx, adminA.TenantID, adminA.UserID, futurePermission+".missing")
+	if err != nil {
+		t.Fatalf("check unknown permission: %v", err)
+	}
+	if allowed {
+		t.Fatal("platform_admin must not receive permission keys absent from the catalog")
+	}
+	effectivePermissions, err := identityRepo.ListPermissions(ctx, adminA.TenantID, adminA.UserID)
+	if err != nil {
+		t.Fatalf("list dynamic platform admin permissions: %v", err)
+	}
+	if !containsString(effectivePermissions, futurePermission) {
+		t.Fatalf("dynamic permission %q missing from platform_admin permission list", futurePermission)
+	}
+
 	t.Cleanup(func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cleanupCancel()
@@ -172,6 +207,15 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 func containsUser(values []users.User, userID uint64) bool {
 	for _, user := range values {
 		if user.ID == userID {
+			return true
+		}
+	}
+	return false
+}
+
+func containsString(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
 			return true
 		}
 	}
