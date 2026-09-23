@@ -50,3 +50,37 @@ No runtime application was introduced in Phase 0. Go code, schema migrations, fr
 
 - migration execution reuses an existing database handle to avoid propagating credential-bearing DSNs through migration error paths,
 - malformed numeric and duration environment values fail startup instead of silently falling back.
+
+## 2026-09-23 — Phase 1 identity, RBAC and administration foundation
+
+### Added
+
+- central transaction manager,
+- Argon2id password hashing,
+- tenants, users, memberships, groups, roles, permissions, sessions and audit schema,
+- local login/logout/current-session API,
+- opaque session tokens stored only as SHA-256 hashes,
+- CSRF double-submit validation,
+- Redis-backed login throttling,
+- tenant/admin bootstrap command,
+- tenant-scoped user administration API,
+- backend RBAC middleware and administration API,
+- tenant administration with optimistic locking,
+- append-oriented audit events and tenant-scoped paginated audit API,
+- session cleanup scheduler with one-shot CI mode,
+- OpenAPI 3.1 contract for implemented endpoints,
+- cross-tenant isolation and optimistic-lock integration test source,
+- authenticated CI smoke flow creating a user, role and assignment.
+
+### Security
+
+- client-controlled tenant identifiers are not accepted for administrative data access; tenant scope comes from the authenticated session,
+- forwarded client IP headers are intentionally ignored until trusted-proxy configuration exists,
+- privileged writes combine state changes and audit records in the same MySQL transaction,
+- RBAC writes require authentication, backend permission checks and CSRF validation,
+- user administration cannot disable the acting administrator's own tenant membership,
+- role/group membership operations enforce tenant ownership in SQL.
+
+### Verification status
+
+The implementation remains unmerged because GitHub Actions jobs are repeatedly terminating before checkout with no assigned runner and no executed steps. Test/build success is not claimed until the workflow actually runs.
