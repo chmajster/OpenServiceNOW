@@ -15,6 +15,7 @@ func RegisterRoutes(r chi.Router, handler *Handler, auth *identity.Middleware) {
 		r.Group(func(r chi.Router) {
 			r.Use(auth.RequireCSRF)
 			r.Post("/", handler.Create)
+			r.Post("/memberships", handler.AddExistingMembership)
 			r.Put("/{userID}/membership", handler.SetMembership)
 		})
 	})
