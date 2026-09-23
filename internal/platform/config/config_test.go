@@ -88,3 +88,29 @@ func TestLoadRejectsInvalidTrustedProxyCIDR(t *testing.T) {
 		t.Fatal("expected trusted proxy validation error")
 	}
 }
+
+func TestMySQLDSNSeparatesRuntimeAndMigrationCapabilities(t *testing.T) {
+	cfg := MySQLConfig{
+		Host: "127.0.0.1",
+		Port: 3306,
+		Database: "opensnow",
+		User: "opensnow",
+		Password: "secret",
+	}
+
+	runtimeDSN, err := mysqlDriver.ParseDSN(cfg.DSN())
+	if err != nil {
+		t.Fatalf("ParseDSN(runtime) error = %v", err)
+	}
+	if runtimeDSN.MultiStatements {
+		t.Fatal("runtime DSN must keep multiStatements disabled")
+	}
+
+	migrationDSN, err := mysqlDriver.ParseDSN(cfg.MigrationDSN())
+	if err != nil {
+		t.Fatalf("ParseDSN(migration) error = %v", err)
+	}
+	if !migrationDSN.MultiStatements {
+		t.Fatal("migration DSN must enable multiStatements for golang-migrate WithInstance")
+	}
+}
