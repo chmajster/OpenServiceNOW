@@ -7,7 +7,7 @@ import { PageState } from "../components/PageState";
 export function UsersPage() {
   const { session } = useAuth();
   const [users, setUsers] = useState<TenantUser[]>([]);
-  const [nextAfterID, setNextAfterID] = useState<number | undefined>();
+  const [nextAfterID, setNextAfterID] = useState<string | undefined>();
   const [query, setQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -17,9 +17,9 @@ export function UsersPage() {
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
   const [creating, setCreating] = useState(false);
-  const [changingID, setChangingID] = useState<number | null>(null);
+  const [changingID, setChangingID] = useState<string | null>(null);
 
-  async function loadUsers(search = appliedQuery, afterID?: number, append = false) {
+  async function loadUsers(search = appliedQuery, afterID?: string, append = false) {
     append ? setLoadingMore(true) : setLoading(true);
     try {
       const params = new URLSearchParams({ limit: "50" });
@@ -27,7 +27,7 @@ export function UsersPage() {
         params.set("q", search.trim());
       }
       if (afterID) {
-        params.set("after_id", String(afterID));
+        params.set("after_id", afterID);
       }
       const response = await api<UsersResponse>(`/api/v1/admin/users/?${params.toString()}`);
       setUsers((current) => (append ? [...current, ...response.users] : response.users));
