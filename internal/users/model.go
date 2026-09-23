@@ -12,7 +12,7 @@ var (
 )
 
 type User struct {
-	ID               uint64    `json:"id"`
+	ID               uint64    `json:"id,string"`
 	Email            string    `json:"email"`
 	DisplayName      string    `json:"display_name"`
 	UserActive       bool      `json:"user_active"`
@@ -35,5 +35,5 @@ type Actor struct {
 
 type Page struct {
 	Users       []User `json:"users"`
-	NextAfterID uint64 `json:"next_after_id,omitempty"`
+	NextAfterID uint64 `json:"next_after_id,string,omitempty"`
 }
