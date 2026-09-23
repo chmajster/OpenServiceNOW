@@ -3,7 +3,7 @@
   "info": {
     "title": "OpenServiceNOW API",
     "version": "0.1.0",
-    "description": "Phase 1 foundation API. The backend is authoritative for authentication, tenant scope and RBAC.\nEvery API response includes a server-generated X-Request-ID header; client-supplied request IDs are not trusted."
+    "description": "Phase 1 foundation API. The backend is authoritative for authentication, tenant scope and RBAC.\nEvery API response includes a server-generated X-Request-ID header; client-supplied request IDs are not trusted.\nAll MySQL BIGINT identifiers and cursor IDs are serialized as decimal strings to preserve precision in JavaScript clients."
   },
   "servers": [
     {
@@ -299,9 +299,8 @@
             "name": "after_id",
             "in": "query",
             "schema": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 1
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
             }
           },
           {
@@ -492,9 +491,8 @@
             "name": "after_id",
             "in": "query",
             "schema": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 1
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
             }
           },
           {
@@ -654,9 +652,8 @@
             "name": "after_id",
             "in": "query",
             "schema": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 1
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
             }
           },
           {
@@ -976,9 +973,8 @@
             "name": "before_id",
             "in": "query",
             "schema": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 1
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
             }
           }
         ],
@@ -1032,9 +1028,8 @@
         "in": "path",
         "required": true,
         "schema": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 1
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
         }
       },
       "RoleID": {
@@ -1042,9 +1037,8 @@
         "in": "path",
         "required": true,
         "schema": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 1
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
         }
       },
       "GroupID": {
@@ -1052,9 +1046,8 @@
         "in": "path",
         "required": true,
         "schema": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 1
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
         }
       }
     },
@@ -1170,8 +1163,8 @@
         ],
         "properties": {
           "id": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
           },
           "email": {
             "type": "string",
@@ -1191,8 +1184,8 @@
         ],
         "properties": {
           "id": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
           },
           "slug": {
             "type": "string"
@@ -1215,8 +1208,8 @@
         ],
         "properties": {
           "id": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
           },
           "slug": {
             "type": "string"
@@ -1288,8 +1281,8 @@
         ],
         "properties": {
           "id": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
           },
           "email": {
             "type": "string",
@@ -1323,8 +1316,8 @@
             }
           },
           "next_after_id": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
           }
         }
       },
@@ -1375,8 +1368,8 @@
         ],
         "properties": {
           "id": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
           },
           "key": {
             "type": "string"
@@ -1411,8 +1404,8 @@
         ],
         "properties": {
           "id": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
           },
           "name": {
             "type": "string"
@@ -1448,8 +1441,8 @@
             }
           },
           "next_after_id": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
           }
         }
       },
@@ -1509,8 +1502,8 @@
         ],
         "properties": {
           "id": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
           },
           "name": {
             "type": "string"
@@ -1541,8 +1534,8 @@
             }
           },
           "next_after_id": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
           }
         }
       },
@@ -1575,15 +1568,15 @@
         ],
         "properties": {
           "id": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
           },
           "actor_user_id": {
             "type": [
-              "integer",
+              "string",
               "null"
             ],
-            "format": "uint64"
+            "pattern": "^[1-9][0-9]*$"
           },
           "time": {
             "type": "string",
@@ -1624,8 +1617,8 @@
             }
           },
           "next_before_id": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
           }
         }
       },
@@ -1682,8 +1675,8 @@
               ],
               "properties": {
                 "id": {
-                  "type": "integer",
-                  "format": "uint64"
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
                 }
               }
             }
