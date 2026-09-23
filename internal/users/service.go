@@ -30,8 +30,20 @@ func NewService(
 	return &Service{repo: repo, tx: tx, audit: auditRepo, adminSafety: adminSafety}
 }
 
-func (s *Service) List(ctx context.Context, tenantID uint64) ([]User, error) {
-	return s.repo.List(ctx, tenantID)
+func (s *Service) List(
+	ctx context.Context,
+	tenantID, afterID uint64,
+	limit int,
+	query string,
+) (Page, error) {
+	if limit < 1 || limit > 200 {
+		return Page{}, fmt.Errorf("%w: limit must be between 1 and 200", ErrInvalid)
+	}
+	query = strings.TrimSpace(query)
+	if utf8.RuneCountInString(query) > 200 {
+		return Page{}, fmt.Errorf("%w: query exceeds 200 characters", ErrInvalid)
+	}
+	return s.repo.List(ctx, tenantID, afterID, limit, query)
 }
 
 func (s *Service) Create(ctx context.Context, actor Actor, input CreateInput) (uint64, error) {
