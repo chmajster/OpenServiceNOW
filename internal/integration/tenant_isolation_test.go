@@ -133,14 +133,19 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 		t.Fatalf("list tenant A roles: %v", err)
 	}
 	var platformAdminRoleID uint64
+	var platformAdminRole rbac.Role
 	for _, role := range roles {
 		if role.Name == "platform_admin" {
 			platformAdminRoleID = role.ID
+			platformAdminRole = role
 			break
 		}
 	}
 	if platformAdminRoleID == 0 {
 		t.Fatal("platform_admin role not found")
+	}
+	if !roleContainsPermission(platformAdminRole, futurePermission) {
+		t.Fatalf("platform_admin role view missing dynamic permission %q", futurePermission)
 	}
 	if err := rbacService.SetRolePermissions(ctx, actorA, platformAdminRoleID, []string{"tenant.read"}); !errors.Is(err, rbac.ErrInvalid) {
 		t.Fatalf("system role permission update error = %v, want ErrInvalid", err)
@@ -216,6 +221,15 @@ func containsUser(values []users.User, userID uint64) bool {
 func containsString(values []string, expected string) bool {
 	for _, value := range values {
 		if value == expected {
+			return true
+		}
+	}
+	return false
+}
+
+func roleContainsPermission(role rbac.Role, key string) bool {
+	for _, permission := range role.Permissions {
+		if permission.Key == key {
 			return true
 		}
 	}
