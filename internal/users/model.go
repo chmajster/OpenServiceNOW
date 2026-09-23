@@ -37,3 +37,7 @@ type Page struct {
 	Users       []User `json:"users"`
 	NextAfterID uint64 `json:"next_after_id,string,omitempty"`
 }
+
+type AddExistingInput struct {
+	Email string
+}
