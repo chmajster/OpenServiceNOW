@@ -7,6 +7,7 @@ import (
 )
 
 func TestDefaultConfigValid(t *testing.T) {
+	clearConfigEnv(t)
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
@@ -20,6 +21,7 @@ func TestDefaultConfigValid(t *testing.T) {
 }
 
 func TestLoadRejectsMalformedInteger(t *testing.T) {
+	clearConfigEnv(t)
 	t.Setenv("MYSQL_PORT", "not-a-number")
 	if _, err := Load(); err == nil {
 		t.Fatal("expected invalid integer error")
@@ -27,6 +29,7 @@ func TestLoadRejectsMalformedInteger(t *testing.T) {
 }
 
 func TestLoadRejectsMalformedDuration(t *testing.T) {
+	clearConfigEnv(t)
 	t.Setenv("SHUTDOWN_TIMEOUT", "later")
 	if _, err := Load(); err == nil {
 		t.Fatal("expected invalid duration error")
@@ -67,6 +70,7 @@ func TestDSNSupportsSpecialCharacters(t *testing.T) {
 }
 
 func TestSessionCookieNamesAreStableProtocolConstants(t *testing.T) {
+	clearConfigEnv(t)
 	t.Setenv("SESSION_COOKIE_NAME", "unexpected-session-name")
 	t.Setenv("CSRF_COOKIE_NAME", "unexpected-csrf-name")
 
@@ -83,6 +87,7 @@ func TestSessionCookieNamesAreStableProtocolConstants(t *testing.T) {
 }
 
 func TestLoadRejectsInvalidTrustedProxyCIDR(t *testing.T) {
+	clearConfigEnv(t)
 	t.Setenv("TRUSTED_PROXY_CIDRS", "10.0.0.0/8,not-a-cidr")
 	if _, err := Load(); err == nil {
 		t.Fatal("expected trusted proxy validation error")
@@ -116,6 +121,7 @@ func TestMySQLDSNSeparatesRuntimeAndMigrationCapabilities(t *testing.T) {
 }
 
 func TestLoadRejectsSubMillisecondAuthenticationWindow(t *testing.T) {
+	clearConfigEnv(t)
 	t.Setenv("AUTH_LOGIN_IP_WINDOW", "1ns")
 	if _, err := Load(); err == nil {
 		t.Fatal("expected authentication rate-limit window validation error")
@@ -141,6 +147,7 @@ func TestMySQLTLSModeRoundTrip(t *testing.T) {
 }
 
 func TestLoadRejectsUnknownMySQLTLSMode(t *testing.T) {
+	clearConfigEnv(t)
 	t.Setenv("MYSQL_TLS_MODE", "maybe")
 	if _, err := Load(); err == nil {
 		t.Fatal("expected MySQL TLS mode validation error")
@@ -148,6 +155,7 @@ func TestLoadRejectsUnknownMySQLTLSMode(t *testing.T) {
 }
 
 func TestLoadRejectsRedisTLSOptionsWhenTLSDisabled(t *testing.T) {
+	clearConfigEnv(t)
 	t.Setenv("REDIS_TLS_ENABLED", "false")
 	t.Setenv("REDIS_TLS_SERVER_NAME", "redis.example.test")
 	if _, err := Load(); err == nil {
@@ -156,6 +164,7 @@ func TestLoadRejectsRedisTLSOptionsWhenTLSDisabled(t *testing.T) {
 }
 
 func TestLoadRejectsMalformedHTTPAddress(t *testing.T) {
+	clearConfigEnv(t)
 	t.Setenv("HTTP_ADDR", "not-an-address")
 	if _, err := Load(); err == nil {
 		t.Fatal("expected HTTP_ADDR validation error")
@@ -163,9 +172,50 @@ func TestLoadRejectsMalformedHTTPAddress(t *testing.T) {
 }
 
 func TestLoadRequiresSecureCookiesOutsideDevAndTest(t *testing.T) {
+	clearConfigEnv(t)
 	t.Setenv("APP_ENV", "production")
 	t.Setenv("SESSION_COOKIE_SECURE", "false")
 	if _, err := Load(); err == nil {
 		t.Fatal("expected secure cookie validation error")
+	}
+}
+
+func clearConfigEnv(t *testing.T) {
+	t.Helper()
+	keys := []string{
+		"APP_ENV",
+		"HTTP_ADDR",
+		"SHUTDOWN_TIMEOUT",
+		"TRUSTED_PROXY_CIDRS",
+		"MYSQL_HOST",
+		"MYSQL_PORT",
+		"MYSQL_DATABASE",
+		"MYSQL_USER",
+		"MYSQL_PASSWORD",
+		"MYSQL_TLS_MODE",
+		"MYSQL_MAX_OPEN_CONNS",
+		"MYSQL_MAX_IDLE_CONNS",
+		"MYSQL_CONN_MAX_LIFETIME",
+		"MYSQL_CONN_MAX_IDLE_TIME",
+		"MYSQL_PING_TIMEOUT",
+		"REDIS_ADDR",
+		"REDIS_PASSWORD",
+		"REDIS_DB",
+		"REDIS_PING_TIMEOUT",
+		"REDIS_TLS_ENABLED",
+		"REDIS_TLS_SERVER_NAME",
+		"REDIS_TLS_INSECURE_SKIP_VERIFY",
+		"SESSION_TTL",
+		"SESSION_COOKIE_SECURE",
+		"SESSION_CLEANUP_INTERVAL",
+		"SESSION_CLEANUP_BATCH",
+		"SESSION_REVOKED_RETENTION",
+		"AUTH_LOGIN_IP_LIMIT",
+		"AUTH_LOGIN_IP_WINDOW",
+		"AUTH_LOGIN_ACCOUNT_LIMIT",
+		"AUTH_LOGIN_ACCOUNT_WINDOW",
+	}
+	for _, key := range keys {
+		t.Setenv(key, "")
 	}
 }
