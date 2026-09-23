@@ -10,6 +10,7 @@ import (
 
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/httpapi"
+	"github.com/chmajster/OpenServiceNOW/internal/platform/password"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/requestinfo"
 	"github.com/go-chi/chi/v5/middleware"
 )
@@ -36,6 +37,12 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var request loginRequest
 	if err := httpapi.DecodeJSON(r, &request); err != nil {
 		httpapi.WriteDecodeError(w, r, err)
+		return
+	}
+	if len(strings.TrimSpace(request.Tenant)) > 100 ||
+		len(strings.TrimSpace(request.Email)) > 254 ||
+		len(request.Password) > password.MaxPasswordBytes {
+		httpapi.WriteError(w, r, http.StatusUnauthorized, "INVALID_CREDENTIALS", "Invalid credentials")
 		return
 	}
 
