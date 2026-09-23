@@ -121,3 +121,36 @@ func TestLoadRejectsSubMillisecondAuthenticationWindow(t *testing.T) {
 		t.Fatal("expected authentication rate-limit window validation error")
 	}
 }
+
+func TestMySQLTLSModeRoundTrip(t *testing.T) {
+	cfg := MySQLConfig{
+		Host: "db.example.test",
+		Port: 3306,
+		Database: "opensnow",
+		User: "opensnow",
+		Password: "secret",
+		TLSMode: "true",
+	}
+	parsed, err := mysqlDriver.ParseDSN(cfg.DSN())
+	if err != nil {
+		t.Fatalf("ParseDSN() error = %v", err)
+	}
+	if parsed.TLSConfig != "true" {
+		t.Fatalf("TLSConfig = %q", parsed.TLSConfig)
+	}
+}
+
+func TestLoadRejectsUnknownMySQLTLSMode(t *testing.T) {
+	t.Setenv("MYSQL_TLS_MODE", "maybe")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected MySQL TLS mode validation error")
+	}
+}
+
+func TestLoadRejectsRedisTLSOptionsWhenTLSDisabled(t *testing.T) {
+	t.Setenv("REDIS_TLS_ENABLED", "false")
+	t.Setenv("REDIS_TLS_SERVER_NAME", "redis.example.test")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected Redis TLS configuration validation error")
+	}
+}
