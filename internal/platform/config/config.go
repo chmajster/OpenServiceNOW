@@ -43,12 +43,12 @@ type RedisConfig struct {
 }
 
 type SessionConfig struct {
-	TTL             time.Duration
-	CookieSecure    bool
-	CookieName      string
-	CSRFCookieName  string
-	CleanupInterval time.Duration
-	CleanupBatch    int
+	TTL               time.Duration
+	CookieSecure      bool
+	CookieName        string
+	CSRFCookieName    string
+	CleanupInterval   time.Duration
+	CleanupBatch      int
 	RevokedRetention time.Duration
 }
 
