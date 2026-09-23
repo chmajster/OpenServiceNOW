@@ -154,3 +154,18 @@ func TestLoadRejectsRedisTLSOptionsWhenTLSDisabled(t *testing.T) {
 		t.Fatal("expected Redis TLS configuration validation error")
 	}
 }
+
+func TestLoadRejectsMalformedHTTPAddress(t *testing.T) {
+	t.Setenv("HTTP_ADDR", "not-an-address")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected HTTP_ADDR validation error")
+	}
+}
+
+func TestLoadRequiresSecureCookiesOutsideDevAndTest(t *testing.T) {
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("SESSION_COOKIE_SECURE", "false")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected secure cookie validation error")
+	}
+}
