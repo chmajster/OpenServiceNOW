@@ -115,3 +115,22 @@ The implementation remains unmerged because GitHub Actions jobs are repeatedly t
 ### Verification status
 
 Backend and frontend GitHub Actions jobs still fail before runner allocation with empty step lists. No build/test success is claimed. `go.sum` and `web/package-lock.json` remain required before merge.
+
+## 2026-09-23 — Phase 1 migration and administrator-safety hardening
+
+### Changed
+
+- split the identity/RBAC/audit schema into migration versions `000002`–`000013`, one table per version,
+- each migration direction now contains a single SQL statement,
+- runtime MySQL connections keep multi-statements disabled while migration connections explicitly enable them for golang-migrate,
+- readiness now requires the exact clean schema version and installation metadata,
+- migration CLI now supports `down-all` and `version`,
+- CI verifies complete schema rollback to no applied migration version,
+- duplicate RBAC assignment requests remain idempotent without generating false audit events,
+- no-op tenant-name and membership updates no longer create artificial version/audit churn.
+
+### Security
+
+- privilege-reducing operations serialize on the tenant row and guarantee at least one active effective `platform_admin` remains,
+- last-admin protection covers tenant membership deactivation, direct role removal, group membership removal and group-role removal,
+- lock ordering is consistently tenant-first to reduce deadlock risk during concurrent administrative changes.
