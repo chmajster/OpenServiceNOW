@@ -33,7 +33,7 @@ func (r *Reader) List(ctx context.Context, tenantID, beforeID uint64, limit int)
 		args = append(args, beforeID)
 	}
 	query += " ORDER BY id DESC LIMIT ?"
-	args = append(args, limit)
+	args = append(args, limit+1)
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -41,7 +41,7 @@ func (r *Reader) List(ctx context.Context, tenantID, beforeID uint64, limit int)
 	}
 	defer rows.Close()
 
-	events := make([]Record, 0, limit)
+	events := make([]Record, 0, limit+1)
 	for rows.Next() {
 		var record Record
 		var actorID sql.NullInt64
@@ -88,8 +88,9 @@ func (r *Reader) List(ctx context.Context, tenantID, beforeID uint64, limit int)
 	}
 
 	page := Page{Events: events}
-	if len(events) == limit {
-		page.NextBeforeID = events[len(events)-1].ID
+	if len(events) > limit {
+		page.Events = events[:limit]
+		page.NextBeforeID = page.Events[len(page.Events)-1].ID
 	}
 	return page, nil
 }
