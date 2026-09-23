@@ -225,3 +225,140 @@ jobs:
 
       - name: Verify frontend build did not modify source manifests
         run: git diff --exit-code -- package.json tsconfig.json tsconfig.app.json tsconfig.node.json vite.config.ts src
+
+  e2e:
+    runs-on: ubuntu-24.04
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: opensnow
+          MYSQL_USER: opensnow
+          MYSQL_PASSWORD: opensnow-test
+          MYSQL_ROOT_PASSWORD: root-test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot-test"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+      redis:
+        image: redis:8.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+
+    env:
+      APP_ENV: test
+      HTTP_ADDR: 127.0.0.1:18080
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: opensnow
+      MYSQL_USER: opensnow
+      MYSQL_PASSWORD: opensnow-test
+      REDIS_ADDR: 127.0.0.1:6379
+      BOOTSTRAP_TENANT_SLUG: e2e
+      BOOTSTRAP_TENANT_NAME: E2E Tenant
+      BOOTSTRAP_ADMIN_EMAIL: admin@example.test
+      BOOTSTRAP_ADMIN_NAME: E2E Administrator
+      E2E_TENANT: e2e
+      E2E_ADMIN_EMAIL: admin@example.test
+      E2E_ADMIN_PASSWORD: phase1-admin-${{ github.run_id }}-Password
+      E2E_OPERATOR_EMAIL: e2e-operator@example.test
+      E2E_OPERATOR_PASSWORD: phase1-operator-${{ github.run_id }}-Password
+      E2E_BASE_URL: http://127.0.0.1:5173
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.27.x'
+          cache: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Resolve backend dependencies
+        run: go mod tidy
+
+      - name: Install frontend dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: Install Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Apply migrations
+        run: go run ./cmd/migrate up
+
+      - name: Bootstrap E2E tenant
+        env:
+          BOOTSTRAP_ADMIN_PASSWORD: ${{ env.E2E_ADMIN_PASSWORD }}
+        run: go run ./cmd/bootstrap
+
+      - name: Run browser E2E
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          go run ./cmd/api >api-e2e.log 2>&1 &
+          api_pid=$!
+
+          (
+            cd web
+            npm run dev -- --host 127.0.0.1 --port 5173
+          ) >web-e2e.log 2>&1 &
+          web_pid=$!
+
+          cleanup() {
+            kill "$web_pid" 2>/dev/null || true
+            kill "$api_pid" 2>/dev/null || true
+            echo "===== api-e2e.log ====="
+            cat api-e2e.log || true
+            echo "===== web-e2e.log ====="
+            cat web-e2e.log || true
+          }
+          trap cleanup EXIT
+
+          api_ready=0
+          for _ in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:18080/health/ready | grep -q '"status":"ok"'; then
+              api_ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$api_ready" = "1"
+
+          web_ready=0
+          for _ in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:5173/ >/dev/null; then
+              web_ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$web_ready" = "1"
+
+          cd web
+          npm run e2e
+
+      - name: Upload Playwright failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase1-playwright-failure
+          path: |
+            web/test-results
+            api-e2e.log
+            web-e2e.log
+          if-no-files-found: ignore
+          retention-days: 7
