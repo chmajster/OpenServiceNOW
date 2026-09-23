@@ -279,6 +279,9 @@ func pathID(w http.ResponseWriter, r *http.Request, name string) (uint64, bool) 
 }
 
 func writeServiceError(w http.ResponseWriter, r *http.Request, err error) {
+	if httpapi.WriteContextError(w, r, err) {
+		return
+	}
 	switch {
 	case errors.Is(err, identity.ErrLastPlatformAdmin):
 		httpapi.WriteError(
