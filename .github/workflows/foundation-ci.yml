@@ -149,6 +149,9 @@ jobs:
           )"
           test "$me_after_logout" = "401"
 
+      - name: Run scheduler cleanup once
+        run: go run ./cmd/scheduler --once
+
       - name: Roll back identity migration
         run: go run ./cmd/migrate down
 
