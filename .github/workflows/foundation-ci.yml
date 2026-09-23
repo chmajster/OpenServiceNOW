@@ -72,7 +72,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Verify go.mod is committed
+      - name: Verify Go manifest is stable
         run: git diff --exit-code -- go.mod
 
       - name: Verify formatting
@@ -200,7 +200,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Verify package.json is unchanged
+      - name: Verify frontend manifest is stable
         run: git diff --exit-code -- package.json
 
       - name: Typecheck frontend
@@ -211,3 +211,6 @@ jobs:
 
       - name: Build frontend
         run: npm run build
+
+      - name: Verify frontend build did not modify source manifests
+        run: git diff --exit-code -- package.json tsconfig.json tsconfig.app.json tsconfig.node.json vite.config.ts src
