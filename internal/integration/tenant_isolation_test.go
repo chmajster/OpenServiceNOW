@@ -207,6 +207,42 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	if !errors.Is(err, tenants.ErrConflict) {
 		t.Fatalf("stale tenant update error = %v, want ErrConflict", err)
 	}
+
+	auditReader := audit.NewReader(db)
+	auditPageOne, err := auditReader.List(ctx, adminA.TenantID, 0, 2)
+	if err != nil {
+		t.Fatalf("list first audit page: %v", err)
+	}
+	if len(auditPageOne.Events) != 2 || auditPageOne.NextBeforeID == 0 {
+		t.Fatalf(
+			"first audit page events=%d next_before_id=%d",
+			len(auditPageOne.Events),
+			auditPageOne.NextBeforeID,
+		)
+	}
+	auditPageTwo, err := auditReader.List(ctx, adminA.TenantID, auditPageOne.NextBeforeID, 2)
+	if err != nil {
+		t.Fatalf("list second audit page: %v", err)
+	}
+	for _, event := range auditPageTwo.Events {
+		if event.ID >= auditPageOne.NextBeforeID {
+			t.Fatalf(
+				"audit cursor returned non-older event id=%d cursor=%d",
+				event.ID,
+				auditPageOne.NextBeforeID,
+			)
+		}
+	}
+
+	tenantBAudit, err := auditReader.List(ctx, adminB.TenantID, 0, 50)
+	if err != nil {
+		t.Fatalf("list tenant B audit: %v", err)
+	}
+	for _, event := range tenantBAudit.Events {
+		if event.ObjectID == fmt.Sprint(adminA.TenantID) && event.Action == "tenant.name.update" {
+			t.Fatal("tenant A audit event leaked into tenant B audit page")
+		}
+	}
 }
 
 func containsUser(values []users.User, userID uint64) bool {
