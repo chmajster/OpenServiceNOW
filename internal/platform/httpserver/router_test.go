@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/chmajster/OpenServiceNOW/internal/platform/health"
 	"github.com/go-chi/chi/v5"
@@ -51,7 +52,7 @@ func TestRouterUsesConsistentNotFoundError(t *testing.T) {
 	}
 }
 
-func TestRouterPreservesSafeIncomingRequestID(t *testing.T) {
+func TestRouterIgnoresSafeIncomingRequestID(t *testing.T) {
 	h := health.New(func(context.Context) error { return nil }, func(context.Context) error { return nil })
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
 	request := httptest.NewRequest(http.MethodGet, "/health/live", nil)
@@ -60,8 +61,8 @@ func TestRouterPreservesSafeIncomingRequestID(t *testing.T) {
 	rr := httptest.NewRecorder()
 	Router(logger, h, nil).ServeHTTP(rr, request)
 
-	if got := rr.Header().Get("X-Request-ID"); got != "client-req_123" {
-		t.Fatalf("X-Request-ID = %q", got)
+	if got := rr.Header().Get("X-Request-ID"); got == "" || got == "client-req_123" {
+		t.Fatalf("server-generated X-Request-ID = %q", got)
 	}
 }
 
