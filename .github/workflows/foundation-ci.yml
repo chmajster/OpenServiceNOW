@@ -3,7 +3,10 @@ name: foundation-ci
 on:
   pull_request:
   push:
-    branches: [main]
+    branches:
+      - main
+      - "foundation/**"
+  workflow_dispatch:
 
 permissions:
   contents: read
