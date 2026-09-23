@@ -8,8 +8,8 @@ export function UsersPage() {
   const { session } = useAuth();
   const [users, setUsers] = useState<TenantUser[]>([]);
   const [nextAfterID, setNextAfterID] = useState<number | undefined>();
-  const [search, setSearch] = useState("");
-  const [activeSearch, setActiveSearch] = useState("");
+  const [query, setQuery] = useState("");
+  const [appliedQuery, setAppliedQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,15 +19,15 @@ export function UsersPage() {
   const [creating, setCreating] = useState(false);
   const [changingID, setChangingID] = useState<number | null>(null);
 
-  async function loadUsers(afterID?: number, append = false, query = activeSearch) {
+  async function loadUsers(search = appliedQuery, afterID?: number, append = false) {
     append ? setLoadingMore(true) : setLoading(true);
     try {
       const params = new URLSearchParams({ limit: "50" });
+      if (search.trim()) {
+        params.set("q", search.trim());
+      }
       if (afterID) {
         params.set("after_id", String(afterID));
-      }
-      if (query.trim()) {
-        params.set("q", query.trim());
       }
       const response = await api<UsersResponse>(`/api/v1/admin/users/?${params.toString()}`);
       setUsers((current) => (append ? [...current, ...response.users] : response.users));
@@ -42,20 +42,16 @@ export function UsersPage() {
   }
 
   useEffect(() => {
-    void loadUsers(undefined, false, "");
+    void loadUsers("");
   }, []);
 
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const query = search.trim();
-    setActiveSearch(query);
-    await loadUsers(undefined, false, query);
-  }
-
-  async function clearSearch() {
-    setSearch("");
-    setActiveSearch("");
-    await loadUsers(undefined, false, "");
+    const normalized = query.trim();
+    setAppliedQuery(normalized);
+    setUsers([]);
+    setNextAfterID(undefined);
+    await loadUsers(normalized);
   }
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
@@ -74,7 +70,9 @@ export function UsersPage() {
       setEmail("");
       setDisplayName("");
       setPassword("");
-      await loadUsers(undefined, false, activeSearch);
+      setAppliedQuery("");
+      setQuery("");
+      await loadUsers("");
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 409) {
         setError("Konto z tym adresem e-mail już istnieje.");
@@ -94,7 +92,7 @@ export function UsersPage() {
         method: "PUT",
         body: jsonBody({ active })
       });
-      await loadUsers(undefined, false, activeSearch);
+      await loadUsers(appliedQuery);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Zmiana członkostwa nie powiodła się.");
     } finally {
@@ -102,7 +100,7 @@ export function UsersPage() {
     }
   }
 
-  if (loading && users.length === 0) {
+  if (loading && users.length === 0 && !appliedQuery) {
     return <PageState title="Ładowanie użytkowników" />;
   }
 
@@ -158,33 +156,35 @@ export function UsersPage() {
           <div>
             <h2>Konta w tenancie</h2>
             <p className="muted">
-              {users.length} załadowanych rekordów{activeSearch ? ` dla „${activeSearch}”` : ""}
+              {users.length} załadowanych rekordów{appliedQuery ? ` dla „${appliedQuery}”` : ""}
             </p>
           </div>
-          <button
-            className="button button--secondary"
-            onClick={() => void loadUsers(undefined, false, activeSearch)}
-            disabled={loading}
-          >
+          <button className="button button--secondary" onClick={() => void loadUsers(appliedQuery)} disabled={loading}>
             Odśwież
           </button>
         </div>
 
         <form className="search-row" onSubmit={(event) => void handleSearch(event)}>
-          <label className="search-field">
+          <label>
             Szukaj po nazwie lub e-mailu
             <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
               maxLength={200}
-              placeholder="np. administrator albo user@example.com"
+              placeholder="np. administrator albo @example.test"
             />
           </label>
-          <button className="button button--secondary" type="submit" disabled={loading}>
-            Szukaj
-          </button>
-          {activeSearch ? (
-            <button className="button button--secondary" type="button" onClick={() => void clearSearch()} disabled={loading}>
+          <button className="button button--secondary" type="submit" disabled={loading}>Szukaj</button>
+          {appliedQuery ? (
+            <button
+              className="button button--secondary"
+              type="button"
+              onClick={() => {
+                setQuery("");
+                setAppliedQuery("");
+                void loadUsers("");
+              }}
+            >
               Wyczyść
             </button>
           ) : null}
@@ -227,9 +227,9 @@ export function UsersPage() {
                   </tr>
                 );
               })}
-              {users.length === 0 ? (
+              {users.length === 0 && !loading ? (
                 <tr>
-                  <td colSpan={5} className="empty-cell">Brak użytkowników dla bieżącego filtra.</td>
+                  <td colSpan={5} className="empty-cell">Brak użytkowników dla podanych kryteriów.</td>
                 </tr>
               ) : null}
             </tbody>
@@ -241,7 +241,7 @@ export function UsersPage() {
             <button
               className="button button--secondary"
               disabled={loadingMore}
-              onClick={() => void loadUsers(nextAfterID, true, activeSearch)}
+              onClick={() => void loadUsers(appliedQuery, nextAfterID, true)}
             >
               {loadingMore ? "Ładowanie…" : "Załaduj więcej"}
             </button>
