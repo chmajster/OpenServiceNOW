@@ -1,9 +1,14 @@
 package httpserver
 
 import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/chmajster/OpenServiceNOW/internal/platform/health"
@@ -22,7 +27,7 @@ func Router(
 ) http.Handler {
 	r := chi.NewRouter()
 	r.Use(sanitizeIncomingRequestID)
-	r.Use(middleware.RequestID)
+	r.Use(serverRequestID)
 	r.Use(requestIDHeader)
 	for _, item := range globalMiddleware {
 		if item != nil {
@@ -122,6 +127,22 @@ func validRequestID(value string) bool {
 		}
 	}
 	return true
+}
+
+var requestIDFallback atomic.Uint64
+
+func serverRequestID(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var raw [16]byte
+		var requestID string
+		if _, err := rand.Read(raw[:]); err == nil {
+			requestID = hex.EncodeToString(raw[:])
+		} else {
+			requestID = fmt.Sprintf("fallback-%d-%d", time.Now().UnixNano(), requestIDFallback.Add(1))
+		}
+		ctx := context.WithValue(r.Context(), middleware.RequestIDKey, requestID)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
 
 func requestIDHeader(next http.Handler) http.Handler {
