@@ -1,0 +1,64 @@
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { AuthProvider } from "./auth/AuthContext";
+import { RequireAuth, RequirePermission } from "./auth/RouteGuards";
+import { AppShell } from "./layout/AppShell";
+import { AuditPage } from "./pages/AuditPage";
+import { LoginPage } from "./pages/LoginPage";
+import { OverviewPage } from "./pages/OverviewPage";
+import { RbacPage } from "./pages/RbacPage";
+import { TenantPage } from "./pages/TenantPage";
+import { UsersPage } from "./pages/UsersPage";
+
+export function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route
+            element={
+              <RequireAuth>
+                <AppShell />
+              </RequireAuth>
+            }
+          >
+            <Route index element={<OverviewPage />} />
+            <Route
+              path="tenant"
+              element={
+                <RequirePermission permission="tenant.read">
+                  <TenantPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="users"
+              element={
+                <RequirePermission permission="admin.users.manage">
+                  <UsersPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="rbac"
+              element={
+                <RequirePermission permission="admin.rbac.manage">
+                  <RbacPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="audit"
+              element={
+                <RequirePermission permission="admin.audit.read">
+                  <AuditPage />
+                </RequirePermission>
+              }
+            />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}
