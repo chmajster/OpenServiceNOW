@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 )
 
 func WithAdvisoryLock(
@@ -34,8 +35,10 @@ func WithAdvisoryLock(
 	}
 
 	defer func() {
+		releaseCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
 		var released sql.NullInt64
-		_ = conn.QueryRowContext(context.Background(), "SELECT RELEASE_LOCK(?)", name).Scan(&released)
+		_ = conn.QueryRowContext(releaseCtx, "SELECT RELEASE_LOCK(?)", name).Scan(&released)
 	}()
 
 	if err := fn(ctx); err != nil {
