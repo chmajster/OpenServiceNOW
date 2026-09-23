@@ -160,3 +160,27 @@ jobs:
 
       - name: Roll back foundation migration
         run: go run ./cmd/migrate down
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Install frontend dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck frontend
+        run: npm run typecheck
+
+      - name: Test frontend
+        run: npm run test
+
+      - name: Build frontend
+        run: npm run build
