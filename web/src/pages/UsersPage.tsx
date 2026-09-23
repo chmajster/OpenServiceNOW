@@ -113,6 +113,7 @@ export function UsersPage() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               minLength={12}
+              maxLength={1024}
               required
             />
           </label>
