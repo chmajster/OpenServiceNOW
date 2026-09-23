@@ -174,11 +174,60 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	if !roleContainsPermission(platformAdminRole, futurePermission) {
 		t.Fatalf("platform_admin role view missing dynamic permission %q", futurePermission)
 	}
-	if err := rbacService.SetRolePermissions(ctx, actorA, platformAdminRoleID, []string{"tenant.read"}); !errors.Is(err, rbac.ErrInvalid) {
+	if err := rbacService.SetRolePermissions(
+		ctx,
+		actorA,
+		platformAdminRoleID,
+		platformAdminRole.Version,
+		[]string{"tenant.read"},
+	); !errors.Is(err, rbac.ErrInvalid) {
 		t.Fatalf("system role permission update error = %v, want ErrInvalid", err)
 	}
 	if err := rbacService.RemoveRoleFromUser(ctx, actorA, platformAdminRoleID, adminA.UserID); !errors.Is(err, rbac.ErrInvalid) {
 		t.Fatalf("self system-role removal error = %v, want ErrInvalid", err)
+	}
+
+	versionedRoleID, err := rbacService.CreateRole(ctx, actorA, rbac.CreateRoleInput{
+		Name: "versioned-role-" + strings.ReplaceAll(suffix, ".", ""),
+		Permissions: []string{"tenant.read"},
+	})
+	if err != nil {
+		t.Fatalf("create versioned role: %v", err)
+	}
+	versionedRoles, err := rbacService.ListRoles(ctx, adminA.TenantID, 0, 50, "versioned-role-")
+	if err != nil {
+		t.Fatalf("list versioned role: %v", err)
+	}
+	var versionedRole rbac.Role
+	for _, role := range versionedRoles.Roles {
+		if role.ID == versionedRoleID {
+			versionedRole = role
+			break
+		}
+	}
+	if versionedRole.ID == 0 {
+		t.Fatal("versioned role not found")
+	}
+	if versionedRole.Version != 1 {
+		t.Fatalf("new role version = %d want 1", versionedRole.Version)
+	}
+	if err := rbacService.SetRolePermissions(
+		ctx,
+		actorA,
+		versionedRole.ID,
+		versionedRole.Version,
+		[]string{"tenant.read", "tenant.manage"},
+	); err != nil {
+		t.Fatalf("replace versioned role permissions: %v", err)
+	}
+	if err := rbacService.SetRolePermissions(
+		ctx,
+		actorA,
+		versionedRole.ID,
+		versionedRole.Version,
+		[]string{"tenant.read"},
+	); !errors.Is(err, rbac.ErrConflict) {
+		t.Fatalf("stale role permission update error = %v, want ErrConflict", err)
 	}
 
 	usersService := users.NewService(usersRepo, tx, auditRepo, adminSafety)
