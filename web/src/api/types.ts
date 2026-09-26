@@ -123,3 +123,29 @@ export type HealthResponse = {
   status: "ok" | "unavailable";
   checks?: Record<string, string>;
 };
+
+export type GroupMember = {
+  user_id: string;
+  email: string;
+  display_name: string;
+  user_active: boolean;
+  membership_active: boolean;
+  joined_at: string;
+};
+
+export type GroupMemberPage = {
+  members: GroupMember[];
+  next_after_id?: string;
+};
+
+export type AssignedRole = {
+  id: string;
+  name: string;
+  system_role: boolean;
+  assigned_at: string;
+};
+
+export type AssignedRolePage = {
+  roles: AssignedRole[];
+  next_after_id?: string;
+};
