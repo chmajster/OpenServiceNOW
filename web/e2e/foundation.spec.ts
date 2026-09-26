@@ -43,7 +43,7 @@ async function login(page: Page, email: string, password: string) {
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Hasło").fill(password);
   await page.getByRole("button", { name: "Zaloguj" }).click();
-  await expect(page.getByText("Sesja aktywna")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Fundament platformy" })).toBeVisible();
 }
 
 test("admin creates a least-privilege tenant reader through the UI", async ({ page }, testInfo) => {
