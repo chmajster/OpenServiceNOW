@@ -209,3 +209,73 @@ test("tenant optimistic-lock conflict refreshes current data", async ({ browser 
     await secondContext.close();
   }
 });
+
+
+test("role permission optimistic-lock conflict refreshes current data", async ({ browser }, testInfo) => {
+  const firstContext = await browser.newContext();
+  const secondContext = await browser.newContext();
+  const firstPage = await firstContext.newPage();
+  const secondPage = await secondContext.newPage();
+  const scope = runScope(testInfo.project.name, testInfo.retry);
+  const conflictRoleName = scope
+    ? `e2e_role_conflict_${scope.replaceAll("-", "_")}`
+    : "e2e_role_conflict";
+
+  try {
+    await login(firstPage, adminEmail, adminPassword);
+    await login(secondPage, adminEmail, adminPassword);
+
+    await firstPage.getByRole("link", { name: "Role i RBAC" }).click();
+    await secondPage.getByRole("link", { name: "Role i RBAC" }).click();
+    await expect(firstPage.getByRole("heading", { name: "Role i RBAC" })).toBeVisible();
+    await expect(secondPage.getByRole("heading", { name: "Role i RBAC" })).toBeVisible();
+
+    const createForm = firstPage.locator("form").filter({
+      has: firstPage.getByRole("button", { name: "Utwórz rolę" })
+    });
+    await createForm.getByLabel("Nazwa").fill(conflictRoleName);
+    await createForm
+      .locator("label.checkbox-row")
+      .filter({ hasText: "tenant.read" })
+      .getByRole("checkbox")
+      .check();
+    await createForm.getByRole("button", { name: "Utwórz rolę" }).click();
+    await expect(firstPage.locator(".list-card").filter({ hasText: conflictRoleName })).toHaveCount(1);
+
+    await secondPage.getByRole("button", { name: "Odśwież" }).click();
+
+    const firstEditForm = firstPage.locator("form").filter({
+      has: firstPage.getByLabel("Rola do edycji")
+    });
+    const secondEditForm = secondPage.locator("form").filter({
+      has: secondPage.getByLabel("Rola do edycji")
+    });
+
+    await firstEditForm.getByLabel("Rola do edycji").selectOption({ label: `${conflictRoleName} — v1` });
+    await secondEditForm.getByLabel("Rola do edycji").selectOption({ label: `${conflictRoleName} — v1` });
+
+    await firstEditForm
+      .locator("label.checkbox-row")
+      .filter({ hasText: "tenant.manage" })
+      .getByRole("checkbox")
+      .check();
+    await firstEditForm.getByRole("button", { name: "Zapisz uprawnienia" }).click();
+    await expect(firstPage.getByText("Uprawnienia roli zostały zaktualizowane.")).toBeVisible();
+
+    await secondEditForm
+      .locator("label.checkbox-row")
+      .filter({ hasText: "admin.audit.read" })
+      .getByRole("checkbox")
+      .check();
+    await secondEditForm.getByRole("button", { name: "Zapisz uprawnienia" }).click();
+
+    await expect(
+      secondPage.getByText("Rola została zmieniona równolegle. Bieżące dane zostały odświeżone; wybierz rolę i ponów edycję.")
+    ).toBeVisible();
+    await expect(secondPage.getByLabel("Rola do edycji")).toHaveValue("");
+    await expect(secondPage.locator(".list-card").filter({ hasText: conflictRoleName })).toContainText("v2");
+  } finally {
+    await firstContext.close();
+    await secondContext.close();
+  }
+});
