@@ -181,6 +181,67 @@ func (s *Service) ListGroups(
 	return page, nil
 }
 
+func (s *Service) ListGroupMembers(
+	ctx context.Context,
+	tenantID, groupID, afterUserID uint64,
+	limit int,
+) (GroupMemberPage, error) {
+	if err := validateAssignmentListLimit(limit); err != nil {
+		return GroupMemberPage{}, err
+	}
+	page, err := s.repo.ListGroupMembers(ctx, tenantID, groupID, afterUserID, limit)
+	if err != nil {
+		return GroupMemberPage{}, err
+	}
+	if page.Members == nil {
+		page.Members = []GroupMember{}
+	}
+	return page, nil
+}
+
+func (s *Service) ListUserRoles(
+	ctx context.Context,
+	tenantID, userID, afterRoleID uint64,
+	limit int,
+) (AssignedRolePage, error) {
+	if err := validateAssignmentListLimit(limit); err != nil {
+		return AssignedRolePage{}, err
+	}
+	page, err := s.repo.ListUserRoles(ctx, tenantID, userID, afterRoleID, limit)
+	if err != nil {
+		return AssignedRolePage{}, err
+	}
+	if page.Roles == nil {
+		page.Roles = []AssignedRole{}
+	}
+	return page, nil
+}
+
+func (s *Service) ListGroupRoles(
+	ctx context.Context,
+	tenantID, groupID, afterRoleID uint64,
+	limit int,
+) (AssignedRolePage, error) {
+	if err := validateAssignmentListLimit(limit); err != nil {
+		return AssignedRolePage{}, err
+	}
+	page, err := s.repo.ListGroupRoles(ctx, tenantID, groupID, afterRoleID, limit)
+	if err != nil {
+		return AssignedRolePage{}, err
+	}
+	if page.Roles == nil {
+		page.Roles = []AssignedRole{}
+	}
+	return page, nil
+}
+
+func validateAssignmentListLimit(limit int) error {
+	if limit < 1 || limit > 200 {
+		return fmt.Errorf("%w: limit must be between 1 and 200", ErrInvalid)
+	}
+	return nil
+}
+
 func (s *Service) CreateGroup(ctx context.Context, actor Actor, input CreateGroupInput) (uint64, error) {
 	input.Name = strings.TrimSpace(input.Name)
 	input.Description = strings.TrimSpace(input.Description)

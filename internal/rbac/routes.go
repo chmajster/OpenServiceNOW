@@ -13,6 +13,9 @@ func RegisterRoutes(r chi.Router, handler *Handler, auth *identity.Middleware) {
 		r.Get("/permissions", handler.ListPermissions)
 		r.Get("/roles", handler.ListRoles)
 		r.Get("/groups", handler.ListGroups)
+		r.Get("/groups/{groupID}/members", handler.ListGroupMembers)
+		r.Get("/users/{userID}/roles", handler.ListUserRoles)
+		r.Get("/groups/{groupID}/roles", handler.ListGroupRoles)
 
 		r.Group(func(r chi.Router) {
 			r.Use(auth.RequireCSRF)

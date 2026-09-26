@@ -317,6 +317,170 @@ func (r *MySQLRepository) ListGroups(
 	return page, nil
 }
 
+func (r *MySQLRepository) ListGroupMembers(
+	ctx context.Context,
+	tenantID, groupID, afterUserID uint64,
+	limit int,
+) (GroupMemberPage, error) {
+	exists, err := r.groupExists(ctx, tenantID, groupID)
+	if err != nil {
+		return GroupMemberPage{}, err
+	}
+	if !exists {
+		return GroupMemberPage{}, ErrNotFound
+	}
+
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT
+			u.id, u.email, u.display_name, u.active, tm.active, gm.created_at
+		FROM group_memberships gm
+		JOIN tenant_memberships tm
+		  ON tm.tenant_id = gm.tenant_id AND tm.user_id = gm.user_id
+		JOIN users u ON u.id = gm.user_id
+		WHERE gm.tenant_id = ?
+		  AND gm.group_id = ?
+		  AND gm.user_id > ?
+		ORDER BY gm.user_id
+		LIMIT ?
+	`, tenantID, groupID, afterUserID, limit+1)
+	if err != nil {
+		return GroupMemberPage{}, fmt.Errorf("list group members: %w", err)
+	}
+	defer rows.Close()
+
+	members := make([]GroupMember, 0, limit+1)
+	for rows.Next() {
+		var member GroupMember
+		if err := rows.Scan(
+			&member.UserID,
+			&member.Email,
+			&member.DisplayName,
+			&member.UserActive,
+			&member.MembershipActive,
+			&member.JoinedAt,
+		); err != nil {
+			return GroupMemberPage{}, fmt.Errorf("scan group member: %w", err)
+		}
+		members = append(members, member)
+	}
+	if err := rows.Err(); err != nil {
+		return GroupMemberPage{}, fmt.Errorf("iterate group members: %w", err)
+	}
+
+	page := GroupMemberPage{Members: members}
+	if len(members) > limit {
+		page.Members = members[:limit]
+		page.NextAfterID = page.Members[len(page.Members)-1].UserID
+	}
+	return page, nil
+}
+
+func (r *MySQLRepository) ListUserRoles(
+	ctx context.Context,
+	tenantID, userID, afterRoleID uint64,
+	limit int,
+) (AssignedRolePage, error) {
+	exists, err := r.tenantMembershipExists(ctx, tenantID, userID)
+	if err != nil {
+		return AssignedRolePage{}, err
+	}
+	if !exists {
+		return AssignedRolePage{}, ErrNotFound
+	}
+
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT r.id, r.name, r.system_role, ura.created_at
+		FROM user_role_assignments ura
+		JOIN roles r ON r.tenant_id = ura.tenant_id AND r.id = ura.role_id
+		WHERE ura.tenant_id = ?
+		  AND ura.user_id = ?
+		  AND ura.role_id > ?
+		ORDER BY ura.role_id
+		LIMIT ?
+	`, tenantID, userID, afterRoleID, limit+1)
+	if err != nil {
+		return AssignedRolePage{}, fmt.Errorf("list user role assignments: %w", err)
+	}
+	defer rows.Close()
+	return scanAssignedRoles(rows, limit)
+}
+
+func (r *MySQLRepository) ListGroupRoles(
+	ctx context.Context,
+	tenantID, groupID, afterRoleID uint64,
+	limit int,
+) (AssignedRolePage, error) {
+	exists, err := r.groupExists(ctx, tenantID, groupID)
+	if err != nil {
+		return AssignedRolePage{}, err
+	}
+	if !exists {
+		return AssignedRolePage{}, ErrNotFound
+	}
+
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT r.id, r.name, r.system_role, gra.created_at
+		FROM group_role_assignments gra
+		JOIN roles r ON r.tenant_id = gra.tenant_id AND r.id = gra.role_id
+		WHERE gra.tenant_id = ?
+		  AND gra.group_id = ?
+		  AND gra.role_id > ?
+		ORDER BY gra.role_id
+		LIMIT ?
+	`, tenantID, groupID, afterRoleID, limit+1)
+	if err != nil {
+		return AssignedRolePage{}, fmt.Errorf("list group role assignments: %w", err)
+	}
+	defer rows.Close()
+	return scanAssignedRoles(rows, limit)
+}
+
+func scanAssignedRoles(rows *sql.Rows, limit int) (AssignedRolePage, error) {
+	roles := make([]AssignedRole, 0, limit+1)
+	for rows.Next() {
+		var role AssignedRole
+		if err := rows.Scan(&role.ID, &role.Name, &role.SystemRole, &role.AssignedAt); err != nil {
+			return AssignedRolePage{}, fmt.Errorf("scan role assignment: %w", err)
+		}
+		roles = append(roles, role)
+	}
+	if err := rows.Err(); err != nil {
+		return AssignedRolePage{}, fmt.Errorf("iterate role assignments: %w", err)
+	}
+	page := AssignedRolePage{Roles: roles}
+	if len(roles) > limit {
+		page.Roles = roles[:limit]
+		page.NextAfterID = page.Roles[len(page.Roles)-1].ID
+	}
+	return page, nil
+}
+
+func (r *MySQLRepository) groupExists(ctx context.Context, tenantID, groupID uint64) (bool, error) {
+	var exists bool
+	if err := r.db.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM groups
+			WHERE tenant_id = ? AND id = ?
+		)
+	`, tenantID, groupID).Scan(&exists); err != nil {
+		return false, fmt.Errorf("check group ownership: %w", err)
+	}
+	return exists, nil
+}
+
+func (r *MySQLRepository) tenantMembershipExists(ctx context.Context, tenantID, userID uint64) (bool, error) {
+	var exists bool
+	if err := r.db.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM tenant_memberships
+			WHERE tenant_id = ? AND user_id = ?
+		)
+	`, tenantID, userID).Scan(&exists); err != nil {
+		return false, fmt.Errorf("check tenant membership ownership: %w", err)
+	}
+	return exists, nil
+}
+
 func (r *MySQLRepository) CreateGroup(
 	ctx context.Context,
 	exec platformdb.Executor,
