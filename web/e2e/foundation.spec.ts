@@ -135,12 +135,6 @@ test("admin creates a least-privilege tenant reader through the UI", async ({ pa
     groupRoleSection.locator(".assignment-list").getByText(roleName, { exact: true })
   ).toBeVisible();
 
-  await page.getByRole("link", { name: "Audyt" }).click();
-  await expect(page.getByRole("heading", { name: "Audyt" })).toBeVisible();
-  await expect(page.getByText("rbac.user.role.add", { exact: true })).toBeVisible();
-  await expect(page.getByText("rbac.group.member.add", { exact: true })).toBeVisible();
-  await expect(page.getByText("rbac.group.role.add", { exact: true })).toBeVisible();
-
   await page.getByRole("button", { name: "Wyloguj" }).first().click();
   await expect(page.getByRole("heading", { name: "Zaloguj się" })).toBeVisible();
 
@@ -161,6 +155,16 @@ test("admin creates a least-privilege tenant reader through the UI", async ({ pa
   await expect(page.getByRole("heading", { name: "Organizacja" })).toBeVisible();
   await expect(page.getByText("Tryb tylko do odczytu")).toBeVisible();
   await expect(page.getByLabel("Nazwa organizacji")).toBeDisabled();
+
+  await page.getByRole("button", { name: "Wyloguj" }).first().click();
+  await expect(page.getByRole("heading", { name: "Zaloguj się" })).toBeVisible();
+  await login(page, adminEmail, adminPassword);
+
+  await page.getByRole("link", { name: "Audyt" }).click();
+  await expect(page.getByRole("heading", { name: "Audyt" })).toBeVisible();
+  await expect(page.getByText("rbac.user.role.add", { exact: true })).toBeVisible();
+  await expect(page.getByText("rbac.group.member.add", { exact: true })).toBeVisible();
+  await expect(page.getByText("rbac.group.role.add", { exact: true })).toBeVisible();
 });
 
 
