@@ -187,6 +187,19 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	if err := rbacService.AddGroupMember(ctx, actorA, groupID, adminB.UserID); !errors.Is(err, rbac.ErrNotFound) {
 		t.Fatalf("cross-tenant group membership error = %v, want ErrNotFound", err)
 	}
+	if err := rbacService.AddGroupMember(ctx, actorA, groupID, adminA.UserID); err != nil {
+		t.Fatalf("add tenant A group member: %v", err)
+	}
+	memberPage, err := rbacService.ListGroupMembers(ctx, adminA.TenantID, groupID, 0, 1)
+	if err != nil {
+		t.Fatalf("list tenant A group members: %v", err)
+	}
+	if len(memberPage.Members) != 1 || memberPage.Members[0].UserID != adminA.UserID {
+		t.Fatalf("group member page = %+v, want user %d", memberPage, adminA.UserID)
+	}
+	if _, err := rbacService.ListGroupMembers(ctx, adminB.TenantID, groupID, 0, 50); !errors.Is(err, rbac.ErrNotFound) {
+		t.Fatalf("cross-tenant group read error = %v, want ErrNotFound", err)
+	}
 
 	rolesPage, err := rbacService.ListRoles(ctx, adminA.TenantID, 0, 50, "")
 	if err != nil {
@@ -308,6 +321,62 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 		[]string{"tenant.read"},
 	); !errors.Is(err, rbac.ErrConflict) {
 		t.Fatalf("stale role permission update error = %v, want ErrConflict", err)
+	}
+
+	if err := rbacService.AssignRoleToUser(ctx, actorA, versionedRole.ID, adminA.UserID); err != nil {
+		t.Fatalf("assign direct role to tenant A user: %v", err)
+	}
+	userRolePage, err := rbacService.ListUserRoles(ctx, adminA.TenantID, adminA.UserID, 0, 200)
+	if err != nil {
+		t.Fatalf("list tenant A user roles: %v", err)
+	}
+	if !containsAssignedRole(userRolePage.Roles, versionedRole.ID) {
+		t.Fatalf("direct role %d missing from %+v", versionedRole.ID, userRolePage.Roles)
+	}
+	if _, err := rbacService.ListUserRoles(ctx, adminA.TenantID, adminB.UserID, 0, 50); !errors.Is(err, rbac.ErrNotFound) {
+		t.Fatalf("foreign membership role read error = %v, want ErrNotFound", err)
+	}
+	if err := rbacService.RemoveRoleFromUser(ctx, actorA, versionedRole.ID, adminA.UserID); err != nil {
+		t.Fatalf("remove direct role from tenant A user: %v", err)
+	}
+	userRolePage, err = rbacService.ListUserRoles(ctx, adminA.TenantID, adminA.UserID, 0, 200)
+	if err != nil {
+		t.Fatalf("reload tenant A user roles: %v", err)
+	}
+	if containsAssignedRole(userRolePage.Roles, versionedRole.ID) {
+		t.Fatalf("removed direct role %d still present in %+v", versionedRole.ID, userRolePage.Roles)
+	}
+
+	if err := rbacService.AssignRoleToGroup(ctx, actorA, groupID, versionedRole.ID); err != nil {
+		t.Fatalf("assign role to tenant A group: %v", err)
+	}
+	groupRolePage, err := rbacService.ListGroupRoles(ctx, adminA.TenantID, groupID, 0, 200)
+	if err != nil {
+		t.Fatalf("list tenant A group roles: %v", err)
+	}
+	if !containsAssignedRole(groupRolePage.Roles, versionedRole.ID) {
+		t.Fatalf("group role %d missing from %+v", versionedRole.ID, groupRolePage.Roles)
+	}
+	if err := rbacService.RemoveRoleFromGroup(ctx, actorA, groupID, versionedRole.ID); err != nil {
+		t.Fatalf("remove role from tenant A group: %v", err)
+	}
+	groupRolePage, err = rbacService.ListGroupRoles(ctx, adminA.TenantID, groupID, 0, 200)
+	if err != nil {
+		t.Fatalf("reload tenant A group roles: %v", err)
+	}
+	if containsAssignedRole(groupRolePage.Roles, versionedRole.ID) {
+		t.Fatalf("removed group role %d still present in %+v", versionedRole.ID, groupRolePage.Roles)
+	}
+
+	if err := rbacService.RemoveGroupMember(ctx, actorA, groupID, adminA.UserID); err != nil {
+		t.Fatalf("remove tenant A group member: %v", err)
+	}
+	memberPage, err = rbacService.ListGroupMembers(ctx, adminA.TenantID, groupID, 0, 50)
+	if err != nil {
+		t.Fatalf("reload tenant A group members: %v", err)
+	}
+	if len(memberPage.Members) != 0 {
+		t.Fatalf("removed group member still present: %+v", memberPage.Members)
 	}
 
 	usersService := users.NewService(usersRepo, tx, auditRepo, adminSafety, identityRepo)
@@ -612,4 +681,13 @@ func createIntegrationSession(
 		return err
 	})
 	return sessionID, err
+}
+
+func containsAssignedRole(values []rbac.AssignedRole, roleID uint64) bool {
+	for _, role := range values {
+		if role.ID == roleID {
+			return true
+		}
+	}
+	return false
 }

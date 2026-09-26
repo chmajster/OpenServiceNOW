@@ -1,6 +1,9 @@
 package rbac
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 var (
 	ErrNotFound = errors.New("rbac resource not found")
@@ -30,6 +33,32 @@ type Group struct {
 	Description string `json:"description,omitempty"`
 	Version     uint64 `json:"version,string"`
 	MemberCount uint64 `json:"member_count,string"`
+}
+
+type GroupMember struct {
+	UserID           uint64    `json:"user_id,string"`
+	Email            string    `json:"email"`
+	DisplayName      string    `json:"display_name"`
+	UserActive       bool      `json:"user_active"`
+	MembershipActive bool      `json:"membership_active"`
+	JoinedAt         time.Time `json:"joined_at"`
+}
+
+type AssignedRole struct {
+	ID         uint64    `json:"id,string"`
+	Name       string    `json:"name"`
+	SystemRole bool      `json:"system_role"`
+	AssignedAt time.Time `json:"assigned_at"`
+}
+
+type GroupMemberPage struct {
+	Members     []GroupMember `json:"members"`
+	NextAfterID uint64        `json:"next_after_id,string,omitempty"`
+}
+
+type AssignedRolePage struct {
+	Roles       []AssignedRole `json:"roles"`
+	NextAfterID uint64         `json:"next_after_id,string,omitempty"`
 }
 
 type CreateRoleInput struct {

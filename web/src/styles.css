@@ -834,3 +834,49 @@ tbody tr:last-child td {
     display: none;
   }
 }
+
+
+.assignment-columns {
+  margin-top: 1rem;
+}
+
+.assignment-section {
+  min-width: 0;
+}
+
+.assignment-list {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.assignment-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+}
+
+.assignment-row > span {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.assignment-row small {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .assignment-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .assignment-row .button {
+    width: 100%;
+  }
+}

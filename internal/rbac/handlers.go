@@ -135,6 +135,72 @@ func (h *Handler) ListGroups(w http.ResponseWriter, r *http.Request) {
 	httpapi.WriteJSON(w, http.StatusOK, page)
 }
 
+func (h *Handler) ListGroupMembers(w http.ResponseWriter, r *http.Request) {
+	groupID, ok := pathID(w, r, "groupID")
+	if !ok {
+		return
+	}
+	session, ok := identity.FromContext(r.Context())
+	if !ok {
+		httpapi.WriteError(w, r, http.StatusUnauthorized, "UNAUTHENTICATED", "Authentication required")
+		return
+	}
+	afterID, limit, ok := parseAssignmentListQuery(w, r)
+	if !ok {
+		return
+	}
+	page, err := h.service.ListGroupMembers(r.Context(), session.TenantID, groupID, afterID, limit)
+	if err != nil {
+		writeServiceError(w, r, err)
+		return
+	}
+	httpapi.WriteJSON(w, http.StatusOK, page)
+}
+
+func (h *Handler) ListUserRoles(w http.ResponseWriter, r *http.Request) {
+	userID, ok := pathID(w, r, "userID")
+	if !ok {
+		return
+	}
+	session, ok := identity.FromContext(r.Context())
+	if !ok {
+		httpapi.WriteError(w, r, http.StatusUnauthorized, "UNAUTHENTICATED", "Authentication required")
+		return
+	}
+	afterID, limit, ok := parseAssignmentListQuery(w, r)
+	if !ok {
+		return
+	}
+	page, err := h.service.ListUserRoles(r.Context(), session.TenantID, userID, afterID, limit)
+	if err != nil {
+		writeServiceError(w, r, err)
+		return
+	}
+	httpapi.WriteJSON(w, http.StatusOK, page)
+}
+
+func (h *Handler) ListGroupRoles(w http.ResponseWriter, r *http.Request) {
+	groupID, ok := pathID(w, r, "groupID")
+	if !ok {
+		return
+	}
+	session, ok := identity.FromContext(r.Context())
+	if !ok {
+		httpapi.WriteError(w, r, http.StatusUnauthorized, "UNAUTHENTICATED", "Authentication required")
+		return
+	}
+	afterID, limit, ok := parseAssignmentListQuery(w, r)
+	if !ok {
+		return
+	}
+	page, err := h.service.ListGroupRoles(r.Context(), session.TenantID, groupID, afterID, limit)
+	if err != nil {
+		writeServiceError(w, r, err)
+		return
+	}
+	httpapi.WriteJSON(w, http.StatusOK, page)
+}
+
 func (h *Handler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 	var request createGroupRequest
 	if err := httpapi.DecodeJSON(r, &request); err != nil {
@@ -329,4 +395,27 @@ func parseListQuery(w http.ResponseWriter, r *http.Request) (uint64, int, string
 		return 0, 0, "", false
 	}
 	return afterID, limit, query, true
+}
+
+func parseAssignmentListQuery(w http.ResponseWriter, r *http.Request) (uint64, int, bool) {
+	limit := 50
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		value, err := strconv.Atoi(raw)
+		if err != nil || value < 1 || value > 200 {
+			httpapi.WriteError(w, r, http.StatusBadRequest, "INVALID_PAGINATION", "limit must be between 1 and 200")
+			return 0, 0, false
+		}
+		limit = value
+	}
+
+	var afterID uint64
+	if raw := r.URL.Query().Get("after_id"); raw != "" {
+		value, err := strconv.ParseUint(raw, 10, 64)
+		if err != nil || value == 0 {
+			httpapi.WriteError(w, r, http.StatusBadRequest, "INVALID_PAGINATION", "after_id must be a positive integer")
+			return 0, 0, false
+		}
+		afterID = value
+	}
+	return afterID, limit, true
 }

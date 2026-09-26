@@ -310,3 +310,31 @@ func TestVerifyCSRFRejectsMalformedTokenLength(t *testing.T) {
 		t.Fatal("malformed CSRF token must be rejected")
 	}
 }
+
+func TestLoginReturns503WhenRateLimiterUnavailable(t *testing.T) {
+	limiter := &fakeLimiter{allowed: false, err: errors.New("redis unavailable")}
+	service := fakeAuthService{
+		loginFn: func(context.Context, LoginInput, RequestMeta) (LoginResult, error) {
+			t.Fatal("Login must not run when the rate limiter backend is unavailable")
+			return LoginResult{}, nil
+		},
+	}
+	handler := NewHandler(service, limiter, testSessionConfig(), testAuthConfig())
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/auth/login",
+		strings.NewReader(`{"tenant":"default","email":"admin@example.test","password":"not-a-real-password"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	request.RemoteAddr = "192.0.2.10:12345"
+	rr := httptest.NewRecorder()
+	handler.Login(rr, request)
+
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `"code":"AUTH_RATE_LIMIT_UNAVAILABLE"`) {
+		t.Fatalf("body = %s", rr.Body.String())
+	}
+}

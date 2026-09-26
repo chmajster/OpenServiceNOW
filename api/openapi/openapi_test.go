@@ -39,8 +39,11 @@ func TestOpenAPIContractParsesAndContainsImplementedRoutes(t *testing.T) {
 		"/api/v1/admin/rbac/roles",
 		"/api/v1/admin/rbac/roles/{roleID}/permissions",
 		"/api/v1/admin/rbac/groups",
+		"/api/v1/admin/rbac/groups/{groupID}/members",
 		"/api/v1/admin/rbac/groups/{groupID}/members/{userID}",
+		"/api/v1/admin/rbac/users/{userID}/roles",
 		"/api/v1/admin/rbac/users/{userID}/roles/{roleID}",
+		"/api/v1/admin/rbac/groups/{groupID}/roles",
 		"/api/v1/admin/rbac/groups/{groupID}/roles/{roleID}",
 		"/api/v1/admin/audit/",
 	}
@@ -143,6 +146,10 @@ func TestOpenAPIBigIntValuesUseDecimalStrings(t *testing.T) {
 		"#/components/schemas/Group/properties/id",
 		"#/components/schemas/Group/properties/version",
 		"#/components/schemas/GroupListResponse/properties/next_after_id",
+		"#/components/schemas/GroupMember/properties/user_id",
+		"#/components/schemas/GroupMemberPage/properties/next_after_id",
+		"#/components/schemas/AssignedRole/properties/id",
+		"#/components/schemas/AssignedRolePage/properties/next_after_id",
 		"#/components/schemas/AuditRecord/properties/id",
 		"#/components/schemas/AuditPage/properties/next_before_id",
 	} {
@@ -210,5 +217,41 @@ func isHTTPMethod(value string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func TestOpenAPIAdminOperationsDeclarePermissions(t *testing.T) {
+	raw := loadDocument(t)
+	var root map[string]any
+	if err := json.Unmarshal(raw, &root); err != nil {
+		t.Fatalf("parse OpenAPI document: %v", err)
+	}
+
+	paths, ok := root["paths"].(map[string]any)
+	if !ok {
+		t.Fatal("paths object is missing")
+	}
+	for path, rawItem := range paths {
+		if !strings.HasPrefix(path, "/api/v1/admin/") {
+			continue
+		}
+		item, ok := rawItem.(map[string]any)
+		if !ok {
+			continue
+		}
+		for method, rawOperation := range item {
+			if !isHTTPMethod(method) {
+				continue
+			}
+			operation, ok := rawOperation.(map[string]any)
+			if !ok {
+				t.Errorf("%s %s operation is not an object", method, path)
+				continue
+			}
+			required, ok := operation["x-required-permissions"].([]any)
+			if !ok || len(required) == 0 {
+				t.Errorf("%s %s is missing x-required-permissions", method, path)
+			}
+		}
 	}
 }

@@ -16,6 +16,7 @@ import (
 type fakeAuth struct {
 	identity    identity.SessionIdentity
 	permission bool
+	permissions map[string]bool
 	csrf       bool
 }
 
@@ -39,17 +40,25 @@ func (f fakeAuth) Permissions(context.Context, identity.SessionIdentity) ([]stri
 	return nil, nil
 }
 
-func (f fakeAuth) HasPermission(context.Context, identity.SessionIdentity, string) (bool, error) {
+func (f fakeAuth) HasPermission(_ context.Context, _ identity.SessionIdentity, permission string) (bool, error) {
+	if f.permissions != nil {
+		return f.permissions[permission], nil
+	}
 	return f.permission, nil
 }
 
 type fakeRBAC struct {
-	createRoleCalls int
-	listRoleCalls   int
-	listRoleAfterID uint64
-	listRoleLimit   int
-	listRoleQuery   string
-	setRoleVersion  uint64
+	createRoleCalls       int
+	listRoleCalls         int
+	listRoleAfterID       uint64
+	listRoleLimit         int
+	listRoleQuery         string
+	setRoleVersion        uint64
+	listGroupMemberCalls  int
+	listGroupMemberTenant uint64
+	listGroupMemberGroup  uint64
+	listGroupMemberAfter  uint64
+	listGroupMemberLimit  int
 }
 
 func (f *fakeRBAC) ListPermissions(context.Context) ([]Permission, error) {
@@ -88,6 +97,27 @@ func (f *fakeRBAC) ListGroups(
 	string,
 ) (GroupPage, error) {
 	return GroupPage{Groups: []Group{}}, nil
+}
+
+func (f *fakeRBAC) ListGroupMembers(
+	_ context.Context,
+	tenantID, groupID, afterID uint64,
+	limit int,
+) (GroupMemberPage, error) {
+	f.listGroupMemberCalls++
+	f.listGroupMemberTenant = tenantID
+	f.listGroupMemberGroup = groupID
+	f.listGroupMemberAfter = afterID
+	f.listGroupMemberLimit = limit
+	return GroupMemberPage{Members: []GroupMember{}, NextAfterID: 22}, nil
+}
+
+func (f *fakeRBAC) ListUserRoles(context.Context, uint64, uint64, uint64, int) (AssignedRolePage, error) {
+	return AssignedRolePage{Roles: []AssignedRole{}}, nil
+}
+
+func (f *fakeRBAC) ListGroupRoles(context.Context, uint64, uint64, uint64, int) (AssignedRolePage, error) {
+	return AssignedRolePage{Roles: []AssignedRole{}}, nil
 }
 
 func (f *fakeRBAC) CreateGroup(context.Context, Actor, CreateGroupInput) (uint64, error) {
@@ -335,5 +365,84 @@ func TestSetRolePermissionsAcceptsQuotedVersion(t *testing.T) {
 	}
 	if service.setRoleVersion != 7 {
 		t.Fatalf("role version = %d", service.setRoleVersion)
+	}
+}
+
+func TestListGroupMembersUsesTenantScopedCursor(t *testing.T) {
+	service := &fakeRBAC{}
+	router := newRouter(fakeAuth{
+		identity:    identity.SessionIdentity{UserID: 1, TenantID: 42},
+		permission: true,
+	}, service)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(
+		rr,
+		authenticatedRequest(http.MethodGet, "/api/v1/admin/rbac/groups/7/members?after_id=11&limit=10", ""),
+	)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	if service.listGroupMemberCalls != 1 ||
+		service.listGroupMemberTenant != 42 ||
+		service.listGroupMemberGroup != 7 ||
+		service.listGroupMemberAfter != 11 ||
+		service.listGroupMemberLimit != 10 {
+		t.Fatalf(
+			"list group members args calls=%d tenant=%d group=%d after=%d limit=%d",
+			service.listGroupMemberCalls,
+			service.listGroupMemberTenant,
+			service.listGroupMemberGroup,
+			service.listGroupMemberAfter,
+			service.listGroupMemberLimit,
+		)
+	}
+	if !strings.Contains(rr.Body.String(), `"next_after_id":"22"`) {
+		t.Fatalf("body = %s", rr.Body.String())
+	}
+}
+
+func TestListAssignmentsRejectsOversizedLimit(t *testing.T) {
+	service := &fakeRBAC{}
+	router := newRouter(fakeAuth{
+		identity:    identity.SessionIdentity{UserID: 1, TenantID: 42},
+		permission: true,
+	}, service)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(
+		rr,
+		authenticatedRequest(http.MethodGet, "/api/v1/admin/rbac/groups/7/members?limit=201", ""),
+	)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	if service.listGroupMemberCalls != 0 {
+		t.Fatalf("list group member calls = %d", service.listGroupMemberCalls)
+	}
+}
+
+func TestAssignmentUserReadsRequireUsersPermission(t *testing.T) {
+	service := &fakeRBAC{}
+	router := newRouter(fakeAuth{
+		identity: identity.SessionIdentity{UserID: 1, TenantID: 42},
+		permissions: map[string]bool{
+			"admin.rbac.manage": true,
+			"admin.users.manage": false,
+		},
+	}, service)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(
+		rr,
+		authenticatedRequest(http.MethodGet, "/api/v1/admin/rbac/groups/7/members", ""),
+	)
+
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	if service.listGroupMemberCalls != 0 {
+		t.Fatalf("list group member calls = %d", service.listGroupMemberCalls)
 	}
 }

@@ -211,7 +211,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "tenant.read"
+        ]
       },
       "put": {
         "tags": [
@@ -267,7 +270,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "tenant.manage"
+        ]
       }
     },
     "/api/v1/admin/users/": {
@@ -329,6 +335,9 @@
               "maxLength": 200
             }
           }
+        ],
+        "x-required-permissions": [
+          "admin.users.manage"
         ]
       },
       "post": {
@@ -378,7 +387,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.users.manage"
+        ]
       }
     },
     "/api/v1/admin/users/{userID}/membership": {
@@ -437,7 +449,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.users.manage"
+        ]
       }
     },
     "/api/v1/admin/rbac/permissions": {
@@ -471,7 +486,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ]
       }
     },
     "/api/v1/admin/rbac/roles": {
@@ -533,6 +551,9 @@
               "maxLength": 200
             }
           }
+        ],
+        "x-required-permissions": [
+          "admin.rbac.manage"
         ]
       },
       "post": {
@@ -582,7 +603,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ]
       }
     },
     "/api/v1/admin/rbac/roles/{roleID}/permissions": {
@@ -641,7 +665,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ]
       }
     },
     "/api/v1/admin/rbac/groups": {
@@ -703,6 +730,9 @@
               "maxLength": 200
             }
           }
+        ],
+        "x-required-permissions": [
+          "admin.rbac.manage"
         ]
       },
       "post": {
@@ -752,7 +782,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ]
       }
     },
     "/api/v1/admin/rbac/groups/{groupID}/members/{userID}": {
@@ -795,7 +828,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ]
       },
       "delete": {
         "tags": [
@@ -836,7 +872,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ]
       }
     },
     "/api/v1/admin/rbac/users/{userID}/roles/{roleID}": {
@@ -879,7 +918,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ]
       },
       "delete": {
         "tags": [
@@ -920,7 +962,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ]
       }
     },
     "/api/v1/admin/rbac/groups/{groupID}/roles/{roleID}": {
@@ -963,7 +1008,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ]
       },
       "delete": {
         "tags": [
@@ -1004,7 +1052,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ]
       }
     },
     "/api/v1/admin/audit/": {
@@ -1061,7 +1112,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.audit.read"
+        ]
       }
     },
     "/api/v1/admin/users/memberships": {
@@ -1115,7 +1169,213 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.users.manage"
+        ]
+      }
+    },
+    "/api/v1/admin/rbac/groups/{groupID}/members": {
+      "get": {
+        "tags": [
+          "RBAC administration"
+        ],
+        "operationId": "listGroupMembers",
+        "description": "Lists members of a security/RBAC group in the authenticated tenant. Requires admin.rbac.manage and admin.users.manage.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupID"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          },
+          {
+            "name": "after_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Group members",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupMemberPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage",
+          "admin.users.manage"
+        ]
+      }
+    },
+    "/api/v1/admin/rbac/users/{userID}/roles": {
+      "get": {
+        "tags": [
+          "RBAC administration"
+        ],
+        "operationId": "listUserRoleAssignments",
+        "description": "Lists direct role assignments for a tenant member. Requires admin.rbac.manage and admin.users.manage.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/UserID"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          },
+          {
+            "name": "after_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Direct user role assignments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignedRolePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage",
+          "admin.users.manage"
+        ]
+      }
+    },
+    "/api/v1/admin/rbac/groups/{groupID}/roles": {
+      "get": {
+        "tags": [
+          "RBAC administration"
+        ],
+        "operationId": "listGroupRoleAssignments",
+        "description": "Lists roles directly assigned to an RBAC group in the authenticated tenant. Requires admin.rbac.manage.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupID"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          },
+          {
+            "name": "after_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Group role assignments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignedRolePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ]
       }
     }
   },
@@ -1768,6 +2028,101 @@
             "type": "string",
             "format": "email",
             "maxLength": 254
+          }
+        }
+      },
+      "GroupMember": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "email",
+          "display_name",
+          "user_active",
+          "membership_active",
+          "joined_at"
+        ],
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "user_active": {
+            "type": "boolean"
+          },
+          "membership_active": {
+            "type": "boolean"
+          },
+          "joined_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "GroupMemberPage": {
+        "type": "object",
+        "required": [
+          "members"
+        ],
+        "properties": {
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupMember"
+            }
+          },
+          "next_after_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      },
+      "AssignedRole": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "system_role",
+          "assigned_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "system_role": {
+            "type": "boolean"
+          },
+          "assigned_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AssignedRolePage": {
+        "type": "object",
+        "required": [
+          "roles"
+        ],
+        "properties": {
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssignedRole"
+            }
+          },
+          "next_after_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
           }
         }
       }
