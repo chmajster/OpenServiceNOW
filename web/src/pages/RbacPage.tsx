@@ -237,10 +237,10 @@ export function RbacPage() {
       await loadRoles(undefined, false, activeRoleSearch);
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 409) {
-        setError("Rola została zmieniona równolegle. Odśwież listę i ponów edycję.");
         setEditRoleID("");
         setEditRolePermissions([]);
         await loadRoles(undefined, false, activeRoleSearch);
+        setError("Rola została zmieniona równolegle. Bieżące dane zostały odświeżone; wybierz rolę i ponów edycję.");
       } else {
         setError(cause instanceof Error ? cause.message : "Aktualizacja uprawnień roli nie powiodła się.");
       }
