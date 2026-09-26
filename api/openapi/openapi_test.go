@@ -219,3 +219,39 @@ func isHTTPMethod(value string) bool {
 		return false
 	}
 }
+
+func TestOpenAPIAdminOperationsDeclarePermissions(t *testing.T) {
+	raw := loadDocument(t)
+	var root map[string]any
+	if err := json.Unmarshal(raw, &root); err != nil {
+		t.Fatalf("parse OpenAPI document: %v", err)
+	}
+
+	paths, ok := root["paths"].(map[string]any)
+	if !ok {
+		t.Fatal("paths object is missing")
+	}
+	for path, rawItem := range paths {
+		if !strings.HasPrefix(path, "/api/v1/admin/") {
+			continue
+		}
+		item, ok := rawItem.(map[string]any)
+		if !ok {
+			continue
+		}
+		for method, rawOperation := range item {
+			if !isHTTPMethod(method) {
+				continue
+			}
+			operation, ok := rawOperation.(map[string]any)
+			if !ok {
+				t.Errorf("%s %s operation is not an object", method, path)
+				continue
+			}
+			required, ok := operation["x-required-permissions"].([]any)
+			if !ok || len(required) == 0 {
+				t.Errorf("%s %s is missing x-required-permissions", method, path)
+			}
+		}
+	}
+}
