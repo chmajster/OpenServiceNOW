@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     services:
       mysql:
         image: mysql:8.4
@@ -182,7 +182,7 @@ jobs:
           go run ./cmd/migrate version | grep -q 'version: none dirty: false'
 
   frontend:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: web
@@ -227,7 +227,7 @@ jobs:
         run: git diff --exit-code -- package.json tsconfig.json tsconfig.app.json tsconfig.node.json tsconfig.e2e.json vite.config.ts playwright.config.ts src e2e
 
   e2e:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     services:
       mysql:
         image: mysql:8.4
