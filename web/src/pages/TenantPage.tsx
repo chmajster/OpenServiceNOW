@@ -14,15 +14,17 @@ export function TenantPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function loadTenant() {
+  async function loadTenant(): Promise<boolean> {
     setLoading(true);
     try {
       const response = await api<TenantResponse>("/api/v1/admin/tenant/");
       setTenant(response.tenant);
       setName(response.tenant.name);
       setError(null);
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Nie udało się pobrać organizacji.");
+      return false;
     } finally {
       setLoading(false);
     }
@@ -50,8 +52,12 @@ export function TenantPage() {
       setMessage("Nazwa organizacji została zaktualizowana.");
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 409) {
-        await loadTenant();
-        setError("Rekord został zmieniony równolegle. Bieżące dane zostały odświeżone; sprawdź je i ponów zmianę.");
+        const refreshed = await loadTenant();
+        setError(
+          refreshed
+            ? "Rekord został zmieniony równolegle. Bieżące dane zostały odświeżone; sprawdź je i ponów zmianę."
+            : "Rekord został zmieniony równolegle i nie udało się pobrać bieżącej wersji. Odśwież stronę przed kolejną zmianą."
+        );
       } else {
         setError(cause instanceof Error ? cause.message : "Aktualizacja nie powiodła się.");
       }
