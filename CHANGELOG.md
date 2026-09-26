@@ -4,6 +4,29 @@ All notable repository changes are documented here.
 
 The project is pre-release and currently in architecture/foundation development.
 
+## 2026-09-26 — Phase 1 RBAC assignment and verification hardening
+
+### Added
+
+- tenant-scoped cursor reads for security-group members, direct user-role assignments and group-role assignments,
+- end-to-end RBAC assignment UI for adding/removing group members and user/group roles with API refetch after each mutation,
+- OpenAPI permission metadata for all administrative operations and a contract test that prevents undocumented permission requirements,
+- reusable migration runner plus MySQL integration coverage for latest → one-step rollback → re-upgrade → full rollback → re-upgrade → schema readiness,
+- Redis rate-limiter outage HTTP coverage,
+- Playwright coverage for security-group membership, group-role assignment, audit events, stale optimistic-lock conflicts and mobile Chromium.
+
+### Fixed
+
+- tenant and role optimistic-lock conflict messages now survive the automatic data refetch instead of being cleared immediately,
+- RBAC reads that expose user details additionally require `admin.users.manage`,
+- E2E identities are isolated per browser project/retry to prevent false duplicate conflicts.
+
+### Verification status
+
+- latest checked workflow run #511 (`36271136402`) still failed before checkout for all three jobs: `runner_id=0`, empty runner name/group and zero executed steps,
+- `go.sum` and `web/package-lock.json` are still absent and must be produced by real dependency resolution,
+- no backend, migration, frontend or Playwright success is claimed for the new commits until those commands actually execute.
+
 ## 2026-09-26 — Phase 1 CI allocation hardening and Phase 2 sequencing
 
 ### Changed

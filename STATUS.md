@@ -41,11 +41,14 @@ Implemented on the Phase 1 branch:
 - tenant-scoped user administration with cursor pagination/search, existing-global-account membership linking and membership-triggered session revocation,
 - current-tenant administration with optimistic locking,
 - role/group administration with cursor pagination/search,
+- tenant-scoped read models for group members, direct user-role assignments and group-role assignments,
+- RBAC assignment UI for add/remove membership and user/group roles with server refetch after every mutation,
 - optimistic locking for role permission replacement,
 - append-oriented audit persistence,
 - tenant-scoped lookahead cursor audit API,
 - audit HTTP transport separated into auditapi to preserve acyclic package dependencies,
 - OpenAPI 3.1 document for implemented endpoints,
+- explicit OpenAPI permission metadata for every administrative operation, including dual permission requirements on user-bearing RBAC reads,
 - precision-safe decimal-string JSON contract for MySQL BIGINT identifiers, cursors, counts and optimistic-lock versions,
 - Docker Compose,
 - Makefile commands,
@@ -65,6 +68,9 @@ Implemented on the Phase 1 branch:
 - frontend responsive/loading/error/empty states,
 - frontend API-client unit tests,
 - Playwright browser E2E for the critical admin-to-least-privilege-user journey,
+- E2E coverage for security-group membership, group-role assignment, audit visibility and real HTTP 403 enforcement,
+- two-session E2E coverage for stale optimistic-lock conflicts and UI refetch,
+- desktop Chromium and Pixel 7 Chromium projects with isolated test data,
 - mobile-safe logout and permission-aware read-only tenant UI,
 - server-side bounded search/pagination controls in user/RBAC screens,
 - role permission editor using optimistic locking,
@@ -74,11 +80,11 @@ Implemented on the Phase 1 branch:
 
 Phase 1 remains IN PROGRESS.
 
-Remaining implementation work:
+Later-phase work intentionally not required for Phase 1:
 
-- `cmd/worker` only when the first real asynchronous job workload is introduced,
-- production reverse-proxy/static-frontend packaging when deployment work begins,
-- external identity providers such as LDAP/OIDC in later identity/integration work.
+- `cmd/worker` is deferred to Phase 2B and will only be introduced with the first durable job workload,
+- production reverse-proxy/static-frontend packaging belongs to deployment work,
+- external identity providers such as LDAP/OIDC belong to later identity/integration work.
 
 Remaining verification work:
 
@@ -87,8 +93,10 @@ Remaining verification work:
 - generate and commit `web/package-lock.json` from successful npm dependency resolution,
 - run `gofmt`, `go vet ./...`, `go test ./...`, `go test -race ./...`, integration tests and backend build,
 - execute migrations and complete API/auth/RBAC smoke flow,
-- execute scheduler and migration rollback verification,
-- run frontend typecheck, tests and production build.
+- execute the authored full migration lifecycle test: latest → one-step rollback → latest → full rollback → latest → readiness,
+- execute scheduler verification,
+- run frontend typecheck, tests and production build,
+- run full Playwright E2E on desktop and mobile Chromium against the real API/MySQL/Redis stack.
 
 ## Known problems
 
@@ -105,7 +113,9 @@ A temporary minimal diagnostic workflow with one `echo` step was also created an
 
 Therefore the YAML/parser problem is resolved. The remaining CI blocker occurs before the first runner step and is separate from application build/test results.
 
-On 2026-09-26 the workflow was changed from `ubuntu-24.04` to `ubuntu-latest`; run #474 still failed with `runner_id=0`, empty runner name and no steps. The workflow was then changed to avoid duplicate `push` + `pull_request` runs for feature branches and to cancel superseded runs. Run #475 still failed identically before runner allocation. GitHub Status reported Actions operational at the time, so the remaining failure is consistent with an account/repository runner-allocation, Actions policy, quota or billing restriction rather than application code.
+On 2026-09-26 the workflow was changed from `ubuntu-24.04` to `ubuntu-latest`; run #474 still failed with `runner_id=0`, empty runner name and no steps. The workflow was then changed to avoid duplicate `push` + `pull_request` runs for feature branches and to cancel superseded runs. Run #475 still failed identically before runner allocation.
+
+The latest checked reproduction is run #511 (`36271136402`) on commit `62b29175520af2502c5dbbf0782104cec4df9430`. Jobs `test`, `frontend` and `e2e` each completed with `conclusion=failure`, `runner_id=0`, empty runner name/group and an empty step list; they ran for roughly three seconds and did not execute checkout or repository code. This remains a runner-allocation/platform blocker, not an application test failure.
 
 The previous workflow triggered both `push` on `foundation/**` and `pull_request`, causing duplicate runs for each PR-branch commit. This has been corrected; feature branches now run through the PR trigger, while direct `push` CI is limited to `main`.
 
@@ -143,6 +153,7 @@ Test code exists for:
 - system-role mutation protections,
 - last-effective-platform-admin lockout protection across membership/group/role removal paths,
 - migration inventory/version invariants and one-statement migration enforcement,
+- full MySQL migration lifecycle source covering latest → one-step rollback → re-upgrade → full rollback → re-upgrade → schema readiness,
 - trusted-proxy client-IP resolution and spoofing rejection,
 - password input bounds,
 - frontend API client CSRF behavior and error mapping,
@@ -154,7 +165,11 @@ Test code exists for:
 - bounded password-verifier saturation behavior,
 - panic-safe transaction behavior,
 - precision-safe BIGINT JSON serialization above JavaScript `Number.MAX_SAFE_INTEGER`,
-- quoted optimistic-lock version decoding in tenant/RBAC HTTP transports.
+- quoted optimistic-lock version decoding in tenant/RBAC HTTP transports,
+- Redis rate-limiter backend failure returning a stable 503 without entering password authentication,
+- RBAC assignment reads requiring the additional user-management permission where user details are exposed,
+- group membership and user/group role mutation → repository readback cycles with cross-tenant rejection,
+- OpenAPI permission metadata on every administrative operation.
 
 CI is configured to run:
 
@@ -179,7 +194,7 @@ CI is configured to run:
 - frontend production build,
 - full-stack Playwright Chromium E2E through UI → API → MySQL.
 
-These checks are authored but are not recorded as passing until the runner executes them.
+These checks are authored but are not recorded as passing until a runner actually executes them. The current workflow still cannot generate the missing dependency lock files because no job reaches its first step.
 
 ## Database migrations
 
@@ -214,8 +229,9 @@ No fake endpoint, placeholder UI or empty worker executable is used to hide thes
 
 ## Next recommended tasks
 
-1. Restore GitHub-hosted runner allocation by checking repository Actions policy and account Actions quota/billing, then rerun `foundation-ci`.
-2. Generate and commit `go.sum` and `web/package-lock.json` from the first executing run.
-3. Fix any backend/frontend build, test or migration defects exposed by the first real CI execution.
-4. Re-run the complete Phase 1 end-to-end verification.
-5. Merge only after all required checks are green and the PR has no blockers.
+1. Restore GitHub-hosted runner allocation and rerun `foundation-ci`.
+2. Generate and commit `go.sum` and `web/package-lock.json` through real dependency resolution; do not synthesize either file.
+3. Execute the complete backend, migration, frontend and Playwright matrix and fix every defect it exposes.
+4. Repeat the full Phase 1 verification on the final commit.
+5. Merge PR #3 only after all required checks have actually executed successfully and no blocker remains.
+6. Start Phase 2 on a separate branch/Draft PR only after that merge.
