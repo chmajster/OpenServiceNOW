@@ -37,6 +37,24 @@ func (r *Repository) Enqueue(ctx context.Context, input EnqueueInput) (Job, bool
 	if input.AvailableAt.IsZero() {
 		input.AvailableAt = time.Now().UTC()
 	}
+	if input.CreatedBy != nil {
+		var found int
+		err := r.db.QueryRowContext(ctx, `
+			SELECT 1
+			FROM tenant_memberships tm
+			JOIN users u ON u.id = tm.user_id
+			WHERE tm.tenant_id = ?
+			  AND tm.user_id = ?
+			  AND tm.active = TRUE
+			  AND u.active = TRUE
+		`, input.TenantID, *input.CreatedBy).Scan(&found)
+		if errors.Is(err, sql.ErrNoRows) {
+			return Job{}, false, ErrInvalid
+		}
+		if err != nil {
+			return Job{}, false, fmt.Errorf("validate job creator: %w", err)
+		}
+	}
 
 	scope := scopeKey(input.TenantID)
 	tenantValue := nullableTenant(input.TenantID)

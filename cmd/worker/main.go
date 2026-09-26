@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -126,17 +127,22 @@ func main() {
 		cancel()
 		<-errCh
 		<-errCh
-	case err := <-errCh:
-		if err != nil {
-			logger.Error("worker subsystem failed", "error", err)
+		logger.Info("worker shutdown complete")
+	case firstErr := <-errCh:
+		if rootCtx.Err() != nil {
+			cancel()
+			<-errCh
+			logger.Info("worker shutdown complete")
+			return
 		}
 		cancel()
-		<-errCh
-		if err != nil {
-			os.Exit(1)
+		secondErr := <-errCh
+		if firstErr == nil {
+			firstErr = errors.New("worker subsystem exited unexpectedly")
 		}
+		logger.Error("worker subsystem failed", "error", firstErr, "secondary_error", secondErr)
+		os.Exit(1)
 	}
-	logger.Info("worker shutdown complete")
 }
 
 func workerIdentity() string {

@@ -164,6 +164,14 @@ func TestPhase2WorkPlatform(t *testing.T) {
 		if !created {
 			t.Fatal("first idempotent enqueue must create the job")
 		}
+		wrongCreator := adminB.UserID
+		wrongInput := input
+		wrongInput.IdempotencyKey = "phase2-job-wrong-creator-" + suffix
+		wrongInput.CreatedBy = &wrongCreator
+		if _, _, err := repo.Enqueue(ctx, wrongInput); !errors.Is(err, jobs.ErrInvalid) {
+			t.Fatalf("cross-tenant job creator error = %v", err)
+		}
+
 		second, created, err := repo.Enqueue(ctx, input)
 		if err != nil {
 			t.Fatalf("enqueue duplicate job: %v", err)
@@ -373,6 +381,21 @@ func TestPhase2WorkPlatform(t *testing.T) {
 		}
 		if assignment.Version != 1 || assignment.AssignedTo == nil || *assignment.AssignedTo != adminA.UserID {
 			t.Fatalf("assignment = %+v", assignment)
+		}
+		noOp, err := service.SetAssignment(
+			ctx,
+			actor,
+			"incident",
+			objectID,
+			assignment.Version,
+			&adminA.UserID,
+			nil,
+		)
+		if err != nil {
+			t.Fatalf("idempotent assignment update: %v", err)
+		}
+		if noOp.Version != assignment.Version {
+			t.Fatalf("idempotent assignment changed version: before=%d after=%d", assignment.Version, noOp.Version)
 		}
 		if _, err := service.SetAssignment(
 			ctx,

@@ -215,6 +215,10 @@ func clearConfigEnv(t *testing.T) {
 		"AUTH_LOGIN_ACCOUNT_LIMIT",
 		"AUTH_LOGIN_ACCOUNT_WINDOW",
 		"AUTH_MAX_CONCURRENT_PASSWORD_CHECKS",
+		"WORKER_CONCURRENCY",
+		"WORKER_POLL_INTERVAL",
+		"WORKER_LEASE_DURATION",
+		"WORKER_RETRY_DELAY",
 	}
 	for _, key := range keys {
 		t.Setenv(key, "")
@@ -286,5 +290,21 @@ func TestLoadRejectsExcessivePasswordVerifierConcurrency(t *testing.T) {
 	t.Setenv("AUTH_MAX_CONCURRENT_PASSWORD_CHECKS", "17")
 	if _, err := Load(); err == nil {
 		t.Fatal("expected password verifier concurrency validation error")
+	}
+}
+
+func TestLoadRejectsInvalidWorkerConcurrency(t *testing.T) {
+	clearConfigEnv(t)
+	t.Setenv("WORKER_CONCURRENCY", "0")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected worker concurrency validation error")
+	}
+}
+
+func TestLoadRejectsInvalidWorkerLease(t *testing.T) {
+	clearConfigEnv(t)
+	t.Setenv("WORKER_LEASE_DURATION", "1s")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected worker lease validation error")
 	}
 }

@@ -62,7 +62,7 @@ func (r *Repository) SetAssignment(
 			return AssignmentChange{}, ErrConflict
 		}
 		after, err := r.getAssignment(ctx, exec, tenantID, objectType, objectID, false)
-		return AssignmentChange{After: after}, err
+		return AssignmentChange{After: after, Changed: err == nil}, err
 	}
 
 	before, err := r.getAssignment(ctx, exec, tenantID, objectType, objectID, true)
@@ -71,6 +71,10 @@ func (r *Repository) SetAssignment(
 	}
 	if before.Version != expectedVersion {
 		return AssignmentChange{}, ErrConflict
+	}
+	if optionalUint64Equal(before.AssignedTo, assignedTo) &&
+		optionalUint64Equal(before.AssignmentGroupID, groupID) {
+		return AssignmentChange{Before: &before, After: before, Changed: false}, nil
 	}
 	result, err := exec.ExecContext(ctx, `
 		UPDATE work_assignments
@@ -92,7 +96,7 @@ func (r *Repository) SetAssignment(
 	if err != nil {
 		return AssignmentChange{}, err
 	}
-	return AssignmentChange{Before: &before, After: after}, nil
+	return AssignmentChange{Before: &before, After: after, Changed: true}, nil
 }
 
 func (r *Repository) AppendMessage(
@@ -127,7 +131,7 @@ func (r *Repository) AppendMessage(
 	if err != nil {
 		return Message{}, fmt.Errorf("read work message id: %w", err)
 	}
-	return r.getMessage(ctx, exec, uint64(id))
+	return r.getMessage(ctx, exec, tenantID, uint64(id))
 }
 
 func (r *Repository) ListMessages(
@@ -437,13 +441,13 @@ func (r *Repository) getAssignment(
 	return item, nil
 }
 
-func (r *Repository) getMessage(ctx context.Context, exec database.Executor, id uint64) (Message, error) {
+func (r *Repository) getMessage(ctx context.Context, exec database.Executor, tenantID, id uint64) (Message, error) {
 	var item Message
 	if err := exec.QueryRowContext(ctx, `
 		SELECT id, tenant_id, object_type, object_id, message_type, body, author_user_id, created_at
 		FROM work_messages
-		WHERE id = ?
-	`, id).Scan(
+		WHERE tenant_id = ? AND id = ?
+	`, tenantID, id).Scan(
 		&item.ID, &item.TenantID, &item.ObjectType, &item.ObjectID,
 		&item.Type, &item.Body, &item.AuthorUserID, &item.CreatedAt,
 	); err != nil {
@@ -516,6 +520,13 @@ func validateActiveUser(
 
 func validObjectRef(tenantID uint64, objectType, objectID string) bool {
 	return tenantID > 0 && objectType != "" && len(objectType) <= 100 && objectID != "" && len(objectID) <= 128
+}
+
+func optionalUint64Equal(left, right *uint64) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
 }
 
 func nullableUint64(value *uint64) any {

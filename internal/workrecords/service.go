@@ -47,6 +47,9 @@ func (s *Service) SetAssignment(
 			return err
 		}
 		updated = change.After
+		if !change.Changed {
+			return nil
+		}
 		payload, err := json.Marshal(AssignmentEventPayload{
 			ActorUserID: actor.UserID,
 			AssignedTo: updated.AssignedTo,

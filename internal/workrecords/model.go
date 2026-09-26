@@ -37,6 +37,7 @@ type Assignment struct {
 type AssignmentChange struct {
 	Before *Assignment
 	After Assignment
+	Changed bool
 }
 
 type Message struct {
