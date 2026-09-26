@@ -39,8 +39,11 @@ func TestOpenAPIContractParsesAndContainsImplementedRoutes(t *testing.T) {
 		"/api/v1/admin/rbac/roles",
 		"/api/v1/admin/rbac/roles/{roleID}/permissions",
 		"/api/v1/admin/rbac/groups",
+		"/api/v1/admin/rbac/groups/{groupID}/members",
 		"/api/v1/admin/rbac/groups/{groupID}/members/{userID}",
+		"/api/v1/admin/rbac/users/{userID}/roles",
 		"/api/v1/admin/rbac/users/{userID}/roles/{roleID}",
+		"/api/v1/admin/rbac/groups/{groupID}/roles",
 		"/api/v1/admin/rbac/groups/{groupID}/roles/{roleID}",
 		"/api/v1/admin/audit/",
 	}
@@ -143,6 +146,10 @@ func TestOpenAPIBigIntValuesUseDecimalStrings(t *testing.T) {
 		"#/components/schemas/Group/properties/id",
 		"#/components/schemas/Group/properties/version",
 		"#/components/schemas/GroupListResponse/properties/next_after_id",
+		"#/components/schemas/GroupMember/properties/user_id",
+		"#/components/schemas/GroupMemberPage/properties/next_after_id",
+		"#/components/schemas/AssignedRole/properties/id",
+		"#/components/schemas/AssignedRolePage/properties/next_after_id",
 		"#/components/schemas/AuditRecord/properties/id",
 		"#/components/schemas/AuditPage/properties/next_before_id",
 	} {
