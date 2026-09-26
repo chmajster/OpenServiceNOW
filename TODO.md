@@ -319,9 +319,11 @@ Implemented workflow:
 
 Blocked:
 - workflow YAML parsing defect has been fixed,
-- GitHub now creates backend/frontend jobs correctly,
-- even a temporary one-step diagnostic job fails before its first step with `steps=null` and no logs,
-- executable verification therefore remains blocked outside application code.
+- all jobs use `ubuntu-latest`,
+- duplicate feature-branch `push` + `pull_request` executions have been removed and superseded runs are cancelled through workflow concurrency,
+- run #475 still fails before runner assignment with `runner_id=0`, an empty runner name and no steps,
+- GitHub Status reported Actions operational at the same time,
+- executable verification is therefore blocked by GitHub-hosted runner allocation/account or repository Actions policy/quota/billing rather than application code.
 
 [P1] [!] Generate and commit dependency lock files.
 
