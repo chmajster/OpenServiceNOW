@@ -337,7 +337,11 @@ Blocked:
 
 ## Phase 2+
 
-[P2] [ ] Implement task foundation.
+[P1] [ ] Implement shared work-record primitives.
+[P1] [ ] Implement durable jobs and `cmd/worker`.
+[P1] [ ] Implement transactional outbox and domain-event delivery.
+[P1] [ ] Implement attachment storage/security foundation.
+[P1] [ ] Implement unified activity timeline.
 [P2] [ ] Implement Incident Management.
 [P2] [ ] Implement SLA engine.
 [P2] [ ] Implement Requests and Service Catalog.
