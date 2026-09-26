@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { ApiError, api, jsonBody } from "../api/client";
 import type {
+  AssignedRole,
+  AssignedRolePage,
   CreatedID,
   Group,
+  GroupMember,
+  GroupMemberPage,
   GroupsResponse,
   Permission,
   PermissionsResponse,
@@ -46,6 +50,20 @@ export function RbacPage() {
   const [groupDescription, setGroupDescription] = useState("");
   const [assignmentUser, setAssignmentUser] = useState("");
   const [assignmentRole, setAssignmentRole] = useState("");
+  const [assignedUserRoles, setAssignedUserRoles] = useState<AssignedRole[]>([]);
+  const [nextUserRoleAfterID, setNextUserRoleAfterID] = useState<string | undefined>();
+  const [loadingUserRoles, setLoadingUserRoles] = useState(false);
+
+  const [assignmentGroup, setAssignmentGroup] = useState("");
+  const [groupMemberUser, setGroupMemberUser] = useState("");
+  const [groupRole, setGroupRole] = useState("");
+  const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
+  const [assignedGroupRoles, setAssignedGroupRoles] = useState<AssignedRole[]>([]);
+  const [nextGroupMemberAfterID, setNextGroupMemberAfterID] = useState<string | undefined>();
+  const [nextGroupRoleAfterID, setNextGroupRoleAfterID] = useState<string | undefined>();
+  const [loadingGroupMembers, setLoadingGroupMembers] = useState(false);
+  const [loadingGroupRoles, setLoadingGroupRoles] = useState(false);
+
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -286,7 +304,96 @@ export function RbacPage() {
   async function handleUserSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setAssignmentUser("");
+    setAssignedUserRoles([]);
+    setNextUserRoleAfterID(undefined);
+    setGroupMemberUser("");
     await searchUsers();
+  }
+
+  async function loadUserRoles(userID: string, afterID?: string, append = false) {
+    if (!userID || !canManageUsers) {
+      setAssignedUserRoles([]);
+      setNextUserRoleAfterID(undefined);
+      return;
+    }
+    setLoadingUserRoles(true);
+    setError(null);
+    try {
+      const response = await api<AssignedRolePage>(
+        `/api/v1/admin/rbac/users/${userID}/roles?${listParams(afterID, "").toString()}`
+      );
+      setAssignedUserRoles((current) => append ? [...current, ...response.roles] : response.roles);
+      setNextUserRoleAfterID(response.next_after_id);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Nie udało się pobrać ról użytkownika.");
+    } finally {
+      setLoadingUserRoles(false);
+    }
+  }
+
+  async function selectAssignmentUser(userID: string) {
+    setAssignmentUser(userID);
+    setAssignmentRole("");
+    await loadUserRoles(userID);
+  }
+
+  async function loadGroupMembers(groupID: string, afterID?: string, append = false) {
+    if (!groupID || !canManageUsers) {
+      setGroupMembers([]);
+      setNextGroupMemberAfterID(undefined);
+      return;
+    }
+    setLoadingGroupMembers(true);
+    setError(null);
+    try {
+      const response = await api<GroupMemberPage>(
+        `/api/v1/admin/rbac/groups/${groupID}/members?${listParams(afterID, "").toString()}`
+      );
+      setGroupMembers((current) => append ? [...current, ...response.members] : response.members);
+      setNextGroupMemberAfterID(response.next_after_id);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Nie udało się pobrać członków grupy.");
+    } finally {
+      setLoadingGroupMembers(false);
+    }
+  }
+
+  async function loadGroupRoles(groupID: string, afterID?: string, append = false) {
+    if (!groupID) {
+      setAssignedGroupRoles([]);
+      setNextGroupRoleAfterID(undefined);
+      return;
+    }
+    setLoadingGroupRoles(true);
+    setError(null);
+    try {
+      const response = await api<AssignedRolePage>(
+        `/api/v1/admin/rbac/groups/${groupID}/roles?${listParams(afterID, "").toString()}`
+      );
+      setAssignedGroupRoles((current) => append ? [...current, ...response.roles] : response.roles);
+      setNextGroupRoleAfterID(response.next_after_id);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Nie udało się pobrać ról grupy.");
+    } finally {
+      setLoadingGroupRoles(false);
+    }
+  }
+
+  async function selectAssignmentGroup(groupID: string) {
+    setAssignmentGroup(groupID);
+    setGroupMemberUser("");
+    setGroupRole("");
+    setGroupMembers([]);
+    setAssignedGroupRoles([]);
+    setNextGroupMemberAfterID(undefined);
+    setNextGroupRoleAfterID(undefined);
+    if (!groupID) {
+      return;
+    }
+    await Promise.all([
+      loadGroupRoles(groupID),
+      canManageUsers ? loadGroupMembers(groupID) : Promise.resolve()
+    ]);
   }
 
   async function assignRole(event: FormEvent<HTMLFormElement>) {
@@ -301,11 +408,111 @@ export function RbacPage() {
     setMessage(null);
     try {
       await api<void>(`/api/v1/admin/rbac/users/${userID}/roles/${roleID}`, { method: "POST" });
-      setAssignmentUser("");
       setAssignmentRole("");
+      await loadUserRoles(userID);
       setMessage("Rola została przypisana użytkownikowi.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Przypisanie roli nie powiodło się.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeUserRole(roleID: string) {
+    if (!assignmentUser) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await api<void>(`/api/v1/admin/rbac/users/${assignmentUser}/roles/${roleID}`, { method: "DELETE" });
+      await loadUserRoles(assignmentUser);
+      setMessage("Rola została usunięta z użytkownika.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Usunięcie roli użytkownika nie powiodło się.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addGroupMember(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!assignmentGroup || !groupMemberUser) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await api<void>(`/api/v1/admin/rbac/groups/${assignmentGroup}/members/${groupMemberUser}`, { method: "POST" });
+      setGroupMemberUser("");
+      await Promise.all([
+        loadGroupMembers(assignmentGroup),
+        loadGroups(undefined, false, activeGroupSearch)
+      ]);
+      setMessage("Użytkownik został dodany do grupy.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Dodanie użytkownika do grupy nie powiodło się.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeGroupMember(userID: string) {
+    if (!assignmentGroup) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await api<void>(`/api/v1/admin/rbac/groups/${assignmentGroup}/members/${userID}`, { method: "DELETE" });
+      await Promise.all([
+        loadGroupMembers(assignmentGroup),
+        loadGroups(undefined, false, activeGroupSearch)
+      ]);
+      setMessage("Użytkownik został usunięty z grupy.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Usunięcie użytkownika z grupy nie powiodło się.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function assignGroupRole(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!assignmentGroup || !groupRole) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await api<void>(`/api/v1/admin/rbac/groups/${assignmentGroup}/roles/${groupRole}`, { method: "POST" });
+      setGroupRole("");
+      await loadGroupRoles(assignmentGroup);
+      setMessage("Rola została przypisana grupie.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Przypisanie roli grupie nie powiodło się.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeGroupRole(roleID: string) {
+    if (!assignmentGroup) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await api<void>(`/api/v1/admin/rbac/groups/${assignmentGroup}/roles/${roleID}`, { method: "DELETE" });
+      await loadGroupRoles(assignmentGroup);
+      setMessage("Rola została usunięta z grupy.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Usunięcie roli z grupy nie powiodło się.");
     } finally {
       setBusy(false);
     }
@@ -435,7 +642,7 @@ export function RbacPage() {
               <form className="form-stack form-stack--compact" onSubmit={(event) => void assignRole(event)}>
                 <label>
                   Użytkownik
-                  <select value={assignmentUser} onChange={(event) => setAssignmentUser(event.target.value)} required>
+                  <select value={assignmentUser} onChange={(event) => void selectAssignmentUser(event.target.value)} required>
                     <option value="">Wybierz z maks. 50 wyników</option>
                     {activeUsers.map((user) => (
                       <option key={user.id} value={user.id}>{user.display_name} — {user.email}</option>
@@ -453,6 +660,41 @@ export function RbacPage() {
                 </label>
                 <button className="button button--secondary" type="submit" disabled={busy}>Przypisz rolę</button>
               </form>
+              {assignmentUser ? (
+                <div className="assignment-list">
+                  <h3>Role przypisane bezpośrednio</h3>
+                  {assignedUserRoles.map((role) => (
+                    <div className="assignment-row" key={role.id}>
+                      <span>
+                        <strong>{role.name}</strong>
+                        {role.system_role ? <small className="muted">rola systemowa</small> : null}
+                      </span>
+                      <button
+                        className="button button--small button--secondary"
+                        type="button"
+                        disabled={busy || role.system_role}
+                        title={role.system_role ? "Rola systemowa podlega dodatkowym zabezpieczeniom" : undefined}
+                        onClick={() => void removeUserRole(role.id)}
+                      >
+                        Usuń
+                      </button>
+                    </div>
+                  ))}
+                  {assignedUserRoles.length === 0 && !loadingUserRoles ? (
+                    <div className="empty-cell">Brak bezpośrednio przypisanych ról.</div>
+                  ) : null}
+                  {nextUserRoleAfterID ? (
+                    <button
+                      className="button button--secondary"
+                      type="button"
+                      disabled={loadingUserRoles}
+                      onClick={() => void loadUserRoles(assignmentUser, nextUserRoleAfterID, true)}
+                    >
+                      {loadingUserRoles ? "Ładowanie…" : "Załaduj więcej ról użytkownika"}
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
             </>
           ) : (
             <PageState
@@ -461,6 +703,133 @@ export function RbacPage() {
             />
           )}
         </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Przypisania grupowe</h2>
+            <p className="muted">Po każdej zmianie stan jest ponownie pobierany z backendu.</p>
+          </div>
+        </div>
+        <label className="search-field">
+          Grupa
+          <select value={assignmentGroup} onChange={(event) => void selectAssignmentGroup(event.target.value)}>
+            <option value="">Wybierz grupę z załadowanych wyników</option>
+            {groups.map((group) => (
+              <option key={group.id} value={group.id}>{group.name}</option>
+            ))}
+          </select>
+        </label>
+
+        {assignmentGroup ? (
+          <div className="two-column assignment-columns">
+            <section className="assignment-section">
+              <h3>Członkowie grupy</h3>
+              {canManageUsers ? (
+                <>
+                  <form className="form-stack form-stack--compact" onSubmit={(event) => void addGroupMember(event)}>
+                    <label>
+                      Użytkownik
+                      <select value={groupMemberUser} onChange={(event) => setGroupMemberUser(event.target.value)} required>
+                        <option value="">Wybierz aktywnego użytkownika</option>
+                        {activeUsers.map((user) => (
+                          <option key={user.id} value={user.id}>{user.display_name} — {user.email}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <button className="button button--secondary" type="submit" disabled={busy}>Dodaj do grupy</button>
+                  </form>
+                  <div className="assignment-list">
+                    {groupMembers.map((member) => (
+                      <div className="assignment-row" key={member.user_id}>
+                        <span>
+                          <strong>{member.display_name}</strong>
+                          <small className="muted">{member.email}</small>
+                        </span>
+                        <button
+                          className="button button--small button--secondary"
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void removeGroupMember(member.user_id)}
+                        >
+                          Usuń
+                        </button>
+                      </div>
+                    ))}
+                    {groupMembers.length === 0 && !loadingGroupMembers ? (
+                      <div className="empty-cell">Grupa nie ma członków.</div>
+                    ) : null}
+                    {nextGroupMemberAfterID ? (
+                      <button
+                        className="button button--secondary"
+                        type="button"
+                        disabled={loadingGroupMembers}
+                        onClick={() => void loadGroupMembers(assignmentGroup, nextGroupMemberAfterID, true)}
+                      >
+                        {loadingGroupMembers ? "Ładowanie…" : "Załaduj więcej członków"}
+                      </button>
+                    ) : null}
+                  </div>
+                </>
+              ) : (
+                <PageState
+                  title="Członkowie niedostępni"
+                  detail="Odczyt i wybór użytkowników wymaga również admin.users.manage."
+                />
+              )}
+            </section>
+
+            <section className="assignment-section">
+              <h3>Role grupy</h3>
+              <form className="form-stack form-stack--compact" onSubmit={(event) => void assignGroupRole(event)}>
+                <label>
+                  Rola
+                  <select value={groupRole} onChange={(event) => setGroupRole(event.target.value)} required>
+                    <option value="">Wybierz rolę z załadowanych wyników</option>
+                    {roles.map((role) => (
+                      <option key={role.id} value={role.id}>{role.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <button className="button button--secondary" type="submit" disabled={busy}>Przypisz rolę grupie</button>
+              </form>
+              <div className="assignment-list">
+                {assignedGroupRoles.map((role) => (
+                  <div className="assignment-row" key={role.id}>
+                    <span>
+                      <strong>{role.name}</strong>
+                      {role.system_role ? <small className="muted">rola systemowa</small> : null}
+                    </span>
+                    <button
+                      className="button button--small button--secondary"
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void removeGroupRole(role.id)}
+                    >
+                      Usuń
+                    </button>
+                  </div>
+                ))}
+                {assignedGroupRoles.length === 0 && !loadingGroupRoles ? (
+                  <div className="empty-cell">Grupa nie ma przypisanych ról.</div>
+                ) : null}
+                {nextGroupRoleAfterID ? (
+                  <button
+                    className="button button--secondary"
+                    type="button"
+                    disabled={loadingGroupRoles}
+                    onClick={() => void loadGroupRoles(assignmentGroup, nextGroupRoleAfterID, true)}
+                  >
+                    {loadingGroupRoles ? "Ładowanie…" : "Załaduj więcej ról grupy"}
+                  </button>
+                ) : null}
+              </div>
+            </section>
+          </div>
+        ) : (
+          <div className="empty-cell">Wybierz grupę, aby zarządzać członkostwem i rolami.</div>
+        )}
       </div>
 
       <div className="panel">
