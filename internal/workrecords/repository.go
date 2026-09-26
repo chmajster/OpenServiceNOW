@@ -239,6 +239,41 @@ func (r *Repository) RemoveWatcher(
 	return affected == 1, nil
 }
 
+func (r *Repository) ListWatchers(
+	ctx context.Context,
+	tenantID uint64,
+	objectType, objectID string,
+) (WatcherPage, error) {
+	objectType = strings.TrimSpace(objectType)
+	objectID = strings.TrimSpace(objectID)
+	if !validObjectRef(tenantID, objectType, objectID) {
+		return WatcherPage{}, ErrInvalid
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT user_id, created_by, created_at
+		FROM work_watchers
+		WHERE tenant_id = ? AND object_type = ? AND object_id = ?
+		ORDER BY user_id
+	`, tenantID, objectType, objectID)
+	if err != nil {
+		return WatcherPage{}, fmt.Errorf("list work watchers: %w", err)
+	}
+	defer rows.Close()
+	watchers := make([]Watcher, 0)
+	for rows.Next() {
+		var item Watcher
+		if err := rows.Scan(&item.UserID, &item.CreatedBy, &item.CreatedAt); err != nil {
+			return WatcherPage{}, fmt.Errorf("scan work watcher: %w", err)
+		}
+		watchers = append(watchers, item)
+	}
+	if err := rows.Err(); err != nil {
+		return WatcherPage{}, fmt.Errorf("iterate work watchers: %w", err)
+	}
+	return WatcherPage{Watchers: watchers}, nil
+}
+
+
 func (r *Repository) AddRelation(
 	ctx context.Context,
 	exec database.Executor,
@@ -278,9 +313,91 @@ func (r *Repository) AddRelation(
 	if err != nil {
 		return Relation{}, false, fmt.Errorf("read relation id: %w", err)
 	}
-	relation, err := r.getRelation(ctx, exec, uint64(id))
+	relation, err := r.getRelation(ctx, exec, tenantID, uint64(id))
 	return relation, affected == 1, err
 }
+
+func (r *Repository) ListRelations(
+	ctx context.Context,
+	tenantID uint64,
+	sourceType, sourceID string,
+	beforeID uint64,
+	limit int,
+) (RelationPage, error) {
+	sourceType = strings.TrimSpace(sourceType)
+	sourceID = strings.TrimSpace(sourceID)
+	if !validObjectRef(tenantID, sourceType, sourceID) || limit < 1 || limit > 200 {
+		return RelationPage{}, ErrInvalid
+	}
+	query := `
+		SELECT id, tenant_id, source_type, source_id, relation_type, target_type, target_id, created_by, created_at
+		FROM work_relations
+		WHERE tenant_id = ? AND source_type = ? AND source_id = ?
+	`
+	args := []any{tenantID, sourceType, sourceID}
+	if beforeID > 0 {
+		query += " AND id < ?"
+		args = append(args, beforeID)
+	}
+	query += " ORDER BY id DESC LIMIT ?"
+	args = append(args, limit+1)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return RelationPage{}, fmt.Errorf("list work relations: %w", err)
+	}
+	defer rows.Close()
+	relations := make([]Relation, 0, limit+1)
+	for rows.Next() {
+		var item Relation
+		if err := rows.Scan(
+			&item.ID, &item.TenantID, &item.SourceType, &item.SourceID, &item.Type,
+			&item.TargetType, &item.TargetID, &item.CreatedBy, &item.CreatedAt,
+		); err != nil {
+			return RelationPage{}, fmt.Errorf("scan work relation: %w", err)
+		}
+		relations = append(relations, item)
+	}
+	if err := rows.Err(); err != nil {
+		return RelationPage{}, fmt.Errorf("iterate work relations: %w", err)
+	}
+	page := RelationPage{Relations: relations}
+	if len(relations) > limit {
+		page.Relations = relations[:limit]
+		page.NextBeforeID = page.Relations[len(page.Relations)-1].ID
+	}
+	return page, nil
+}
+
+func (r *Repository) RemoveRelation(
+	ctx context.Context,
+	exec database.Executor,
+	tenantID, relationID uint64,
+) (Relation, bool, error) {
+	if exec == nil || tenantID == 0 || relationID == 0 {
+		return Relation{}, false, ErrInvalid
+	}
+	relation, err := r.getRelation(ctx, exec, tenantID, relationID)
+	if errors.Is(err, ErrNotFound) {
+		return Relation{}, false, nil
+	}
+	if err != nil {
+		return Relation{}, false, err
+	}
+	result, err := exec.ExecContext(ctx, `
+		DELETE FROM work_relations
+		WHERE tenant_id = ? AND id = ?
+	`, tenantID, relationID)
+	if err != nil {
+		return Relation{}, false, fmt.Errorf("remove work relation: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return Relation{}, false, fmt.Errorf("read relation delete result: %w", err)
+	}
+	return relation, affected == 1, nil
+}
+
 
 func (r *Repository) getAssignment(
 	ctx context.Context,
@@ -335,16 +452,18 @@ func (r *Repository) getMessage(ctx context.Context, exec database.Executor, id 
 	return item, nil
 }
 
-func (r *Repository) getRelation(ctx context.Context, exec database.Executor, id uint64) (Relation, error) {
+func (r *Repository) getRelation(ctx context.Context, exec database.Executor, tenantID, id uint64) (Relation, error) {
 	var item Relation
 	if err := exec.QueryRowContext(ctx, `
 		SELECT id, tenant_id, source_type, source_id, relation_type, target_type, target_id, created_by, created_at
 		FROM work_relations
-		WHERE id = ?
-	`, id).Scan(
+		WHERE tenant_id = ? AND id = ?
+	`, tenantID, id).Scan(
 		&item.ID, &item.TenantID, &item.SourceType, &item.SourceID, &item.Type,
 		&item.TargetType, &item.TargetID, &item.CreatedBy, &item.CreatedAt,
-	); err != nil {
+	); errors.Is(err, sql.ErrNoRows) {
+		return Relation{}, ErrNotFound
+	} else if err != nil {
 		return Relation{}, fmt.Errorf("get work relation: %w", err)
 	}
 	return item, nil

@@ -58,9 +58,10 @@ func (r *Repository) Enqueue(ctx context.Context, input EnqueueInput) (Job, bool
 		id = uint64(lastID)
 	} else {
 		result, err := r.db.ExecContext(ctx, `
-			INSERT IGNORE INTO jobs (
+			INSERT INTO jobs (
 				tenant_id, scope_key, job_type, payload, max_attempts, available_at, idempotency_key, created_by
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)
 		`, tenantValue, scope, input.Type, []byte(input.Payload), input.MaxAttempts, input.AvailableAt.UTC(), input.IdempotencyKey, nullableUint64(input.CreatedBy))
 		if err != nil {
 			return Job{}, false, fmt.Errorf("enqueue idempotent job: %w", err)
@@ -70,19 +71,11 @@ func (r *Repository) Enqueue(ctx context.Context, input EnqueueInput) (Job, bool
 			return Job{}, false, fmt.Errorf("read enqueue result: %w", err)
 		}
 		created = affected == 1
-		if created {
-			lastID, err := result.LastInsertId()
-			if err != nil {
-				return Job{}, false, fmt.Errorf("read enqueued job id: %w", err)
-			}
-			id = uint64(lastID)
-		} else if err := r.db.QueryRowContext(ctx, `
-			SELECT id
-			FROM jobs
-			WHERE scope_key = ? AND job_type = ? AND idempotency_key = ?
-		`, scope, input.Type, input.IdempotencyKey).Scan(&id); err != nil {
-			return Job{}, false, fmt.Errorf("read existing idempotent job: %w", err)
+		lastID, err := result.LastInsertId()
+		if err != nil {
+			return Job{}, false, fmt.Errorf("read enqueued job id: %w", err)
 		}
+		id = uint64(lastID)
 	}
 	job, err := r.Get(ctx, input.TenantID, id)
 	return job, created, err
@@ -482,7 +475,7 @@ type rowScanner interface {
 
 func scanJob(row rowScanner) (Job, error) {
 	var job Job
-	var tenantID, createdBy sql.NullInt64
+	var tenantID, createdBy sql.Null[uint64]
 	var payload, result []byte
 	var leaseExpiresAt, startedAt, finishedAt sql.NullTime
 	if err := row.Scan(
@@ -510,7 +503,7 @@ func scanJob(row rowScanner) (Job, error) {
 		return Job{}, err
 	}
 	if tenantID.Valid {
-		job.TenantID = uint64(tenantID.Int64)
+		job.TenantID = tenantID.V
 	}
 	job.Payload = append(json.RawMessage(nil), payload...)
 	if len(result) > 0 {
@@ -521,7 +514,7 @@ func scanJob(row rowScanner) (Job, error) {
 		job.LeaseExpiresAt = &value
 	}
 	if createdBy.Valid {
-		value := uint64(createdBy.Int64)
+		value := createdBy.V
 		job.CreatedBy = &value
 	}
 	if startedAt.Valid {

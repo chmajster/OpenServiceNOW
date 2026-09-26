@@ -142,12 +142,45 @@ func (s *Service) AddWatcher(
 			AggregateType: objectType,
 			AggregateID: objectID,
 			Payload: payload,
-			IdempotencyKey: eventKey("watcher", objectType, objectID, fmt.Sprint(userID)),
 		})
 		return err
 	})
 	return created, err
 }
+
+func (s *Service) RemoveWatcher(
+	ctx context.Context,
+	actor Actor,
+	objectType, objectID string,
+	userID uint64,
+) (bool, error) {
+	objectType, objectID = normalizeObjectRef(objectType, objectID)
+	if !validActor(actor) || userID == 0 || !validObjectRef(actor.TenantID, objectType, objectID) {
+		return false, ErrInvalid
+	}
+	removed := false
+	err := s.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec database.Executor) error {
+		var err error
+		removed, err = s.repo.RemoveWatcher(ctx, exec, actor.TenantID, objectType, objectID, userID)
+		if err != nil || !removed {
+			return err
+		}
+		payload, err := json.Marshal(WatcherEventPayload{ActorUserID: actor.UserID, UserID: userID})
+		if err != nil {
+			return fmt.Errorf("marshal watcher removal event: %w", err)
+		}
+		_, _, err = s.outbox.Append(ctx, exec, events.Input{
+			TenantID: actor.TenantID,
+			Type: "work.watcher.removed",
+			AggregateType: objectType,
+			AggregateID: objectID,
+			Payload: payload,
+		})
+		return err
+	})
+	return removed, err
+}
+
 
 func (s *Service) AddRelation(
 	ctx context.Context,
@@ -194,6 +227,45 @@ func (s *Service) AddRelation(
 	})
 	return relation, created, err
 }
+
+func (s *Service) RemoveRelation(
+	ctx context.Context,
+	actor Actor,
+	relationID uint64,
+) (bool, error) {
+	if !validActor(actor) || relationID == 0 {
+		return false, ErrInvalid
+	}
+	removed := false
+	err := s.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec database.Executor) error {
+		relation, didRemove, err := s.repo.RemoveRelation(ctx, exec, actor.TenantID, relationID)
+		if err != nil || !didRemove {
+			return err
+		}
+		removed = true
+		payload, err := json.Marshal(RelationEventPayload{
+			ActorUserID: actor.UserID,
+			RelationID: relation.ID,
+			RelationType: relation.Type,
+			TargetType: relation.TargetType,
+			TargetID: relation.TargetID,
+		})
+		if err != nil {
+			return fmt.Errorf("marshal relation removal event: %w", err)
+		}
+		_, _, err = s.outbox.Append(ctx, exec, events.Input{
+			TenantID: actor.TenantID,
+			Type: "work.relation.removed",
+			AggregateType: relation.SourceType,
+			AggregateID: relation.SourceID,
+			Payload: payload,
+			IdempotencyKey: eventKey("relation-removed", fmt.Sprint(relation.ID)),
+		})
+		return err
+	})
+	return removed, err
+}
+
 
 func validActor(actor Actor) bool {
 	return actor.TenantID > 0 && actor.UserID > 0

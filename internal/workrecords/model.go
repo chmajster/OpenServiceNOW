@@ -55,6 +55,16 @@ type MessagePage struct {
 	NextBeforeID uint64 `json:"next_before_id,string,omitempty"`
 }
 
+type Watcher struct {
+	UserID uint64 `json:"user_id,string"`
+	CreatedBy uint64 `json:"created_by,string"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type WatcherPage struct {
+	Watchers []Watcher `json:"watchers"`
+}
+
 type Relation struct {
 	ID uint64 `json:"id,string"`
 	TenantID uint64 `json:"tenant_id,string"`
@@ -65,6 +75,11 @@ type Relation struct {
 	TargetID string `json:"target_id"`
 	CreatedBy uint64 `json:"created_by,string"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+type RelationPage struct {
+	Relations []Relation `json:"relations"`
+	NextBeforeID uint64 `json:"next_before_id,string,omitempty"`
 }
 
 type AssignmentEventPayload struct {

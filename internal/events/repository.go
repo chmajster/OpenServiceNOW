@@ -65,10 +65,11 @@ func (r *Repository) Append(ctx context.Context, exec database.Executor, input I
 	}
 
 	result, err := exec.ExecContext(ctx, `
-		INSERT IGNORE INTO outbox_events (
+		INSERT INTO outbox_events (
 			tenant_id, scope_key, event_type, aggregate_type, aggregate_id,
 			payload, max_attempts, available_at, idempotency_key
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)
 	`, tenantValue, scope, input.Type, input.AggregateType, input.AggregateID,
 		[]byte(input.Payload), input.MaxAttempts, input.AvailableAt.UTC(), input.IdempotencyKey)
 	if err != nil {
@@ -78,22 +79,11 @@ func (r *Repository) Append(ctx context.Context, exec database.Executor, input I
 	if err != nil {
 		return 0, false, fmt.Errorf("read outbox append result: %w", err)
 	}
-	if affected == 1 {
-		id, err := result.LastInsertId()
-		if err != nil {
-			return 0, false, fmt.Errorf("read outbox event id: %w", err)
-		}
-		return uint64(id), true, nil
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, false, fmt.Errorf("read outbox event id: %w", err)
 	}
-	var id uint64
-	if err := exec.QueryRowContext(ctx, `
-		SELECT id
-		FROM outbox_events
-		WHERE scope_key = ? AND event_type = ? AND idempotency_key = ?
-	`, scope, input.Type, input.IdempotencyKey).Scan(&id); err != nil {
-		return 0, false, fmt.Errorf("read existing outbox event: %w", err)
-	}
-	return id, false, nil
+	return uint64(id), affected == 1, nil
 }
 
 func (r *Repository) Claim(ctx context.Context, owner string, lease time.Duration) (Event, bool, error) {
@@ -294,7 +284,7 @@ type rowScanner interface {
 
 func scanEvent(row rowScanner) (Event, error) {
 	var event Event
-	var tenantID sql.NullInt64
+	var tenantID sql.Null[uint64]
 	var payload []byte
 	var leaseExpiresAt, deliveredAt sql.NullTime
 	if err := row.Scan(
@@ -318,7 +308,7 @@ func scanEvent(row rowScanner) (Event, error) {
 		return Event{}, err
 	}
 	if tenantID.Valid {
-		event.TenantID = uint64(tenantID.Int64)
+		event.TenantID = tenantID.V
 	}
 	event.Payload = append(json.RawMessage(nil), payload...)
 	if leaseExpiresAt.Valid {

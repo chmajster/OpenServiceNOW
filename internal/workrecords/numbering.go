@@ -43,8 +43,9 @@ func (a *Allocator) Next(
 	var number string
 	err := a.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec database.Executor) error {
 		if _, err := exec.ExecContext(ctx, `
-			INSERT IGNORE INTO record_sequences (tenant_id, record_type, prefix, width, next_value)
+			INSERT INTO record_sequences (tenant_id, record_type, prefix, width, next_value)
 			VALUES (?, ?, ?, ?, 1)
+			ON DUPLICATE KEY UPDATE tenant_id = record_sequences.tenant_id
 		`, tenantID, recordType, prefix, width); err != nil {
 			return fmt.Errorf("ensure record sequence: %w", err)
 		}
