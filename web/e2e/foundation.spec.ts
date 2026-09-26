@@ -37,6 +37,19 @@ function scopedEmail(base: string, scope: string): string {
   return `${base.slice(0, separator)}+${scope}${base.slice(separator)}`;
 }
 
+function isolatedContextOptions(projectName: string) {
+  const baseURL = process.env.E2E_BASE_URL ?? "http://127.0.0.1:5173";
+  if (projectName === "mobile-chromium") {
+    return {
+      baseURL,
+      viewport: { width: 412, height: 915 },
+      isMobile: true,
+      hasTouch: true
+    };
+  }
+  return { baseURL };
+}
+
 async function login(page: Page, email: string, password: string) {
   await page.goto("/login");
   await page.getByLabel("Tenant").fill(tenant);
@@ -169,8 +182,8 @@ test("admin creates a least-privilege tenant reader through the UI", async ({ pa
 
 
 test("tenant optimistic-lock conflict refreshes current data", async ({ browser }, testInfo) => {
-  const firstContext = await browser.newContext();
-  const secondContext = await browser.newContext();
+  const firstContext = await browser.newContext(isolatedContextOptions(testInfo.project.name));
+  const secondContext = await browser.newContext(isolatedContextOptions(testInfo.project.name));
   const firstPage = await firstContext.newPage();
   const secondPage = await secondContext.newPage();
 
@@ -212,8 +225,8 @@ test("tenant optimistic-lock conflict refreshes current data", async ({ browser 
 
 
 test("role permission optimistic-lock conflict refreshes current data", async ({ browser }, testInfo) => {
-  const firstContext = await browser.newContext();
-  const secondContext = await browser.newContext();
+  const firstContext = await browser.newContext(isolatedContextOptions(testInfo.project.name));
+  const secondContext = await browser.newContext(isolatedContextOptions(testInfo.project.name));
   const firstPage = await firstContext.newPage();
   const secondPage = await secondContext.newPage();
   const scope = runScope(testInfo.project.name, testInfo.retry);
