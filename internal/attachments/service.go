@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type Service struct {
@@ -93,15 +94,14 @@ func (s *Service) Delete(ctx context.Context, tenantID, id uint64) error {
 		return err
 	}
 	if err := s.storage.Delete(ctx, attachment.StorageKey); err != nil {
-		revertCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+		revertCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cancel()
 		_ = s.metadata.RevertDelete(revertCtx, tenantID, id)
 		return err
 	}
-	if err := s.metadata.FinishDelete(ctx, tenantID, id); err != nil {
-		return err
-	}
-	return nil
+	finalCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	return s.metadata.FinishDelete(finalCtx, tenantID, id)
 }
 
 func validateCreateInput(input CreateInput) error {

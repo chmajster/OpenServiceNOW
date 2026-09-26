@@ -32,6 +32,25 @@ func (r *Repository) Create(
 	size uint64,
 	sum [32]byte,
 ) (Attachment, error) {
+	if input.UploadedBy != nil {
+		var found int
+		err := r.db.QueryRowContext(ctx, `
+			SELECT 1
+			FROM tenant_memberships tm
+			JOIN users u ON u.id = tm.user_id
+			WHERE tm.tenant_id = ?
+			  AND tm.user_id = ?
+			  AND tm.active = TRUE
+			  AND u.active = TRUE
+		`, input.TenantID, *input.UploadedBy).Scan(&found)
+		if errors.Is(err, sql.ErrNoRows) {
+			return Attachment{}, ErrNotFound
+		}
+		if err != nil {
+			return Attachment{}, fmt.Errorf("validate attachment uploader: %w", err)
+		}
+	}
+
 	result, err := r.db.ExecContext(ctx, `
 		INSERT INTO attachments (
 			tenant_id, object_type, object_id, file_name, content_type,
@@ -81,18 +100,21 @@ func (r *Repository) BeginDelete(ctx context.Context, tenantID, id uint64) (Atta
 	if err != nil {
 		return Attachment{}, fmt.Errorf("read attachment delete result: %w", err)
 	}
-	if affected != 1 {
-		var status Status
-		if err := r.db.QueryRowContext(ctx, `
-			SELECT status FROM attachments WHERE tenant_id = ? AND id = ?
-		`, tenantID, id).Scan(&status); errors.Is(err, sql.ErrNoRows) {
-			return Attachment{}, ErrNotFound
-		} else if err != nil {
-			return Attachment{}, fmt.Errorf("read attachment state: %w", err)
-		}
+	if affected == 1 {
+		return r.Get(ctx, tenantID, id)
+	}
+	attachment, err := r.Get(ctx, tenantID, id)
+	if err != nil {
+		return Attachment{}, err
+	}
+	switch attachment.Status {
+	case StatusDeleting:
+		return attachment, nil
+	case StatusDeleted:
+		return Attachment{}, ErrNotFound
+	default:
 		return Attachment{}, ErrConflict
 	}
-	return r.Get(ctx, tenantID, id)
 }
 
 func (r *Repository) RevertDelete(ctx context.Context, tenantID, id uint64) error {
@@ -108,10 +130,20 @@ func (r *Repository) RevertDelete(ctx context.Context, tenantID, id uint64) erro
 	if err != nil {
 		return fmt.Errorf("read attachment revert result: %w", err)
 	}
-	if affected != 1 {
-		return ErrConflict
+	if affected == 1 {
+		return nil
 	}
-	return nil
+	attachment, getErr := r.Get(ctx, tenantID, id)
+	if errors.Is(getErr, ErrNotFound) {
+		return ErrNotFound
+	}
+	if getErr != nil {
+		return getErr
+	}
+	if attachment.Status == StatusActive {
+		return nil
+	}
+	return ErrConflict
 }
 
 func (r *Repository) FinishDelete(ctx context.Context, tenantID, id uint64) error {
@@ -127,10 +159,20 @@ func (r *Repository) FinishDelete(ctx context.Context, tenantID, id uint64) erro
 	if err != nil {
 		return fmt.Errorf("read attachment finish result: %w", err)
 	}
-	if affected != 1 {
-		return ErrConflict
+	if affected == 1 {
+		return nil
 	}
-	return nil
+	attachment, getErr := r.Get(ctx, tenantID, id)
+	if errors.Is(getErr, ErrNotFound) {
+		return ErrNotFound
+	}
+	if getErr != nil {
+		return getErr
+	}
+	if attachment.Status == StatusDeleted {
+		return nil
+	}
+	return ErrConflict
 }
 
 const attachmentSelect = `
