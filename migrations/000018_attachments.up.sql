@@ -1,0 +1,22 @@
+CREATE TABLE attachments (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    tenant_id BIGINT UNSIGNED NOT NULL,
+    object_type VARCHAR(100) NOT NULL,
+    object_id VARCHAR(128) NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    content_type VARCHAR(255) NOT NULL,
+    size_bytes BIGINT UNSIGNED NOT NULL,
+    sha256 BINARY(32) NOT NULL,
+    storage_key VARCHAR(500) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    uploaded_by BIGINT UNSIGNED NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    deleted_at DATETIME(6) NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_attachments_storage_key (storage_key),
+    KEY idx_attachments_object (tenant_id, object_type, object_id, id),
+    KEY idx_attachments_uploader (tenant_id, uploaded_by, id),
+    CONSTRAINT chk_attachments_status CHECK (status IN ('ACTIVE','DELETING','DELETED')),
+    CONSTRAINT fk_attachments_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+    CONSTRAINT fk_attachments_uploaded_by FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
