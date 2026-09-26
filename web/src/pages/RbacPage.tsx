@@ -80,7 +80,7 @@ export function RbacPage() {
     return params;
   }
 
-  async function loadRoles(afterID?: string, append = false, query = activeRoleSearch) {
+  async function loadRoles(afterID?: string, append = false, query = activeRoleSearch): Promise<boolean> {
     append ? setLoadingMoreRoles(true) : setLoading(true);
     setError(null);
     try {
@@ -89,15 +89,17 @@ export function RbacPage() {
       );
       setRoles((current) => (append ? [...current, ...response.roles] : response.roles));
       setNextRoleAfterID(response.next_after_id);
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Nie udało się pobrać ról.");
+      return false;
     } finally {
       setLoading(false);
       setLoadingMoreRoles(false);
     }
   }
 
-  async function loadGroups(afterID?: string, append = false, query = activeGroupSearch) {
+  async function loadGroups(afterID?: string, append = false, query = activeGroupSearch): Promise<boolean> {
     append ? setLoadingMoreGroups(true) : setLoading(true);
     setError(null);
     try {
@@ -106,8 +108,10 @@ export function RbacPage() {
       );
       setGroups((current) => (append ? [...current, ...response.groups] : response.groups));
       setNextGroupAfterID(response.next_after_id);
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Nie udało się pobrać grup.");
+      return false;
     } finally {
       setLoading(false);
       setLoadingMoreGroups(false);
@@ -239,8 +243,12 @@ export function RbacPage() {
       if (cause instanceof ApiError && cause.status === 409) {
         setEditRoleID("");
         setEditRolePermissions([]);
-        await loadRoles(undefined, false, activeRoleSearch);
-        setError("Rola została zmieniona równolegle. Bieżące dane zostały odświeżone; wybierz rolę i ponów edycję.");
+        const refreshed = await loadRoles(undefined, false, activeRoleSearch);
+        setError(
+          refreshed
+            ? "Rola została zmieniona równolegle. Bieżące dane zostały odświeżone; wybierz rolę i ponów edycję."
+            : "Rola została zmieniona równolegle i nie udało się pobrać bieżącej wersji. Odśwież stronę przed kolejną zmianą."
+        );
       } else {
         setError(cause instanceof Error ? cause.message : "Aktualizacja uprawnień roli nie powiodła się.");
       }
@@ -274,6 +282,7 @@ export function RbacPage() {
     const query = roleSearch.trim();
     setActiveRoleSearch(query);
     setAssignmentRole("");
+    setGroupRole("");
     setEditRoleID("");
     setEditRolePermissions([]);
     await loadRoles(undefined, false, query);
@@ -283,6 +292,7 @@ export function RbacPage() {
     setRoleSearch("");
     setActiveRoleSearch("");
     setAssignmentRole("");
+    setGroupRole("");
     setEditRoleID("");
     setEditRolePermissions([]);
     await loadRoles(undefined, false, "");
@@ -292,13 +302,25 @@ export function RbacPage() {
     event.preventDefault();
     const query = groupSearch.trim();
     setActiveGroupSearch(query);
+    clearSelectedGroupAssignments();
     await loadGroups(undefined, false, query);
   }
 
   async function clearGroupSearch() {
     setGroupSearch("");
     setActiveGroupSearch("");
+    clearSelectedGroupAssignments();
     await loadGroups(undefined, false, "");
+  }
+
+  function clearSelectedGroupAssignments() {
+    setAssignmentGroup("");
+    setGroupMemberUser("");
+    setGroupRole("");
+    setGroupMembers([]);
+    setAssignedGroupRoles([]);
+    setNextGroupMemberAfterID(undefined);
+    setNextGroupRoleAfterID(undefined);
   }
 
   async function handleUserSearch(event: FormEvent<HTMLFormElement>) {
@@ -310,11 +332,11 @@ export function RbacPage() {
     await searchUsers();
   }
 
-  async function loadUserRoles(userID: string, afterID?: string, append = false) {
+  async function loadUserRoles(userID: string, afterID?: string, append = false): Promise<boolean> {
     if (!userID || !canManageUsers) {
       setAssignedUserRoles([]);
       setNextUserRoleAfterID(undefined);
-      return;
+      return true;
     }
     setLoadingUserRoles(true);
     setError(null);
@@ -324,8 +346,10 @@ export function RbacPage() {
       );
       setAssignedUserRoles((current) => append ? [...current, ...response.roles] : response.roles);
       setNextUserRoleAfterID(response.next_after_id);
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Nie udało się pobrać ról użytkownika.");
+      return false;
     } finally {
       setLoadingUserRoles(false);
     }
@@ -337,11 +361,11 @@ export function RbacPage() {
     await loadUserRoles(userID);
   }
 
-  async function loadGroupMembers(groupID: string, afterID?: string, append = false) {
+  async function loadGroupMembers(groupID: string, afterID?: string, append = false): Promise<boolean> {
     if (!groupID || !canManageUsers) {
       setGroupMembers([]);
       setNextGroupMemberAfterID(undefined);
-      return;
+      return true;
     }
     setLoadingGroupMembers(true);
     setError(null);
@@ -351,18 +375,20 @@ export function RbacPage() {
       );
       setGroupMembers((current) => append ? [...current, ...response.members] : response.members);
       setNextGroupMemberAfterID(response.next_after_id);
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Nie udało się pobrać członków grupy.");
+      return false;
     } finally {
       setLoadingGroupMembers(false);
     }
   }
 
-  async function loadGroupRoles(groupID: string, afterID?: string, append = false) {
+  async function loadGroupRoles(groupID: string, afterID?: string, append = false): Promise<boolean> {
     if (!groupID) {
       setAssignedGroupRoles([]);
       setNextGroupRoleAfterID(undefined);
-      return;
+      return true;
     }
     setLoadingGroupRoles(true);
     setError(null);
@@ -372,8 +398,10 @@ export function RbacPage() {
       );
       setAssignedGroupRoles((current) => append ? [...current, ...response.roles] : response.roles);
       setNextGroupRoleAfterID(response.next_after_id);
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Nie udało się pobrać ról grupy.");
+      return false;
     } finally {
       setLoadingGroupRoles(false);
     }
@@ -409,8 +437,12 @@ export function RbacPage() {
     try {
       await api<void>(`/api/v1/admin/rbac/users/${userID}/roles/${roleID}`, { method: "POST" });
       setAssignmentRole("");
-      await loadUserRoles(userID);
-      setMessage("Rola została przypisana użytkownikowi.");
+      const refreshed = await loadUserRoles(userID);
+      if (refreshed) {
+        setMessage("Rola została przypisana użytkownikowi.");
+      } else {
+        setError("Rola została przypisana, ale nie udało się potwierdzić bieżącego stanu. Odśwież ekran.");
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Przypisanie roli nie powiodło się.");
     } finally {
@@ -427,8 +459,12 @@ export function RbacPage() {
     setMessage(null);
     try {
       await api<void>(`/api/v1/admin/rbac/users/${assignmentUser}/roles/${roleID}`, { method: "DELETE" });
-      await loadUserRoles(assignmentUser);
-      setMessage("Rola została usunięta z użytkownika.");
+      const refreshed = await loadUserRoles(assignmentUser);
+      if (refreshed) {
+        setMessage("Rola została usunięta z użytkownika.");
+      } else {
+        setError("Rola została usunięta, ale nie udało się potwierdzić bieżącego stanu. Odśwież ekran.");
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Usunięcie roli użytkownika nie powiodło się.");
     } finally {
@@ -447,11 +483,15 @@ export function RbacPage() {
     try {
       await api<void>(`/api/v1/admin/rbac/groups/${assignmentGroup}/members/${groupMemberUser}`, { method: "POST" });
       setGroupMemberUser("");
-      await Promise.all([
+      const [membersRefreshed, groupsRefreshed] = await Promise.all([
         loadGroupMembers(assignmentGroup),
         loadGroups(undefined, false, activeGroupSearch)
       ]);
-      setMessage("Użytkownik został dodany do grupy.");
+      if (membersRefreshed && groupsRefreshed) {
+        setMessage("Użytkownik został dodany do grupy.");
+      } else {
+        setError("Użytkownik został dodany do grupy, ale nie udało się w pełni odświeżyć stanu. Odśwież ekran.");
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Dodanie użytkownika do grupy nie powiodło się.");
     } finally {
@@ -468,11 +508,15 @@ export function RbacPage() {
     setMessage(null);
     try {
       await api<void>(`/api/v1/admin/rbac/groups/${assignmentGroup}/members/${userID}`, { method: "DELETE" });
-      await Promise.all([
+      const [membersRefreshed, groupsRefreshed] = await Promise.all([
         loadGroupMembers(assignmentGroup),
         loadGroups(undefined, false, activeGroupSearch)
       ]);
-      setMessage("Użytkownik został usunięty z grupy.");
+      if (membersRefreshed && groupsRefreshed) {
+        setMessage("Użytkownik został usunięty z grupy.");
+      } else {
+        setError("Użytkownik został usunięty z grupy, ale nie udało się w pełni odświeżyć stanu. Odśwież ekran.");
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Usunięcie użytkownika z grupy nie powiodło się.");
     } finally {
@@ -491,8 +535,12 @@ export function RbacPage() {
     try {
       await api<void>(`/api/v1/admin/rbac/groups/${assignmentGroup}/roles/${groupRole}`, { method: "POST" });
       setGroupRole("");
-      await loadGroupRoles(assignmentGroup);
-      setMessage("Rola została przypisana grupie.");
+      const refreshed = await loadGroupRoles(assignmentGroup);
+      if (refreshed) {
+        setMessage("Rola została przypisana grupie.");
+      } else {
+        setError("Rola została przypisana grupie, ale nie udało się potwierdzić bieżącego stanu. Odśwież ekran.");
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Przypisanie roli grupie nie powiodło się.");
     } finally {
@@ -509,8 +557,12 @@ export function RbacPage() {
     setMessage(null);
     try {
       await api<void>(`/api/v1/admin/rbac/groups/${assignmentGroup}/roles/${roleID}`, { method: "DELETE" });
-      await loadGroupRoles(assignmentGroup);
-      setMessage("Rola została usunięta z grupy.");
+      const refreshed = await loadGroupRoles(assignmentGroup);
+      if (refreshed) {
+        setMessage("Rola została usunięta z grupy.");
+      } else {
+        setError("Rola została usunięta z grupy, ale nie udało się potwierdzić bieżącego stanu. Odśwież ekran.");
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Usunięcie roli z grupy nie powiodło się.");
     } finally {
