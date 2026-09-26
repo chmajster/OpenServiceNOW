@@ -211,7 +211,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "tenant.read"
+        ]
       },
       "put": {
         "tags": [
@@ -267,7 +270,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "tenant.manage"
+        ]
       }
     },
     "/api/v1/admin/users/": {
@@ -329,6 +335,9 @@
               "maxLength": 200
             }
           }
+        ],
+        "x-required-permissions": [
+          "admin.users.manage"
         ]
       },
       "post": {
@@ -378,7 +387,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.users.manage"
+        ]
       }
     },
     "/api/v1/admin/users/{userID}/membership": {
@@ -437,7 +449,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.users.manage"
+        ]
       }
     },
     "/api/v1/admin/rbac/permissions": {
@@ -471,7 +486,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ]
       }
     },
     "/api/v1/admin/rbac/roles": {
@@ -533,6 +551,9 @@
               "maxLength": 200
             }
           }
+        ],
+        "x-required-permissions": [
+          "admin.rbac.manage"
         ]
       },
       "post": {
@@ -582,7 +603,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ]
       }
     },
     "/api/v1/admin/rbac/roles/{roleID}/permissions": {
@@ -641,7 +665,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ]
       }
     },
     "/api/v1/admin/rbac/groups": {
@@ -703,6 +730,9 @@
               "maxLength": 200
             }
           }
+        ],
+        "x-required-permissions": [
+          "admin.rbac.manage"
         ]
       },
       "post": {
@@ -752,7 +782,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ]
       }
     },
     "/api/v1/admin/rbac/groups/{groupID}/members/{userID}": {
@@ -795,7 +828,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ]
       },
       "delete": {
         "tags": [
@@ -836,7 +872,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ]
       }
     },
     "/api/v1/admin/rbac/users/{userID}/roles/{roleID}": {
@@ -879,7 +918,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ]
       },
       "delete": {
         "tags": [
@@ -920,7 +962,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ]
       }
     },
     "/api/v1/admin/rbac/groups/{groupID}/roles/{roleID}": {
@@ -963,7 +1008,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ]
       },
       "delete": {
         "tags": [
@@ -1004,7 +1052,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ]
       }
     },
     "/api/v1/admin/audit/": {
@@ -1061,7 +1112,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.audit.read"
+        ]
       }
     },
     "/api/v1/admin/users/memberships": {
@@ -1115,7 +1169,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.users.manage"
+        ]
       }
     },
     "/api/v1/admin/rbac/groups/{groupID}/members": {
@@ -1124,7 +1181,7 @@
           "RBAC administration"
         ],
         "operationId": "listGroupMembers",
-        "description": "Lists members of a security/RBAC group in the authenticated tenant. Requires admin.rbac.manage.",
+        "description": "Lists members of a security/RBAC group in the authenticated tenant. Requires admin.rbac.manage and admin.users.manage.",
         "security": [
           {
             "sessionCookie": []
@@ -1179,7 +1236,11 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage",
+          "admin.users.manage"
+        ]
       }
     },
     "/api/v1/admin/rbac/users/{userID}/roles": {
@@ -1188,7 +1249,7 @@
           "RBAC administration"
         ],
         "operationId": "listUserRoleAssignments",
-        "description": "Lists direct role assignments for a tenant member. Requires admin.rbac.manage.",
+        "description": "Lists direct role assignments for a tenant member. Requires admin.rbac.manage and admin.users.manage.",
         "security": [
           {
             "sessionCookie": []
@@ -1243,7 +1304,11 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage",
+          "admin.users.manage"
+        ]
       }
     },
     "/api/v1/admin/rbac/groups/{groupID}/roles": {
@@ -1307,7 +1372,10 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ]
       }
     }
   },
