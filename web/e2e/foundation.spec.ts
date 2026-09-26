@@ -38,6 +38,7 @@ async function login(page: Page, email: string, password: string) {
 test("admin creates a least-privilege tenant reader through the UI", async ({ page }, testInfo) => {
   const operatorEmail = retryScopedEmail(operatorEmailBase, testInfo.retry);
   const roleName = testInfo.retry === 0 ? roleNameBase : `${roleNameBase}_retry${testInfo.retry}`;
+  const groupName = testInfo.retry === 0 ? "e2e_security_group" : `e2e_security_group_retry${testInfo.retry}`;
 
   await login(page, adminEmail, adminPassword);
 
@@ -87,6 +88,46 @@ test("admin creates a least-privilege tenant reader through the UI", async ({ pa
   await assignmentPanel.getByLabel("Rola do przypisania").selectOption({ label: roleName });
   await assignmentPanel.getByRole("button", { name: "Przypisz rolę" }).click();
   await expect(page.getByText("Rola została przypisana użytkownikowi.")).toBeVisible();
+  await expect(
+    assignmentPanel.locator(".assignment-list").getByText(roleName, { exact: true })
+  ).toBeVisible();
+
+  const createGroupPanel = page.locator(".panel").filter({
+    has: page.getByRole("heading", { name: "Nowa grupa" })
+  });
+  await createGroupPanel.getByLabel("Nazwa").fill(groupName);
+  await createGroupPanel.getByLabel("Opis").fill("Security group created by Playwright E2E");
+  await createGroupPanel.getByRole("button", { name: "Utwórz grupę" }).click();
+
+  const createdGroupCard = page.locator(".list-card").filter({ hasText: groupName });
+  await expect(createdGroupCard).toHaveCount(1);
+
+  const groupAssignments = page.locator(".panel").filter({
+    has: page.getByRole("heading", { name: "Przypisania grupowe" })
+  });
+  await groupAssignments.getByLabel("Grupa").selectOption({ label: groupName });
+
+  const memberSection = groupAssignments.locator(".assignment-section").filter({
+    has: page.getByRole("heading", { name: "Członkowie grupy" })
+  });
+  await memberSection.getByLabel("Użytkownik").selectOption({ label: `E2E Operator — ${operatorEmail}` });
+  await memberSection.getByRole("button", { name: "Dodaj do grupy" }).click();
+  await expect(memberSection.getByText(operatorEmail, { exact: true })).toBeVisible();
+
+  const groupRoleSection = groupAssignments.locator(".assignment-section").filter({
+    has: page.getByRole("heading", { name: "Role grupy" })
+  });
+  await groupRoleSection.getByLabel("Rola").selectOption({ label: roleName });
+  await groupRoleSection.getByRole("button", { name: "Przypisz rolę grupie" }).click();
+  await expect(
+    groupRoleSection.locator(".assignment-list").getByText(roleName, { exact: true })
+  ).toBeVisible();
+
+  await page.getByRole("link", { name: "Audyt" }).click();
+  await expect(page.getByRole("heading", { name: "Audyt" })).toBeVisible();
+  await expect(page.getByText("rbac.user.role.add", { exact: true })).toBeVisible();
+  await expect(page.getByText("rbac.group.member.add", { exact: true })).toBeVisible();
+  await expect(page.getByText("rbac.group.role.add", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Wyloguj" }).first().click();
   await expect(page.getByRole("heading", { name: "Zaloguj się" })).toBeVisible();
