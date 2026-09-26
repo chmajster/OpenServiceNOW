@@ -50,8 +50,8 @@ export function TenantPage() {
       setMessage("Nazwa organizacji została zaktualizowana.");
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 409) {
-        setError("Rekord został zmieniony równolegle. Odświeżono bieżącą wersję.");
         await loadTenant();
+        setError("Rekord został zmieniony równolegle. Bieżące dane zostały odświeżone; sprawdź je i ponów zmianę.");
       } else {
         setError(cause instanceof Error ? cause.message : "Aktualizacja nie powiodła się.");
       }
