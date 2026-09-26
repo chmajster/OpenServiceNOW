@@ -150,3 +150,45 @@ test("admin creates a least-privilege tenant reader through the UI", async ({ pa
   await expect(page.getByText("Tryb tylko do odczytu")).toBeVisible();
   await expect(page.getByLabel("Nazwa organizacji")).toBeDisabled();
 });
+
+
+test("tenant optimistic-lock conflict refreshes current data", async ({ browser }, testInfo) => {
+  const firstContext = await browser.newContext();
+  const secondContext = await browser.newContext();
+  const firstPage = await firstContext.newPage();
+  const secondPage = await secondContext.newPage();
+
+  try {
+    await login(firstPage, adminEmail, adminPassword);
+    await login(secondPage, adminEmail, adminPassword);
+
+    await firstPage.getByRole("link", { name: "Organizacja" }).click();
+    await secondPage.getByRole("link", { name: "Organizacja" }).click();
+    await expect(firstPage.getByRole("heading", { name: "Organizacja" })).toBeVisible();
+    await expect(secondPage.getByRole("heading", { name: "Organizacja" })).toBeVisible();
+
+    const firstName = firstPage.getByLabel("Nazwa organizacji");
+    const secondName = secondPage.getByLabel("Nazwa organizacji");
+    const originalName = await firstName.inputValue();
+    const concurrentName = `E2E Concurrent Tenant ${testInfo.retry}`;
+
+    await firstName.fill(concurrentName);
+    await firstPage.getByRole("button", { name: "Zapisz zmianę" }).click();
+    await expect(firstPage.getByText("Nazwa organizacji została zaktualizowana.")).toBeVisible();
+
+    await secondName.fill(`${concurrentName} stale overwrite`);
+    await secondPage.getByRole("button", { name: "Zapisz zmianę" }).click();
+    await expect(
+      secondPage.getByText("Rekord został zmieniony równolegle. Bieżące dane zostały odświeżone; sprawdź je i ponów zmianę.")
+    ).toBeVisible();
+    await expect(secondName).toHaveValue(concurrentName);
+
+    await secondName.fill(originalName);
+    await secondPage.getByRole("button", { name: "Zapisz zmianę" }).click();
+    await expect(secondPage.getByText("Nazwa organizacji została zaktualizowana.")).toBeVisible();
+    await expect(secondName).toHaveValue(originalName);
+  } finally {
+    await firstContext.close();
+    await secondContext.close();
+  }
+});
