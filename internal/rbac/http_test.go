@@ -15,9 +15,9 @@ import (
 
 type fakeAuth struct {
 	identity    identity.SessionIdentity
-	permission bool
+	permission  bool
 	permissions map[string]bool
-	csrf       bool
+	csrf        bool
 }
 
 func (f fakeAuth) Login(context.Context, identity.LoginInput, identity.RequestMeta) (identity.LoginResult, error) {
