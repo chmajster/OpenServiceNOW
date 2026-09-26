@@ -31,6 +31,12 @@ func (r *Repository) Append(ctx context.Context, exec database.Executor, input I
 		len(input.IdempotencyKey) > 190 || input.MaxAttempts > 100 {
 		return 0, false, ErrInvalid
 	}
+	if input.Version == 0 {
+		input.Version = 1
+	}
+	if input.Version > 100 {
+		return 0, false, ErrInvalid
+	}
 	if input.MaxAttempts == 0 {
 		input.MaxAttempts = 10
 	}
@@ -49,10 +55,10 @@ func (r *Repository) Append(ctx context.Context, exec database.Executor, input I
 	if input.IdempotencyKey == "" {
 		result, err := exec.ExecContext(ctx, `
 			INSERT INTO outbox_events (
-				tenant_id, scope_key, event_type, aggregate_type, aggregate_id,
+				tenant_id, scope_key, event_type, event_version, aggregate_type, aggregate_id,
 				payload, max_attempts, available_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		`, tenantValue, scope, input.Type, input.AggregateType, input.AggregateID,
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`, tenantValue, scope, input.Type, input.Version, input.AggregateType, input.AggregateID,
 			[]byte(input.Payload), input.MaxAttempts, input.AvailableAt.UTC())
 		if err != nil {
 			return 0, false, fmt.Errorf("append outbox event: %w", err)
@@ -66,11 +72,11 @@ func (r *Repository) Append(ctx context.Context, exec database.Executor, input I
 
 	result, err := exec.ExecContext(ctx, `
 		INSERT INTO outbox_events (
-			tenant_id, scope_key, event_type, aggregate_type, aggregate_id,
+			tenant_id, scope_key, event_type, event_version, aggregate_type, aggregate_id,
 			payload, max_attempts, available_at, idempotency_key
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)
-	`, tenantValue, scope, input.Type, input.AggregateType, input.AggregateID,
+	`, tenantValue, scope, input.Type, input.Version, input.AggregateType, input.AggregateID,
 		[]byte(input.Payload), input.MaxAttempts, input.AvailableAt.UTC(), input.IdempotencyKey)
 	if err != nil {
 		return 0, false, fmt.Errorf("append idempotent outbox event: %w", err)
@@ -271,7 +277,7 @@ func (r *Repository) Fail(
 
 const eventSelect = `
 	SELECT
-		id, tenant_id, event_type, aggregate_type, aggregate_id, payload, status,
+		id, tenant_id, event_type, event_version, aggregate_type, aggregate_id, payload, status,
 		attempt_count, max_attempts, available_at, COALESCE(lease_owner, ''),
 		lease_expires_at, COALESCE(last_error, ''), COALESCE(idempotency_key, ''),
 		created_at, delivered_at
@@ -291,6 +297,7 @@ func scanEvent(row rowScanner) (Event, error) {
 		&event.ID,
 		&tenantID,
 		&event.Type,
+		&event.Version,
 		&event.AggregateType,
 		&event.AggregateID,
 		&payload,

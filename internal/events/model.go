@@ -25,6 +25,7 @@ type Event struct {
 	ID uint64
 	TenantID uint64
 	Type string
+	Version uint32
 	AggregateType string
 	AggregateID string
 	Payload json.RawMessage
@@ -43,6 +44,7 @@ type Event struct {
 type Input struct {
 	TenantID uint64
 	Type string
+	Version uint32
 	AggregateType string
 	AggregateID string
 	Payload json.RawMessage

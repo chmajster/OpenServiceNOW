@@ -343,6 +343,13 @@ func TestPhase2WorkPlatform(t *testing.T) {
 		if entry.SourceEventID == nil {
 			t.Fatal("projected activity is not linked to source outbox event")
 		}
+		var eventVersion uint32
+		if err := db.QueryRowContext(ctx, "SELECT event_version FROM outbox_events WHERE id = ?", *entry.SourceEventID).Scan(&eventVersion); err != nil {
+			t.Fatalf("read source event version: %v", err)
+		}
+		if eventVersion != 1 {
+			t.Fatalf("source event version = %d, want 1", eventVersion)
+		}
 
 		messages, err := workRepo.ListMessages(
 			ctx,

@@ -3,6 +3,7 @@ CREATE TABLE outbox_events (
     tenant_id BIGINT UNSIGNED NULL,
     scope_key VARCHAR(190) NOT NULL,
     event_type VARCHAR(120) NOT NULL,
+    event_version INT UNSIGNED NOT NULL DEFAULT 1,
     aggregate_type VARCHAR(100) NOT NULL,
     aggregate_id VARCHAR(128) NOT NULL,
     payload JSON NOT NULL,
@@ -20,6 +21,7 @@ CREATE TABLE outbox_events (
     UNIQUE KEY uq_outbox_idempotency (scope_key, event_type, idempotency_key),
     KEY idx_outbox_claim (status, available_at, lease_expires_at, id),
     KEY idx_outbox_aggregate (tenant_id, aggregate_type, aggregate_id, id),
+    CONSTRAINT chk_outbox_version CHECK (event_version BETWEEN 1 AND 100),
     CONSTRAINT chk_outbox_status CHECK (status IN ('PENDING','DELIVERING','DELIVERED','FAILED')),
     CONSTRAINT chk_outbox_attempts CHECK (max_attempts BETWEEN 1 AND 100 AND attempt_count <= max_attempts),
     CONSTRAINT fk_outbox_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
