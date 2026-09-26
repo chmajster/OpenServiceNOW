@@ -15,15 +15,26 @@ function requireEnv(name: string): string {
   return value;
 }
 
-function retryScopedEmail(base: string, retry: number): string {
-  if (retry === 0) {
+function runScope(projectName: string, retry: number): string {
+  const parts: string[] = [];
+  if (projectName !== "chromium") {
+    parts.push(projectName.replace(/[^a-z0-9]+/gi, "-").toLowerCase());
+  }
+  if (retry > 0) {
+    parts.push(`retry${retry}`);
+  }
+  return parts.join("-");
+}
+
+function scopedEmail(base: string, scope: string): string {
+  if (!scope) {
     return base;
   }
   const separator = base.lastIndexOf("@");
   if (separator <= 0) {
     throw new Error(`Invalid E2E operator email: ${base}`);
   }
-  return `${base.slice(0, separator)}+retry${retry}${base.slice(separator)}`;
+  return `${base.slice(0, separator)}+${scope}${base.slice(separator)}`;
 }
 
 async function login(page: Page, email: string, password: string) {
@@ -36,9 +47,10 @@ async function login(page: Page, email: string, password: string) {
 }
 
 test("admin creates a least-privilege tenant reader through the UI", async ({ page }, testInfo) => {
-  const operatorEmail = retryScopedEmail(operatorEmailBase, testInfo.retry);
-  const roleName = testInfo.retry === 0 ? roleNameBase : `${roleNameBase}_retry${testInfo.retry}`;
-  const groupName = testInfo.retry === 0 ? "e2e_security_group" : `e2e_security_group_retry${testInfo.retry}`;
+  const scope = runScope(testInfo.project.name, testInfo.retry);
+  const operatorEmail = scopedEmail(operatorEmailBase, scope);
+  const roleName = scope ? `${roleNameBase}_${scope.replaceAll("-", "_")}` : roleNameBase;
+  const groupName = scope ? `e2e_security_group_${scope.replaceAll("-", "_")}` : "e2e_security_group";
 
   await login(page, adminEmail, adminPassword);
 
@@ -170,7 +182,8 @@ test("tenant optimistic-lock conflict refreshes current data", async ({ browser 
     const firstName = firstPage.getByLabel("Nazwa organizacji");
     const secondName = secondPage.getByLabel("Nazwa organizacji");
     const originalName = await firstName.inputValue();
-    const concurrentName = `E2E Concurrent Tenant ${testInfo.retry}`;
+    const scope = runScope(testInfo.project.name, testInfo.retry);
+    const concurrentName = scope ? `E2E Concurrent Tenant ${scope}` : "E2E Concurrent Tenant";
 
     await firstName.fill(concurrentName);
     await firstPage.getByRole("button", { name: "Zapisz zmianę" }).click();
