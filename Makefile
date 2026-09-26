@@ -1,4 +1,4 @@
-.PHONY: dev build test lint migrate-up migrate-down migrate-down-all migrate-version bootstrap scheduler-once frontend frontend-test e2e
+.PHONY: dev build test lint migrate-up migrate-down migrate-down-all migrate-version bootstrap scheduler-once worker worker-once frontend frontend-test e2e
 
 dev:
 	docker compose up -d
@@ -30,6 +30,12 @@ bootstrap:
 
 scheduler-once:
 	go run ./cmd/scheduler --once
+
+worker:
+	go run ./cmd/worker
+
+worker-once:
+	go run ./cmd/worker --once
 
 frontend:
 	cd web && npm run build

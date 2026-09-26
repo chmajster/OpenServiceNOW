@@ -174,8 +174,11 @@ jobs:
           )"
           test "$me_after_logout" = "401"
 
-      - name: Run scheduler cleanup once
+      - name: Enqueue scheduler work once
         run: go run ./cmd/scheduler --once
+
+      - name: Process one durable worker job
+        run: go run ./cmd/worker --once
 
       - name: Roll back all migrations
         run: go run ./cmd/migrate down-all

@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
-	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
 )
 
 type Repository struct {
@@ -23,8 +21,8 @@ func NewRepository(db *sql.DB) *Repository {
 func (r *Repository) Enqueue(ctx context.Context, input EnqueueInput) (Job, bool, error) {
 	input.Type = strings.TrimSpace(input.Type)
 	input.IdempotencyKey = strings.TrimSpace(input.IdempotencyKey)
-	if input.TenantID == 0 || input.Type == "" || len(input.Type) > 120 ||
-		len(input.IdempotencyKey) > 190 || input.MaxAttempts > 100 {
+	if input.Type == "" || len(input.Type) > 120 || len(input.IdempotencyKey) > 190 ||
+		input.MaxAttempts > 100 || (input.TenantID == 0 && input.CreatedBy != nil) {
 		return Job{}, false, ErrInvalid
 	}
 	if input.MaxAttempts == 0 {
@@ -40,14 +38,16 @@ func (r *Repository) Enqueue(ctx context.Context, input EnqueueInput) (Job, bool
 		input.AvailableAt = time.Now().UTC()
 	}
 
+	scope := scopeKey(input.TenantID)
+	tenantValue := nullableTenant(input.TenantID)
 	var id uint64
 	created := true
 	if input.IdempotencyKey == "" {
 		result, err := r.db.ExecContext(ctx, `
 			INSERT INTO jobs (
-				tenant_id, job_type, payload, max_attempts, available_at, created_by
-			) VALUES (?, ?, ?, ?, ?, ?)
-		`, input.TenantID, input.Type, []byte(input.Payload), input.MaxAttempts, input.AvailableAt.UTC(), nullableUint64(input.CreatedBy))
+				tenant_id, scope_key, job_type, payload, max_attempts, available_at, created_by
+			) VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, tenantValue, scope, input.Type, []byte(input.Payload), input.MaxAttempts, input.AvailableAt.UTC(), nullableUint64(input.CreatedBy))
 		if err != nil {
 			return Job{}, false, fmt.Errorf("enqueue job: %w", err)
 		}
@@ -59,9 +59,9 @@ func (r *Repository) Enqueue(ctx context.Context, input EnqueueInput) (Job, bool
 	} else {
 		result, err := r.db.ExecContext(ctx, `
 			INSERT IGNORE INTO jobs (
-				tenant_id, job_type, payload, max_attempts, available_at, idempotency_key, created_by
-			) VALUES (?, ?, ?, ?, ?, ?, ?)
-		`, input.TenantID, input.Type, []byte(input.Payload), input.MaxAttempts, input.AvailableAt.UTC(), input.IdempotencyKey, nullableUint64(input.CreatedBy))
+				tenant_id, scope_key, job_type, payload, max_attempts, available_at, idempotency_key, created_by
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		`, tenantValue, scope, input.Type, []byte(input.Payload), input.MaxAttempts, input.AvailableAt.UTC(), input.IdempotencyKey, nullableUint64(input.CreatedBy))
 		if err != nil {
 			return Job{}, false, fmt.Errorf("enqueue idempotent job: %w", err)
 		}
@@ -76,14 +76,12 @@ func (r *Repository) Enqueue(ctx context.Context, input EnqueueInput) (Job, bool
 				return Job{}, false, fmt.Errorf("read enqueued job id: %w", err)
 			}
 			id = uint64(lastID)
-		} else {
-			if err := r.db.QueryRowContext(ctx, `
-				SELECT id
-				FROM jobs
-				WHERE tenant_id = ? AND job_type = ? AND idempotency_key = ?
-			`, input.TenantID, input.Type, input.IdempotencyKey).Scan(&id); err != nil {
-				return Job{}, false, fmt.Errorf("read existing idempotent job: %w", err)
-			}
+		} else if err := r.db.QueryRowContext(ctx, `
+			SELECT id
+			FROM jobs
+			WHERE scope_key = ? AND job_type = ? AND idempotency_key = ?
+		`, scope, input.Type, input.IdempotencyKey).Scan(&id); err != nil {
+			return Job{}, false, fmt.Errorf("read existing idempotent job: %w", err)
 		}
 	}
 	job, err := r.Get(ctx, input.TenantID, id)
@@ -91,10 +89,10 @@ func (r *Repository) Enqueue(ctx context.Context, input EnqueueInput) (Job, bool
 }
 
 func (r *Repository) Get(ctx context.Context, tenantID, id uint64) (Job, error) {
-	if tenantID == 0 || id == 0 {
+	if id == 0 {
 		return Job{}, ErrInvalid
 	}
-	job, err := scanJob(r.db.QueryRowContext(ctx, jobSelect+` WHERE tenant_id = ? AND id = ?`, tenantID, id))
+	job, err := scanJob(r.db.QueryRowContext(ctx, jobSelect+` WHERE scope_key = ? AND id = ?`, scopeKey(tenantID), id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Job{}, ErrNotFound
 	}
@@ -118,21 +116,20 @@ func (r *Repository) Claim(ctx context.Context, owner string, lease time.Duratio
 
 	var id uint64
 	var previousStatus Status
-	var previousAttempt uint32
+	var previousAttempt, maxAttempts uint32
 	err = tx.QueryRowContext(ctx, `
-		SELECT id, status, attempt_count
+		SELECT id, status, attempt_count, max_attempts
 		FROM jobs
 		WHERE cancel_requested = FALSE
-		  AND attempt_count < max_attempts
 		  AND available_at <= UTC_TIMESTAMP(6)
 		  AND (
-			status IN ('QUEUED','RETRYING')
+			(status IN ('QUEUED','RETRYING') AND attempt_count < max_attempts)
 			OR (status = 'RUNNING' AND lease_expires_at < UTC_TIMESTAMP(6))
 		  )
 		ORDER BY available_at, id
 		LIMIT 1
 		FOR UPDATE SKIP LOCKED
-	`).Scan(&id, &previousStatus, &previousAttempt)
+	`).Scan(&id, &previousStatus, &previousAttempt, &maxAttempts)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Job{}, false, nil
 	}
@@ -148,6 +145,24 @@ func (r *Repository) Claim(ctx context.Context, owner string, lease time.Duratio
 			WHERE job_id = ? AND attempt_number = ? AND status = 'RUNNING'
 		`, now, id, previousAttempt); err != nil {
 			return Job{}, false, fmt.Errorf("mark expired job attempt lost: %w", err)
+		}
+		if previousAttempt >= maxAttempts {
+			if _, err := tx.ExecContext(ctx, `
+				UPDATE jobs
+				SET status = 'FAILED',
+				    error_message = 'worker lease expired after maximum attempts',
+				    lease_owner = NULL,
+				    lease_expires_at = NULL,
+				    finished_at = ?,
+				    updated_at = ?
+				WHERE id = ?
+			`, now, now, id); err != nil {
+				return Job{}, false, fmt.Errorf("fail exhausted expired job: %w", err)
+			}
+			if err := tx.Commit(); err != nil {
+				return Job{}, false, fmt.Errorf("commit exhausted expired job: %w", err)
+			}
+			return Job{}, false, nil
 		}
 	}
 
@@ -247,7 +262,7 @@ func (r *Repository) Complete(
 	if !json.Valid(resultJSON) {
 		return ErrInvalid
 	}
-	return r.finish(ctx, id, owner, StatusCompleted, resultJSON, "", 0)
+	return r.finish(ctx, id, owner, StatusCompleted, resultJSON, "")
 }
 
 func (r *Repository) Fail(
@@ -322,23 +337,23 @@ func (r *Repository) Fail(
 }
 
 func (r *Repository) MarkCancelled(ctx context.Context, id uint64, owner string) error {
-	return r.finish(ctx, id, owner, StatusCancelled, nil, "cancelled", 0)
+	return r.finish(ctx, id, owner, StatusCancelled, nil, "cancelled")
 }
 
 func (r *Repository) RequestCancel(ctx context.Context, tenantID, id uint64) error {
-	if tenantID == 0 || id == 0 {
+	if id == 0 {
 		return ErrInvalid
 	}
 	result, err := r.db.ExecContext(ctx, `
 		UPDATE jobs
 		SET cancel_requested = TRUE,
-		    status = CASE WHEN status IN ('QUEUED','RETRYING') THEN 'CANCELLED' ELSE status END,
 		    finished_at = CASE WHEN status IN ('QUEUED','RETRYING') THEN UTC_TIMESTAMP(6) ELSE finished_at END,
+		    status = CASE WHEN status IN ('QUEUED','RETRYING') THEN 'CANCELLED' ELSE status END,
 		    updated_at = UTC_TIMESTAMP(6)
-		WHERE tenant_id = ?
+		WHERE scope_key = ?
 		  AND id = ?
 		  AND status IN ('QUEUED','RETRYING','RUNNING')
-	`, tenantID, id)
+	`, scopeKey(tenantID), id)
 	if err != nil {
 		return fmt.Errorf("request job cancellation: %w", err)
 	}
@@ -352,6 +367,28 @@ func (r *Repository) RequestCancel(ctx context.Context, tenantID, id uint64) err
 	return nil
 }
 
+func (r *Repository) UpdateProgress(ctx context.Context, id uint64, owner string, progress uint8) error {
+	if id == 0 || owner == "" || progress > 100 {
+		return ErrInvalid
+	}
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE jobs
+		SET progress = ?, updated_at = UTC_TIMESTAMP(6)
+		WHERE id = ? AND status = 'RUNNING' AND lease_owner = ?
+	`, progress, id, owner)
+	if err != nil {
+		return fmt.Errorf("update job progress: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read progress update result: %w", err)
+	}
+	if affected != 1 {
+		return ErrLeaseLost
+	}
+	return nil
+}
+
 func (r *Repository) finish(
 	ctx context.Context,
 	id uint64,
@@ -359,7 +396,6 @@ func (r *Repository) finish(
 	status Status,
 	resultJSON json.RawMessage,
 	message string,
-	progress uint8,
 ) error {
 	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
@@ -368,18 +404,25 @@ func (r *Repository) finish(
 	defer tx.Rollback()
 
 	var attempt uint32
+	var cancelRequested bool
 	if err := tx.QueryRowContext(ctx, `
-		SELECT attempt_count
+		SELECT attempt_count, cancel_requested
 		FROM jobs
 		WHERE id = ? AND status = 'RUNNING' AND lease_owner = ?
 		FOR UPDATE
-	`, id, owner).Scan(&attempt); err != nil {
+	`, id, owner).Scan(&attempt, &cancelRequested); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrLeaseLost
 		}
 		return fmt.Errorf("lock running job: %w", err)
 	}
 
+	if status == StatusCompleted && cancelRequested {
+		status = StatusCancelled
+		resultJSON = nil
+		message = "cancelled"
+	}
+	progress := uint8(0)
 	if status == StatusCompleted {
 		progress = 100
 	}
@@ -439,12 +482,12 @@ type rowScanner interface {
 
 func scanJob(row rowScanner) (Job, error) {
 	var job Job
+	var tenantID, createdBy sql.NullInt64
 	var payload, result []byte
 	var leaseExpiresAt, startedAt, finishedAt sql.NullTime
-	var createdBy sql.NullInt64
 	if err := row.Scan(
 		&job.ID,
-		&job.TenantID,
+		&tenantID,
 		&job.Type,
 		&job.Status,
 		&payload,
@@ -465,6 +508,9 @@ func scanJob(row rowScanner) (Job, error) {
 		&finishedAt,
 	); err != nil {
 		return Job{}, err
+	}
+	if tenantID.Valid {
+		job.TenantID = uint64(tenantID.Int64)
 	}
 	job.Payload = append(json.RawMessage(nil), payload...)
 	if len(result) > 0 {
@@ -489,6 +535,20 @@ func scanJob(row rowScanner) (Job, error) {
 	return job, nil
 }
 
+func scopeKey(tenantID uint64) string {
+	if tenantID == 0 {
+		return "system"
+	}
+	return fmt.Sprintf("tenant:%d", tenantID)
+}
+
+func nullableTenant(tenantID uint64) any {
+	if tenantID == 0 {
+		return nil
+	}
+	return tenantID
+}
+
 func nullableUint64(value *uint64) any {
 	if value == nil {
 		return nil
@@ -503,5 +563,3 @@ func truncate(value string, max int) string {
 	}
 	return string(runes[:max])
 }
-
-var _ database.Executor = (*sql.Tx)(nil)

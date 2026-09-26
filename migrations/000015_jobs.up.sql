@@ -1,6 +1,7 @@
 CREATE TABLE jobs (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    tenant_id BIGINT UNSIGNED NOT NULL,
+    tenant_id BIGINT UNSIGNED NULL,
+    scope_key VARCHAR(190) NOT NULL,
     job_type VARCHAR(120) NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'QUEUED',
     payload JSON NOT NULL,
@@ -20,7 +21,7 @@ CREATE TABLE jobs (
     started_at DATETIME(6) NULL,
     finished_at DATETIME(6) NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY uq_jobs_idempotency (tenant_id, job_type, idempotency_key),
+    UNIQUE KEY uq_jobs_idempotency (scope_key, job_type, idempotency_key),
     KEY idx_jobs_claim (status, available_at, lease_expires_at, id),
     KEY idx_jobs_tenant_id (tenant_id, id),
     KEY idx_jobs_creator (tenant_id, created_by, id),
