@@ -30,6 +30,9 @@ func (s *Service) Upload(
 	input CreateInput,
 	content io.Reader,
 ) (Attachment, error) {
+	input.ObjectType = strings.TrimSpace(input.ObjectType)
+	input.ObjectID = strings.TrimSpace(input.ObjectID)
+	input.FileName = strings.TrimSpace(input.FileName)
 	if err := validateCreateInput(input); err != nil || content == nil {
 		return Attachment{}, ErrInvalid
 	}
@@ -102,9 +105,6 @@ func (s *Service) Delete(ctx context.Context, tenantID, id uint64) error {
 }
 
 func validateCreateInput(input CreateInput) error {
-	input.ObjectType = strings.TrimSpace(input.ObjectType)
-	input.ObjectID = strings.TrimSpace(input.ObjectID)
-	input.FileName = strings.TrimSpace(input.FileName)
 	if input.TenantID == 0 ||
 		input.ObjectType == "" || len(input.ObjectType) > 100 ||
 		input.ObjectID == "" || len(input.ObjectID) > 128 ||

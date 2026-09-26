@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -179,4 +178,3 @@ func nullableUint64(value *uint64) any {
 	return *value
 }
 
-var _ = errors.Is

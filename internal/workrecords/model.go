@@ -1,7 +1,6 @@
 package workrecords
 
 import (
-	"encoding/json"
 	"errors"
 	"time"
 )
@@ -69,27 +68,28 @@ type Relation struct {
 }
 
 type AssignmentEventPayload struct {
+	ActorUserID uint64 `json:"actor_user_id,string"`
 	AssignedTo *uint64 `json:"assigned_to,omitempty"`
 	AssignmentGroupID *uint64 `json:"assignment_group_id,omitempty"`
 	Version uint64 `json:"version,string"`
 }
 
 type MessageEventPayload struct {
+	ActorUserID uint64 `json:"actor_user_id,string"`
 	MessageID uint64 `json:"message_id,string"`
 	MessageType MessageType `json:"message_type"`
 	Body string `json:"body"`
-	AuthorUserID uint64 `json:"author_user_id,string"`
 }
 
 type WatcherEventPayload struct {
+	ActorUserID uint64 `json:"actor_user_id,string"`
 	UserID uint64 `json:"user_id,string"`
 }
 
 type RelationEventPayload struct {
+	ActorUserID uint64 `json:"actor_user_id,string"`
 	RelationID uint64 `json:"relation_id,string"`
 	RelationType string `json:"relation_type"`
 	TargetType string `json:"target_type"`
 	TargetID string `json:"target_id"`
 }
-
-var _ json.RawMessage

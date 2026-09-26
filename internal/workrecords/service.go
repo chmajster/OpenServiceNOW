@@ -2,11 +2,13 @@ package workrecords
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
 
-	"github.com/chmajster/OpenServiceNOW/internal/activity"
 	"github.com/chmajster/OpenServiceNOW/internal/events"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
 )
@@ -14,17 +16,15 @@ import (
 type Service struct {
 	repo *Repository
 	tx *database.TxManager
-	activity *activity.Repository
 	outbox *events.Repository
 }
 
 func NewService(
 	repo *Repository,
 	tx *database.TxManager,
-	activityRepo *activity.Repository,
 	outbox *events.Repository,
 ) *Service {
-	return &Service{repo: repo, tx: tx, activity: activityRepo, outbox: outbox}
+	return &Service{repo: repo, tx: tx, outbox: outbox}
 }
 
 func (s *Service) SetAssignment(
@@ -34,7 +34,8 @@ func (s *Service) SetAssignment(
 	expectedVersion uint64,
 	assignedTo, groupID *uint64,
 ) (Assignment, error) {
-	if !validActor(actor) {
+	objectType, objectID = normalizeObjectRef(objectType, objectID)
+	if !validActor(actor) || !validObjectRef(actor.TenantID, objectType, objectID) {
 		return Assignment{}, ErrInvalid
 	}
 	var updated Assignment
@@ -47,6 +48,7 @@ func (s *Service) SetAssignment(
 		}
 		updated = change.After
 		payload, err := json.Marshal(AssignmentEventPayload{
+			ActorUserID: actor.UserID,
 			AssignedTo: updated.AssignedTo,
 			AssignmentGroupID: updated.AssignmentGroupID,
 			Version: updated.Version,
@@ -54,26 +56,13 @@ func (s *Service) SetAssignment(
 		if err != nil {
 			return fmt.Errorf("marshal assignment event: %w", err)
 		}
-		eventID, _, err := s.outbox.Append(ctx, exec, events.Input{
+		_, _, err = s.outbox.Append(ctx, exec, events.Input{
 			TenantID: actor.TenantID,
 			Type: "work.assignment.changed",
 			AggregateType: objectType,
 			AggregateID: objectID,
 			Payload: payload,
-			IdempotencyKey: fmt.Sprintf("assignment:%s:%s:v%d", objectType, objectID, updated.Version),
-		})
-		if err != nil {
-			return err
-		}
-		_, _, err = s.activity.Append(ctx, exec, activity.Input{
-			TenantID: actor.TenantID,
-			ObjectType: objectType,
-			ObjectID: objectID,
-			Type: "assignment",
-			ActorUserID: &actor.UserID,
-			Summary: "Assignment updated",
-			Data: payload,
-			SourceEventID: &eventID,
+			IdempotencyKey: eventKey("assignment", objectType, objectID, fmt.Sprint(updated.Version)),
 		})
 		return err
 	})
@@ -87,7 +76,8 @@ func (s *Service) AppendMessage(
 	messageType MessageType,
 	body string,
 ) (Message, error) {
-	if !validActor(actor) {
+	objectType, objectID = normalizeObjectRef(objectType, objectID)
+	if !validActor(actor) || !validObjectRef(actor.TenantID, objectType, objectID) {
 		return Message{}, ErrInvalid
 	}
 	var message Message
@@ -100,42 +90,25 @@ func (s *Service) AppendMessage(
 			return err
 		}
 		payload, err := json.Marshal(MessageEventPayload{
+			ActorUserID: actor.UserID,
 			MessageID: message.ID,
 			MessageType: message.Type,
 			Body: message.Body,
-			AuthorUserID: message.AuthorUserID,
 		})
 		if err != nil {
 			return fmt.Errorf("marshal message event: %w", err)
 		}
 		eventType := "work.comment.added"
-		summary := "Comment added"
-		activityType := "comment"
 		if messageType == MessageWorkNote {
 			eventType = "work.work_note.added"
-			summary = "Work note added"
-			activityType = "work_note"
 		}
-		eventID, _, err := s.outbox.Append(ctx, exec, events.Input{
+		_, _, err = s.outbox.Append(ctx, exec, events.Input{
 			TenantID: actor.TenantID,
 			Type: eventType,
 			AggregateType: objectType,
 			AggregateID: objectID,
 			Payload: payload,
-			IdempotencyKey: fmt.Sprintf("message:%d", message.ID),
-		})
-		if err != nil {
-			return err
-		}
-		_, _, err = s.activity.Append(ctx, exec, activity.Input{
-			TenantID: actor.TenantID,
-			ObjectType: objectType,
-			ObjectID: objectID,
-			Type: activityType,
-			ActorUserID: &actor.UserID,
-			Summary: summary,
-			Data: payload,
-			SourceEventID: &eventID,
+			IdempotencyKey: eventKey("message", fmt.Sprint(message.ID)),
 		})
 		return err
 	})
@@ -148,7 +121,8 @@ func (s *Service) AddWatcher(
 	objectType, objectID string,
 	userID uint64,
 ) (bool, error) {
-	if !validActor(actor) || userID == 0 {
+	objectType, objectID = normalizeObjectRef(objectType, objectID)
+	if !validActor(actor) || userID == 0 || !validObjectRef(actor.TenantID, objectType, objectID) {
 		return false, ErrInvalid
 	}
 	created := false
@@ -158,27 +132,17 @@ func (s *Service) AddWatcher(
 		if err != nil || !created {
 			return err
 		}
-		payload, _ := json.Marshal(WatcherEventPayload{UserID: userID})
-		eventID, _, err := s.outbox.Append(ctx, exec, events.Input{
+		payload, err := json.Marshal(WatcherEventPayload{ActorUserID: actor.UserID, UserID: userID})
+		if err != nil {
+			return fmt.Errorf("marshal watcher event: %w", err)
+		}
+		_, _, err = s.outbox.Append(ctx, exec, events.Input{
 			TenantID: actor.TenantID,
 			Type: "work.watcher.added",
 			AggregateType: objectType,
 			AggregateID: objectID,
 			Payload: payload,
-			IdempotencyKey: fmt.Sprintf("watcher:%s:%s:%d", objectType, objectID, userID),
-		})
-		if err != nil {
-			return err
-		}
-		_, _, err = s.activity.Append(ctx, exec, activity.Input{
-			TenantID: actor.TenantID,
-			ObjectType: objectType,
-			ObjectID: objectID,
-			Type: "watcher",
-			ActorUserID: &actor.UserID,
-			Summary: "Watcher added",
-			Data: payload,
-			SourceEventID: &eventID,
+			IdempotencyKey: eventKey("watcher", objectType, objectID, fmt.Sprint(userID)),
 		})
 		return err
 	})
@@ -190,7 +154,12 @@ func (s *Service) AddRelation(
 	actor Actor,
 	sourceType, sourceID, relationType, targetType, targetID string,
 ) (Relation, bool, error) {
-	if !validActor(actor) {
+	sourceType, sourceID = normalizeObjectRef(sourceType, sourceID)
+	targetType, targetID = normalizeObjectRef(targetType, targetID)
+	relationType = strings.TrimSpace(relationType)
+	if !validActor(actor) ||
+		!validObjectRef(actor.TenantID, sourceType, sourceID) ||
+		!validObjectRef(actor.TenantID, targetType, targetID) {
 		return Relation{}, false, ErrInvalid
 	}
 	var relation Relation
@@ -203,32 +172,23 @@ func (s *Service) AddRelation(
 		if err != nil || !created {
 			return err
 		}
-		payload, _ := json.Marshal(RelationEventPayload{
+		payload, err := json.Marshal(RelationEventPayload{
+			ActorUserID: actor.UserID,
 			RelationID: relation.ID,
 			RelationType: relation.Type,
 			TargetType: relation.TargetType,
 			TargetID: relation.TargetID,
 		})
-		eventID, _, err := s.outbox.Append(ctx, exec, events.Input{
+		if err != nil {
+			return fmt.Errorf("marshal relation event: %w", err)
+		}
+		_, _, err = s.outbox.Append(ctx, exec, events.Input{
 			TenantID: actor.TenantID,
 			Type: "work.relation.added",
 			AggregateType: sourceType,
 			AggregateID: sourceID,
 			Payload: payload,
-			IdempotencyKey: fmt.Sprintf("relation:%d", relation.ID),
-		})
-		if err != nil {
-			return err
-		}
-		_, _, err = s.activity.Append(ctx, exec, activity.Input{
-			TenantID: actor.TenantID,
-			ObjectType: sourceType,
-			ObjectID: sourceID,
-			Type: "relation",
-			ActorUserID: &actor.UserID,
-			Summary: "Related record added",
-			Data: payload,
-			SourceEventID: &eventID,
+			IdempotencyKey: eventKey("relation", fmt.Sprint(relation.ID)),
 		})
 		return err
 	})
@@ -237,4 +197,13 @@ func (s *Service) AddRelation(
 
 func validActor(actor Actor) bool {
 	return actor.TenantID > 0 && actor.UserID > 0
+}
+
+func normalizeObjectRef(objectType, objectID string) (string, string) {
+	return strings.TrimSpace(objectType), strings.TrimSpace(objectID)
+}
+
+func eventKey(parts ...string) string {
+	hash := sha256.Sum256([]byte(strings.Join(parts, "\x00")))
+	return hex.EncodeToString(hash[:])
 }

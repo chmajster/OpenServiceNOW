@@ -12,6 +12,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/chmajster/OpenServiceNOW/internal/activity"
+	"github.com/chmajster/OpenServiceNOW/internal/events"
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
 	"github.com/chmajster/OpenServiceNOW/internal/jobs"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
@@ -20,7 +22,7 @@ import (
 )
 
 func main() {
-	once := flag.Bool("once", false, "claim and process at most one durable job")
+	once := flag.Bool("once", false, "claim and process at most one job and one outbox event")
 	flag.Parse()
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -40,11 +42,12 @@ func main() {
 	}
 	defer db.Close()
 
-	repo := jobs.NewRepository(db)
-	worker, err := jobs.NewWorker(
-		repo,
+	owner := workerIdentity()
+	jobRepo := jobs.NewRepository(db)
+	jobWorker, err := jobs.NewWorker(
+		jobRepo,
 		logger,
-		workerIdentity(),
+		owner+"/jobs",
 		cfg.Worker.Concurrency,
 		cfg.Worker.PollInterval,
 		cfg.Worker.LeaseDuration,
@@ -54,7 +57,7 @@ func main() {
 		logger.Error("worker configuration invalid", "error", err)
 		os.Exit(1)
 	}
-	if err := worker.Register(
+	if err := jobWorker.Register(
 		systemjobs.SessionCleanupType,
 		systemjobs.SessionCleanupHandler(identity.NewMySQLRepository(db)),
 	); err != nil {
@@ -62,20 +65,74 @@ func main() {
 		os.Exit(1)
 	}
 
-	if *once {
-		processed, err := worker.RunOnce(rootCtx)
-		if err != nil {
-			logger.Error("worker one-shot failed", "error", err)
+	eventRepo := events.NewRepository(db)
+	dispatcher, err := events.NewDispatcher(
+		eventRepo,
+		logger,
+		owner+"/events",
+		cfg.Worker.Concurrency,
+		cfg.Worker.PollInterval,
+		cfg.Worker.LeaseDuration,
+		cfg.Worker.RetryDelay,
+	)
+	if err != nil {
+		logger.Error("event dispatcher configuration invalid", "error", err)
+		os.Exit(1)
+	}
+	projector := activity.NewProjector(database.NewTxManager(db), activity.NewRepository(db))
+	eventHandlers := map[string]struct {
+		entryType string
+		summary string
+	}{
+		"work.assignment.changed": {entryType: "assignment", summary: "Assignment updated"},
+		"work.comment.added": {entryType: "comment", summary: "Comment added"},
+		"work.work_note.added": {entryType: "work_note", summary: "Work note added"},
+		"work.watcher.added": {entryType: "watcher", summary: "Watcher added"},
+		"work.relation.added": {entryType: "relation", summary: "Related record added"},
+	}
+	for eventType, metadata := range eventHandlers {
+		if err := dispatcher.Register(eventType, projector.Handler(metadata.entryType, metadata.summary)); err != nil {
+			logger.Error("register activity projection handler", "event_type", eventType, "error", err)
 			os.Exit(1)
 		}
-		logger.Info("worker one-shot complete", "processed", processed)
+	}
+
+	if *once {
+		jobProcessed, err := jobWorker.RunOnce(rootCtx)
+		if err != nil {
+			logger.Error("worker one-shot job failed", "error", err)
+			os.Exit(1)
+		}
+		eventProcessed, err := dispatcher.RunOnce(rootCtx)
+		if err != nil {
+			logger.Error("worker one-shot event failed", "error", err)
+			os.Exit(1)
+		}
+		logger.Info("worker one-shot complete", "job_processed", jobProcessed, "event_processed", eventProcessed)
 		return
 	}
 
 	logger.Info("worker started", "concurrency", cfg.Worker.Concurrency)
-	if err := worker.Run(rootCtx); err != nil {
-		logger.Error("worker failed", "error", err)
-		os.Exit(1)
+	runCtx, cancel := context.WithCancel(rootCtx)
+	defer cancel()
+	errCh := make(chan error, 2)
+	go func() { errCh <- jobWorker.Run(runCtx) }()
+	go func() { errCh <- dispatcher.Run(runCtx) }()
+
+	select {
+	case <-rootCtx.Done():
+		cancel()
+		<-errCh
+		<-errCh
+	case err := <-errCh:
+		if err != nil {
+			logger.Error("worker subsystem failed", "error", err)
+		}
+		cancel()
+		<-errCh
+		if err != nil {
+			os.Exit(1)
+		}
 	}
 	logger.Info("worker shutdown complete")
 }
