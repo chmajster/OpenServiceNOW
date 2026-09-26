@@ -10,7 +10,6 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	platformdb "github.com/chmajster/OpenServiceNOW/internal/platform/database"
 	"github.com/golang-migrate/migrate/v4"
-	migratemysql "github.com/golang-migrate/migrate/v4/database/mysql"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
@@ -39,13 +38,7 @@ func main() {
 	}
 	defer db.Close()
 
-	driver, err := migratemysql.WithInstance(db, &migratemysql.Config{})
-	if err != nil {
-		logger.Error("create migration database driver", "error", err)
-		os.Exit(1)
-	}
-
-	m, err := migrate.NewWithDatabaseInstance("file://migrations", "mysql", driver)
+	m, err := platformdb.NewMigrator(db, "file://migrations")
 	if err != nil {
 		logger.Error("create migrator", "error", err)
 		os.Exit(1)
