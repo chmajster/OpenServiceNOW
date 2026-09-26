@@ -1,6 +1,6 @@
 # Current Project Status
 
-Last updated: 2026-09-23
+Last updated: 2026-09-26
 
 ## Current phase
 
@@ -92,7 +92,7 @@ Remaining verification work:
 
 ## Known problems
 
-### BLOCKER — GitHub Actions jobs still fail before the first step
+### BLOCKER — GitHub-hosted runner allocation fails before the first step
 
 A workflow YAML parsing defect was found and fixed: an inline `run:` scalar contained `version: none dirty: false`, which made GitHub treat the workflow as invalid. After the fix, GitHub correctly recognizes the workflow name and creates the `test` and `frontend` jobs.
 
@@ -104,6 +104,10 @@ A temporary minimal diagnostic workflow with one `echo` step was also created an
 - no job logs are available.
 
 Therefore the YAML/parser problem is resolved. The remaining CI blocker occurs before the first runner step and is separate from application build/test results.
+
+On 2026-09-26 the workflow was changed from `ubuntu-24.04` to `ubuntu-latest`; run #474 still failed with `runner_id=0`, empty runner name and no steps. The workflow was then changed to avoid duplicate `push` + `pull_request` runs for feature branches and to cancel superseded runs. Run #475 still failed identically before runner allocation. GitHub Status reported Actions operational at the time, so the remaining failure is consistent with an account/repository runner-allocation, Actions policy, quota or billing restriction rather than application code.
+
+The previous workflow triggered both `push` on `foundation/**` and `pull_request`, causing duplicate runs for each PR-branch commit. This has been corrected; feature branches now run through the PR trigger, while direct `push` CI is limited to `main`.
 
 The assistant execution environment contains Go 1.23.2 and cannot resolve `proxy.golang.org`, so it cannot independently download the Go 1.27 toolchain or module dependencies.
 
@@ -210,8 +214,8 @@ No fake endpoint, placeholder UI or empty worker executable is used to hide thes
 
 ## Next recommended tasks
 
-1. Restore executable CI.
-2. Generate and commit `go.sum` and `web/package-lock.json`.
+1. Restore GitHub-hosted runner allocation by checking repository Actions policy and account Actions quota/billing, then rerun `foundation-ci`.
+2. Generate and commit `go.sum` and `web/package-lock.json` from the first executing run.
 3. Fix any backend/frontend build, test or migration defects exposed by the first real CI execution.
 4. Re-run the complete Phase 1 end-to-end verification.
 5. Merge only after all required checks are green and the PR has no blockers.
