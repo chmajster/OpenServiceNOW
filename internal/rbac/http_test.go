@@ -16,6 +16,7 @@ import (
 type fakeAuth struct {
 	identity    identity.SessionIdentity
 	permission bool
+	permissions map[string]bool
 	csrf       bool
 }
 
@@ -39,7 +40,10 @@ func (f fakeAuth) Permissions(context.Context, identity.SessionIdentity) ([]stri
 	return nil, nil
 }
 
-func (f fakeAuth) HasPermission(context.Context, identity.SessionIdentity, string) (bool, error) {
+func (f fakeAuth) HasPermission(_ context.Context, _ identity.SessionIdentity, permission string) (bool, error) {
+	if f.permissions != nil {
+		return f.permissions[permission], nil
+	}
 	return f.permission, nil
 }
 
@@ -412,6 +416,30 @@ func TestListAssignmentsRejectsOversizedLimit(t *testing.T) {
 		authenticatedRequest(http.MethodGet, "/api/v1/admin/rbac/groups/7/members?limit=201", ""),
 	)
 	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	if service.listGroupMemberCalls != 0 {
+		t.Fatalf("list group member calls = %d", service.listGroupMemberCalls)
+	}
+}
+
+func TestAssignmentUserReadsRequireUsersPermission(t *testing.T) {
+	service := &fakeRBAC{}
+	router := newRouter(fakeAuth{
+		identity: identity.SessionIdentity{UserID: 1, TenantID: 42},
+		permissions: map[string]bool{
+			"admin.rbac.manage": true,
+			"admin.users.manage": false,
+		},
+	}, service)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(
+		rr,
+		authenticatedRequest(http.MethodGet, "/api/v1/admin/rbac/groups/7/members", ""),
+	)
+
+	if rr.Code != http.StatusForbidden {
 		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
 	}
 	if service.listGroupMemberCalls != 0 {
