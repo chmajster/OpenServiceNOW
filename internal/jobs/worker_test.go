@@ -17,6 +17,7 @@ type fakeStore struct {
 	failed error
 	cancelled bool
 	heartbeat HeartbeatState
+	logs []string
 }
 
 func (f *fakeStore) Claim(context.Context, string, time.Duration) (Job, bool, error) {
@@ -46,6 +47,11 @@ func (f *fakeStore) Fail(_ context.Context, _ uint64, _ string, err error, _ tim
 
 func (f *fakeStore) MarkCancelled(context.Context, uint64, string) error {
 	f.cancelled = true
+	return nil
+}
+
+func (f *fakeStore) AppendLog(_ context.Context, _ uint64, _ string, _ string, message string, _ json.RawMessage) error {
+	f.logs = append(f.logs, message)
 	return nil
 }
 
@@ -87,6 +93,13 @@ func TestWorkerRunOnceCompletesJob(t *testing.T) {
 	if store.failed != nil {
 		t.Fatalf("unexpected failure: %v", store.failed)
 	}
+	metrics := worker.Metrics()
+	if metrics.Claimed != 1 || metrics.Completed != 1 || metrics.Failed != 0 {
+		t.Fatalf("metrics = %+v", metrics)
+	}
+	if len(store.logs) < 2 {
+		t.Fatalf("durable log messages = %v", store.logs)
+	}
 }
 
 func TestWorkerRunOnceFailsUnknownJobType(t *testing.T) {
@@ -101,6 +114,10 @@ func TestWorkerRunOnceFailsUnknownJobType(t *testing.T) {
 	}
 	if store.failed == nil {
 		t.Fatal("unknown job type must fail durably")
+	}
+	metrics := worker.Metrics()
+	if metrics.Claimed != 1 || metrics.Failed != 1 {
+		t.Fatalf("metrics = %+v", metrics)
 	}
 }
 

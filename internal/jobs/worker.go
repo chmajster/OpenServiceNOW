@@ -17,6 +17,7 @@ type Store interface {
 	Complete(context.Context, uint64, string, json.RawMessage) error
 	Fail(context.Context, uint64, string, error, time.Duration) error
 	MarkCancelled(context.Context, uint64, string) error
+	AppendLog(context.Context, uint64, string, string, string, json.RawMessage) error
 }
 
 type Handler func(context.Context, Job) (json.RawMessage, error)
@@ -30,6 +31,23 @@ type Worker struct {
 	leaseDuration time.Duration
 	retryDelay time.Duration
 	handlers map[string]Handler
+	metrics workerMetrics
+}
+
+type workerMetrics struct {
+	claimed atomic.Uint64
+	completed atomic.Uint64
+	failed atomic.Uint64
+	cancelled atomic.Uint64
+	leaseLost atomic.Uint64
+}
+
+type MetricsSnapshot struct {
+	Claimed uint64
+	Completed uint64
+	Failed uint64
+	Cancelled uint64
+	LeaseLost uint64
 }
 
 func NewWorker(
@@ -69,6 +87,16 @@ func (w *Worker) Register(jobType string, handler Handler) error {
 	}
 	w.handlers[jobType] = handler
 	return nil
+}
+
+func (w *Worker) Metrics() MetricsSnapshot {
+	return MetricsSnapshot{
+		Claimed: w.metrics.claimed.Load(),
+		Completed: w.metrics.completed.Load(),
+		Failed: w.metrics.failed.Load(),
+		Cancelled: w.metrics.cancelled.Load(),
+		LeaseLost: w.metrics.leaseLost.Load(),
+	}
 }
 
 func (w *Worker) Run(ctx context.Context) error {
@@ -145,11 +173,15 @@ func (w *Worker) claimAndProcess(ctx context.Context, owner string) (bool, error
 	if !ok {
 		return false, nil
 	}
+	w.metrics.claimed.Add(1)
+	w.appendLog(ctx, job.ID, owner, "INFO", "Job attempt started", nil)
 	handler, exists := w.handlers[job.Type]
 	if !exists {
 		runErr := fmt.Errorf("no handler registered for job type %q", job.Type)
 		finalCtx, cancel := finalizeContext(ctx)
 		defer cancel()
+		w.appendLog(finalCtx, job.ID, owner, "ERROR", runErr.Error(), nil)
+		w.metrics.failed.Add(1)
 		if failErr := w.store.Fail(finalCtx, job.ID, owner, runErr, w.retryDelay); failErr != nil {
 			return true, errors.Join(runErr, failErr)
 		}
@@ -205,6 +237,7 @@ func (w *Worker) process(ctx context.Context, owner string, job Job, handler Han
 	<-heartbeatDone
 
 	if leaseLost.Load() {
+		w.metrics.leaseLost.Add(1)
 		w.logger.Warn("job lease lost", "job_id", job.ID, "job_type", job.Type)
 		return
 	}
@@ -213,16 +246,27 @@ func (w *Worker) process(ctx context.Context, owner string, job Job, handler Han
 	defer finalCancel()
 
 	if cancelRequested.Load() {
-		if err := w.store.MarkCancelled(finalCtx, job.ID, owner); err != nil &&
-			!errors.Is(err, ErrLeaseLost) {
-			w.logger.Error("mark cancelled job failed", "job_id", job.ID, "error", err)
+		w.appendLog(finalCtx, job.ID, owner, "WARN", "Job cancellation requested", nil)
+		if err := w.store.MarkCancelled(finalCtx, job.ID, owner); err != nil {
+			if errors.Is(err, ErrLeaseLost) {
+				w.metrics.leaseLost.Add(1)
+			} else {
+				w.logger.Error("mark cancelled job failed", "job_id", job.ID, "error", err)
+			}
+		} else {
+			w.metrics.cancelled.Add(1)
 		}
 		return
 	}
 	if runErr != nil {
-		if err := w.store.Fail(finalCtx, job.ID, owner, runErr, w.retryDelay); err != nil &&
-			!errors.Is(err, ErrLeaseLost) {
-			w.logger.Error("fail job update failed", "job_id", job.ID, "error", err)
+		w.appendLog(finalCtx, job.ID, owner, "ERROR", runErr.Error(), nil)
+		w.metrics.failed.Add(1)
+		if err := w.store.Fail(finalCtx, job.ID, owner, runErr, w.retryDelay); err != nil {
+			if errors.Is(err, ErrLeaseLost) {
+				w.metrics.leaseLost.Add(1)
+			} else {
+				w.logger.Error("fail job update failed", "job_id", job.ID, "error", err)
+			}
 		}
 		return
 	}
@@ -231,15 +275,38 @@ func (w *Worker) process(ctx context.Context, owner string, job Job, handler Han
 	}
 	if !json.Valid(result) {
 		runErr = errors.New("job handler returned invalid JSON result")
-		if err := w.store.Fail(finalCtx, job.ID, owner, runErr, w.retryDelay); err != nil &&
-			!errors.Is(err, ErrLeaseLost) {
-			w.logger.Error("invalid result failure update failed", "job_id", job.ID, "error", err)
+		w.appendLog(finalCtx, job.ID, owner, "ERROR", runErr.Error(), nil)
+		w.metrics.failed.Add(1)
+		if err := w.store.Fail(finalCtx, job.ID, owner, runErr, w.retryDelay); err != nil {
+			if errors.Is(err, ErrLeaseLost) {
+				w.metrics.leaseLost.Add(1)
+			} else {
+				w.logger.Error("invalid result failure update failed", "job_id", job.ID, "error", err)
+			}
 		}
 		return
 	}
-	if err := w.store.Complete(finalCtx, job.ID, owner, result); err != nil &&
+	w.appendLog(finalCtx, job.ID, owner, "INFO", "Job handler completed", nil)
+	if err := w.store.Complete(finalCtx, job.ID, owner, result); err != nil {
+		if errors.Is(err, ErrLeaseLost) {
+			w.metrics.leaseLost.Add(1)
+		} else {
+			w.logger.Error("complete job update failed", "job_id", job.ID, "error", err)
+		}
+		return
+	}
+	w.metrics.completed.Add(1)
+}
+
+func (w *Worker) appendLog(
+	ctx context.Context,
+	jobID uint64,
+	owner, level, message string,
+	fields json.RawMessage,
+) {
+	if err := w.store.AppendLog(ctx, jobID, owner, level, message, fields); err != nil &&
 		!errors.Is(err, ErrLeaseLost) {
-		w.logger.Error("complete job update failed", "job_id", job.ID, "error", err)
+		w.logger.Error("append durable job log failed", "job_id", jobID, "error", err)
 	}
 }
 

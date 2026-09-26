@@ -478,6 +478,103 @@ func (r *Repository) finish(
 	return nil
 }
 
+func (r *Repository) AppendLog(
+	ctx context.Context,
+	jobID uint64,
+	owner, level, message string,
+	fields json.RawMessage,
+) error {
+	owner = strings.TrimSpace(owner)
+	level = strings.ToUpper(strings.TrimSpace(level))
+	message = strings.TrimSpace(message)
+	if jobID == 0 || owner == "" || message == "" || len([]rune(message)) > 1000 {
+		return ErrInvalid
+	}
+	switch level {
+	case "DEBUG", "INFO", "WARN", "ERROR":
+	default:
+		return ErrInvalid
+	}
+	var fieldsValue any
+	if len(fields) > 0 {
+		if !json.Valid(fields) {
+			return ErrInvalid
+		}
+		fieldsValue = []byte(fields)
+	}
+	result, err := r.db.ExecContext(ctx, `
+		INSERT INTO job_logs (job_id, attempt_number, level, message, fields)
+		SELECT id, attempt_count, ?, ?, ?
+		FROM jobs
+		WHERE id = ? AND status = 'RUNNING' AND lease_owner = ?
+	`, level, message, fieldsValue, jobID, owner)
+	if err != nil {
+		return fmt.Errorf("append job log: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read job log append result: %w", err)
+	}
+	if affected != 1 {
+		return ErrLeaseLost
+	}
+	return nil
+}
+
+func (r *Repository) ListLogs(
+	ctx context.Context,
+	tenantID, jobID, beforeID uint64,
+	limit int,
+) (LogPage, error) {
+	if jobID == 0 || limit < 1 || limit > 500 {
+		return LogPage{}, ErrInvalid
+	}
+	query := `
+		SELECT jl.id, jl.job_id, jl.attempt_number, jl.level, jl.message, jl.fields, jl.created_at
+		FROM job_logs jl
+		JOIN jobs j ON j.id = jl.job_id
+		WHERE j.scope_key = ? AND j.id = ?
+	`
+	args := []any{scopeKey(tenantID), jobID}
+	if beforeID > 0 {
+		query += " AND jl.id < ?"
+		args = append(args, beforeID)
+	}
+	query += " ORDER BY jl.id DESC LIMIT ?"
+	args = append(args, limit+1)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return LogPage{}, fmt.Errorf("list job logs: %w", err)
+	}
+	defer rows.Close()
+	entries := make([]LogEntry, 0, limit+1)
+	for rows.Next() {
+		var item LogEntry
+		var fields []byte
+		if err := rows.Scan(
+			&item.ID, &item.JobID, &item.AttemptNumber, &item.Level,
+			&item.Message, &fields, &item.CreatedAt,
+		); err != nil {
+			return LogPage{}, fmt.Errorf("scan job log: %w", err)
+		}
+		if len(fields) > 0 {
+			item.Fields = append(json.RawMessage(nil), fields...)
+		}
+		entries = append(entries, item)
+	}
+	if err := rows.Err(); err != nil {
+		return LogPage{}, fmt.Errorf("iterate job logs: %w", err)
+	}
+	page := LogPage{Entries: entries}
+	if len(entries) > limit {
+		page.Entries = entries[:limit]
+		page.NextBeforeID = page.Entries[len(page.Entries)-1].ID
+	}
+	return page, nil
+}
+
+
 const jobSelect = `
 	SELECT
 		id, tenant_id, job_type, status, payload, result, COALESCE(error_message, ''),

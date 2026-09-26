@@ -190,6 +190,9 @@ func TestPhase2WorkPlatform(t *testing.T) {
 		if claimed.ID != first.ID || claimed.AttemptCount != 1 || claimed.Status != jobs.StatusRunning {
 			t.Fatalf("first claim = %+v", claimed)
 		}
+		if err := repo.AppendLog(ctx, claimed.ID, "integration-worker-a", "WARN", "first attempt will retry", json.RawMessage(`{"attempt":1}`)); err != nil {
+			t.Fatalf("append first job log: %v", err)
+		}
 		if err := repo.Fail(ctx, claimed.ID, "integration-worker-a", errors.New("retry me"), 0); err != nil {
 			t.Fatalf("fail first attempt: %v", err)
 		}
@@ -208,6 +211,9 @@ func TestPhase2WorkPlatform(t *testing.T) {
 		}
 		if claimedAgain.ID != first.ID || claimedAgain.AttemptCount != 2 {
 			t.Fatalf("second claim = %+v", claimedAgain)
+		}
+		if err := repo.AppendLog(ctx, claimedAgain.ID, "integration-worker-b", "INFO", "second attempt succeeds", nil); err != nil {
+			t.Fatalf("append second job log: %v", err)
 		}
 		if err := repo.Complete(
 			ctx,
@@ -232,6 +238,20 @@ func TestPhase2WorkPlatform(t *testing.T) {
 		}
 		if attemptCount != 2 {
 			t.Fatalf("job attempts = %d, want 2", attemptCount)
+		}
+		logPage, err := repo.ListLogs(ctx, adminA.TenantID, first.ID, 0, 50)
+		if err != nil {
+			t.Fatalf("list job logs: %v", err)
+		}
+		if len(logPage.Entries) != 2 {
+			t.Fatalf("job logs = %+v", logPage.Entries)
+		}
+		if _, err := repo.ListLogs(ctx, adminB.TenantID, first.ID, 0, 50); err != nil {
+			t.Fatalf("cross-tenant log list should be empty, got error: %v", err)
+		}
+		wrongLogs, _ := repo.ListLogs(ctx, adminB.TenantID, first.ID, 0, 50)
+		if len(wrongLogs.Entries) != 0 {
+			t.Fatalf("tenant B saw tenant A job logs: %+v", wrongLogs.Entries)
 		}
 	})
 

@@ -60,3 +60,18 @@ type HeartbeatState struct {
 	LeaseValid bool
 	CancelRequested bool
 }
+
+type LogEntry struct {
+	ID uint64 `json:"id,string"`
+	JobID uint64 `json:"job_id,string"`
+	AttemptNumber uint32 `json:"attempt_number"`
+	Level string `json:"level"`
+	Message string `json:"message"`
+	Fields json.RawMessage `json:"fields,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type LogPage struct {
+	Entries []LogEntry `json:"entries"`
+	NextBeforeID uint64 `json:"next_before_id,string,omitempty"`
+}
