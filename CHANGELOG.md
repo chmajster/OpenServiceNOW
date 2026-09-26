@@ -4,6 +4,22 @@ All notable repository changes are documented here.
 
 The project is pre-release and currently in architecture/foundation development.
 
+## 2026-09-26 — Phase 1 CI allocation hardening and Phase 2 sequencing
+
+### Changed
+
+- switched GitHub-hosted jobs from a fixed `ubuntu-24.04` label to `ubuntu-latest` while isolating runner-allocation failures,
+- removed duplicate feature-branch CI caused by simultaneous `push` and `pull_request` triggers,
+- added workflow concurrency so superseded PR runs are cancelled instead of consuming runner capacity,
+- expanded Phase 2 so durable jobs/worker, transactional outbox/events, attachments and the unified activity timeline are explicit prerequisites for Incident Management.
+
+### Verification status
+
+- run #474 on `ubuntu-latest` and run #475 after duplicate-trigger removal both failed before runner assignment with `runner_id=0`, an empty runner name and zero steps,
+- no dependency-resolution, build, test, migration or browser step executed in those runs,
+- GitHub Status reported Actions operational during the latest reproduction,
+- executable verification remains blocked by GitHub-hosted runner allocation/account or repository Actions policy/quota/billing; application-code success is not claimed.
+
 ## 2026-09-22 — Phase 0 architecture
 
 ### Added
