@@ -428,7 +428,7 @@ func TestAssignmentUserReadsRequireUsersPermission(t *testing.T) {
 	router := newRouter(fakeAuth{
 		identity: identity.SessionIdentity{UserID: 1, TenantID: 42},
 		permissions: map[string]bool{
-			"admin.rbac.manage": true,
+			"admin.rbac.manage":  true,
 			"admin.users.manage": false,
 		},
 	}, service)
