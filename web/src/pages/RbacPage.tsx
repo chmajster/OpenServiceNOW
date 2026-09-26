@@ -672,8 +672,7 @@ export function RbacPage() {
                       <button
                         className="button button--small button--secondary"
                         type="button"
-                        disabled={busy || role.system_role}
-                        title={role.system_role ? "Rola systemowa podlega dodatkowym zabezpieczeniom" : undefined}
+                        disabled={busy}
                         onClick={() => void removeUserRole(role.id)}
                       >
                         Usuń
