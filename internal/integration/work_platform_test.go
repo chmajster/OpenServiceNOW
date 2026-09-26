@@ -491,7 +491,8 @@ func TestPhase2WorkPlatform(t *testing.T) {
 			t.Fatalf("create attachment storage: %v", err)
 		}
 		metadata := attachments.NewRepository(db)
-		service, err := attachments.NewService(metadata, storage, 1024)
+		eventRepo := events.NewRepository(db)
+		service, err := attachments.NewEventingService(metadata, storage, 1024, tx, eventRepo)
 		if err != nil {
 			t.Fatalf("create attachment service: %v", err)
 		}
@@ -545,8 +546,30 @@ func TestPhase2WorkPlatform(t *testing.T) {
 		if deleting.Status != attachments.StatusDeleting {
 			t.Fatalf("deleting attachment status = %s", deleting.Status)
 		}
-		if err := service.Delete(ctx, adminA.TenantID, item.ID); err != nil {
+		var addedEvents int
+		if err := db.QueryRowContext(ctx, `
+			SELECT COUNT(*) FROM outbox_events
+			WHERE tenant_id = ? AND event_type = 'work.attachment.added'
+			  AND aggregate_type = 'incident' AND aggregate_id = ?
+		`, adminA.TenantID, "INC-ATTACH-"+suffix).Scan(&addedEvents); err != nil {
+			t.Fatalf("count attachment added events: %v", err)
+		}
+		if addedEvents != 1 {
+			t.Fatalf("attachment added events = %d, want 1", addedEvents)
+		}
+		if err := service.DeleteAs(ctx, adminA.TenantID, item.ID, adminA.UserID); err != nil {
 			t.Fatalf("resume delete: %v", err)
+		}
+		var removedEvents int
+		if err := db.QueryRowContext(ctx, `
+			SELECT COUNT(*) FROM outbox_events
+			WHERE tenant_id = ? AND event_type = 'work.attachment.removed'
+			  AND aggregate_type = 'incident' AND aggregate_id = ?
+		`, adminA.TenantID, "INC-ATTACH-"+suffix).Scan(&removedEvents); err != nil {
+			t.Fatalf("count attachment removed events: %v", err)
+		}
+		if removedEvents != 1 {
+			t.Fatalf("attachment removed events = %d, want 1", removedEvents)
 		}
 		if _, _, err := service.Open(ctx, adminA.TenantID, item.ID); !errors.Is(err, attachments.ErrNotFound) {
 			t.Fatalf("open deleted attachment error = %v", err)

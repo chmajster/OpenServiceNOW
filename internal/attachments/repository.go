@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
 )
 
 type MetadataStore interface {
@@ -14,6 +16,13 @@ type MetadataStore interface {
 	BeginDelete(context.Context, uint64, uint64) (Attachment, error)
 	RevertDelete(context.Context, uint64, uint64) error
 	FinishDelete(context.Context, uint64, uint64) error
+}
+
+type TransactionalMetadataStore interface {
+	MetadataStore
+	CreateTx(context.Context, database.Executor, CreateInput, string, string, uint64, [32]byte) (Attachment, error)
+	FinishDeleteTx(context.Context, database.Executor, uint64, uint64) error
+	ValidateActiveUserTx(context.Context, database.Executor, uint64, uint64) error
 }
 
 type Repository struct {
@@ -32,26 +41,39 @@ func (r *Repository) Create(
 	size uint64,
 	sum [32]byte,
 ) (Attachment, error) {
+	return r.create(ctx, r.db, input, storageKey, contentType, size, sum)
+}
+
+func (r *Repository) CreateTx(
+	ctx context.Context,
+	exec database.Executor,
+	input CreateInput,
+	storageKey string,
+	contentType string,
+	size uint64,
+	sum [32]byte,
+) (Attachment, error) {
+	if exec == nil {
+		return Attachment{}, ErrInvalid
+	}
+	return r.create(ctx, exec, input, storageKey, contentType, size, sum)
+}
+
+func (r *Repository) create(
+	ctx context.Context,
+	exec database.Executor,
+	input CreateInput,
+	storageKey string,
+	contentType string,
+	size uint64,
+	sum [32]byte,
+) (Attachment, error) {
 	if input.UploadedBy != nil {
-		var found int
-		err := r.db.QueryRowContext(ctx, `
-			SELECT 1
-			FROM tenant_memberships tm
-			JOIN users u ON u.id = tm.user_id
-			WHERE tm.tenant_id = ?
-			  AND tm.user_id = ?
-			  AND tm.active = TRUE
-			  AND u.active = TRUE
-		`, input.TenantID, *input.UploadedBy).Scan(&found)
-		if errors.Is(err, sql.ErrNoRows) {
-			return Attachment{}, ErrNotFound
-		}
-		if err != nil {
-			return Attachment{}, fmt.Errorf("validate attachment uploader: %w", err)
+		if err := r.ValidateActiveUserTx(ctx, exec, input.TenantID, *input.UploadedBy); err != nil {
+			return Attachment{}, err
 		}
 	}
-
-	result, err := r.db.ExecContext(ctx, `
+	result, err := exec.ExecContext(ctx, `
 		INSERT INTO attachments (
 			tenant_id, object_type, object_id, file_name, content_type,
 			size_bytes, sha256, storage_key, uploaded_by
@@ -65,14 +87,49 @@ func (r *Repository) Create(
 	if err != nil {
 		return Attachment{}, fmt.Errorf("read attachment id: %w", err)
 	}
-	return r.Get(ctx, input.TenantID, uint64(id))
+	return r.get(ctx, exec, input.TenantID, uint64(id))
+}
+
+func (r *Repository) ValidateActiveUserTx(
+	ctx context.Context,
+	exec database.Executor,
+	tenantID, userID uint64,
+) error {
+	if exec == nil || tenantID == 0 || userID == 0 {
+		return ErrInvalid
+	}
+	var found int
+	err := exec.QueryRowContext(ctx, `
+		SELECT 1
+		FROM tenant_memberships tm
+		JOIN users u ON u.id = tm.user_id
+		WHERE tm.tenant_id = ?
+		  AND tm.user_id = ?
+		  AND tm.active = TRUE
+		  AND u.active = TRUE
+	`, tenantID, userID).Scan(&found)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("validate attachment actor: %w", err)
+	}
+	return nil
 }
 
 func (r *Repository) Get(ctx context.Context, tenantID, id uint64) (Attachment, error) {
-	if tenantID == 0 || id == 0 {
+	return r.get(ctx, r.db, tenantID, id)
+}
+
+func (r *Repository) get(
+	ctx context.Context,
+	exec database.Executor,
+	tenantID, id uint64,
+) (Attachment, error) {
+	if exec == nil || tenantID == 0 || id == 0 {
 		return Attachment{}, ErrInvalid
 	}
-	attachment, err := scanAttachment(r.db.QueryRowContext(ctx, attachmentSelect+`
+	attachment, err := scanAttachment(exec.QueryRowContext(ctx, attachmentSelect+`
 		WHERE tenant_id = ? AND id = ?
 	`, tenantID, id))
 	if errors.Is(err, sql.ErrNoRows) {
@@ -147,7 +204,26 @@ func (r *Repository) RevertDelete(ctx context.Context, tenantID, id uint64) erro
 }
 
 func (r *Repository) FinishDelete(ctx context.Context, tenantID, id uint64) error {
-	result, err := r.db.ExecContext(ctx, `
+	return r.finishDelete(ctx, r.db, tenantID, id)
+}
+
+func (r *Repository) FinishDeleteTx(
+	ctx context.Context,
+	exec database.Executor,
+	tenantID, id uint64,
+) error {
+	if exec == nil {
+		return ErrInvalid
+	}
+	return r.finishDelete(ctx, exec, tenantID, id)
+}
+
+func (r *Repository) finishDelete(
+	ctx context.Context,
+	exec database.Executor,
+	tenantID, id uint64,
+) error {
+	result, err := exec.ExecContext(ctx, `
 		UPDATE attachments
 		SET status = 'DELETED', deleted_at = ?
 		WHERE tenant_id = ? AND id = ? AND status = 'DELETING'
@@ -162,7 +238,7 @@ func (r *Repository) FinishDelete(ctx context.Context, tenantID, id uint64) erro
 	if affected == 1 {
 		return nil
 	}
-	attachment, getErr := r.Get(ctx, tenantID, id)
+	attachment, getErr := r.get(ctx, exec, tenantID, id)
 	if errors.Is(getErr, ErrNotFound) {
 		return ErrNotFound
 	}

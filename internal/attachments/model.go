@@ -44,3 +44,12 @@ type CreateInput struct {
 	FileName string
 	UploadedBy *uint64
 }
+
+type EventPayload struct {
+	ActorUserID *uint64 `json:"actor_user_id,string,omitempty"`
+	AttachmentID uint64 `json:"attachment_id,string"`
+	FileName string `json:"file_name"`
+	ContentType string `json:"content_type"`
+	SizeBytes uint64 `json:"size_bytes,string"`
+	SHA256 string `json:"sha256"`
+}

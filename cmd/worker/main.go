@@ -92,6 +92,8 @@ func main() {
 		"work.watcher.removed": {entryType: "watcher", summary: "Watcher removed"},
 		"work.relation.added": {entryType: "relation", summary: "Related record added"},
 		"work.relation.removed": {entryType: "relation", summary: "Related record removed"},
+		"work.attachment.added": {entryType: "attachment", summary: "Attachment added"},
+		"work.attachment.removed": {entryType: "attachment", summary: "Attachment removed"},
 	}
 	for eventType, metadata := range eventHandlers {
 		if err := dispatcher.Register(eventType, projector.Handler(metadata.entryType, metadata.summary)); err != nil {
