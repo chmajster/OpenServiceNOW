@@ -451,7 +451,6 @@ func TestAssignmentUserReadsRequireUsersPermission(t *testing.T) {
 	}
 }
 
-
 func TestUserBearingRBACWritesRequireUsersPermission(t *testing.T) {
 	tests := []struct {
 		name string
