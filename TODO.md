@@ -185,7 +185,7 @@ Implemented:
 - bootstrap tenant/admin command,
 - tenant-scoped user administration with bounded cursor pagination/search,
 - explicit membership linking for an already-existing active global identity without changing its password/profile,
-- platform-admin binding checks on membership activation/deactivation so disabled privileged memberships cannot be reactivated by delegated user administrators,
+- system-role binding checks on membership activation/deactivation so disabled privileged memberships cannot be reactivated by delegated user administrators,
 - session cleanup scheduler with MySQL advisory-lock replica coordination,
 - explicit trusted-proxy CIDRs and safe forwarded-IP resolution,
 - bounded login/password input sizes,
