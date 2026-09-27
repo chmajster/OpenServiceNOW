@@ -57,7 +57,6 @@ func (r *AdminSafetyRepository) IsEffectivePlatformAdmin(
 					JOIN roles r ON r.id = ura.role_id AND r.tenant_id = ura.tenant_id
 					WHERE ura.tenant_id = tm.tenant_id
 					  AND ura.user_id = tm.user_id
-					  AND r.name = 'platform_admin'
 					  AND r.system_role = TRUE
 				)
 				OR EXISTS (
@@ -68,7 +67,6 @@ func (r *AdminSafetyRepository) IsEffectivePlatformAdmin(
 					JOIN roles r ON r.id = gra.role_id AND r.tenant_id = gra.tenant_id
 					WHERE gm.tenant_id = tm.tenant_id
 					  AND gm.user_id = tm.user_id
-					  AND r.name = 'platform_admin'
 					  AND r.system_role = TRUE
 				)
 			  )
@@ -80,7 +78,7 @@ func (r *AdminSafetyRepository) IsEffectivePlatformAdmin(
 	return allowed, nil
 }
 
-func (r *AdminSafetyRepository) HasPlatformAdminBinding(
+func (r *AdminSafetyRepository) HasSystemRoleBinding(
 	ctx context.Context,
 	exec platformdb.Executor,
 	tenantID, userID uint64,
@@ -99,7 +97,6 @@ func (r *AdminSafetyRepository) HasPlatformAdminBinding(
 					JOIN roles r ON r.id = ura.role_id AND r.tenant_id = ura.tenant_id
 					WHERE ura.tenant_id = tm.tenant_id
 					  AND ura.user_id = tm.user_id
-					  AND r.name = 'platform_admin'
 					  AND r.system_role = TRUE
 				)
 				OR EXISTS (
@@ -110,14 +107,13 @@ func (r *AdminSafetyRepository) HasPlatformAdminBinding(
 					JOIN roles r ON r.id = gra.role_id AND r.tenant_id = gra.tenant_id
 					WHERE gm.tenant_id = tm.tenant_id
 					  AND gm.user_id = tm.user_id
-					  AND r.name = 'platform_admin'
 					  AND r.system_role = TRUE
 				)
 			  )
 		)
 	`, tenantID, userID).Scan(&bound)
 	if err != nil {
-		return false, fmt.Errorf("check platform administrator binding: %w", err)
+		return false, fmt.Errorf("check system-role binding: %w", err)
 	}
 	return bound, nil
 }
