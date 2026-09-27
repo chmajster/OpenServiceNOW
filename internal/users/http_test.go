@@ -49,7 +49,7 @@ type fakeUsersService struct {
 	addInput         AddExistingInput
 	addID            uint64
 	addErr           error
-	setMembershipErr error
+	setErr       error
 }
 
 func (f *fakeUsersService) List(
@@ -87,7 +87,7 @@ func (f *fakeUsersService) AddExistingMembership(
 }
 
 func (f *fakeUsersService) SetMembershipActive(context.Context, Actor, uint64, bool) error {
-	return f.setMembershipErr
+	return f.setErr
 }
 
 func usersTestRouter(service APIService) http.Handler {
@@ -212,9 +212,8 @@ func TestAddExistingMembershipRequiresCSRF(t *testing.T) {
 	}
 }
 
-
 func TestSetMembershipPlatformAdminRequirementReturnsForbidden(t *testing.T) {
-	service := &fakeUsersService{setMembershipErr: identity.ErrPlatformAdminRequired}
+	service := &fakeUsersService{setErr: identity.ErrPlatformAdminRequired}
 	request := httptest.NewRequest(
 		http.MethodPut,
 		"/api/v1/admin/users/9/membership",
