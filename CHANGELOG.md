@@ -4,6 +4,30 @@ All notable repository changes are documented here.
 
 The project is pre-release and currently in architecture/foundation development.
 
+## 2026-09-27 — Phase 1 protected system-role hardening
+
+### Security
+
+- system-role assignment/removal now requires the caller to already be an effective tenant `platform_admin`,
+- adding or removing members of a group carrying a system role requires effective platform-administrator authority,
+- privilege-sensitive RBAC mutations serialize on the tenant row so group-role and group-membership changes cannot race around the authorization decision,
+- activating or deactivating a tenant membership with a direct/group `platform_admin` binding requires effective platform-administrator authority, closing dormant-role reactivation paths,
+- user-bearing RBAC writes now require both `admin.rbac.manage` and `admin.users.manage`,
+- authorization failures use a stable HTTP 403 `PLATFORM_ADMIN_REQUIRED` response.
+
+### Tests and contract
+
+- added negative HTTP authorization coverage for user-bearing RBAC writes,
+- added MySQL integration coverage for direct system-role escalation, system-role group assignment, privileged-group membership changes and dormant privileged-membership reactivation,
+- OpenAPI now documents dual static permission requirements and conditional platform-administrator authorization,
+- OpenAPI contract tests pin the dual-permission requirement for user-bearing RBAC writes.
+
+### Verification status
+
+- the change remains on a Draft PR until executable CI actually runs,
+- the upstream Phase 1 runner-allocation blocker and missing `go.sum` / `web/package-lock.json` remain unresolved,
+- no build/test success is claimed from static review alone.
+
 ## 2026-09-26 — Phase 1 RBAC assignment and verification hardening
 
 ### Added
