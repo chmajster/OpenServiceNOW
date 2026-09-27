@@ -46,9 +46,10 @@ type fakeUsersService struct {
 	listQuery    string
 	listCalls    int
 	addActor     Actor
-	addInput     AddExistingInput
-	addID        uint64
-	addErr       error
+	addInput         AddExistingInput
+	addID            uint64
+	addErr           error
+	setMembershipErr error
 }
 
 func (f *fakeUsersService) List(
@@ -85,8 +86,8 @@ func (f *fakeUsersService) AddExistingMembership(
 	return f.addID, f.addErr
 }
 
-func (*fakeUsersService) SetMembershipActive(context.Context, Actor, uint64, bool) error {
-	return nil
+func (f *fakeUsersService) SetMembershipActive(context.Context, Actor, uint64, bool) error {
+	return f.setMembershipErr
 }
 
 func usersTestRouter(service APIService) http.Handler {
@@ -208,5 +209,29 @@ func TestAddExistingMembershipRequiresCSRF(t *testing.T) {
 
 	if recorder.Code != http.StatusForbidden {
 		t.Fatalf("status = %d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+
+func TestSetMembershipPlatformAdminRequirementReturnsForbidden(t *testing.T) {
+	service := &fakeUsersService{setMembershipErr: identity.ErrPlatformAdminRequired}
+	request := httptest.NewRequest(
+		http.MethodPut,
+		"/api/v1/admin/users/9/membership",
+		strings.NewReader(`{"active":true}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-CSRF-Token", "csrf-token")
+	request.AddCookie(&http.Cookie{Name: "session", Value: "opaque-token"})
+	request.AddCookie(&http.Cookie{Name: "csrf", Value: "csrf-token"})
+
+	recorder := httptest.NewRecorder()
+	usersTestRouter(service).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), "PLATFORM_ADMIN_REQUIRED") {
+		t.Fatalf("body = %s", recorder.Body.String())
 	}
 }
