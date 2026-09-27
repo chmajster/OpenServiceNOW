@@ -118,7 +118,7 @@ Therefore the YAML/parser problem is resolved. The remaining CI blocker occurs b
 
 On 2026-09-26 the workflow was changed from `ubuntu-24.04` to `ubuntu-latest`; run #474 still failed with `runner_id=0`, empty runner name and no steps. The workflow was then changed to avoid duplicate `push` + `pull_request` runs for feature branches and to cancel superseded runs. Run #475 still failed identically before runner allocation.
 
-The latest checked reproduction is run #541 (`36293288203`) on commit `edbb86575782286eccf483af5eb78c1117b2cde1`. Jobs `test`, `frontend` and `e2e` each completed with `conclusion=failure` and `steps=null`; no checkout or repository code executed. This remains a runner-allocation/platform blocker, not an application test failure.
+The latest checked reproduction is run #548 (`36293564929`) on commit `98cad704b280665fa9e1d3e367aae0eeffee14bc`. Jobs `test`, `frontend` and `e2e` each completed with `conclusion=failure` and `steps=null`; no checkout or repository code executed. This remains a runner-allocation/platform blocker, not an application test failure.
 
 The previous workflow triggered both `push` on `foundation/**` and `pull_request`, causing duplicate runs for each PR-branch commit. This has been corrected; feature branches now run through the PR trigger, while direct `push` CI is limited to `main`.
 
