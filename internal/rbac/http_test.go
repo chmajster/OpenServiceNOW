@@ -453,18 +453,18 @@ func TestAssignmentUserReadsRequireUsersPermission(t *testing.T) {
 
 func TestUserBearingRBACWritesRequireUsersPermission(t *testing.T) {
 	tests := []struct {
-		name string
-		path string
+		name  string
+		path  string
 		calls func(*fakeRBAC) int
 	}{
 		{
-			name: "group membership",
-			path: "/api/v1/admin/rbac/groups/7/members/9",
+			name:  "group membership",
+			path:  "/api/v1/admin/rbac/groups/7/members/9",
 			calls: func(service *fakeRBAC) int { return service.addGroupMemberCalls },
 		},
 		{
-			name: "direct user role",
-			path: "/api/v1/admin/rbac/users/9/roles/11",
+			name:  "direct user role",
+			path:  "/api/v1/admin/rbac/users/9/roles/11",
 			calls: func(service *fakeRBAC) int { return service.assignUserRoleCalls },
 		},
 	}
