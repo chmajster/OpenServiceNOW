@@ -688,6 +688,30 @@ func isDuplicate(err error) bool {
 	return errors.As(err, &mysqlErr) && mysqlErr.Number == 1062
 }
 
+func (r *MySQLRepository) GroupHasSystemRole(
+	ctx context.Context,
+	exec platformdb.Executor,
+	tenantID, groupID uint64,
+) (bool, error) {
+	var hasSystemRole bool
+	err := exec.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1
+			FROM group_role_assignments gra
+			JOIN roles r
+			  ON r.tenant_id = gra.tenant_id
+			 AND r.id = gra.role_id
+			WHERE gra.tenant_id = ?
+			  AND gra.group_id = ?
+			  AND r.system_role = TRUE
+		)
+	`, tenantID, groupID).Scan(&hasSystemRole)
+	if err != nil {
+		return false, fmt.Errorf("check group system role: %w", err)
+	}
+	return hasSystemRole, nil
+}
+
 func (r *MySQLRepository) IsSystemRole(
 	ctx context.Context,
 	exec platformdb.Executor,
