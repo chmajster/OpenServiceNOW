@@ -57,6 +57,7 @@ func (r *AdminSafetyRepository) IsEffectivePlatformAdmin(
 					JOIN roles r ON r.id = ura.role_id AND r.tenant_id = ura.tenant_id
 					WHERE ura.tenant_id = tm.tenant_id
 					  AND ura.user_id = tm.user_id
+					  AND r.name = 'platform_admin'
 					  AND r.system_role = TRUE
 				)
 				OR EXISTS (
@@ -67,6 +68,7 @@ func (r *AdminSafetyRepository) IsEffectivePlatformAdmin(
 					JOIN roles r ON r.id = gra.role_id AND r.tenant_id = gra.tenant_id
 					WHERE gm.tenant_id = tm.tenant_id
 					  AND gm.user_id = tm.user_id
+					  AND r.name = 'platform_admin'
 					  AND r.system_role = TRUE
 				)
 			  )
