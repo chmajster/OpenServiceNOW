@@ -59,10 +59,10 @@ type fakeRBAC struct {
 	listGroupMemberGroup  uint64
 	listGroupMemberAfter  uint64
 	listGroupMemberLimit  int
-	addGroupMemberCalls      int
-	removeGroupMemberCalls   int
-	assignUserRoleCalls      int
-	removeUserRoleCalls      int
+	addGroupMemberCalls   int
+	removeGroupCalls      int
+	assignUserRoleCalls   int
+	removeUserRoleCalls   int
 }
 
 func (f *fakeRBAC) ListPermissions(context.Context) ([]Permission, error) {
@@ -134,7 +134,7 @@ func (f *fakeRBAC) AddGroupMember(context.Context, Actor, uint64, uint64) error 
 }
 
 func (f *fakeRBAC) RemoveGroupMember(context.Context, Actor, uint64, uint64) error {
-	f.removeGroupMemberCalls++
+	f.removeGroupCalls++
 	return nil
 }
 
@@ -472,7 +472,7 @@ func TestUserBearingRBACWritesRequireUsersPermission(t *testing.T) {
 			name:   "remove group membership",
 			method: http.MethodDelete,
 			path:   "/api/v1/admin/rbac/groups/7/members/9",
-			calls:  func(service *fakeRBAC) int { return service.removeGroupMemberCalls },
+			calls:  func(service *fakeRBAC) int { return service.removeGroupCalls },
 		},
 		{
 			name:   "assign direct user role",
