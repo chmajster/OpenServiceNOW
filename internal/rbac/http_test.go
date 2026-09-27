@@ -59,8 +59,10 @@ type fakeRBAC struct {
 	listGroupMemberGroup  uint64
 	listGroupMemberAfter  uint64
 	listGroupMemberLimit  int
-	addGroupMemberCalls   int
-	assignUserRoleCalls   int
+	addGroupMemberCalls      int
+	removeGroupMemberCalls   int
+	assignUserRoleCalls      int
+	removeUserRoleCalls      int
 }
 
 func (f *fakeRBAC) ListPermissions(context.Context) ([]Permission, error) {
@@ -132,6 +134,7 @@ func (f *fakeRBAC) AddGroupMember(context.Context, Actor, uint64, uint64) error 
 }
 
 func (f *fakeRBAC) RemoveGroupMember(context.Context, Actor, uint64, uint64) error {
+	f.removeGroupMemberCalls++
 	return nil
 }
 
@@ -141,6 +144,7 @@ func (f *fakeRBAC) AssignRoleToUser(context.Context, Actor, uint64, uint64) erro
 }
 
 func (f *fakeRBAC) RemoveRoleFromUser(context.Context, Actor, uint64, uint64) error {
+	f.removeUserRoleCalls++
 	return nil
 }
 
@@ -453,19 +457,34 @@ func TestAssignmentUserReadsRequireUsersPermission(t *testing.T) {
 
 func TestUserBearingRBACWritesRequireUsersPermission(t *testing.T) {
 	tests := []struct {
-		name  string
-		path  string
-		calls func(*fakeRBAC) int
+		name   string
+		method string
+		path   string
+		calls  func(*fakeRBAC) int
 	}{
 		{
-			name:  "group membership",
-			path:  "/api/v1/admin/rbac/groups/7/members/9",
-			calls: func(service *fakeRBAC) int { return service.addGroupMemberCalls },
+			name:   "add group membership",
+			method: http.MethodPost,
+			path:   "/api/v1/admin/rbac/groups/7/members/9",
+			calls:  func(service *fakeRBAC) int { return service.addGroupMemberCalls },
 		},
 		{
-			name:  "direct user role",
-			path:  "/api/v1/admin/rbac/users/9/roles/11",
-			calls: func(service *fakeRBAC) int { return service.assignUserRoleCalls },
+			name:   "remove group membership",
+			method: http.MethodDelete,
+			path:   "/api/v1/admin/rbac/groups/7/members/9",
+			calls:  func(service *fakeRBAC) int { return service.removeGroupMemberCalls },
+		},
+		{
+			name:   "assign direct user role",
+			method: http.MethodPost,
+			path:   "/api/v1/admin/rbac/users/9/roles/11",
+			calls:  func(service *fakeRBAC) int { return service.assignUserRoleCalls },
+		},
+		{
+			name:   "remove direct user role",
+			method: http.MethodDelete,
+			path:   "/api/v1/admin/rbac/users/9/roles/11",
+			calls:  func(service *fakeRBAC) int { return service.removeUserRoleCalls },
 		},
 	}
 
@@ -481,7 +500,7 @@ func TestUserBearingRBACWritesRequireUsersPermission(t *testing.T) {
 				csrf: true,
 			}, service)
 
-			request := authenticatedRequest(http.MethodPost, test.path, "")
+			request := authenticatedRequest(test.method, test.path, "")
 			request.AddCookie(&http.Cookie{Name: "csrf", Value: "csrf-token"})
 			request.Header.Set("X-CSRF-Token", "csrf-token")
 
