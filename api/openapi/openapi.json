@@ -453,7 +453,7 @@
         "x-required-permissions": [
           "admin.users.manage"
         ],
-        "x-conditional-authorization": "Changing active state for a user with a platform_admin binding requires the caller to be an effective platform administrator."
+        "x-conditional-authorization": "Changing active state for a user with a system-role binding requires the caller to be an effective platform administrator."
       }
     },
     "/api/v1/admin/rbac/permissions": {
