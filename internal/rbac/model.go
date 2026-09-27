@@ -9,7 +9,6 @@ var (
 	ErrNotFound = errors.New("rbac resource not found")
 	ErrConflict = errors.New("rbac resource conflict")
 	ErrInvalid  = errors.New("invalid rbac input")
-	ErrForbidden = errors.New("rbac operation forbidden")
 	errNoChange = errors.New("rbac operation made no change")
 )
 
