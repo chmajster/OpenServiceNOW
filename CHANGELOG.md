@@ -24,7 +24,7 @@ The project is pre-release and currently in architecture/foundation development.
 
 ### Verification status
 
-- the change remains on a Draft PR; latest run #548 (`36293564929`) again failed before any job step executed,
+- the change remains on a Draft PR; latest run #549 (`36293613157`) again failed before any job step executed,
 - the upstream Phase 1 runner-allocation blocker and missing `go.sum` / `web/package-lock.json` remain unresolved,
 - no build/test success is claimed from static review alone.
 
