@@ -256,7 +256,6 @@ func TestOpenAPIAdminOperationsDeclarePermissions(t *testing.T) {
 	}
 }
 
-
 func TestOpenAPIUserBearingRBACWritesRequireUserAdministration(t *testing.T) {
 	raw := loadDocument(t)
 	var root map[string]any
