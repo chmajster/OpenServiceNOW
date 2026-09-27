@@ -46,9 +46,9 @@ type fakeUsersService struct {
 	listQuery    string
 	listCalls    int
 	addActor     Actor
-	addInput         AddExistingInput
-	addID            uint64
-	addErr           error
+	addInput     AddExistingInput
+	addID        uint64
+	addErr       error
 	setErr       error
 }
 
