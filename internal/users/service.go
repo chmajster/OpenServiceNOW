@@ -154,7 +154,7 @@ func (s *Service) SetMembershipActive(ctx context.Context, actor Actor, userID u
 			return nil
 		}
 
-		platformAdminBinding, err := s.adminSafety.HasPlatformAdminBinding(
+		systemRoleBinding, err := s.adminSafety.HasSystemRoleBinding(
 			ctx,
 			exec,
 			actor.TenantID,
@@ -163,7 +163,7 @@ func (s *Service) SetMembershipActive(ctx context.Context, actor Actor, userID u
 		if err != nil {
 			return err
 		}
-		if platformAdminBinding {
+		if systemRoleBinding {
 			allowed, err := s.adminSafety.IsEffectivePlatformAdmin(
 				ctx,
 				exec,
