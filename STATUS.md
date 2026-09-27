@@ -1,12 +1,12 @@
 # Current Project Status
 
-Last updated: 2026-09-26
+Last updated: 2026-09-27
 
 ## Current phase
 
 Phase 1 — Foundation
 
-The backend and frontend foundations are substantially implemented on the active branch, but Phase 1 is not complete because executable CI verification and dependency lock generation remain blocked.
+The backend and frontend foundations are substantially implemented on the active branch. Local Go and frontend checks pass after dependency resolution and fixes, but Phase 1 is not complete: MySQL/Redis integration, browser E2E, security hardening and GitHub CI remain unverified.
 
 ## Last completed
 
@@ -89,13 +89,12 @@ Later-phase work intentionally not required for Phase 1:
 Remaining verification work:
 
 - obtain a GitHub-hosted runner that actually executes workflow steps,
-- generate and commit `go.sum` from a successful Go module resolution,
-- generate and commit `web/package-lock.json` from successful npm dependency resolution,
-- run `gofmt`, `go vet ./...`, `go test ./...`, `go test -race ./...`, integration tests and backend build,
+- verify the committed lock files on a functioning CI runner,
+- execute MySQL/Redis integration tests and backend build in CI,
 - execute migrations and complete API/auth/RBAC smoke flow,
 - execute the authored full migration lifecycle test: latest → one-step rollback → latest → full rollback → latest → readiness,
 - execute scheduler verification,
-- run frontend typecheck, tests and production build,
+- rerun frontend typecheck, tests and production build in CI,
 - run full Playwright E2E on desktop and mobile Chromium against the real API/MySQL/Redis stack.
 
 ## Known problems
@@ -115,20 +114,20 @@ Therefore the YAML/parser problem is resolved. The remaining CI blocker occurs b
 
 On 2026-09-26 the workflow was changed from `ubuntu-24.04` to `ubuntu-latest`; run #474 still failed with `runner_id=0`, empty runner name and no steps. The workflow was then changed to avoid duplicate `push` + `pull_request` runs for feature branches and to cancel superseded runs. Run #475 still failed identically before runner allocation.
 
-The latest checked reproduction is run #511 (`36271136402`) on commit `62b29175520af2502c5dbbf0782104cec4df9430`. Jobs `test`, `frontend` and `e2e` each completed with `conclusion=failure`, `runner_id=0`, empty runner name/group and an empty step list; they ran for roughly three seconds and did not execute checkout or repository code. This remains a runner-allocation/platform blocker, not an application test failure.
+The latest checked reproduction for this branch before the local fixes is run #523 (`36271665852`) on commit `e7331137a953290c228240f176892146dbce8eab`. Jobs `test`, `frontend` and `e2e` each completed with `conclusion=failure`, `runner_id=0`, empty runner name/group and an empty step list; they ran for roughly three seconds and did not execute checkout or repository code. This remains a runner-allocation/platform blocker, not an application test failure.
 
 The previous workflow triggered both `push` on `foundation/**` and `pull_request`, causing duplicate runs for each PR-branch commit. This has been corrected; feature branches now run through the PR trigger, while direct `push` CI is limited to `main`.
 
-The assistant execution environment contains Go 1.23.2 and cannot resolve `proxy.golang.org`, so it cannot independently download the Go 1.27 toolchain or module dependencies.
+The current execution environment downloaded the checksum-verified Go 1.27.1 toolchain and resolved modules successfully. GitHub Actions runner allocation remains a separate blocker.
 
 ### Dependency lock files
 
-The following lock artifacts are not present because dependency resolution has not successfully run in an environment with network access:
+The following lock artifacts were generated using the package managers and committed:
 
 - `go.sum`,
 - `web/package-lock.json`.
 
-Both must be generated and committed before this PR is considered merge-ready.
+Both require verification on CI before this PR is merge-ready.
 
 ## Tests
 
@@ -194,7 +193,7 @@ CI is configured to run:
 - frontend production build,
 - full-stack Playwright Chromium E2E through UI → API → MySQL.
 
-These checks are authored but are not recorded as passing until a runner actually executes them. The current workflow still cannot generate the missing dependency lock files because no job reaches its first step.
+Local Go 1.27.1 checks passed: `go mod tidy`, `go mod verify`, `go vet ./...`, `go test ./...`, `go test -race ./...`, and `go build -buildvcs=false ./...`; `gofmt` was applied to 14 files. Local frontend checks passed: `npm ci`, typecheck, unit tests (3/3) and production build. MySQL/Redis integration, migration lifecycle, live API and Playwright E2E have not executed. The GitHub workflow still requires a runner to verify its own environment.
 
 ## Database migrations
 
@@ -230,8 +229,8 @@ No fake endpoint, placeholder UI or empty worker executable is used to hide thes
 ## Next recommended tasks
 
 1. Restore GitHub-hosted runner allocation and rerun `foundation-ci`.
-2. Generate and commit `go.sum` and `web/package-lock.json` through real dependency resolution; do not synthesize either file.
-3. Execute the complete backend, migration, frontend and Playwright matrix and fix every defect it exposes.
-4. Repeat the full Phase 1 verification on the final commit.
+2. Integrate and verify the system-role privilege-escalation fix from PR #5.
+3. Execute the MySQL/Redis, migration, live API and Playwright matrix and fix every defect it exposes.
+4. Repeat the full Phase 1 verification in CI on the final commit.
 5. Merge PR #3 only after all required checks have actually executed successfully and no blocker remains.
-6. Start Phase 2 on a separate branch/Draft PR only after that merge.
+6. Continue the already-open Draft PR #4 only after Phase 1 is merged and retargeted appropriately.

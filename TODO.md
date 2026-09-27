@@ -132,7 +132,7 @@ Implemented:
 Remaining:
 - execute the authored latest → down-one → latest → down-all → latest → readiness integration lifecycle successfully,
 - successful migration/integration verification,
-- generate and commit `go.sum` from real dependency resolution.
+- verify the committed `go.sum` on CI.
 
 [P0] [-] Redis foundation.
 
@@ -303,8 +303,8 @@ Implemented:
 - CI typecheck/test/build/E2E jobs.
 
 Remaining:
-- successful typecheck/test/build execution,
-- generate and commit `web/package-lock.json`,
+- rerun successful local typecheck/test/build checks in CI,
+- verify the committed `web/package-lock.json` on CI,
 - production static-frontend/reverse-proxy packaging in deployment work.
 
 [P1] [!] Execute CI successfully.
@@ -330,19 +330,18 @@ Blocked:
 - workflow YAML parsing defect has been fixed,
 - all jobs use `ubuntu-latest`,
 - duplicate feature-branch `push` + `pull_request` executions have been removed and superseded runs are cancelled through workflow concurrency,
-- latest checked run #511 (`36271136402`) still fails before runner assignment for `test`, `frontend` and `e2e`: `runner_id=0`, empty runner name/group and zero executed steps,
+- latest checked run #523 (`36271665852`) still fails before runner assignment for `test`, `frontend` and `e2e`: `runner_id=0`, empty runner name/group and zero executed steps,
 - GitHub Status reported Actions operational at the same time,
 - executable verification is therefore blocked by GitHub-hosted runner allocation/account or repository Actions policy/quota/billing rather than application code.
 
-[P1] [!] Generate and commit dependency lock files.
+[P1] [x] Generate and commit dependency lock files.
 
-Required:
+Completed through real Go/npm dependency resolution:
 - `go.sum`,
 - `web/package-lock.json`.
 
-Blocked:
-- dependency network is unavailable in the assistant runtime,
-- GitHub Actions runners have not started far enough to resolve dependencies.
+Remaining:
+- verify both lock files in CI after runner allocation is restored.
 
 ## Phase 2+
 

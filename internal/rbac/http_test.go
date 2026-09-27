@@ -195,7 +195,7 @@ func TestRBACRequiresBackendPermission(t *testing.T) {
 func TestRBACReadAllowedWithPermission(t *testing.T) {
 	service := &fakeRBAC{}
 	router := newRouter(fakeAuth{
-		identity:    identity.SessionIdentity{UserID: 1, TenantID: 2},
+		identity:   identity.SessionIdentity{UserID: 1, TenantID: 2},
 		permission: true,
 	}, service)
 
@@ -212,7 +212,7 @@ func TestRBACReadAllowedWithPermission(t *testing.T) {
 func TestRBACWriteRequiresCSRF(t *testing.T) {
 	service := &fakeRBAC{}
 	router := newRouter(fakeAuth{
-		identity:    identity.SessionIdentity{UserID: 1, TenantID: 2},
+		identity:   identity.SessionIdentity{UserID: 1, TenantID: 2},
 		permission: true,
 		csrf:       true,
 	}, service)
@@ -237,7 +237,7 @@ func TestRBACWriteRequiresCSRF(t *testing.T) {
 func TestRBACWriteAllowedWithCSRF(t *testing.T) {
 	service := &fakeRBAC{}
 	router := newRouter(fakeAuth{
-		identity:    identity.SessionIdentity{UserID: 1, TenantID: 2},
+		identity:   identity.SessionIdentity{UserID: 1, TenantID: 2},
 		permission: true,
 		csrf:       true,
 	}, service)
@@ -268,7 +268,7 @@ func TestRBACWriteAllowedWithCSRF(t *testing.T) {
 func TestRBACRoleListRejectsOversizedLimit(t *testing.T) {
 	service := &fakeRBAC{}
 	router := newRouter(fakeAuth{
-		identity:    identity.SessionIdentity{UserID: 1, TenantID: 2},
+		identity:   identity.SessionIdentity{UserID: 1, TenantID: 2},
 		permission: true,
 	}, service)
 
@@ -289,7 +289,7 @@ func TestRBACRoleListRejectsOversizedLimit(t *testing.T) {
 func TestRBACRoleListPassesCursorAndSearch(t *testing.T) {
 	service := &fakeRBAC{}
 	router := newRouter(fakeAuth{
-		identity:    identity.SessionIdentity{UserID: 1, TenantID: 2},
+		identity:   identity.SessionIdentity{UserID: 1, TenantID: 2},
 		permission: true,
 	}, service)
 
@@ -318,7 +318,7 @@ func TestRBACRoleListPassesCursorAndSearch(t *testing.T) {
 func TestSetRolePermissionsRequiresVersion(t *testing.T) {
 	service := &fakeRBAC{}
 	router := newRouter(fakeAuth{
-		identity:    identity.SessionIdentity{UserID: 1, TenantID: 2},
+		identity:   identity.SessionIdentity{UserID: 1, TenantID: 2},
 		permission: true,
 		csrf:       true,
 	}, service)
@@ -343,7 +343,7 @@ func TestSetRolePermissionsRequiresVersion(t *testing.T) {
 func TestSetRolePermissionsAcceptsQuotedVersion(t *testing.T) {
 	service := &fakeRBAC{}
 	router := newRouter(fakeAuth{
-		identity:    identity.SessionIdentity{UserID: 1, TenantID: 2},
+		identity:   identity.SessionIdentity{UserID: 1, TenantID: 2},
 		permission: true,
 		csrf:       true,
 	}, service)
@@ -371,7 +371,7 @@ func TestSetRolePermissionsAcceptsQuotedVersion(t *testing.T) {
 func TestListGroupMembersUsesTenantScopedCursor(t *testing.T) {
 	service := &fakeRBAC{}
 	router := newRouter(fakeAuth{
-		identity:    identity.SessionIdentity{UserID: 1, TenantID: 42},
+		identity:   identity.SessionIdentity{UserID: 1, TenantID: 42},
 		permission: true,
 	}, service)
 
@@ -406,7 +406,7 @@ func TestListGroupMembersUsesTenantScopedCursor(t *testing.T) {
 func TestListAssignmentsRejectsOversizedLimit(t *testing.T) {
 	service := &fakeRBAC{}
 	router := newRouter(fakeAuth{
-		identity:    identity.SessionIdentity{UserID: 1, TenantID: 42},
+		identity:   identity.SessionIdentity{UserID: 1, TenantID: 42},
 		permission: true,
 	}, service)
 
