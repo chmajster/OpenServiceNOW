@@ -452,7 +452,8 @@
         },
         "x-required-permissions": [
           "admin.users.manage"
-        ]
+        ],
+        "x-conditional-authorization": "Changing active state for a user with a platform_admin binding requires the caller to be an effective platform administrator."
       }
     },
     "/api/v1/admin/rbac/permissions": {
@@ -830,8 +831,10 @@
           }
         },
         "x-required-permissions": [
-          "admin.rbac.manage"
-        ]
+          "admin.rbac.manage",
+          "admin.users.manage"
+        ],
+        "x-conditional-authorization": "If the group has a system role, the caller must be an effective platform administrator."
       },
       "delete": {
         "tags": [
@@ -874,8 +877,10 @@
           }
         },
         "x-required-permissions": [
-          "admin.rbac.manage"
-        ]
+          "admin.rbac.manage",
+          "admin.users.manage"
+        ],
+        "x-conditional-authorization": "If the group has a system role, the caller must be an effective platform administrator."
       }
     },
     "/api/v1/admin/rbac/users/{userID}/roles/{roleID}": {
@@ -920,8 +925,10 @@
           }
         },
         "x-required-permissions": [
-          "admin.rbac.manage"
-        ]
+          "admin.rbac.manage",
+          "admin.users.manage"
+        ],
+        "x-conditional-authorization": "Assigning a system role requires the caller to be an effective platform administrator."
       },
       "delete": {
         "tags": [
@@ -964,8 +971,10 @@
           }
         },
         "x-required-permissions": [
-          "admin.rbac.manage"
-        ]
+          "admin.rbac.manage",
+          "admin.users.manage"
+        ],
+        "x-conditional-authorization": "Removing a system role requires the caller to be an effective platform administrator."
       }
     },
     "/api/v1/admin/rbac/groups/{groupID}/roles/{roleID}": {
@@ -1011,7 +1020,8 @@
         },
         "x-required-permissions": [
           "admin.rbac.manage"
-        ]
+        ],
+        "x-conditional-authorization": "Assigning a system role requires the caller to be an effective platform administrator."
       },
       "delete": {
         "tags": [
@@ -1055,7 +1065,8 @@
         },
         "x-required-permissions": [
           "admin.rbac.manage"
-        ]
+        ],
+        "x-conditional-authorization": "Removing a system role requires the caller to be an effective platform administrator."
       }
     },
     "/api/v1/admin/audit/": {
