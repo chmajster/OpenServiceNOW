@@ -48,7 +48,7 @@ Implemented on the Phase 1 branch:
 - tenant-scoped lookahead cursor audit API,
 - audit HTTP transport separated into auditapi to preserve acyclic package dependencies,
 - OpenAPI 3.1 document for implemented endpoints,
-- explicit OpenAPI permission metadata for every administrative operation, including dual permission requirements on user-bearing RBAC reads,
+- explicit OpenAPI permission metadata for every administrative operation, including dual permission requirements on user-bearing RBAC reads and writes,
 - precision-safe decimal-string JSON contract for MySQL BIGINT identifiers, cursors, counts and optimistic-lock versions,
 - Docker Compose,
 - Makefile commands,
@@ -61,6 +61,9 @@ Implemented on the Phase 1 branch:
 - bounded password input and stored Argon2 work-factor validation,
 - bounded concurrent Argon2 password verification,
 - system-role immutability protections,
+- effective-platform-admin authorization for every system-role assignment/removal path and privileged-group membership mutation,
+- dormant system-role binding protection during tenant-membership activation/deactivation,
+- tenant-row serialization across privilege-sensitive RBAC and membership mutations,
 - dynamic platform_admin inheritance of the live permission catalog,
 - React + TypeScript frontend with login, overview, tenant, users, RBAC and audit screens,
 - frontend API client with automatic CSRF handling,
@@ -114,7 +117,7 @@ Therefore the YAML/parser problem is resolved. The remaining CI blocker occurs b
 
 On 2026-09-26 the workflow was changed from `ubuntu-24.04` to `ubuntu-latest`; run #474 still failed with `runner_id=0`, empty runner name and no steps. The workflow was then changed to avoid duplicate `push` + `pull_request` runs for feature branches and to cancel superseded runs. Run #475 still failed identically before runner allocation.
 
-The latest checked reproduction for this branch before the local fixes is run #523 (`36271665852`) on commit `e7331137a953290c228240f176892146dbce8eab`. Jobs `test`, `frontend` and `e2e` each completed with `conclusion=failure`, `runner_id=0`, empty runner name/group and an empty step list; they ran for roughly three seconds and did not execute checkout or repository code. This remains a runner-allocation/platform blocker, not an application test failure.
+The latest checked reproduction is run #549 (`36293613157`) on commit `5c312169ad0e23005be4ccd68d313c048abae8b6`. Jobs `test`, `frontend` and `e2e` each completed with `conclusion=failure` and `steps=null`; no checkout or repository code executed. This remains a runner-allocation/platform blocker, not an application test failure.
 
 The previous workflow triggered both `push` on `foundation/**` and `pull_request`, causing duplicate runs for each PR-branch commit. This has been corrected; feature branches now run through the PR trigger, while direct `push` CI is limited to `main`.
 
@@ -166,7 +169,8 @@ Test code exists for:
 - precision-safe BIGINT JSON serialization above JavaScript `Number.MAX_SAFE_INTEGER`,
 - quoted optimistic-lock version decoding in tenant/RBAC HTTP transports,
 - Redis rate-limiter backend failure returning a stable 503 without entering password authentication,
-- RBAC assignment reads requiring the additional user-management permission where user details are exposed,
+- RBAC assignment reads and user-bearing writes requiring the additional user-management permission where user identities are exposed or changed,
+- negative privilege-escalation coverage for direct system-role assignment, system-role group assignment, privileged-group membership changes and dormant administrator reactivation,
 - group membership and user/group role mutation → repository readback cycles with cross-tenant rejection,
 - OpenAPI permission metadata on every administrative operation.
 

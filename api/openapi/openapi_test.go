@@ -255,3 +255,52 @@ func TestOpenAPIAdminOperationsDeclarePermissions(t *testing.T) {
 		}
 	}
 }
+
+func TestOpenAPIUserBearingRBACWritesRequireUserAdministration(t *testing.T) {
+	raw := loadDocument(t)
+	var root map[string]any
+	if err := json.Unmarshal(raw, &root); err != nil {
+		t.Fatalf("parse OpenAPI document: %v", err)
+	}
+
+	paths, ok := root["paths"].(map[string]any)
+	if !ok {
+		t.Fatal("paths object is missing")
+	}
+	tests := []struct {
+		path   string
+		method string
+	}{
+		{path: "/api/v1/admin/rbac/groups/{groupID}/members/{userID}", method: "post"},
+		{path: "/api/v1/admin/rbac/groups/{groupID}/members/{userID}", method: "delete"},
+		{path: "/api/v1/admin/rbac/users/{userID}/roles/{roleID}", method: "post"},
+		{path: "/api/v1/admin/rbac/users/{userID}/roles/{roleID}", method: "delete"},
+	}
+
+	for _, test := range tests {
+		rawItem, ok := paths[test.path].(map[string]any)
+		if !ok {
+			t.Fatalf("path %s is missing", test.path)
+		}
+		operation, ok := rawItem[test.method].(map[string]any)
+		if !ok {
+			t.Fatalf("%s %s operation is missing", test.method, test.path)
+		}
+		required, ok := operation["x-required-permissions"].([]any)
+		if !ok {
+			t.Fatalf("%s %s permission metadata is missing", test.method, test.path)
+		}
+		seen := make(map[string]bool, len(required))
+		for _, rawPermission := range required {
+			permission, ok := rawPermission.(string)
+			if ok {
+				seen[permission] = true
+			}
+		}
+		for _, permission := range []string{"admin.rbac.manage", "admin.users.manage"} {
+			if !seen[permission] {
+				t.Errorf("%s %s is missing required permission %s", test.method, test.path, permission)
+			}
+		}
+	}
+}

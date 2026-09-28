@@ -178,6 +178,7 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 
 	rbacRepo := rbac.NewMySQLRepository(db)
 	adminSafety := identity.NewAdminSafetyRepository()
+	usersService := users.NewService(usersRepo, tx, auditRepo, adminSafety, identityRepo)
 	rbacService := rbac.NewService(rbacRepo, tx, auditRepo, adminSafety)
 	actorA := rbac.Actor{TenantID: adminA.TenantID, UserID: adminA.UserID, RequestID: "integration"}
 	groupID, err := rbacService.CreateGroup(ctx, actorA, rbac.CreateGroupInput{Name: "isolation-group"})
@@ -239,11 +240,119 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 		rbac.Actor{TenantID: adminA.TenantID, UserID: 999999, RequestID: "integration"},
 		platformAdminRoleID,
 		adminA.UserID,
-	); !errors.Is(err, identity.ErrLastPlatformAdmin) {
-		t.Fatalf("last-admin role removal error = %v, want ErrLastPlatformAdmin", err)
+	); !errors.Is(err, identity.ErrPlatformAdminRequired) {
+		t.Fatalf("unauthorized system-role removal error = %v, want ErrPlatformAdminRequired", err)
 	}
 	if err := rbacService.RemoveRoleFromUser(ctx, actorA, platformAdminRoleID, adminA.UserID); !errors.Is(err, rbac.ErrInvalid) {
 		t.Fatalf("self system-role removal error = %v, want ErrInvalid", err)
+	}
+
+	delegatedUserID, err := usersService.Create(ctx, users.Actor{
+		TenantID: adminA.TenantID, UserID: adminA.UserID, RequestID: "integration",
+	}, users.CreateInput{
+		Email: fmt.Sprintf("delegated-rbac-%s@example.test", strings.ReplaceAll(suffix, ".", "")),
+		DisplayName: "Delegated RBAC Manager",
+		Password: "integration-password-delegated-rbac",
+	})
+	if err != nil {
+		t.Fatalf("create delegated RBAC user: %v", err)
+	}
+	dormantAdminID, err := usersService.Create(ctx, users.Actor{
+		TenantID: adminA.TenantID, UserID: adminA.UserID, RequestID: "integration",
+	}, users.CreateInput{
+		Email: fmt.Sprintf("dormant-admin-%s@example.test", strings.ReplaceAll(suffix, ".", "")),
+		DisplayName: "Dormant Admin",
+		Password: "integration-password-dormant-admin",
+	})
+	if err != nil {
+		t.Fatalf("create dormant admin candidate: %v", err)
+	}
+	t.Cleanup(func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cleanupCancel()
+		_, _ = db.ExecContext(cleanupCtx, "DELETE FROM users WHERE id IN (?, ?)", delegatedUserID, dormantAdminID)
+	})
+
+	delegatedActor := rbac.Actor{
+		TenantID: adminA.TenantID,
+		UserID: delegatedUserID,
+		RequestID: "integration",
+	}
+	if err := rbacService.AssignRoleToUser(
+		ctx,
+		delegatedActor,
+		platformAdminRoleID,
+		delegatedUserID,
+	); !errors.Is(err, identity.ErrPlatformAdminRequired) {
+		t.Fatalf("delegated system-role assignment error = %v, want ErrPlatformAdminRequired", err)
+	}
+
+	privilegedGroupID, err := rbacService.CreateGroup(
+		ctx,
+		actorA,
+		rbac.CreateGroupInput{Name: "privileged-group-" + strings.ReplaceAll(suffix, ".", "")},
+	)
+	if err != nil {
+		t.Fatalf("create privileged test group: %v", err)
+	}
+	if err := rbacService.AssignRoleToGroup(
+		ctx,
+		delegatedActor,
+		privilegedGroupID,
+		platformAdminRoleID,
+	); !errors.Is(err, identity.ErrPlatformAdminRequired) {
+		t.Fatalf("delegated group system-role assignment error = %v, want ErrPlatformAdminRequired", err)
+	}
+	if err := rbacService.AssignRoleToGroup(ctx, actorA, privilegedGroupID, platformAdminRoleID); err != nil {
+		t.Fatalf("platform admin group-role assignment: %v", err)
+	}
+	if err := rbacService.AddGroupMember(
+		ctx,
+		delegatedActor,
+		privilegedGroupID,
+		delegatedUserID,
+	); !errors.Is(err, identity.ErrPlatformAdminRequired) {
+		t.Fatalf("delegated privileged-group join error = %v, want ErrPlatformAdminRequired", err)
+	}
+	if err := rbacService.AddGroupMember(ctx, actorA, privilegedGroupID, dormantAdminID); err != nil {
+		t.Fatalf("platform admin privileged-group membership: %v", err)
+	}
+	if err := rbacService.RemoveGroupMember(
+		ctx,
+		delegatedActor,
+		privilegedGroupID,
+		dormantAdminID,
+	); !errors.Is(err, identity.ErrPlatformAdminRequired) {
+		t.Fatalf("delegated privileged-group removal error = %v, want ErrPlatformAdminRequired", err)
+	}
+	if err := rbacService.RemoveRoleFromGroup(
+		ctx,
+		delegatedActor,
+		privilegedGroupID,
+		platformAdminRoleID,
+	); !errors.Is(err, identity.ErrPlatformAdminRequired) {
+		t.Fatalf("delegated system-role group removal error = %v, want ErrPlatformAdminRequired", err)
+	}
+
+	if err := usersService.SetMembershipActive(ctx, users.Actor{
+		TenantID: adminA.TenantID, UserID: delegatedUserID, RequestID: "integration",
+	}, dormantAdminID, false); !errors.Is(err, identity.ErrPlatformAdminRequired) {
+		t.Fatalf("delegated platform-admin disable error = %v, want ErrPlatformAdminRequired", err)
+	}
+	if err := usersService.SetMembershipActive(ctx, users.Actor{
+		TenantID: adminA.TenantID, UserID: adminA.UserID, RequestID: "integration",
+	}, dormantAdminID, false); err != nil {
+		t.Fatalf("platform admin disables privileged membership: %v", err)
+	}
+	if err := usersService.SetMembershipActive(ctx, users.Actor{
+		TenantID: adminA.TenantID, UserID: delegatedUserID, RequestID: "integration",
+	}, dormantAdminID, true); !errors.Is(err, identity.ErrPlatformAdminRequired) {
+		t.Fatalf("delegated dormant platform-admin activation error = %v, want ErrPlatformAdminRequired", err)
+	}
+	if err := usersService.SetMembershipActive(ctx, users.Actor{
+		TenantID: adminA.TenantID, UserID: adminA.UserID, RequestID: "integration",
+	}, dormantAdminID, true); err != nil {
+		t.Fatalf("platform admin reactivates privileged membership: %v", err)
 	}
 
 	versionedRoleID, err := rbacService.CreateRole(ctx, actorA, rbac.CreateRoleInput{
@@ -379,8 +488,6 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 		t.Fatalf("removed group member still present: %+v", memberPage.Members)
 	}
 
-	usersService := users.NewService(usersRepo, tx, auditRepo, adminSafety, identityRepo)
-
 	var adminBPasswordHashBefore string
 	if err := db.QueryRowContext(
 		ctx,
@@ -453,8 +560,8 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	}
 	if err := usersService.SetMembershipActive(ctx, users.Actor{
 		TenantID: adminA.TenantID, UserID: 999999, RequestID: "integration",
-	}, adminA.UserID, false); !errors.Is(err, identity.ErrLastPlatformAdmin) {
-		t.Fatalf("last-admin membership disable error = %v, want ErrLastPlatformAdmin", err)
+	}, adminA.UserID, false); !errors.Is(err, identity.ErrPlatformAdminRequired) {
+		t.Fatalf("unauthorized platform-admin membership disable error = %v, want ErrPlatformAdminRequired", err)
 	}
 	if err := usersService.SetMembershipActive(ctx, users.Actor{
 		TenantID: adminA.TenantID, UserID: adminA.UserID, RequestID: "integration",

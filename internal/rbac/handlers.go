@@ -357,6 +357,14 @@ func writeServiceError(w http.ResponseWriter, r *http.Request, err error) {
 			"LAST_PLATFORM_ADMIN",
 			"Tenant must retain at least one active platform administrator",
 		)
+	case errors.Is(err, identity.ErrPlatformAdminRequired):
+		httpapi.WriteError(
+			w,
+			r,
+			http.StatusForbidden,
+			"PLATFORM_ADMIN_REQUIRED",
+			"Platform administrator authority is required",
+		)
 	case errors.Is(err, ErrInvalid):
 		httpapi.WriteError(w, r, http.StatusBadRequest, "INVALID_RBAC_INPUT", "Invalid RBAC input")
 	case errors.Is(err, ErrNotFound):

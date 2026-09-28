@@ -185,6 +185,7 @@ Implemented:
 - bootstrap tenant/admin command,
 - tenant-scoped user administration with bounded cursor pagination/search,
 - explicit membership linking for an already-existing active global identity without changing its password/profile,
+- system-role binding checks on membership activation/deactivation so disabled privileged memberships cannot be reactivated by delegated user administrators,
 - session cleanup scheduler with MySQL advisory-lock replica coordination,
 - explicit trusted-proxy CIDRs and safe forwarded-IP resolution,
 - bounded login/password input sizes,
@@ -218,7 +219,9 @@ Implemented:
 - audit integration,
 - auth/permission/CSRF route tests authored,
 - cross-tenant assignment-read integration coverage,
-- user-detail assignment reads require both `admin.rbac.manage` and `admin.users.manage`.
+- user-detail assignment reads and user-bearing assignment writes require both `admin.rbac.manage` and `admin.users.manage`,
+- all direct/group system-role mutations and membership changes on system-role groups require an already-effective `platform_admin`,
+- privilege-sensitive RBAC mutations serialize on the tenant row to close group-role/member race windows.
 
 Remaining:
 - executable integration verification.

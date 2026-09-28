@@ -289,6 +289,18 @@ func (s *Service) AddGroupMember(ctx context.Context, actor Actor, groupID, user
 		groupID,
 		map[string]any{"user_id": fmt.Sprint(userID)},
 		func(exec platformdb.Executor) error {
+			if err := s.adminSafety.LockTenant(ctx, exec, actor.TenantID); err != nil {
+				return err
+			}
+			privileged, err := s.repo.GroupHasSystemRole(ctx, exec, actor.TenantID, groupID)
+			if err != nil {
+				return err
+			}
+			if privileged {
+				if err := s.requirePlatformAdmin(ctx, exec, actor); err != nil {
+					return err
+				}
+			}
 			return s.repo.AddGroupMember(ctx, exec, actor.TenantID, groupID, userID)
 		},
 	)
@@ -303,9 +315,22 @@ func (s *Service) RemoveGroupMember(ctx context.Context, actor Actor, groupID, u
 		groupID,
 		map[string]any{"user_id": fmt.Sprint(userID)},
 		func(exec platformdb.Executor) error {
-			return s.withAdminSafety(ctx, exec, actor.TenantID, func() error {
-				return s.repo.RemoveGroupMember(ctx, exec, actor.TenantID, groupID, userID)
-			})
+			if err := s.adminSafety.LockTenant(ctx, exec, actor.TenantID); err != nil {
+				return err
+			}
+			privileged, err := s.repo.GroupHasSystemRole(ctx, exec, actor.TenantID, groupID)
+			if err != nil {
+				return err
+			}
+			if privileged {
+				if err := s.requirePlatformAdmin(ctx, exec, actor); err != nil {
+					return err
+				}
+			}
+			if err := s.repo.RemoveGroupMember(ctx, exec, actor.TenantID, groupID, userID); err != nil {
+				return err
+			}
+			return s.ensurePlatformAdminRemains(ctx, exec, actor.TenantID)
 		},
 	)
 }
@@ -319,6 +344,18 @@ func (s *Service) AssignRoleToUser(ctx context.Context, actor Actor, roleID, use
 		userID,
 		map[string]any{"role_id": fmt.Sprint(roleID)},
 		func(exec platformdb.Executor) error {
+			if err := s.adminSafety.LockTenant(ctx, exec, actor.TenantID); err != nil {
+				return err
+			}
+			systemRole, err := s.repo.IsSystemRole(ctx, exec, actor.TenantID, roleID)
+			if err != nil {
+				return err
+			}
+			if systemRole {
+				if err := s.requirePlatformAdmin(ctx, exec, actor); err != nil {
+					return err
+				}
+			}
 			return s.repo.AssignRoleToUser(ctx, exec, actor.TenantID, roleID, userID)
 		},
 	)
@@ -333,18 +370,25 @@ func (s *Service) RemoveRoleFromUser(ctx context.Context, actor Actor, roleID, u
 		userID,
 		map[string]any{"role_id": fmt.Sprint(roleID)},
 		func(exec platformdb.Executor) error {
-			if actor.UserID == userID {
-				systemRole, err := s.repo.IsSystemRole(ctx, exec, actor.TenantID, roleID)
-				if err != nil {
-					return err
-				}
-				if systemRole {
+			if err := s.adminSafety.LockTenant(ctx, exec, actor.TenantID); err != nil {
+				return err
+			}
+			systemRole, err := s.repo.IsSystemRole(ctx, exec, actor.TenantID, roleID)
+			if err != nil {
+				return err
+			}
+			if systemRole {
+				if actor.UserID == userID {
 					return fmt.Errorf("%w: cannot remove own system role", ErrInvalid)
 				}
+				if err := s.requirePlatformAdmin(ctx, exec, actor); err != nil {
+					return err
+				}
 			}
-			return s.withAdminSafety(ctx, exec, actor.TenantID, func() error {
-				return s.repo.RemoveRoleFromUser(ctx, exec, actor.TenantID, roleID, userID)
-			})
+			if err := s.repo.RemoveRoleFromUser(ctx, exec, actor.TenantID, roleID, userID); err != nil {
+				return err
+			}
+			return s.ensurePlatformAdminRemains(ctx, exec, actor.TenantID)
 		},
 	)
 }
@@ -358,6 +402,18 @@ func (s *Service) AssignRoleToGroup(ctx context.Context, actor Actor, groupID, r
 		groupID,
 		map[string]any{"role_id": fmt.Sprint(roleID)},
 		func(exec platformdb.Executor) error {
+			if err := s.adminSafety.LockTenant(ctx, exec, actor.TenantID); err != nil {
+				return err
+			}
+			systemRole, err := s.repo.IsSystemRole(ctx, exec, actor.TenantID, roleID)
+			if err != nil {
+				return err
+			}
+			if systemRole {
+				if err := s.requirePlatformAdmin(ctx, exec, actor); err != nil {
+					return err
+				}
+			}
 			return s.repo.AssignRoleToGroup(ctx, exec, actor.TenantID, roleID, groupID)
 		},
 	)
@@ -372,9 +428,22 @@ func (s *Service) RemoveRoleFromGroup(ctx context.Context, actor Actor, groupID,
 		groupID,
 		map[string]any{"role_id": fmt.Sprint(roleID)},
 		func(exec platformdb.Executor) error {
-			return s.withAdminSafety(ctx, exec, actor.TenantID, func() error {
-				return s.repo.RemoveRoleFromGroup(ctx, exec, actor.TenantID, roleID, groupID)
-			})
+			if err := s.adminSafety.LockTenant(ctx, exec, actor.TenantID); err != nil {
+				return err
+			}
+			systemRole, err := s.repo.IsSystemRole(ctx, exec, actor.TenantID, roleID)
+			if err != nil {
+				return err
+			}
+			if systemRole {
+				if err := s.requirePlatformAdmin(ctx, exec, actor); err != nil {
+					return err
+				}
+			}
+			if err := s.repo.RemoveRoleFromGroup(ctx, exec, actor.TenantID, roleID, groupID); err != nil {
+				return err
+			}
+			return s.ensurePlatformAdminRemains(ctx, exec, actor.TenantID)
 		},
 	)
 }
@@ -435,18 +504,26 @@ func normalizePermissionKeys(values []string) ([]string, error) {
 	return result, nil
 }
 
-func (s *Service) withAdminSafety(
+func (s *Service) requirePlatformAdmin(
+	ctx context.Context,
+	exec platformdb.Executor,
+	actor Actor,
+) error {
+	allowed, err := s.adminSafety.IsEffectivePlatformAdmin(ctx, exec, actor.TenantID, actor.UserID)
+	if err != nil {
+		return err
+	}
+	if !allowed {
+		return identity.ErrPlatformAdminRequired
+	}
+	return nil
+}
+
+func (s *Service) ensurePlatformAdminRemains(
 	ctx context.Context,
 	exec platformdb.Executor,
 	tenantID uint64,
-	write func() error,
 ) error {
-	if err := s.adminSafety.LockTenant(ctx, exec, tenantID); err != nil {
-		return err
-	}
-	if err := write(); err != nil {
-		return err
-	}
 	count, err := s.adminSafety.CountEffectivePlatformAdmins(ctx, exec, tenantID)
 	if err != nil {
 		return err

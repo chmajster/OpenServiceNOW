@@ -6,11 +6,12 @@ import (
 )
 
 var (
-	ErrNotFound           = errors.New("identity not found")
-	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrUnauthenticated    = errors.New("unauthenticated")
-	ErrLastPlatformAdmin  = errors.New("tenant must retain at least one active platform administrator")
-	ErrAuthBusy           = errors.New("authentication password verifier is busy")
+	ErrNotFound              = errors.New("identity not found")
+	ErrInvalidCredentials    = errors.New("invalid credentials")
+	ErrUnauthenticated       = errors.New("unauthenticated")
+	ErrLastPlatformAdmin     = errors.New("tenant must retain at least one active platform administrator")
+	ErrPlatformAdminRequired = errors.New("platform administrator authority required")
+	ErrAuthBusy              = errors.New("authentication password verifier is busy")
 )
 
 type User struct {
