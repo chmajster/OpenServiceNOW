@@ -10,9 +10,9 @@ func TestRBACIDsSerializeAsStrings(t *testing.T) {
 	const largeID uint64 = 9007199254740993
 	data, err := json.Marshal(RolePage{
 		Roles: []Role{{
-			ID: largeID,
-			Name: "operator",
-			Version: largeID,
+			ID:          largeID,
+			Name:        "operator",
+			Version:     largeID,
 			Permissions: []Permission{{ID: largeID, Key: "tenant.read"}},
 		}},
 		NextAfterID: largeID,

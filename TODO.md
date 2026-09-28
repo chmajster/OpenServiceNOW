@@ -130,8 +130,9 @@ Implemented:
 - integration test source.
 
 Remaining:
+- execute the authored latest → down-one → latest → down-all → latest → readiness integration lifecycle successfully,
 - successful migration/integration verification,
-- generate and commit `go.sum`.
+- verify the committed `go.sum` on CI.
 
 [P0] [-] Redis foundation.
 
@@ -184,6 +185,7 @@ Implemented:
 - bootstrap tenant/admin command,
 - tenant-scoped user administration with bounded cursor pagination/search,
 - explicit membership linking for an already-existing active global identity without changing its password/profile,
+- system-role binding checks on membership activation/deactivation so disabled privileged memberships cannot be reactivated by delegated user administrators,
 - session cleanup scheduler with MySQL advisory-lock replica coordination,
 - explicit trusted-proxy CIDRs and safe forwarded-IP resolution,
 - bounded login/password input sizes,
@@ -203,6 +205,8 @@ Implemented:
 - service layer,
 - group membership,
 - role assignments to users/groups,
+- tenant-scoped paginated readback for group members, direct user roles and group roles,
+- UI add/remove flows for membership and user/group role assignments with refetch after every mutation,
 - cursor pagination/search for roles and groups,
 - optimistic-lock permission replacement,
 - immutable system-role permissions,
@@ -213,7 +217,11 @@ Implemented:
 - backend `RequirePermission` middleware,
 - tenant-scoped administration API,
 - audit integration,
-- auth/permission/CSRF route tests authored.
+- auth/permission/CSRF route tests authored,
+- cross-tenant assignment-read integration coverage,
+- user-detail assignment reads and user-bearing assignment writes require both `admin.rbac.manage` and `admin.users.manage`,
+- all direct/group system-role mutations and membership changes on system-role groups require an already-effective `platform_admin`,
+- privilege-sensitive RBAC mutations serialize on the tenant row to close group-role/member race windows.
 
 Remaining:
 - executable integration verification.
@@ -236,7 +244,9 @@ Implemented:
 - OpenAPI 3.1 JSON document,
 - only currently implemented endpoints are documented,
 - cookie session and CSRF security schemes,
-- contract tests checking parseability, route inventory, local $ref resolution and unique operation IDs.
+- contract tests checking parseability, route inventory, local $ref resolution and unique operation IDs,
+- explicit `x-required-permissions` metadata on every administrative operation,
+- contract test preventing future admin endpoints from omitting permission metadata.
 
 Remaining:
 - execute contract test successfully,
@@ -290,12 +300,14 @@ Implemented:
 - responsive layout,
 - loading/error/empty/success states,
 - API-client unit tests,
-- Playwright browser E2E covering admin login, user creation, role creation/assignment, logout, least-privilege login and permission-aware navigation,
+- Playwright browser E2E covering admin login, user creation, direct role assignment, security-group membership, group-role assignment, audit visibility, logout, least-privilege login and permission-aware navigation,
+- two-session stale-version conflict E2E with server refetch,
+- desktop Chromium and Pixel 7 Chromium projects using isolated test data,
 - CI typecheck/test/build/E2E jobs.
 
 Remaining:
-- successful typecheck/test/build execution,
-- generate and commit `web/package-lock.json`,
+- rerun successful local typecheck/test/build checks in CI,
+- verify the committed `web/package-lock.json` on CI,
 - production static-frontend/reverse-proxy packaging in deployment work.
 
 [P1] [!] Execute CI successfully.
@@ -321,19 +333,18 @@ Blocked:
 - workflow YAML parsing defect has been fixed,
 - all jobs use `ubuntu-latest`,
 - duplicate feature-branch `push` + `pull_request` executions have been removed and superseded runs are cancelled through workflow concurrency,
-- run #475 still fails before runner assignment with `runner_id=0`, an empty runner name and no steps,
+- latest checked run #523 (`36271665852`) still fails before runner assignment for `test`, `frontend` and `e2e`: `runner_id=0`, empty runner name/group and zero executed steps,
 - GitHub Status reported Actions operational at the same time,
 - executable verification is therefore blocked by GitHub-hosted runner allocation/account or repository Actions policy/quota/billing rather than application code.
 
-[P1] [!] Generate and commit dependency lock files.
+[P1] [x] Generate and commit dependency lock files.
 
-Required:
+Completed through real Go/npm dependency resolution:
 - `go.sum`,
 - `web/package-lock.json`.
 
-Blocked:
-- dependency network is unavailable in the assistant runtime,
-- GitHub Actions runners have not started far enough to resolve dependencies.
+Remaining:
+- verify both lock files in CI after runner allocation is restored.
 
 ## Phase 2+
 

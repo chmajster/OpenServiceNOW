@@ -88,11 +88,11 @@ func TestVerifyRejectsExcessiveStoredArgonMemory(t *testing.T) {
 
 func TestHashRejectsOversizedArgonParameters(t *testing.T) {
 	_, err := HashWithParams("correct horse battery staple", Params{
-		Memory: MaxArgonMemoryKiB + 1,
-		Iterations: 1,
+		Memory:      MaxArgonMemoryKiB + 1,
+		Iterations:  1,
 		Parallelism: 1,
-		SaltLength: 16,
-		KeyLength: 32,
+		SaltLength:  16,
+		KeyLength:   32,
 	})
 	if err == nil {
 		t.Fatal("expected Argon2 parameter validation error")

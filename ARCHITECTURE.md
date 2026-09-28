@@ -2,7 +2,9 @@
 
 ## Status
 
-Phase 0 establishes the target architecture and module boundaries. The repository currently contains no application code, database schema, frontend, workers, scheduler, or runtime configuration. Those items are intentionally tracked as future phases rather than represented as completed.
+Phase 0 established the target architecture and module boundaries. Phase 1 runtime implementation now exists on the active foundation branch: API, migration/bootstrap/scheduler executables, MySQL schema, Redis-backed controls, identity/RBAC/audit services, React frontend, tests and CI definitions.
+
+Phase 1 is not considered complete until dependency lock files are generated from real resolution and the required backend, migration, frontend and Playwright suites execute successfully. A durable `cmd/worker` is intentionally deferred to Phase 2B, when the first persistent job workload exists; no empty worker executable is used as a placeholder.
 
 ## Architectural goals
 

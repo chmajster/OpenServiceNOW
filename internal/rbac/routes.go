@@ -24,11 +24,11 @@ func RegisterRoutes(r chi.Router, handler *Handler, auth *identity.Middleware) {
 			r.Put("/roles/{roleID}/permissions", handler.SetRolePermissions)
 
 			r.Post("/groups", handler.CreateGroup)
-			r.Post("/groups/{groupID}/members/{userID}", handler.AddGroupMember)
-			r.Delete("/groups/{groupID}/members/{userID}", handler.RemoveGroupMember)
+			r.With(auth.RequirePermission("admin.users.manage")).Post("/groups/{groupID}/members/{userID}", handler.AddGroupMember)
+			r.With(auth.RequirePermission("admin.users.manage")).Delete("/groups/{groupID}/members/{userID}", handler.RemoveGroupMember)
 
-			r.Post("/users/{userID}/roles/{roleID}", handler.AssignRoleToUser)
-			r.Delete("/users/{userID}/roles/{roleID}", handler.RemoveRoleFromUser)
+			r.With(auth.RequirePermission("admin.users.manage")).Post("/users/{userID}/roles/{roleID}", handler.AssignRoleToUser)
+			r.With(auth.RequirePermission("admin.users.manage")).Delete("/users/{userID}/roles/{roleID}", handler.RemoveRoleFromUser)
 
 			r.Post("/groups/{groupID}/roles/{roleID}", handler.AssignRoleToGroup)
 			r.Delete("/groups/{groupID}/roles/{roleID}", handler.RemoveRoleFromGroup)

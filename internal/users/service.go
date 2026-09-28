@@ -143,10 +143,8 @@ func (s *Service) SetMembershipActive(ctx context.Context, actor Actor, userID u
 		return fmt.Errorf("%w: cannot disable own tenant membership", ErrInvalid)
 	}
 	return s.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec platformdb.Executor) error {
-		if !active {
-			if err := s.adminSafety.LockTenant(ctx, exec, actor.TenantID); err != nil {
-				return err
-			}
+		if err := s.adminSafety.LockTenant(ctx, exec, actor.TenantID); err != nil {
+			return err
 		}
 		current, err := s.repo.MembershipActiveForUpdate(ctx, exec, actor.TenantID, userID)
 		if err != nil {
@@ -155,6 +153,31 @@ func (s *Service) SetMembershipActive(ctx context.Context, actor Actor, userID u
 		if current == active {
 			return nil
 		}
+
+		systemRoleBinding, err := s.adminSafety.HasSystemRoleBinding(
+			ctx,
+			exec,
+			actor.TenantID,
+			userID,
+		)
+		if err != nil {
+			return err
+		}
+		if systemRoleBinding {
+			allowed, err := s.adminSafety.IsEffectivePlatformAdmin(
+				ctx,
+				exec,
+				actor.TenantID,
+				actor.UserID,
+			)
+			if err != nil {
+				return err
+			}
+			if !allowed {
+				return identity.ErrPlatformAdminRequired
+			}
+		}
+
 		if err := s.repo.SetMembershipActive(ctx, exec, actor.TenantID, userID, active); err != nil {
 			return err
 		}

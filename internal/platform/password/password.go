@@ -13,14 +13,14 @@ import (
 )
 
 const (
-	MaxPasswordBytes      = 1024
-	MaxEncodedHashBytes   = 512
-	MinArgonMemoryKiB     = 8 * 1024
-	MaxArgonMemoryKiB     = 256 * 1024
-	MaxArgonIterations    = 10
-	MaxArgonParallelism   = 16
-	MaxArgonSaltBytes     = 64
-	MaxArgonKeyBytes      = 64
+	MaxPasswordBytes    = 1024
+	MaxEncodedHashBytes = 512
+	MinArgonMemoryKiB   = 8 * 1024
+	MaxArgonMemoryKiB   = 256 * 1024
+	MaxArgonIterations  = 10
+	MaxArgonParallelism = 16
+	MaxArgonSaltBytes   = 64
+	MaxArgonKeyBytes    = 64
 )
 
 type Params struct {

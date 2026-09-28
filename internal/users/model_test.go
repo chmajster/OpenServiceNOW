@@ -9,7 +9,7 @@ import (
 func TestUserAndCursorIDsSerializeAsStrings(t *testing.T) {
 	const largeID uint64 = 9007199254740993
 	data, err := json.Marshal(Page{
-		Users: []User{{ID: largeID, Email: "user@example.test", DisplayName: "User"}},
+		Users:       []User{{ID: largeID, Email: "user@example.test", DisplayName: "User"}},
 		NextAfterID: largeID,
 	})
 	if err != nil {

@@ -79,7 +79,7 @@ jobs:
           retention-days: 7
 
       - name: Verify Go manifest is stable
-        run: git diff --exit-code -- go.mod
+        run: git diff --exit-code -- go.mod go.sum
 
       - name: Verify formatting
         run: test -z "$(gofmt -l .)"
@@ -200,14 +200,7 @@ jobs:
           node-version: "24"
 
       - name: Install frontend dependencies
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -f package-lock.json ]; then
-            npm ci --no-audit --no-fund
-          else
-            npm install --no-audit --no-fund
-          fi
+        run: npm ci --no-audit --no-fund
 
       - name: Preserve generated npm lock file
         uses: actions/upload-artifact@v4
@@ -218,7 +211,7 @@ jobs:
           retention-days: 7
 
       - name: Verify frontend manifest is stable
-        run: git diff --exit-code -- package.json
+        run: git diff --exit-code -- package.json package-lock.json
 
       - name: Typecheck frontend
         run: npm run typecheck
@@ -296,14 +289,7 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: web
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -f package-lock.json ]; then
-            npm ci --no-audit --no-fund
-          else
-            npm install --no-audit --no-fund
-          fi
+        run: npm ci --no-audit --no-fund
 
       - name: Install Chromium
         working-directory: web

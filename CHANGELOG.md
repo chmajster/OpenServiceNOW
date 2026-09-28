@@ -4,6 +4,60 @@ All notable repository changes are documented here.
 
 The project is pre-release and currently in architecture/foundation development.
 
+## 2026-09-27 — Phase 1 protected system-role hardening
+
+### Security
+
+- system-role assignment/removal now requires the caller to already be an effective tenant `platform_admin`,
+- adding or removing members of a group carrying a system role requires effective platform-administrator authority,
+- privilege-sensitive RBAC mutations serialize on the tenant row so group-role and group-membership changes cannot race around the authorization decision,
+- activating or deactivating a tenant membership with a direct/group system-role binding requires effective platform-administrator authority, closing dormant-role reactivation paths,
+- user-bearing RBAC writes now require both `admin.rbac.manage` and `admin.users.manage`,
+- authorization failures use a stable HTTP 403 `PLATFORM_ADMIN_REQUIRED` response.
+
+### Tests and contract
+
+- added negative HTTP authorization coverage for user-bearing RBAC writes,
+- added MySQL integration coverage for direct system-role escalation, system-role group assignment, privileged-group membership changes and dormant privileged-membership reactivation,
+- OpenAPI now documents dual static permission requirements and conditional platform-administrator authorization,
+- OpenAPI contract tests pin the dual-permission requirement for user-bearing RBAC writes.
+
+### Verification status
+
+- the change remains on a Draft PR; latest run #549 (`36293613157`) again failed before any job step executed,
+- the upstream Phase 1 runner-allocation blocker and missing `go.sum` / `web/package-lock.json` remain unresolved,
+- no build/test success is claimed from static review alone.
+
+## 2026-09-27 — Local Phase 1 dependency and build verification
+
+- Resolved and committed `go.sum`, updated `go.mod` with required indirect modules, and committed `web/package-lock.json` from npm resolution; CI now requires `npm ci`.
+- Applied `gofmt` to 14 Go files; fixed an unused TypeScript import and restricted Vitest discovery to frontend unit tests instead of Playwright E2E.
+- Local Go 1.27.1 module verification, vet, unit tests, race tests and VCS-stamping-disabled build pass; local frontend `npm ci`, typecheck, three unit tests and production build pass.
+- MySQL/Redis integration, migrations, live API, browser E2E, PR #5 security fix and GitHub CI verification remain open. The last checked PR #3 workflow run #523 failed before runner allocation.
+
+## 2026-09-26 — Phase 1 RBAC assignment and verification hardening
+
+### Added
+
+- tenant-scoped cursor reads for security-group members, direct user-role assignments and group-role assignments,
+- end-to-end RBAC assignment UI for adding/removing group members and user/group roles with API refetch after each mutation,
+- OpenAPI permission metadata for all administrative operations and a contract test that prevents undocumented permission requirements,
+- reusable migration runner plus MySQL integration coverage for latest → one-step rollback → re-upgrade → full rollback → re-upgrade → schema readiness,
+- Redis rate-limiter outage HTTP coverage,
+- Playwright coverage for security-group membership, group-role assignment, audit events, stale optimistic-lock conflicts and mobile Chromium.
+
+### Fixed
+
+- tenant and role optimistic-lock conflict messages now survive the automatic data refetch instead of being cleared immediately,
+- RBAC reads that expose user details additionally require `admin.users.manage`,
+- E2E identities are isolated per browser project/retry to prevent false duplicate conflicts.
+
+### Verification status
+
+- latest checked workflow run #511 (`36271136402`) still failed before checkout for all three jobs: `runner_id=0`, empty runner name/group and zero executed steps,
+- `go.sum` and `web/package-lock.json` are still absent and must be produced by real dependency resolution,
+- no backend, migration, frontend or Playwright success is claimed for the new commits until those commands actually execute.
+
 ## 2026-09-26 — Phase 1 CI allocation hardening and Phase 2 sequencing
 
 ### Changed

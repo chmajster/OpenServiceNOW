@@ -15,9 +15,9 @@ import (
 
 type fakeAuth struct {
 	identity    identity.SessionIdentity
-	permission bool
+	permission  bool
 	permissions map[string]bool
-	csrf       bool
+	csrf        bool
 }
 
 func (f fakeAuth) Login(context.Context, identity.LoginInput, identity.RequestMeta) (identity.LoginResult, error) {
@@ -59,6 +59,10 @@ type fakeRBAC struct {
 	listGroupMemberGroup  uint64
 	listGroupMemberAfter  uint64
 	listGroupMemberLimit  int
+	addGroupMemberCalls   int
+	removeGroupCalls      int
+	assignUserRoleCalls   int
+	removeUserRoleCalls   int
 }
 
 func (f *fakeRBAC) ListPermissions(context.Context) ([]Permission, error) {
@@ -125,18 +129,22 @@ func (f *fakeRBAC) CreateGroup(context.Context, Actor, CreateGroupInput) (uint64
 }
 
 func (f *fakeRBAC) AddGroupMember(context.Context, Actor, uint64, uint64) error {
+	f.addGroupMemberCalls++
 	return nil
 }
 
 func (f *fakeRBAC) RemoveGroupMember(context.Context, Actor, uint64, uint64) error {
+	f.removeGroupCalls++
 	return nil
 }
 
 func (f *fakeRBAC) AssignRoleToUser(context.Context, Actor, uint64, uint64) error {
+	f.assignUserRoleCalls++
 	return nil
 }
 
 func (f *fakeRBAC) RemoveRoleFromUser(context.Context, Actor, uint64, uint64) error {
+	f.removeUserRoleCalls++
 	return nil
 }
 
@@ -195,7 +203,7 @@ func TestRBACRequiresBackendPermission(t *testing.T) {
 func TestRBACReadAllowedWithPermission(t *testing.T) {
 	service := &fakeRBAC{}
 	router := newRouter(fakeAuth{
-		identity:    identity.SessionIdentity{UserID: 1, TenantID: 2},
+		identity:   identity.SessionIdentity{UserID: 1, TenantID: 2},
 		permission: true,
 	}, service)
 
@@ -212,7 +220,7 @@ func TestRBACReadAllowedWithPermission(t *testing.T) {
 func TestRBACWriteRequiresCSRF(t *testing.T) {
 	service := &fakeRBAC{}
 	router := newRouter(fakeAuth{
-		identity:    identity.SessionIdentity{UserID: 1, TenantID: 2},
+		identity:   identity.SessionIdentity{UserID: 1, TenantID: 2},
 		permission: true,
 		csrf:       true,
 	}, service)
@@ -237,7 +245,7 @@ func TestRBACWriteRequiresCSRF(t *testing.T) {
 func TestRBACWriteAllowedWithCSRF(t *testing.T) {
 	service := &fakeRBAC{}
 	router := newRouter(fakeAuth{
-		identity:    identity.SessionIdentity{UserID: 1, TenantID: 2},
+		identity:   identity.SessionIdentity{UserID: 1, TenantID: 2},
 		permission: true,
 		csrf:       true,
 	}, service)
@@ -268,7 +276,7 @@ func TestRBACWriteAllowedWithCSRF(t *testing.T) {
 func TestRBACRoleListRejectsOversizedLimit(t *testing.T) {
 	service := &fakeRBAC{}
 	router := newRouter(fakeAuth{
-		identity:    identity.SessionIdentity{UserID: 1, TenantID: 2},
+		identity:   identity.SessionIdentity{UserID: 1, TenantID: 2},
 		permission: true,
 	}, service)
 
@@ -289,7 +297,7 @@ func TestRBACRoleListRejectsOversizedLimit(t *testing.T) {
 func TestRBACRoleListPassesCursorAndSearch(t *testing.T) {
 	service := &fakeRBAC{}
 	router := newRouter(fakeAuth{
-		identity:    identity.SessionIdentity{UserID: 1, TenantID: 2},
+		identity:   identity.SessionIdentity{UserID: 1, TenantID: 2},
 		permission: true,
 	}, service)
 
@@ -318,7 +326,7 @@ func TestRBACRoleListPassesCursorAndSearch(t *testing.T) {
 func TestSetRolePermissionsRequiresVersion(t *testing.T) {
 	service := &fakeRBAC{}
 	router := newRouter(fakeAuth{
-		identity:    identity.SessionIdentity{UserID: 1, TenantID: 2},
+		identity:   identity.SessionIdentity{UserID: 1, TenantID: 2},
 		permission: true,
 		csrf:       true,
 	}, service)
@@ -343,7 +351,7 @@ func TestSetRolePermissionsRequiresVersion(t *testing.T) {
 func TestSetRolePermissionsAcceptsQuotedVersion(t *testing.T) {
 	service := &fakeRBAC{}
 	router := newRouter(fakeAuth{
-		identity:    identity.SessionIdentity{UserID: 1, TenantID: 2},
+		identity:   identity.SessionIdentity{UserID: 1, TenantID: 2},
 		permission: true,
 		csrf:       true,
 	}, service)
@@ -371,7 +379,7 @@ func TestSetRolePermissionsAcceptsQuotedVersion(t *testing.T) {
 func TestListGroupMembersUsesTenantScopedCursor(t *testing.T) {
 	service := &fakeRBAC{}
 	router := newRouter(fakeAuth{
-		identity:    identity.SessionIdentity{UserID: 1, TenantID: 42},
+		identity:   identity.SessionIdentity{UserID: 1, TenantID: 42},
 		permission: true,
 	}, service)
 
@@ -406,7 +414,7 @@ func TestListGroupMembersUsesTenantScopedCursor(t *testing.T) {
 func TestListAssignmentsRejectsOversizedLimit(t *testing.T) {
 	service := &fakeRBAC{}
 	router := newRouter(fakeAuth{
-		identity:    identity.SessionIdentity{UserID: 1, TenantID: 42},
+		identity:   identity.SessionIdentity{UserID: 1, TenantID: 42},
 		permission: true,
 	}, service)
 
@@ -428,7 +436,7 @@ func TestAssignmentUserReadsRequireUsersPermission(t *testing.T) {
 	router := newRouter(fakeAuth{
 		identity: identity.SessionIdentity{UserID: 1, TenantID: 42},
 		permissions: map[string]bool{
-			"admin.rbac.manage": true,
+			"admin.rbac.manage":  true,
 			"admin.users.manage": false,
 		},
 	}, service)
@@ -444,5 +452,81 @@ func TestAssignmentUserReadsRequireUsersPermission(t *testing.T) {
 	}
 	if service.listGroupMemberCalls != 0 {
 		t.Fatalf("list group member calls = %d", service.listGroupMemberCalls)
+	}
+}
+
+func TestUserBearingRBACWritesRequireUsersPermission(t *testing.T) {
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		calls  func(*fakeRBAC) int
+	}{
+		{
+			name:   "add group membership",
+			method: http.MethodPost,
+			path:   "/api/v1/admin/rbac/groups/7/members/9",
+			calls:  func(service *fakeRBAC) int { return service.addGroupMemberCalls },
+		},
+		{
+			name:   "remove group membership",
+			method: http.MethodDelete,
+			path:   "/api/v1/admin/rbac/groups/7/members/9",
+			calls:  func(service *fakeRBAC) int { return service.removeGroupCalls },
+		},
+		{
+			name:   "assign direct user role",
+			method: http.MethodPost,
+			path:   "/api/v1/admin/rbac/users/9/roles/11",
+			calls:  func(service *fakeRBAC) int { return service.assignUserRoleCalls },
+		},
+		{
+			name:   "remove direct user role",
+			method: http.MethodDelete,
+			path:   "/api/v1/admin/rbac/users/9/roles/11",
+			calls:  func(service *fakeRBAC) int { return service.removeUserRoleCalls },
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			service := &fakeRBAC{}
+			router := newRouter(fakeAuth{
+				identity: identity.SessionIdentity{UserID: 1, TenantID: 42},
+				permissions: map[string]bool{
+					"admin.rbac.manage":  true,
+					"admin.users.manage": false,
+				},
+				csrf: true,
+			}, service)
+
+			request := authenticatedRequest(test.method, test.path, "")
+			request.AddCookie(&http.Cookie{Name: "csrf", Value: "csrf-token"})
+			request.Header.Set("X-CSRF-Token", "csrf-token")
+
+			rr := httptest.NewRecorder()
+			router.ServeHTTP(rr, request)
+
+			if rr.Code != http.StatusForbidden {
+				t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+			}
+			if calls := test.calls(service); calls != 0 {
+				t.Fatalf("service calls = %d", calls)
+			}
+		})
+	}
+}
+
+func TestRBACPlatformAdminRequirementReturnsForbidden(t *testing.T) {
+	rr := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/admin/rbac/groups/7/roles/11", nil)
+
+	writeServiceError(rr, request, identity.ErrPlatformAdminRequired)
+
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "PLATFORM_ADMIN_REQUIRED") {
+		t.Fatalf("body = %s", rr.Body.String())
 	}
 }

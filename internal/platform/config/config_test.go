@@ -54,10 +54,10 @@ func TestValidateRejectsInvalidPool(t *testing.T) {
 
 func TestDSNSupportsSpecialCharacters(t *testing.T) {
 	cfg := MySQLConfig{
-		Host: "127.0.0.1",
-		Port: 3306,
+		Host:     "127.0.0.1",
+		Port:     3306,
 		Database: "open snow",
-		User: "user@domain",
+		User:     "user@domain",
 		Password: "p@ss:/?#[]",
 	}
 	parsed, err := mysqlDriver.ParseDSN(cfg.DSN())
@@ -96,10 +96,10 @@ func TestLoadRejectsInvalidTrustedProxyCIDR(t *testing.T) {
 
 func TestMySQLDSNSeparatesRuntimeAndMigrationCapabilities(t *testing.T) {
 	cfg := MySQLConfig{
-		Host: "127.0.0.1",
-		Port: 3306,
+		Host:     "127.0.0.1",
+		Port:     3306,
 		Database: "opensnow",
-		User: "opensnow",
+		User:     "opensnow",
 		Password: "secret",
 	}
 
@@ -130,12 +130,12 @@ func TestLoadRejectsSubMillisecondAuthenticationWindow(t *testing.T) {
 
 func TestMySQLTLSModeRoundTrip(t *testing.T) {
 	cfg := MySQLConfig{
-		Host: "db.example.test",
-		Port: 3306,
+		Host:     "db.example.test",
+		Port:     3306,
 		Database: "opensnow",
-		User: "opensnow",
+		User:     "opensnow",
 		Password: "secret",
-		TLSMode: "true",
+		TLSMode:  "true",
 	}
 	parsed, err := mysqlDriver.ParseDSN(cfg.DSN())
 	if err != nil {
@@ -227,10 +227,10 @@ func clearConfigEnv(t *testing.T) {
 
 func TestMySQLDSNForcesUTCSessionTimezone(t *testing.T) {
 	cfg := MySQLConfig{
-		Host: "127.0.0.1",
-		Port: 3306,
+		Host:     "127.0.0.1",
+		Port:     3306,
 		Database: "opensnow",
-		User: "opensnow",
+		User:     "opensnow",
 		Password: "secret",
 	}
 	parsed, err := mysqlDriver.ParseDSN(cfg.DSN())
