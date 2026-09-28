@@ -6,7 +6,7 @@ Last updated: 2026-09-27
 
 Phase 1 — Foundation
 
-The backend and frontend foundations are substantially implemented on the active branch, but Phase 1 is not complete because executable CI verification and dependency lock generation remain blocked.
+The backend and frontend foundations are substantially implemented on the active branch. Local Go and frontend checks pass after dependency resolution and fixes, but Phase 1 is not complete: MySQL/Redis integration, browser E2E, security hardening and GitHub CI remain unverified.
 
 ## Last completed
 
@@ -92,13 +92,12 @@ Later-phase work intentionally not required for Phase 1:
 Remaining verification work:
 
 - obtain a GitHub-hosted runner that actually executes workflow steps,
-- generate and commit `go.sum` from a successful Go module resolution,
-- generate and commit `web/package-lock.json` from successful npm dependency resolution,
-- run `gofmt`, `go vet ./...`, `go test ./...`, `go test -race ./...`, integration tests and backend build,
+- verify the committed lock files on a functioning CI runner,
+- execute MySQL/Redis integration tests and backend build in CI,
 - execute migrations and complete API/auth/RBAC smoke flow,
 - execute the authored full migration lifecycle test: latest → one-step rollback → latest → full rollback → latest → readiness,
 - execute scheduler verification,
-- run frontend typecheck, tests and production build,
+- rerun frontend typecheck, tests and production build in CI,
 - run full Playwright E2E on desktop and mobile Chromium against the real API/MySQL/Redis stack.
 
 ## Known problems
@@ -122,16 +121,16 @@ The latest checked reproduction is run #549 (`36293613157`) on commit `5c312169a
 
 The previous workflow triggered both `push` on `foundation/**` and `pull_request`, causing duplicate runs for each PR-branch commit. This has been corrected; feature branches now run through the PR trigger, while direct `push` CI is limited to `main`.
 
-The assistant execution environment contains Go 1.23.2 and cannot resolve `proxy.golang.org`, so it cannot independently download the Go 1.27 toolchain or module dependencies.
+The current execution environment downloaded the checksum-verified Go 1.27.1 toolchain and resolved modules successfully. GitHub Actions runner allocation remains a separate blocker.
 
 ### Dependency lock files
 
-The following lock artifacts are not present because dependency resolution has not successfully run in an environment with network access:
+The following lock artifacts were generated using the package managers and committed:
 
 - `go.sum`,
 - `web/package-lock.json`.
 
-Both must be generated and committed before this PR is considered merge-ready.
+Both require verification on CI before this PR is merge-ready.
 
 ## Tests
 
@@ -198,7 +197,7 @@ CI is configured to run:
 - frontend production build,
 - full-stack Playwright Chromium E2E through UI → API → MySQL.
 
-These checks are authored but are not recorded as passing until a runner actually executes them. The current workflow still cannot generate the missing dependency lock files because no job reaches its first step.
+Local Go 1.27.1 checks passed: `go mod tidy`, `go mod verify`, `go vet ./...`, `go test ./...`, `go test -race ./...`, and `go build -buildvcs=false ./...`; `gofmt` was applied to 14 files. Local frontend checks passed: `npm ci`, typecheck, unit tests (3/3) and production build. MySQL/Redis integration, migration lifecycle, live API and Playwright E2E have not executed. The GitHub workflow still requires a runner to verify its own environment.
 
 ## Database migrations
 
@@ -234,8 +233,8 @@ No fake endpoint, placeholder UI or empty worker executable is used to hide thes
 ## Next recommended tasks
 
 1. Restore GitHub-hosted runner allocation and rerun `foundation-ci`.
-2. Generate and commit `go.sum` and `web/package-lock.json` through real dependency resolution; do not synthesize either file.
-3. Execute the complete backend, migration, frontend and Playwright matrix and fix every defect it exposes.
-4. Repeat the full Phase 1 verification on the final commit.
+2. Integrate and verify the system-role privilege-escalation fix from PR #5.
+3. Execute the MySQL/Redis, migration, live API and Playwright matrix and fix every defect it exposes.
+4. Repeat the full Phase 1 verification in CI on the final commit.
 5. Merge PR #3 only after all required checks have actually executed successfully and no blocker remains.
-6. Start Phase 2 on a separate branch/Draft PR only after that merge.
+6. Continue the already-open Draft PR #4 only after Phase 1 is merged and retargeted appropriately.

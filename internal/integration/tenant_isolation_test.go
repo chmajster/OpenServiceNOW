@@ -356,7 +356,7 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	}
 
 	versionedRoleID, err := rbacService.CreateRole(ctx, actorA, rbac.CreateRoleInput{
-		Name: "versioned-role-" + strings.ReplaceAll(suffix, ".", ""),
+		Name:        "versioned-role-" + strings.ReplaceAll(suffix, ".", ""),
 		Permissions: []string{"tenant.read"},
 	})
 	if err != nil {
@@ -500,8 +500,8 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	addedExistingID, err := usersService.AddExistingMembership(
 		ctx,
 		users.Actor{
-			TenantID: adminA.TenantID,
-			UserID: adminA.UserID,
+			TenantID:  adminA.TenantID,
+			UserID:    adminA.UserID,
 			RequestID: "integration",
 		},
 		users.AddExistingInput{Email: adminBEmail},
@@ -542,8 +542,8 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	if _, err := usersService.AddExistingMembership(
 		ctx,
 		users.Actor{
-			TenantID: adminA.TenantID,
-			UserID: adminA.UserID,
+			TenantID:  adminA.TenantID,
+			UserID:    adminA.UserID,
 			RequestID: "integration",
 		},
 		users.AddExistingInput{Email: adminBEmail},
@@ -572,9 +572,9 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	secondAdminID, err := usersService.Create(ctx, users.Actor{
 		TenantID: adminA.TenantID, UserID: adminA.UserID, RequestID: "integration",
 	}, users.CreateInput{
-		Email: fmt.Sprintf("second-admin-%s@example.test", strings.ReplaceAll(suffix, ".", "")),
+		Email:       fmt.Sprintf("second-admin-%s@example.test", strings.ReplaceAll(suffix, ".", "")),
 		DisplayName: "Second Admin",
-		Password: "integration-password-second-admin",
+		Password:    "integration-password-second-admin",
 	})
 	if err != nil {
 		t.Fatalf("create second admin user: %v", err)
@@ -708,10 +708,10 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 		t.Fatalf("disable tenant B for bootstrap test: %v", err)
 	}
 	if _, err := bootstrap.Run(ctx, identity.BootstrapInput{
-		TenantSlug: tenantBSlug,
-		TenantName: "Isolation B",
-		AdminEmail: adminBEmail,
-		AdminName: "Admin B",
+		TenantSlug:    tenantBSlug,
+		TenantName:    "Isolation B",
+		AdminEmail:    adminBEmail,
+		AdminName:     "Admin B",
 		AdminPassword: "integration-password-b",
 	}); err == nil {
 		t.Fatal("bootstrap must reject disabled existing tenant")
@@ -724,10 +724,10 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 		t.Fatalf("disable admin B for bootstrap test: %v", err)
 	}
 	if _, err := bootstrap.Run(ctx, identity.BootstrapInput{
-		TenantSlug: tenantBSlug,
-		TenantName: "Isolation B",
-		AdminEmail: adminBEmail,
-		AdminName: "Admin B",
+		TenantSlug:    tenantBSlug,
+		TenantName:    "Isolation B",
+		AdminEmail:    adminBEmail,
+		AdminName:     "Admin B",
 		AdminPassword: "integration-password-b",
 	}); err == nil {
 		t.Fatal("bootstrap must reject globally disabled existing admin")

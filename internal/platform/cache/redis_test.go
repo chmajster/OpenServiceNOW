@@ -25,8 +25,8 @@ func TestRedisOptionsWithoutTLS(t *testing.T) {
 
 func TestRedisOptionsDerivesTLSServerName(t *testing.T) {
 	options, err := redisOptions(config.RedisConfig{
-		Addr: "redis.internal.example:6380",
-		TLSEnabled: true,
+		Addr:        "redis.internal.example:6380",
+		TLSEnabled:  true,
 		PingTimeout: time.Second,
 	})
 	if err != nil {
@@ -45,10 +45,10 @@ func TestRedisOptionsDerivesTLSServerName(t *testing.T) {
 
 func TestRedisOptionsUsesExplicitTLSServerName(t *testing.T) {
 	options, err := redisOptions(config.RedisConfig{
-		Addr: "10.0.0.10:6380",
-		TLSEnabled: true,
+		Addr:          "10.0.0.10:6380",
+		TLSEnabled:    true,
 		TLSServerName: "redis.internal.example",
-		PingTimeout: time.Second,
+		PingTimeout:   time.Second,
 	})
 	if err != nil {
 		t.Fatalf("redisOptions() error = %v", err)

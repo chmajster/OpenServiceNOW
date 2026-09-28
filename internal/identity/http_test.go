@@ -13,12 +13,12 @@ import (
 )
 
 type fakeAuthService struct {
-	authenticateFn   func(context.Context, string) (SessionIdentity, error)
-	verifyCSRFFn     func(SessionIdentity, string) bool
-	loginFn          func(context.Context, LoginInput, RequestMeta) (LoginResult, error)
-	logoutFn         func(context.Context, SessionIdentity, RequestMeta) error
-	permissionsFn    func(context.Context, SessionIdentity) ([]string, error)
-	hasPermissionFn  func(context.Context, SessionIdentity, string) (bool, error)
+	authenticateFn  func(context.Context, string) (SessionIdentity, error)
+	verifyCSRFFn    func(SessionIdentity, string) bool
+	loginFn         func(context.Context, LoginInput, RequestMeta) (LoginResult, error)
+	logoutFn        func(context.Context, SessionIdentity, RequestMeta) error
+	permissionsFn   func(context.Context, SessionIdentity) ([]string, error)
+	hasPermissionFn func(context.Context, SessionIdentity, string) (bool, error)
 }
 
 func (f fakeAuthService) Login(ctx context.Context, input LoginInput, meta RequestMeta) (LoginResult, error) {
@@ -192,9 +192,9 @@ func TestMeReturnsEffectivePermissions(t *testing.T) {
 	handler := NewHandler(service, &fakeLimiter{allowed: true}, testSessionConfig(), testAuthConfig())
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
 	request = request.WithContext(context.WithValue(request.Context(), identityContextKey, SessionIdentity{
-		UserID: 9007199254740993,
-		TenantID: 9007199254740995,
-		Email: "admin@example.test",
+		UserID:     9007199254740993,
+		TenantID:   9007199254740995,
+		Email:      "admin@example.test",
 		TenantSlug: "default",
 	}))
 	rr := httptest.NewRecorder()

@@ -28,6 +28,13 @@ The project is pre-release and currently in architecture/foundation development.
 - the upstream Phase 1 runner-allocation blocker and missing `go.sum` / `web/package-lock.json` remain unresolved,
 - no build/test success is claimed from static review alone.
 
+## 2026-09-27 — Local Phase 1 dependency and build verification
+
+- Resolved and committed `go.sum`, updated `go.mod` with required indirect modules, and committed `web/package-lock.json` from npm resolution; CI now requires `npm ci`.
+- Applied `gofmt` to 14 Go files; fixed an unused TypeScript import and restricted Vitest discovery to frontend unit tests instead of Playwright E2E.
+- Local Go 1.27.1 module verification, vet, unit tests, race tests and VCS-stamping-disabled build pass; local frontend `npm ci`, typecheck, three unit tests and production build pass.
+- MySQL/Redis integration, migrations, live API, browser E2E, PR #5 security fix and GitHub CI verification remain open. The last checked PR #3 workflow run #523 failed before runner allocation.
+
 ## 2026-09-26 — Phase 1 RBAC assignment and verification hardening
 
 ### Added

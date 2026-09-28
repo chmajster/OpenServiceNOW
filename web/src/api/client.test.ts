@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError, api, readCookie } from "./client";
+import { api, readCookie } from "./client";
 
 afterEach(() => {
   document.cookie = "opensnow_csrf=; Max-Age=0; Path=/";

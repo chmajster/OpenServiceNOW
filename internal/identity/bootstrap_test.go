@@ -9,10 +9,10 @@ import (
 func TestBootstrapRejectsOversizedNamesBeforeDatabaseAccess(t *testing.T) {
 	bootstrapper := &Bootstrapper{}
 	_, err := bootstrapper.Run(context.Background(), BootstrapInput{
-		TenantSlug: "default",
-		TenantName: strings.Repeat("a", 201),
-		AdminEmail: "admin@example.test",
-		AdminName: "Administrator",
+		TenantSlug:    "default",
+		TenantName:    strings.Repeat("a", 201),
+		AdminEmail:    "admin@example.test",
+		AdminName:     "Administrator",
 		AdminPassword: "bootstrap-password-1234",
 	})
 	if err == nil {
@@ -23,10 +23,10 @@ func TestBootstrapRejectsOversizedNamesBeforeDatabaseAccess(t *testing.T) {
 func TestBootstrapRejectsOversizedEmailBeforeDatabaseAccess(t *testing.T) {
 	bootstrapper := &Bootstrapper{}
 	_, err := bootstrapper.Run(context.Background(), BootstrapInput{
-		TenantSlug: "default",
-		TenantName: "Default",
-		AdminEmail: strings.Repeat("a", 250) + "@x.test",
-		AdminName: "Administrator",
+		TenantSlug:    "default",
+		TenantName:    "Default",
+		AdminEmail:    strings.Repeat("a", 250) + "@x.test",
+		AdminName:     "Administrator",
 		AdminPassword: "bootstrap-password-1234",
 	})
 	if err == nil {

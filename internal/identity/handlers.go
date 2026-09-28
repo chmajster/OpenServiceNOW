@@ -236,4 +236,3 @@ func (h *Handler) clearSessionCookies(w http.ResponseWriter) {
 		http.SetCookie(w, &cookie)
 	}
 }
-

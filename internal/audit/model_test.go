@@ -10,7 +10,7 @@ func TestAuditIDsSerializeAsStrings(t *testing.T) {
 	const largeID uint64 = 9007199254740993
 	actorID := largeID
 	data, err := json.Marshal(Page{
-		Events: []Record{{ID: largeID, ActorUserID: &actorID, Action: "test", ObjectType: "test", Source: "test"}},
+		Events:       []Record{{ID: largeID, ActorUserID: &actorID, Action: "test", ObjectType: "test", Source: "test"}},
 		NextBeforeID: largeID,
 	})
 	if err != nil {
