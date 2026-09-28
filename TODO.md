@@ -74,175 +74,282 @@ Completed:
 
 ## Phase 1 — Foundation
 
-[P0] [ ] Initialize Go module and executable entry points.
+[P1] [-] Go runtime and executable boundaries.
 
-Required:
-- go.mod,
-- cmd/api,
-- cmd/worker,
-- cmd/scheduler,
-- clean package boundaries,
-- buildable binaries.
+Implemented:
+- `go.mod`,
+- `cmd/api`,
+- `cmd/migrate`,
+- `cmd/bootstrap`,
+- `cmd/scheduler` with real session-cleanup workload,
+- clean platform/domain package boundaries.
 
-[P0] [ ] Implement configuration subsystem.
+Remaining:
+- executable CI verification,
+- `cmd/worker` only when a real durable job workload exists.
 
-Required:
-- environment parsing,
-- required/optional values,
-- safe defaults,
-- typed durations/integers,
-- startup validation,
-- no secret logging,
-- tests.
+[P0] [-] Configuration, logging and HTTP foundation.
 
-[P0] [ ] Implement structured logging.
-
-Required:
-- level,
-- timestamp,
-- request_id,
-- tenant/user context where available,
-- module/operation,
-- duration,
-- redaction rules,
-- tests for sensitive fields where practical.
-
-[P0] [ ] Implement HTTP server foundation.
-
-Required:
-- chi router,
-- request ID,
-- panic recovery,
-- access logging,
-- body-size limit,
-- security headers,
-- timeouts,
-- consistent error envelope,
+Implemented:
+- typed environment parsing,
+- fail-fast validation,
+- structured JSON logging,
+- server-generated request IDs and access logs,
+- body limits and HTTP 413 handling,
+- security/privacy headers and no-store responses,
+- bounded request IDs,
+- controlled JSON panic recovery,
+- request/server timeouts,
+- panic-safe transaction rollback,
 - graceful shutdown,
-- httptest coverage.
+- consistent JSON error envelope,
+- precision-safe decimal-string serialization for BIGINT identifiers/cursors/versions,
+- unit tests authored.
 
-[P0] [ ] Implement MySQL connection layer.
+Remaining:
+- execute format/vet/unit/race/build checks successfully.
 
-Required:
-- database/sql,
-- go-sql-driver/mysql,
-- DSN construction without logging password,
+[P0] [-] MySQL, transactions and migrations.
+
+Implemented:
+- `database/sql` + go-sql-driver/mysql,
+- safe DSN generation through driver config,
+- optional MySQL TLS modes,
+- UTC MySQL session timezone,
 - configurable pool,
-- PingContext health test,
-- error handling,
-- integration test harness.
+- bounded PingContext,
+- central transaction manager,
+- explicit migration runner,
+- migration versions `000001` through `000013`,
+- one SQL statement per migration direction,
+- runtime DSN with multi-statements disabled,
+- migration-only DSN compatible with golang-migrate `WithInstance`,
+- one-step rollback, full rollback and migration-version commands,
+- readiness bound to the exact clean schema version,
+- tests binding migration inventory to `RequiredSchemaVersion`,
+- integration test source.
 
-[P0] [ ] Implement migration runner.
+Remaining:
+- execute the authored latest → down-one → latest → down-all → latest → readiness integration lifecycle successfully,
+- successful migration/integration verification,
+- verify the committed `go.sum` on CI.
 
-Required:
-- explicit up/down SQL migrations,
-- deterministic startup/CLI behavior,
-- migration status visibility,
-- MySQL integration tests,
-- no AutoMigrate.
+[P0] [-] Redis foundation.
 
-[P0] [ ] Add first schema migration.
+Implemented:
+- client configuration,
+- optional TLS with minimum TLS 1.2,
+- bounded ping,
+- login rate-limit storage,
+- readiness integration.
 
-Initial scope should cover only foundational entities that are actually implemented in the same phase, not speculative tables for all future modules.
+Remaining:
+- executable verification in CI.
 
-[P0] [ ] Implement Redis connection layer.
+[P0] [-] Health/readiness.
 
-Required:
-- configuration,
-- health behavior,
-- context/timeout,
-- graceful shutdown,
-- tests.
-
-[P0] [ ] Implement health/readiness endpoints.
-
-Required:
-- process liveness,
+Implemented:
+- liveness,
 - MySQL readiness,
-- Redis readiness according to service dependency semantics,
-- bounded timeouts,
-- no secret leakage.
+- Redis readiness,
+- migrated-schema readiness,
+- tests authored.
 
-[P0] [ ] Implement tenant foundation.
+Remaining:
+- executable verification.
 
-Required:
-- tenants table/model,
-- request tenant context,
-- tenant-safe repository helpers/patterns,
-- cross-tenant denial tests.
+[P0] [-] Tenant foundation.
 
-[P0] [ ] Implement local users and authentication foundation.
+Implemented:
+- tenants schema/model/repository/service/API,
+- authenticated tenant scope,
+- no client-supplied tenant selector on admin APIs,
+- optimistic locking via `version`,
+- audit integration,
+- cross-tenant integration tests authored.
 
-Required:
-- local user model,
-- Argon2id or bcrypt,
-- login/session or token strategy,
-- logout/revocation semantics,
-- secure cookie/token handling,
-- brute-force/rate-limit plan,
-- tests.
+Remaining:
+- execute MySQL isolation/locking tests successfully.
 
-[P0] [ ] Implement groups, roles, permissions, and assignments.
+[P0] [-] Local users and authentication foundation.
 
-Required:
+Implemented:
+- local users and tenant memberships,
+- Argon2id hashing,
+- opaque session tokens stored only as hashes,
+- CSRF token binding,
+- login/logout/me flow,
+- session revocation, including bulk revocation when tenant membership is disabled,
+- Redis login throttling,
+- secure cookie settings,
+- bootstrap tenant/admin command,
+- tenant-scoped user administration with bounded cursor pagination/search,
+- explicit membership linking for an already-existing active global identity without changing its password/profile,
+- session cleanup scheduler with MySQL advisory-lock replica coordination,
+- explicit trusted-proxy CIDRs and safe forwarded-IP resolution,
+- bounded login/password input sizes,
+- bounded stored Argon2 work factors,
+- bounded concurrent Argon2 verification with AUTH_BUSY overload handling,
+- safe idempotent bootstrap requiring the existing user's password,
+- unit and smoke tests authored.
+
+Remaining:
+- executable verification.
+
+[P0] [-] Groups, roles, permissions and assignments.
+
+Implemented:
 - schema,
 - repositories,
 - service layer,
-- backend authorization enforcement,
-- tests.
+- group membership,
+- role assignments to users/groups,
+- tenant-scoped paginated readback for group members, direct user roles and group roles,
+- UI add/remove flows for membership and user/group role assignments with refetch after every mutation,
+- cursor pagination/search for roles and groups,
+- optimistic-lock permission replacement,
+- immutable system-role permissions,
+- protection against removing the last active effective `platform_admin`,
+- dynamic `platform_admin` inheritance of every permission present in the live catalog,
+- reserved `platform_admin` role name,
+- idempotent assignments without false audit events,
+- backend `RequirePermission` middleware,
+- tenant-scoped administration API,
+- audit integration,
+- auth/permission/CSRF route tests authored,
+- cross-tenant assignment-read integration coverage,
+- user-detail assignment reads require both `admin.rbac.manage` and `admin.users.manage`.
 
-[P0] [ ] Implement audit foundation.
+Remaining:
+- executable integration verification.
 
-Required:
-- append-oriented audit schema,
-- actor/tenant/object/request metadata,
-- old/new values where applicable,
-- integration with privileged foundation actions,
-- tests.
+[P0] [-] Audit foundation.
 
-[P1] [ ] Establish OpenAPI contract generation/validation approach.
+Implemented:
+- append-oriented audit table,
+- actor/tenant/object/request/source/IP metadata,
+- old/new JSON values,
+- audit events in privileged transactions,
+- tenant-scoped paginated audit reader/API.
 
-[P1] [ ] Add Docker Compose for MySQL and Redis development dependencies.
+Remaining:
+- executable verification and later retention policy.
 
-[P1] [ ] Add Makefile targets.
+[P1] [-] OpenAPI contract.
 
-Expected:
-- make dev,
-- make build,
-- make test,
-- make lint,
-- make migrate-up,
-- make migrate-down,
-- make seed,
-- make frontend,
-- make e2e.
+Implemented:
+- OpenAPI 3.1 JSON document,
+- only currently implemented endpoints are documented,
+- cookie session and CSRF security schemes,
+- contract tests checking parseability, route inventory, local $ref resolution and unique operation IDs,
+- explicit `x-required-permissions` metadata on every administrative operation,
+- contract test preventing future admin endpoints from omitting permission metadata.
 
-Targets should only be added when the underlying command exists and works.
+Remaining:
+- execute contract test successfully,
+- later introduce stricter schema validation/generation if useful.
 
-[P1] [ ] Add frontend foundation.
+[P1] [-] Docker Compose development environment.
 
-Required:
-- React,
-- TypeScript,
-- router,
-- API client boundary,
-- authentication state,
-- error/loading primitives,
-- test/build baseline.
+Implemented:
+- MySQL 8.4,
+- Redis 8.2,
+- health checks,
+- persistent MySQL development volume.
 
-[P1] [ ] Add CI once build/test commands exist.
+Remaining:
+- successful end-to-end execution in an environment with Docker.
 
-Required:
-- backend build,
-- gofmt verification,
-- go vet,
-- go test,
-- frontend typecheck/build/test,
-- integration tests where infrastructure is available.
+[P1] [-] Makefile commands.
+
+Implemented:
+- `make dev`,
+- `make build`,
+- `make test`,
+- `make lint`,
+- `make migrate-up`,
+- `make migrate-down`,
+- `make migrate-down-all`,
+- `make migrate-version`,
+- `make bootstrap`,
+- `make scheduler-once`,
+- `make frontend`,
+- `make frontend-test`,
+- `make e2e`.
+
+Remaining:
+- successful browser E2E execution in CI.
+
+[P1] [-] React + TypeScript frontend foundation.
+
+Implemented:
+- React + TypeScript + React Router + Vite,
+- same-origin API proxy for development,
+- API client with cookie credentials and automatic CSRF header,
+- session/authentication context,
+- permission-aware navigation and route guards,
+- login screen,
+- overview/health screen,
+- tenant administration with optimistic-lock conflict handling,
+- tenant user administration,
+- RBAC role/group/assignment administration,
+- paginated audit screen,
+- responsive layout,
+- loading/error/empty/success states,
+- API-client unit tests,
+- Playwright browser E2E covering admin login, user creation, direct role assignment, security-group membership, group-role assignment, audit visibility, logout, least-privilege login and permission-aware navigation,
+- two-session stale-version conflict E2E with server refetch,
+- desktop Chromium and Pixel 7 Chromium projects using isolated test data,
+- CI typecheck/test/build/E2E jobs.
+
+Remaining:
+- rerun successful local typecheck/test/build checks in CI,
+- verify the committed `web/package-lock.json` on CI,
+- production static-frontend/reverse-proxy packaging in deployment work.
+
+[P1] [!] Execute CI successfully.
+
+Implemented workflow:
+- formatting,
+- vet,
+- unit,
+- race,
+- build,
+- migrations,
+- MySQL integration tests,
+- bootstrap,
+- auth/RBAC/user smoke flow,
+- scheduler one-shot,
+- rollback,
+- frontend typecheck,
+- frontend tests,
+- frontend build,
+- full-stack Playwright E2E.
+
+Blocked:
+- workflow YAML parsing defect has been fixed,
+- all jobs use `ubuntu-latest`,
+- duplicate feature-branch `push` + `pull_request` executions have been removed and superseded runs are cancelled through workflow concurrency,
+- latest checked run #523 (`36271665852`) still fails before runner assignment for `test`, `frontend` and `e2e`: `runner_id=0`, empty runner name/group and zero executed steps,
+- GitHub Status reported Actions operational at the same time,
+- executable verification is therefore blocked by GitHub-hosted runner allocation/account or repository Actions policy/quota/billing rather than application code.
+
+[P1] [x] Generate and commit dependency lock files.
+
+Completed through real Go/npm dependency resolution:
+- `go.sum`,
+- `web/package-lock.json`.
+
+Remaining:
+- verify both lock files in CI after runner allocation is restored.
 
 ## Phase 2+
 
-[P2] [ ] Implement task foundation.
+[P1] [ ] Implement shared work-record primitives.
+[P1] [ ] Implement durable jobs and `cmd/worker`.
+[P1] [ ] Implement transactional outbox and domain-event delivery.
+[P1] [ ] Implement attachment storage/security foundation.
+[P1] [ ] Implement unified activity timeline.
 [P2] [ ] Implement Incident Management.
 [P2] [ ] Implement SLA engine.
 [P2] [ ] Implement Requests and Service Catalog.

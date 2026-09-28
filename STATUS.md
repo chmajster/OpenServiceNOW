@@ -1,119 +1,236 @@
 # Current Project Status
 
-Last updated: 2026-09-22
+Last updated: 2026-09-27
 
 ## Current phase
 
-Phase 0 — Architecture
+Phase 1 — Foundation
 
-Phase 0 documentation has been created. The repository does not yet contain a runtime application.
+The backend and frontend foundations are substantially implemented on the active branch. Local Go and frontend checks pass after dependency resolution and fixes, but Phase 1 is not complete: MySQL/Redis integration, browser E2E, security hardening and GitHub CI remain unverified.
 
 ## Last completed
 
-- repository baseline analysis,
-- target Go modular-monolith architecture,
-- MySQL persistence architecture,
-- multi-tenant/RBAC/security direction,
-- worker/scheduler/event architecture,
-- frontend/testing/deployment direction,
-- phased roadmap,
-- ADRs for Go and MySQL.
+Phase 0 architecture is merged into `main`.
 
-## Currently implemented
+Implemented on the Phase 1 branch:
 
-Documentation only:
-
-- AGENTS.md,
-- ARCHITECTURE.md,
-- ROADMAP.md,
-- TODO.md,
-- STATUS.md,
-- CHANGELOG.md,
-- docs/README.md,
-- docs/adr/ADR-0001-go-modular-monolith.md,
-- docs/adr/ADR-0002-mysql-persistence.md.
-
-No production runtime functionality is implemented yet.
+- Go 1.27 module,
+- `cmd/api`,
+- `cmd/migrate`,
+- `cmd/bootstrap`,
+- `cmd/scheduler` with real session-cleanup work and `--once` verification mode,
+- validated environment configuration,
+- structured JSON logging and server-generated request IDs,
+- HTTP access logging, body limits, security/privacy headers, server-generated request IDs and timeouts,
+- controlled JSON panic recovery,
+- panic-safe transaction rollback,
+- graceful API and scheduler shutdown,
+- MySQL connection pool using `database/sql`,
+- Redis connectivity,
+- central transaction manager,
+- explicit migrations,
+- schema-aware liveness/readiness,
+- local users and tenant memberships,
+- Argon2id password hashing,
+- opaque database-backed sessions,
+- CSRF double-submit validation,
+- Redis-backed login throttling,
+- tenant bootstrap with initial platform administrator,
+- groups, roles, permission catalog and assignments,
+- backend permission middleware,
+- tenant-scoped user administration with cursor pagination/search, existing-global-account membership linking and membership-triggered session revocation,
+- current-tenant administration with optimistic locking,
+- role/group administration with cursor pagination/search,
+- tenant-scoped read models for group members, direct user-role assignments and group-role assignments,
+- RBAC assignment UI for add/remove membership and user/group roles with server refetch after every mutation,
+- optimistic locking for role permission replacement,
+- append-oriented audit persistence,
+- tenant-scoped lookahead cursor audit API,
+- audit HTTP transport separated into auditapi to preserve acyclic package dependencies,
+- OpenAPI 3.1 document for implemented endpoints,
+- explicit OpenAPI permission metadata for every administrative operation, including dual permission requirements on user-bearing RBAC reads,
+- precision-safe decimal-string JSON contract for MySQL BIGINT identifiers, cursors, counts and optimistic-lock versions,
+- Docker Compose,
+- Makefile commands,
+- unit tests for configuration, HTTP, password hashing, authentication gates, RBAC gates and scheduler cleanup,
+- MySQL integration test source for cross-tenant isolation and optimistic locking,
+- trusted-proxy-aware client IP resolution with spoofing/all-trusted-chain tests,
+- canonical IP metadata and server-generated request IDs,
+- optional verified TLS for MySQL and Redis,
+- MySQL session timezone forced to UTC,
+- bounded password input and stored Argon2 work-factor validation,
+- bounded concurrent Argon2 password verification,
+- system-role immutability protections,
+- dynamic platform_admin inheritance of the live permission catalog,
+- React + TypeScript frontend with login, overview, tenant, users, RBAC and audit screens,
+- frontend API client with automatic CSRF handling,
+- frontend permission-aware navigation and route guards,
+- frontend responsive/loading/error/empty states,
+- frontend API-client unit tests,
+- Playwright browser E2E for the critical admin-to-least-privilege-user journey,
+- E2E coverage for security-group membership, group-role assignment, audit visibility and real HTTP 403 enforcement,
+- two-session E2E coverage for stale optimistic-lock conflicts and UI refetch,
+- desktop Chromium and Pixel 7 Chromium projects with isolated test data,
+- mobile-safe logout and permission-aware read-only tenant UI,
+- server-side bounded search/pagination controls in user/RBAC screens,
+- role permission editor using optimistic locking,
+- CI workflow covering dependency manifest stability, backend format/vet/unit/race/build/migrations/integration/smoke/advisory-lock scheduler/rollback and frontend typecheck/test/build.
 
 ## Currently in progress
 
-No runtime implementation is in progress.
+Phase 1 remains IN PROGRESS.
 
-The next active phase is Phase 1 — Foundation.
+Later-phase work intentionally not required for Phase 1:
+
+- `cmd/worker` is deferred to Phase 2B and will only be introduced with the first durable job workload,
+- production reverse-proxy/static-frontend packaging belongs to deployment work,
+- external identity providers such as LDAP/OIDC belong to later identity/integration work.
+
+Remaining verification work:
+
+- obtain a GitHub-hosted runner that actually executes workflow steps,
+- verify the committed lock files on a functioning CI runner,
+- execute MySQL/Redis integration tests and backend build in CI,
+- execute migrations and complete API/auth/RBAC smoke flow,
+- execute the authored full migration lifecycle test: latest → one-step rollback → latest → full rollback → latest → readiness,
+- execute scheduler verification,
+- rerun frontend typecheck, tests and production build in CI,
+- run full Playwright E2E on desktop and mobile Chromium against the real API/MySQL/Redis stack.
 
 ## Known problems
 
-There are no known defects in application runtime because application runtime does not yet exist.
+### BLOCKER — GitHub-hosted runner allocation fails before the first step
 
-Expected missing foundation components:
+A workflow YAML parsing defect was found and fixed: an inline `run:` scalar contained `version: none dirty: false`, which made GitHub treat the workflow as invalid. After the fix, GitHub correctly recognizes the workflow name and creates the `test` and `frontend` jobs.
 
-- Go module,
-- API process,
-- worker process,
-- scheduler process,
-- MySQL schema/migrations,
-- Redis integration,
-- authentication,
-- tenants,
-- RBAC,
-- audit runtime,
-- frontend,
-- CI,
-- runtime tests.
+A temporary minimal diagnostic workflow with one `echo` step was also created and then removed. It showed the same remaining failure pattern as the real workflow:
 
-These are planned work, not regressions.
+- job object is created,
+- job immediately finishes with `conclusion=failure`,
+- `steps=null`,
+- no job logs are available.
+
+Therefore the YAML/parser problem is resolved. The remaining CI blocker occurs before the first runner step and is separate from application build/test results.
+
+On 2026-09-26 the workflow was changed from `ubuntu-24.04` to `ubuntu-latest`; run #474 still failed with `runner_id=0`, empty runner name and no steps. The workflow was then changed to avoid duplicate `push` + `pull_request` runs for feature branches and to cancel superseded runs. Run #475 still failed identically before runner allocation.
+
+The latest checked reproduction for this branch before the local fixes is run #523 (`36271665852`) on commit `e7331137a953290c228240f176892146dbce8eab`. Jobs `test`, `frontend` and `e2e` each completed with `conclusion=failure`, `runner_id=0`, empty runner name/group and an empty step list; they ran for roughly three seconds and did not execute checkout or repository code. This remains a runner-allocation/platform blocker, not an application test failure.
+
+The previous workflow triggered both `push` on `foundation/**` and `pull_request`, causing duplicate runs for each PR-branch commit. This has been corrected; feature branches now run through the PR trigger, while direct `push` CI is limited to `main`.
+
+The current execution environment downloaded the checksum-verified Go 1.27.1 toolchain and resolved modules successfully. GitHub Actions runner allocation remains a separate blocker.
+
+### Dependency lock files
+
+The following lock artifacts were generated using the package managers and committed:
+
+- `go.sum`,
+- `web/package-lock.json`.
+
+Both require verification on CI before this PR is merge-ready.
 
 ## Tests
 
-Current state:
+Test code exists for:
 
-- no Go code exists,
-- no frontend code exists,
-- no runtime test suite exists,
-- no integration environment exists.
+- configuration validation,
+- MySQL DSN round-trip handling,
+- health endpoints,
+- HTTP security/error behavior,
+- Argon2id hashing and verification,
+- authentication middleware,
+- CSRF rejection,
+- backend permission enforcement,
+- login throttling,
+- effective-permission response,
+- RBAC route authorization,
+- session cleanup scheduling,
+- OpenAPI route inventory,
+- cross-tenant user isolation,
+- cross-tenant RBAC membership rejection,
+- tenant optimistic locking,
+- system-role mutation protections,
+- last-effective-platform-admin lockout protection across membership/group/role removal paths,
+- migration inventory/version invariants and one-statement migration enforcement,
+- full MySQL migration lifecycle source covering latest → one-step rollback → re-upgrade → full rollback → re-upgrade → schema readiness,
+- trusted-proxy client-IP resolution and spoofing rejection,
+- password input bounds,
+- frontend API client CSRF behavior and error mapping,
+- OpenAPI route inventory, local $ref resolution, unique operation IDs and decimal-string BIGINT contract,
+- role permission optimistic-lock conflicts and no-op version stability,
+- explicit linking of an existing global account to a second tenant without password mutation,
+- audit cursor pagination and tenant isolation,
+- safe bootstrap re-entry for existing users,
+- bounded password-verifier saturation behavior,
+- panic-safe transaction behavior,
+- precision-safe BIGINT JSON serialization above JavaScript `Number.MAX_SAFE_INTEGER`,
+- quoted optimistic-lock version decoding in tenant/RBAC HTTP transports,
+- Redis rate-limiter backend failure returning a stable 503 without entering password authentication,
+- RBAC assignment reads requiring the additional user-management permission where user details are exposed,
+- group membership and user/group role mutation → repository readback cycles with cross-tenant rejection,
+- OpenAPI permission metadata on every administrative operation.
 
-Therefore `go test`, frontend tests, integration tests, E2E tests, and migration tests are not applicable in Phase 0.
+CI is configured to run:
 
-Phase 0 verification is document consistency and repository/PR diff review.
+- `gofmt` verification,
+- `go vet ./...`,
+- `go test ./...`,
+- `go test -race ./...`,
+- `go build ./...`,
+- migration apply,
+- MySQL integration tests,
+- tenant/admin bootstrap,
+- API readiness smoke test,
+- admin login,
+- tenant user creation,
+- role creation and assignment,
+- login as the created user and effective-permission verification,
+- logout/revocation,
+- one scheduler cleanup iteration,
+- migration rollback,
+- frontend TypeScript typecheck,
+- frontend unit tests,
+- frontend production build,
+- full-stack Playwright Chromium E2E through UI → API → MySQL.
+
+Local Go 1.27.1 checks passed: `go mod tidy`, `go mod verify`, `go vet ./...`, `go test ./...`, `go test -race ./...`, and `go build -buildvcs=false ./...`; `gofmt` was applied to 14 files. Local frontend checks passed: `npm ci`, typecheck, unit tests (3/3) and production build. MySQL/Redis integration, migration lifecycle, live API and Playwright E2E have not executed. The GitHub workflow still requires a runner to verify its own environment.
 
 ## Database migrations
 
-None exist yet.
+Implemented migration versions:
 
-Migration strategy:
+- `000001_foundation`,
+- `000002_tenants`,
+- `000003_users`,
+- `000004_tenant_memberships`,
+- `000005_groups`,
+- `000006_group_memberships`,
+- `000007_permissions`,
+- `000008_roles`,
+- `000009_role_permissions`,
+- `000010_user_role_assignments`,
+- `000011_group_role_assignments`,
+- `000012_sessions`,
+- `000013_audit_events`.
 
-- versioned SQL up/down migrations,
-- MySQL 8.x,
-- explicit migration runner,
-- no production AutoMigrate.
-
-First migrations belong to Phase 1 and should be limited to actually implemented foundation domains.
+Each up/down migration contains one SQL statement. Runtime readiness requires migration version 13, `dirty=false`, and the foundation metadata singleton. The migration CLI supports one-step rollback, full rollback and version inspection.
 
 ## Technical debt
 
-No runtime technical debt has been created yet.
+Known non-blocking design work:
 
-Architectural risks to control during implementation:
+- session cleanup scheduler uses a MySQL advisory lock so parallel replicas skip duplicate work; broader multi-job scheduler coordination will evolve with future workloads,
+- `cmd/worker` is intentionally absent until a real durable job workload exists,
+- production packaging for the built frontend is not defined yet,
+- external authentication providers are not implemented yet.
 
-- domain package coupling,
-- missing tenant predicates,
-- authorization applied only in UI,
-- transaction boundaries duplicated across services,
-- events emitted without reliable persistence when durability is required,
-- unbounded worker concurrency,
-- speculative schemas for future modules,
-- N+1 queries,
-- secrets in logs/configuration.
+No fake endpoint, placeholder UI or empty worker executable is used to hide these gaps.
 
 ## Next recommended tasks
 
-1. Initialize Go module and executable boundaries.
-2. Implement validated configuration and structured logging.
-3. Implement HTTP server and graceful shutdown.
-4. Implement MySQL connectivity, pool, migration runner, and integration test harness.
-5. Implement Redis connectivity.
-6. Implement health/readiness.
-7. Implement tenants, users, authentication, RBAC, and audit foundation.
-8. Add Docker Compose and Makefile only with working commands.
-9. Establish frontend foundation.
-10. Add CI after build/test commands exist.
+1. Restore GitHub-hosted runner allocation and rerun `foundation-ci`.
+2. Integrate and verify the system-role privilege-escalation fix from PR #5.
+3. Execute the MySQL/Redis, migration, live API and Playwright matrix and fix every defect it exposes.
+4. Repeat the full Phase 1 verification in CI on the final commit.
+5. Merge PR #3 only after all required checks have actually executed successfully and no blocker remains.
+6. Continue the already-open Draft PR #4 only after Phase 1 is merged and retargeted appropriately.

@@ -1,0 +1,360 @@
+name: foundation-ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: foundation-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: opensnow
+          MYSQL_USER: opensnow
+          MYSQL_PASSWORD: opensnow-test
+          MYSQL_ROOT_PASSWORD: root-test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot-test"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+      redis:
+        image: redis:8.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+
+    env:
+      APP_ENV: test
+      HTTP_ADDR: 127.0.0.1:18080
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: opensnow
+      MYSQL_USER: opensnow
+      MYSQL_PASSWORD: opensnow-test
+      REDIS_ADDR: 127.0.0.1:6379
+      BOOTSTRAP_TENANT_SLUG: ci
+      BOOTSTRAP_TENANT_NAME: CI Tenant
+      BOOTSTRAP_ADMIN_EMAIL: admin@example.test
+      BOOTSTRAP_ADMIN_NAME: CI Administrator
+      BOOTSTRAP_ADMIN_PASSWORD: ci-bootstrap-password-1234
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.27.x'
+          cache: false
+
+      - name: Resolve and tidy Go modules
+        run: go mod tidy
+
+      - name: Preserve generated Go module files
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase1-go-module-files
+          path: |
+            go.mod
+            go.sum
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Verify Go manifest is stable
+        run: git diff --exit-code -- go.mod go.sum
+
+      - name: Verify formatting
+        run: test -z "$(gofmt -l .)"
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Unit tests
+        run: go test ./...
+
+      - name: Race tests
+        run: go test -race ./...
+
+      - name: Build
+        run: go build ./...
+
+      - name: Apply migrations
+        run: go run ./cmd/migrate up
+
+      - name: MySQL integration tests
+        run: go test -tags=integration ./internal/integration
+
+      - name: Bootstrap tenant and administrator
+        run: go run ./cmd/bootstrap
+
+      - name: Smoke test API and authentication
+        shell: bash
+        run: |
+          set -euo pipefail
+          go run ./cmd/api >api.log 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid" 2>/dev/null || true; cat api.log' EXIT
+
+          ready=0
+          for _ in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:18080/health/ready | grep -q '"status":"ok"'; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            echo "API readiness failed"
+            exit 1
+          fi
+
+          login_response="$(
+            curl --fail --silent --show-error               -c cookies.txt               -H 'Content-Type: application/json'               --data '{"tenant":"ci","email":"admin@example.test","password":"ci-bootstrap-password-1234"}'               http://127.0.0.1:18080/api/v1/auth/login
+          )"
+          printf '%s' "$login_response" | grep -q '"email":"admin@example.test"'
+          printf '%s' "$login_response" | grep -q '"slug":"ci"'
+
+          me_response="$(
+            curl --fail --silent --show-error               -b cookies.txt               http://127.0.0.1:18080/api/v1/auth/me
+          )"
+          printf '%s' "$me_response" | grep -q '"admin.rbac.manage"'
+
+          csrf_token="$(awk '$6 == "opensnow_csrf" {print $7}' cookies.txt)"
+          test -n "$csrf_token"
+
+          created_user="$(
+            curl --fail --silent --show-error               -b cookies.txt               -H 'Content-Type: application/json'               -H "X-CSRF-Token: $csrf_token"               --data '{"email":"operator@example.test","display_name":"CI Operator","password":"operator-password-1234"}'               http://127.0.0.1:18080/api/v1/admin/users/
+          )"
+          user_id="$(printf '%s' "$created_user" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')"
+          test -n "$user_id"
+
+          created_role="$(
+            curl --fail --silent --show-error               -b cookies.txt               -H 'Content-Type: application/json'               -H "X-CSRF-Token: $csrf_token"               --data '{"name":"ci_operator","description":"CI smoke role","permissions":["tenant.read"]}'               http://127.0.0.1:18080/api/v1/admin/rbac/roles
+          )"
+          role_id="$(printf '%s' "$created_role" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')"
+          test -n "$role_id"
+
+          curl --fail --silent --show-error             -o /dev/null             -b cookies.txt             -H "X-CSRF-Token: $csrf_token"             -X POST             "http://127.0.0.1:18080/api/v1/admin/rbac/users/$user_id/roles/$role_id"
+
+          user_login="$(
+            curl --fail --silent --show-error               -c operator-cookies.txt               -H 'Content-Type: application/json'               --data '{"tenant":"ci","email":"operator@example.test","password":"operator-password-1234"}'               http://127.0.0.1:18080/api/v1/auth/login
+          )"
+          printf '%s' "$user_login" | grep -q '"operator@example.test"'
+
+          operator_me="$(
+            curl --fail --silent --show-error               -b operator-cookies.txt               http://127.0.0.1:18080/api/v1/auth/me
+          )"
+          printf '%s' "$operator_me" | grep -q '"tenant.read"'
+
+          logout_status="$(
+            curl --silent --show-error               -o /dev/null               -w '%{http_code}'               -b cookies.txt               -H "X-CSRF-Token: $csrf_token"               -X POST               http://127.0.0.1:18080/api/v1/auth/logout
+          )"
+          test "$logout_status" = "204"
+
+          me_after_logout="$(
+            curl --silent --show-error               -o /dev/null               -w '%{http_code}'               -b cookies.txt               http://127.0.0.1:18080/api/v1/auth/me
+          )"
+          test "$me_after_logout" = "401"
+
+      - name: Run scheduler cleanup once
+        run: go run ./cmd/scheduler --once
+
+      - name: Roll back all migrations
+        run: go run ./cmd/migrate down-all
+
+      - name: Verify migration rollback state
+        run: |
+          go run ./cmd/migrate version | grep -q 'version: none dirty: false'
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Install frontend dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Preserve generated npm lock file
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase1-npm-lock
+          path: web/package-lock.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Verify frontend manifest is stable
+        run: git diff --exit-code -- package.json package-lock.json
+
+      - name: Typecheck frontend
+        run: npm run typecheck
+
+      - name: Test frontend
+        run: npm run test
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Verify frontend build did not modify source manifests
+        run: git diff --exit-code -- package.json tsconfig.json tsconfig.app.json tsconfig.node.json tsconfig.e2e.json vite.config.ts playwright.config.ts src e2e
+
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: opensnow
+          MYSQL_USER: opensnow
+          MYSQL_PASSWORD: opensnow-test
+          MYSQL_ROOT_PASSWORD: root-test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot-test"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+      redis:
+        image: redis:8.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+
+    env:
+      APP_ENV: test
+      HTTP_ADDR: 127.0.0.1:18080
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: opensnow
+      MYSQL_USER: opensnow
+      MYSQL_PASSWORD: opensnow-test
+      REDIS_ADDR: 127.0.0.1:6379
+      BOOTSTRAP_TENANT_SLUG: e2e
+      BOOTSTRAP_TENANT_NAME: E2E Tenant
+      BOOTSTRAP_ADMIN_EMAIL: admin@example.test
+      BOOTSTRAP_ADMIN_NAME: E2E Administrator
+      E2E_TENANT: e2e
+      E2E_ADMIN_EMAIL: admin@example.test
+      E2E_ADMIN_PASSWORD: phase1-admin-${{ github.run_id }}-Password
+      E2E_OPERATOR_EMAIL: e2e-operator@example.test
+      E2E_OPERATOR_PASSWORD: phase1-operator-${{ github.run_id }}-Password
+      E2E_BASE_URL: http://127.0.0.1:5173
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.27.x'
+          cache: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Resolve backend dependencies
+        run: go mod tidy
+
+      - name: Install frontend dependencies
+        working-directory: web
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Apply migrations
+        run: go run ./cmd/migrate up
+
+      - name: Bootstrap E2E tenant
+        env:
+          BOOTSTRAP_ADMIN_PASSWORD: ${{ env.E2E_ADMIN_PASSWORD }}
+        run: go run ./cmd/bootstrap
+
+      - name: Run browser E2E
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          go run ./cmd/api >api-e2e.log 2>&1 &
+          api_pid=$!
+
+          (
+            cd web
+            npm run dev -- --host 127.0.0.1 --port 5173
+          ) >web-e2e.log 2>&1 &
+          web_pid=$!
+
+          cleanup() {
+            kill "$web_pid" 2>/dev/null || true
+            kill "$api_pid" 2>/dev/null || true
+            echo "===== api-e2e.log ====="
+            cat api-e2e.log || true
+            echo "===== web-e2e.log ====="
+            cat web-e2e.log || true
+          }
+          trap cleanup EXIT
+
+          api_ready=0
+          for _ in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:18080/health/ready | grep -q '"status":"ok"'; then
+              api_ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$api_ready" = "1"
+
+          web_ready=0
+          for _ in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:5173/ >/dev/null; then
+              web_ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$web_ready" = "1"
+
+          cd web
+          npm run e2e
+
+      - name: Upload Playwright failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase1-playwright-failure
+          path: |
+            web/test-results
+            api-e2e.log
+            web-e2e.log
+          if-no-files-found: ignore
+          retention-days: 7
