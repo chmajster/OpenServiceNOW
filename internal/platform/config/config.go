@@ -25,6 +25,7 @@ type Config struct {
 	Redis             RedisConfig
 	Session           SessionConfig
 	Auth              AuthConfig
+	Worker            WorkerConfig
 	TrustedProxyCIDRs []string
 }
 
@@ -60,6 +61,13 @@ type SessionConfig struct {
 	CleanupInterval  time.Duration
 	CleanupBatch     int
 	RevokedRetention time.Duration
+}
+
+type WorkerConfig struct {
+	Concurrency  int
+	PollInterval time.Duration
+	LeaseDuration time.Duration
+	RetryDelay   time.Duration
 }
 
 type AuthConfig struct {
@@ -156,6 +164,22 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	workerConcurrency, err := envInt("WORKER_CONCURRENCY", 4)
+	if err != nil {
+		return Config{}, err
+	}
+	workerPollInterval, err := envDuration("WORKER_POLL_INTERVAL", time.Second)
+	if err != nil {
+		return Config{}, err
+	}
+	workerLeaseDuration, err := envDuration("WORKER_LEASE_DURATION", 30*time.Second)
+	if err != nil {
+		return Config{}, err
+	}
+	workerRetryDelay, err := envDuration("WORKER_RETRY_DELAY", 5*time.Second)
+	if err != nil {
+		return Config{}, err
+	}
 
 	trustedProxyCIDRs := envCSV("TRUSTED_PROXY_CIDRS")
 
@@ -200,6 +224,12 @@ func Load() (Config, error) {
 			LoginAccountLimit:           loginAccountLimit,
 			LoginAccountWindow:          loginAccountWindow,
 			MaxConcurrentPasswordChecks: maxConcurrentPasswordChecks,
+		},
+		Worker: WorkerConfig{
+			Concurrency: workerConcurrency,
+			PollInterval: workerPollInterval,
+			LeaseDuration: workerLeaseDuration,
+			RetryDelay: workerRetryDelay,
 		},
 		TrustedProxyCIDRs: trustedProxyCIDRs,
 	}
@@ -287,6 +317,18 @@ func (c Config) Validate() error {
 	}
 	if c.Auth.MaxConcurrentPasswordChecks < 1 || c.Auth.MaxConcurrentPasswordChecks > 16 {
 		errs = append(errs, errors.New("AUTH_MAX_CONCURRENT_PASSWORD_CHECKS must be between 1 and 16"))
+	}
+	if c.Worker.Concurrency < 1 || c.Worker.Concurrency > 64 {
+		errs = append(errs, errors.New("WORKER_CONCURRENCY must be between 1 and 64"))
+	}
+	if c.Worker.PollInterval < 50*time.Millisecond || c.Worker.PollInterval > time.Minute {
+		errs = append(errs, errors.New("WORKER_POLL_INTERVAL must be between 50ms and 1m"))
+	}
+	if c.Worker.LeaseDuration < 5*time.Second || c.Worker.LeaseDuration > time.Hour {
+		errs = append(errs, errors.New("WORKER_LEASE_DURATION must be between 5s and 1h"))
+	}
+	if c.Worker.RetryDelay < 0 || c.Worker.RetryDelay > 24*time.Hour {
+		errs = append(errs, errors.New("WORKER_RETRY_DELAY must be between 0 and 24h"))
 	}
 	for _, cidr := range c.TrustedProxyCIDRs {
 		_, network, err := net.ParseCIDR(cidr)

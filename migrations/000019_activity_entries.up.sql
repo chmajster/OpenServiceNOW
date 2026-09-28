@@ -1,0 +1,20 @@
+CREATE TABLE activity_entries (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    tenant_id BIGINT UNSIGNED NOT NULL,
+    object_type VARCHAR(100) NOT NULL,
+    object_id VARCHAR(128) NOT NULL,
+    entry_type VARCHAR(100) NOT NULL,
+    actor_user_id BIGINT UNSIGNED NULL,
+    summary VARCHAR(500) NOT NULL,
+    data JSON NULL,
+    source_event_id BIGINT UNSIGNED NULL,
+    event_time DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_activity_source_event (source_event_id),
+    KEY idx_activity_object (tenant_id, object_type, object_id, id),
+    KEY idx_activity_actor (tenant_id, actor_user_id, id),
+    CONSTRAINT fk_activity_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+    CONSTRAINT fk_activity_actor FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_activity_source_event FOREIGN KEY (source_event_id) REFERENCES outbox_events(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
