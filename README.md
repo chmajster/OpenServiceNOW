@@ -58,6 +58,39 @@ Frontend:
 - Vite,
 - same-origin cookie session + CSRF model.
 
+## One-command local installer
+
+OpenServiceNOW includes an executable `install.sh` for the repository's current local runtime. It does not change or depend on DevBox orchestration rules.
+
+Requirements:
+
+- Docker Engine/Desktop with Docker Compose v2,
+- Go 1.27 or newer,
+- Node.js 22.12 or newer with npm,
+- curl and standard Unix shell tools.
+
+Install, migrate, bootstrap, build and start the current stack:
+
+```bash
+./install.sh
+```
+
+The installer creates `.env` from `.env.example` when needed, generates `BOOTSTRAP_ADMIN_PASSWORD` when it is empty, starts MySQL and Redis through the repository Compose file, installs Go/npm dependencies, applies migrations, bootstraps the initial administrator, builds the backend/frontend and starts the API plus the Vite frontend.
+
+Operational modes:
+
+```bash
+./install.sh --status
+./install.sh --stop
+./install.sh --start
+./install.sh --restart
+./install.sh --no-start
+./install.sh --uninstall
+./install.sh --uninstall --purge-data
+```
+
+Ordinary uninstall preserves `.env` and the MySQL Docker volume. `--purge-data` explicitly removes both. Runtime PID/log files are stored under `.opensnow/`. The current frontend proxy targets the API on port 8080, so the installer rejects another `HTTP_ADDR` port instead of starting a partially working deployment.
+
 ## Local development
 
 Start MySQL and Redis:
