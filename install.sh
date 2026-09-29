@@ -486,7 +486,10 @@ case "$ACTION" in
     usage
     ;;
   status)
+    trap - ERR
+    set +e
     show_status
+    exit $?
     ;;
   start)
     check_toolchains
