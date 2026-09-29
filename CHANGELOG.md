@@ -4,6 +4,23 @@ All notable repository changes are documented here.
 
 The project is pre-release and currently in architecture/foundation development.
 
+## 2026-09-29 — Local installer
+
+### Added
+
+- executable repository-level `install.sh` for the current Go/React/MySQL/Redis stack,
+- preflight checks for Docker Compose v2, Go, Node.js, npm and curl,
+- idempotent environment creation with generated bootstrap administrator password when missing,
+- MySQL/Redis startup and health waiting, migrations, bootstrap, dependency installation and backend/frontend builds,
+- start, stop, restart, status, no-start and uninstall modes with explicit data purge,
+- PID/log state under ignored `.opensnow/` and CI syntax/help validation.
+
+### Safety
+
+- ordinary uninstall preserves `.env` and MySQL data,
+- PID shutdown verifies the recorded process before sending signals,
+- the installer rejects API ports incompatible with the current Vite proxy instead of producing a broken frontend/API path.
+
 ## 2026-09-27 — Phase 1 protected system-role hardening
 
 ### Security
