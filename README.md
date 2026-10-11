@@ -68,7 +68,7 @@ Requirements:
 - Docker Engine/Desktop with Docker Compose v2,
 - Go 1.27 or newer,
 - Node.js 22.12 or newer with npm,
-- Bash on Linux or WSL, curl, `flock` (util-linux), `ss` (iproute2) and standard Unix tools,
+- Bash on Linux or WSL, curl, `flock`/`setsid` (util-linux), `ss` (iproute2) and standard Unix tools,
 - access to a running Docker Engine as your ordinary user; no systemd or application service registration is needed.
 
 Install, migrate, build and start the current stack:
@@ -77,7 +77,7 @@ Install, migrate, build and start the current stack:
 bash ./install.sh --local
 ```
 
-The installer uses the exact checkout containing `install.sh`, including uncommitted source changes. It creates local `.env` from `.env.example` when missing, explicitly starts MySQL/Redis with `docker-compose.yml`, installs Go/npm dependencies, applies migrations, builds API/worker/scheduler into local `bin/`, builds the frontend and runs all four application processes in the background. Vite runs directly from `web/` and proxies `/api` and `/health` to the selected API port. It verifies process ownership, database/cache readiness and the actual frontend proxy before reporting success. It does not move or clone sources, modify Git, or use DevBox configuration.
+The installer uses the exact checkout containing `install.sh`, including uncommitted source changes. It creates local `.env` from `.env.example` when missing, explicitly starts MySQL/Redis with `docker-compose.yml`, installs Go/npm dependencies, applies migrations, builds API/worker/scheduler into local `bin/`, builds the frontend and runs all four application processes in independent background sessions that survive closing the installer's terminal. Vite runs directly from `web/` in non-interactive mode and proxies `/api` and `/health` to the selected API port. It verifies process ownership, database/cache readiness and the actual frontend proxy before reporting success. It does not move or clone sources, modify Git, or use DevBox configuration.
 
 Open the displayed WebUI address (normally `http://127.0.0.1:5173`). On a fresh database, the first-run wizard creates the organization and administrator. You can use `admin` / `admin`, or choose your own email and password. Existing configuration, administrator credentials and SQL data are preserved. Re-running `--local` stops this checkout's old processes, rebuilds current source and starts the new runtime. `--no-start` prepares/builds everything and leaves application processes stopped.
 

@@ -352,14 +352,16 @@ start_component() {
   if pid_running "$component"; then info "${component} is already running (PID $(pid_from_file "$component"))."; return 0; fi
   local -a command=("$BIN_DIR/opensnow-$component")
   if [[ "$component" == api ]]; then command=(env "HTTP_ADDR=${bind_address%:*}:$API_PORT" "$BIN_DIR/opensnow-api"); fi
-  if [[ "$component" == web ]]; then cwd="$ROOT_DIR/web"; command=(env "OPENSNOW_API_PORT=$API_PORT" node "$ROOT_DIR/web/node_modules/vite/bin/vite.js" --host 127.0.0.1 --port "$WEB_PORT" --strictPort); fi
+  # Vite exits on stdin EOF outside CI mode; a detached server has /dev/null stdin.
+  if [[ "$component" == web ]]; then cwd="$ROOT_DIR/web"; command=(env CI=true "OPENSNOW_API_PORT=$API_PORT" node "$ROOT_DIR/web/node_modules/vite/bin/vite.js" --host 127.0.0.1 --port "$WEB_PORT" --strictPort); fi
   touch "$LOG_DIR/$component.log"
   log_line=$(( $(wc -l <"$LOG_DIR/$component.log") + 1 ))
   (
     exec 9>&-
     trap - ERR EXIT INT TERM
     cd "$cwd"
-    exec nohup "${command[@]}"
+    # Release the launching terminal/session as well as ignoring its hangup signal.
+    exec nohup setsid "${command[@]}"
   ) </dev/null >>"$LOG_DIR/$component.log" 2>&1 &
   pid=$!
   printf '%s %s\n' "$pid" "$(process_stamp "$pid")" >"$RUN_DIR/$component.pid"
@@ -523,7 +525,7 @@ main() {
   if [[ "$ACTION" == help ]]; then usage; return; fi
   [[ "$(uname -s)" == Linux && -d /proc/self ]] || fail "Local runtime supports Linux and WSL. Run this script in your Linux/WSL shell."
   local command_name
-  for command_name in flock ss curl nohup env stat readlink awk sed sort; do require_command "$command_name" "Install standard Linux utilities (util-linux, iproute2, coreutils and curl)."; done
+  for command_name in flock ss curl nohup setsid env stat readlink awk sed sort; do require_command "$command_name" "Install standard Linux utilities (util-linux, iproute2, coreutils and curl)."; done
   ensure_state_dirs
   exec 9>"$RUN_DIR/installer.lock"
   flock -n 9 || fail "Another installer command is running for this checkout. Wait for it to finish."
