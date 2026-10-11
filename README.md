@@ -68,31 +68,44 @@ Requirements:
 - Docker Engine/Desktop with Docker Compose v2,
 - Go 1.27 or newer,
 - Node.js 22.12 or newer with npm,
-- curl and standard Unix shell tools.
+- Bash on Linux or WSL, curl, `flock` (util-linux), `ss` (iproute2) and standard Unix tools,
+- access to a running Docker Engine as your ordinary user; no systemd or application service registration is needed.
 
 Install, migrate, build and start the current stack:
 
 ```bash
-./install.sh
+bash ./install.sh --local
 ```
 
-The installer creates `.env` from `.env.example` when needed, starts MySQL and Redis through the repository Compose file, installs Go/npm dependencies, applies migrations, builds the backend/frontend and starts the API plus the Vite frontend. Open the displayed WebUI address (normally `http://127.0.0.1:5173`). On a fresh database, the first-run wizard lets you enter the organization name/identifier and create the administrator with a login or email, name and confirmed password. It then takes you to login with the chosen organization/account filled in. You can use `admin` / `admin`, or choose your own email and password. Existing configuration and accounts are preserved.
+The installer uses the exact checkout containing `install.sh`, including uncommitted source changes. It creates local `.env` from `.env.example` when missing, explicitly starts MySQL/Redis with `docker-compose.yml`, installs Go/npm dependencies, applies migrations, builds API/worker/scheduler into local `bin/`, builds the frontend and runs all four application processes in the background. Vite runs directly from `web/` and proxies `/api` and `/health` to API port 8080. It verifies process ownership, database/cache readiness and the actual frontend proxy before reporting success. It does not move or clone sources, modify Git, or use DevBox configuration.
 
-For unattended installation, explicitly use `./install.sh --bootstrap` or set `BOOTSTRAP_ON_START=true` and supply the `BOOTSTRAP_*` environment values. Headless bootstrap closes the WebUI installer too. The default is `BOOTSTRAP_ON_START=false`.
+Open the displayed WebUI address (normally `http://127.0.0.1:5173`). On a fresh database, the first-run wizard creates the organization and administrator. You can use `admin` / `admin`, or choose your own email and password. Existing configuration, administrator credentials and SQL data are preserved. Re-running `--local` stops this checkout's old processes, rebuilds current source and starts the new runtime. `--no-start` prepares/builds everything and leaves application processes stopped.
+
+For unattended installation, use `bash ./install.sh --local --bootstrap` or set `BOOTSTRAP_ON_START=true` and supply `BOOTSTRAP_*` values in `.env`. Headless bootstrap closes the WebUI installer too. The default is `BOOTSTRAP_ON_START=false`; ordinary start/restart never recreates an administrator.
 
 Operational modes:
 
 ```bash
-./install.sh --status
-./install.sh --stop
-./install.sh --start
-./install.sh --restart
-./install.sh --no-start
-./install.sh --uninstall
-./install.sh --uninstall --purge-data
+bash ./install.sh --local --status
+bash ./install.sh --local --stop
+bash ./install.sh --local --start
+bash ./install.sh --local --restart
+bash ./install.sh --local --no-start
+bash ./install.sh --local --uninstall
+bash ./install.sh --local --uninstall --purge-data
 ```
 
-Ordinary uninstall preserves `.env` and the MySQL Docker volume. `--purge-data` explicitly removes both. Runtime PID/log files are stored under `.opensnow/`. The current frontend proxy targets the API on port 8080, so the installer rejects another `HTTP_ADDR` port instead of starting a partially working deployment.
+Choose another frontend port on install or restart:
+
+```bash
+OPENSNOW_WEB_PORT=8090 bash ./install.sh --local
+bash ./install.sh --local --status
+bash ./install.sh --local --restart
+```
+
+The effective port is stored in `.opensnow/run/web-port`, so later commands use the same address without repeating the variable. API port remains 8080. Port conflicts with another process/checkout are errors; the installer does not claim success or stop the foreign process. Set `MYSQL_PORT` and `REDIS_ADDR` in `.env` if the infrastructure's default loopback ports 3306/6379 are occupied. Configure matching database credentials there before first provisioning; changing a password in `.env` does not reset accounts in an existing MySQL volume. For checkouts with the same directory name, use a distinct `COMPOSE_PROJECT_NAME` in `.env`; existing Compose project names/volumes remain compatible and container ownership is checked against the checkout path.
+
+The script also accepts an absolute path from another directory, including paths with spaces, e.g. `bash "/mnt/c/Projects/OpenServiceNOW local/install.sh" --local`. Logs are `.opensnow/logs/api.log`, `web.log`, `worker.log` and `scheduler.log`; separate PID/start-time records live in `.opensnow/run/`. Start is idempotent; stop preserves data and affects only this checkout's verified processes and infrastructure. Failed startup removes only processes/dependencies started by that invocation and reports log locations. Status returns a nonzero exit code for an incomplete/unready runtime. Ordinary uninstall preserves `.env`, SQL volume, source files, logs and unrelated `bin/` files; `--purge-data` explicitly removes this instance's database volume and `.env`. Previous commands without `--local` remain aliases for the same local mode. Conflicting lifecycle actions/options are rejected.
 
 ## DevBox deployment
 

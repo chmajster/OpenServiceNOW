@@ -64,6 +64,8 @@ jobs:
         run: |
           bash -n ./install.sh
           ./install.sh --help >/dev/null
+          shellcheck -x -P SCRIPTDIR install.sh tests/installer_test.sh tests/local_runtime_test.sh
+          bash tests/installer_test.sh
 
       - uses: actions/setup-go@v6
         with:
@@ -191,6 +193,29 @@ jobs:
       - name: Verify migration rollback state
         run: |
           go run ./cmd/migrate version | grep -q 'version: none dirty: false'
+
+  local-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.27.x'
+          cache: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - name: Verify complete local installer lifecycle on isolated data
+        run: bash tests/local_runtime_test.sh
+      - name: Upload installer verification logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-runtime-verification
+          path: .opensnow/local-runtime-verification
+          if-no-files-found: ignore
+          retention-days: 7
 
   frontend:
     runs-on: ubuntu-latest

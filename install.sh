@@ -361,7 +361,14 @@ check_built_runtime() {
 start_runtime() { start_api; start_component worker; start_component scheduler; start_web; verify_runtime; }
 stop_runtime() { local component; for component in web scheduler worker api; do stop_pid "$component"; done; }
 start_all() { check_toolchains; prepare_env; check_built_runtime; check_ports; start_dependencies; start_runtime; }
-stop_all() { check_docker; check_dependency_ownership; stop_runtime; compose stop redis mysql; ok "Local processes and dependencies stopped; SQL data and .env preserved."; }
+stop_all() {
+  # Local processes remain stoppable even when Docker Engine has gone offline.
+  stop_runtime
+  check_docker
+  check_dependency_ownership
+  compose stop redis mysql
+  ok "Local processes and dependencies stopped; SQL data and .env preserved."
+}
 
 status_line() { case "$2" in healthy|ready|running) ok "$1: $2" ;; *) warn "$1: $2" ;; esac; }
 show_status() {

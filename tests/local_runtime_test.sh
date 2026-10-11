@@ -3,7 +3,9 @@ set -euo pipefail
 
 # Run only against a new disposable checkout and its own Compose project/SQL volume.
 repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
-test_dir="$(mktemp -d /tmp/opensnow-local-runtime.XXXXXX)"
+test_parent=${LOCAL_RUNTIME_TEST_ROOT:-/tmp}
+mkdir -p "$test_parent"
+test_dir="$(mktemp -d "$test_parent/opensnow-local-runtime.XXXXXX")"
 checkout="$test_dir/checkout with spaces"
 project="opensnow-local-test-${UID}-${RANDOM}"
 listener_pid=''
@@ -62,15 +64,18 @@ assert json.load(client.open(base + '/api/v1/setup')) == {'required':False}
 PY
 original_hash="$(sql "SELECT password_hash FROM users WHERE email='admin@example.test'")"
 for _ in {1..20}; do
-  completed="$(sql "SELECT COUNT(*) FROM jobs WHERE type='system.session_cleanup' AND status='COMPLETED'")"
+  completed="$(sql "SELECT COUNT(*) FROM jobs WHERE job_type='system.session_cleanup' AND status='COMPLETED'")"
   if (( completed > 0 )); then break; fi
   sleep 1
 done
 (( completed > 0 )) # The real scheduler enqueued work and the real worker completed it.
 api_before=$(pid_of api)
 web_before=$(pid_of web)
+worker_before=$(pid_of worker)
+scheduler_before=$(pid_of scheduler)
 installer --start
 [[ "$(pid_of api)" == "$api_before" && "$(pid_of web)" == "$web_before" ]]
+[[ "$(pid_of worker)" == "$worker_before" && "$(pid_of scheduler)" == "$scheduler_before" ]]
 installer --status
 
 # A failed new scheduler startup rolls back the newly started worker, preserving old API/Vite.
@@ -106,6 +111,10 @@ installer --status | tee "$test_dir/status.log"
 grep -q 'http://127.0.0.1:8090' "$test_dir/status.log"
 installer --restart
 [[ "$(cat "$checkout/.opensnow/run/web-port")" == 8090 ]]
+# Docker failure must not prevent stopping this checkout's local processes.
+if DOCKER_HOST=tcp://127.0.0.1:1 installer --stop >"$test_dir/docker-unavailable.log" 2>&1; then echo 'Unavailable Docker Engine reported success' >&2; exit 1; fi
+grep -q 'Docker Engine is unavailable' "$test_dir/docker-unavailable.log"
+for component in api worker scheduler web; do [[ ! -f "$checkout/.opensnow/run/$component.pid" ]]; done
 installer --stop
 if installer --status >"$test_dir/stopped.log" 2>&1; then echo 'Stopped runtime reported healthy' >&2; exit 1; fi
 
