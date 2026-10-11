@@ -4,17 +4,19 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type PropsWithChildren
 } from "react";
 import { ApiError, api, jsonBody } from "../api/client";
-import type { AuthMe, LoginRequest } from "../api/types";
+import type { AuthMe, LoginRequest, SetupStatus } from "../api/types";
 
-type AuthStatus = "loading" | "authenticated" | "anonymous" | "error";
+type AuthStatus = "loading" | "setup_required" | "authenticated" | "anonymous" | "error";
 
 type AuthContextValue = {
   status: AuthStatus;
   session: AuthMe | null;
+  setup: SetupStatus | null;
   error: string | null;
   login: (input: LoginRequest) => Promise<void>;
   logout: () => Promise<void>;
@@ -27,26 +29,44 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: PropsWithChildren) {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [session, setSession] = useState<AuthMe | null>(null);
+  const [setup, setSetup] = useState<SetupStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const refreshInFlight = useRef<Promise<void> | null>(null);
 
-  const refresh = useCallback(async () => {
-    try {
-      const current = await api<AuthMe>("/api/v1/auth/me");
-      setSession(current);
-      setStatus("authenticated");
-      setError(null);
-    } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) {
-        setSession(null);
-        setStatus("anonymous");
+  const refresh = useCallback(() => {
+    if (refreshInFlight.current) return refreshInFlight.current;
+    const pending = (async () => {
+      try {
+        const installation = await api<SetupStatus>("/api/v1/setup");
+        setSetup(installation);
+        if (installation.required) {
+          setSession(null);
+          setStatus("setup_required");
+          setError(null);
+          return;
+        }
+        const current = await api<AuthMe>("/api/v1/auth/me");
+        setSession(current);
+        setStatus("authenticated");
         setError(null);
-        return;
+      } catch (cause) {
+        if (cause instanceof ApiError && cause.status === 401) {
+          setSession(null);
+          setStatus("anonymous");
+          setError(null);
+          return;
+        }
+        setSession(null);
+        setStatus("error");
+        setError(cause instanceof Error ? cause.message : "Nie udało się odczytać sesji");
+        throw cause;
       }
-      setSession(null);
-      setStatus("error");
-      setError(cause instanceof Error ? cause.message : "Nie udało się odczytać sesji");
-      throw cause;
-    }
+    })();
+    refreshInFlight.current = pending;
+    void pending.finally(() => {
+      if (refreshInFlight.current === pending) refreshInFlight.current = null;
+    }).catch(() => undefined);
+    return pending;
   }, []);
 
   useEffect(() => {
@@ -83,8 +103,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   );
 
   const value = useMemo<AuthContextValue>(
-    () => ({ status, session, error, login, logout, refresh, hasPermission }),
-    [status, session, error, login, logout, refresh, hasPermission]
+    () => ({ status, session, setup, error, login, logout, refresh, hasPermission }),
+    [status, session, setup, error, login, logout, refresh, hasPermission]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

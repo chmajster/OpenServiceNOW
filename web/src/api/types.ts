@@ -31,6 +31,16 @@ export type LoginRequest = {
   password: string;
 };
 
+export type SetupStatus = {
+  required: boolean;
+  token?: string;
+};
+
+export type SetupResult = {
+  tenant: string;
+  email: string;
+};
+
 export type Tenant = {
   id: string;
   slug: string;

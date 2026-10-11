@@ -8,6 +8,7 @@ import { OverviewPage } from "./pages/OverviewPage";
 import { RbacPage } from "./pages/RbacPage";
 import { TenantPage } from "./pages/TenantPage";
 import { UsersPage } from "./pages/UsersPage";
+import { SetupPage } from "./pages/SetupPage";
 
 export function App() {
   return (
@@ -15,6 +16,7 @@ export function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/setup" element={<SetupPage />} />
           <Route
             element={
               <RequireAuth>

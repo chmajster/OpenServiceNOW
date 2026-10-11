@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { PageState } from "../components/PageState";
@@ -7,14 +7,19 @@ import { PageState } from "../components/PageState";
 export function LoginPage() {
   const { status, login, error: sessionError, refresh } = useAuth();
   const navigate = useNavigate();
-  const [tenant, setTenant] = useState("default");
-  const [email, setEmail] = useState("");
+  const location = useLocation();
+  const initial = location.state as { tenant?: string; email?: string; notice?: string } | null;
+  const [tenant, setTenant] = useState(typeof initial?.tenant === "string" ? initial.tenant : "default");
+  const [email, setEmail] = useState(typeof initial?.email === "string" ? initial.email : "");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (status === "authenticated") {
     return <Navigate to="/" replace />;
+  }
+  if (status === "setup_required") {
+    return <Navigate to="/setup" replace />;
   }
 
   if (status === "loading") {
@@ -85,6 +90,7 @@ export function LoginPage() {
           <p className="muted">Podaj tenant oraz dane lokalnego konta.</p>
         </div>
 
+        {typeof initial?.notice === "string" ? <PageState title={initial.notice} tone="success" /> : null}
         <form className="form-stack" onSubmit={(event) => void handleSubmit(event)}>
           <label>
             Tenant

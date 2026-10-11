@@ -23,6 +23,9 @@ export function RequireAuth({ children }: PropsWithChildren) {
       </div>
     );
   }
+  if (status === "setup_required") {
+    return <Navigate to="/setup" replace />;
+  }
   if (status !== "authenticated") {
     return <Navigate to="/login" replace />;
   }
