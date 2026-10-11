@@ -109,6 +109,21 @@ Frontend/database/cache conflicts still report an error. The installer never sto
 
 The script also accepts an absolute path from another directory, including paths with spaces, e.g. `bash "/mnt/c/Projects/OpenServiceNOW local/install.sh" --local`. Logs are `.opensnow/logs/api.log`, `web.log`, `worker.log` and `scheduler.log`; separate PID/start-time records live in `.opensnow/run/`. Start is idempotent; stop preserves data and affects only this checkout's verified processes and infrastructure. Failed startup removes only processes/dependencies started by that invocation and reports log locations. Status returns a nonzero exit code for an incomplete/unready runtime. Ordinary uninstall preserves `.env`, SQL volume, source files, logs and unrelated `bin/` files; `--purge-data` explicitly removes this instance's database volume and `.env`. Previous commands without `--local` remain aliases for the same local mode. Conflicting lifecycle actions/options are rejected.
 
+### Local startup troubleshooting
+
+If preflight cannot access Docker, run `docker info` as your ordinary user. With a local Linux Docker Engine, a socket owned by `root:docker` requires membership in that group:
+
+```bash
+sudo usermod -aG docker "$(id -un)"
+newgrp docker
+docker info
+bash ./install.sh --local
+```
+
+Opening a new WSL terminal also reloads group membership. Keep the installer and application processes under your ordinary user. For Docker Desktop, enable the engine and WSL integration for your distribution first.
+
+If another MySQL service owns port 3306, choose a free port in this checkout's `.env`, for example `MYSQL_PORT=3307`; the installer uses that value for both the container mapping and the Go database connection. For a Redis conflict, set e.g. `REDIS_ADDR=127.0.0.1:6380`. Before editing, check that the proposed ports are free with `ss -ltn '( sport = :3307 or sport = :6380 )'`. Preserve the existing database credentials and run the installer again. A port change does not require stopping another application's database or deleting volumes. Local API conflicts are handled automatically within 8080–8100.
+
 ## DevBox deployment
 
 The root `compose.yaml` packages the complete application: React assets served by a non-root Nginx reverse proxy, Go API, worker, scheduler and a private Redis cache. It uses a shared DevBox MySQL server with an application-specific database/account. The existing `docker-compose.yml` remains the infrastructure-only development stack selected explicitly by `make dev` and `install.sh`.
