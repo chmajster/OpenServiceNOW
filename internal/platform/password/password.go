@@ -44,8 +44,21 @@ func Hash(plain string) (string, error) {
 }
 
 func HashWithParams(plain string, p Params) (string, error) {
-	if len(plain) < 12 {
-		return "", errors.New("password must contain at least 12 bytes")
+	return hashWithParams(plain, p, 12)
+}
+
+// HashWithMinimumLength applies a caller-specific password policy while retaining
+// the standard Argon2id parameters and maximum input size.
+func HashWithMinimumLength(plain string, minimumBytes int) (string, error) {
+	if minimumBytes < 1 || minimumBytes > MaxPasswordBytes {
+		return "", errors.New("password minimum length is outside the allowed range")
+	}
+	return hashWithParams(plain, DefaultParams, minimumBytes)
+}
+
+func hashWithParams(plain string, p Params, minimumBytes int) (string, error) {
+	if len(plain) < minimumBytes {
+		return "", fmt.Errorf("password must contain at least %d bytes", minimumBytes)
 	}
 	if len(plain) > MaxPasswordBytes {
 		return "", fmt.Errorf("password exceeds %d bytes", MaxPasswordBytes)

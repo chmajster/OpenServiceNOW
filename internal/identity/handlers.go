@@ -177,7 +177,7 @@ func (h *Handler) allowLogin(r *http.Request, tenant, email, ip string) (bool, t
 
 	account := sha256.Sum256([]byte(
 		strings.ToLower(strings.TrimSpace(tenant)) + "\x00" +
-			strings.ToLower(strings.TrimSpace(email)),
+			normalizeLoginEmail(email),
 	))
 	allowed, err = h.limiter.Allow(
 		r.Context(),

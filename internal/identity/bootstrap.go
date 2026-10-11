@@ -80,7 +80,7 @@ func (b *Bootstrapper) Run(ctx context.Context, input BootstrapInput) (Bootstrap
 		return BootstrapResult{}, errors.New("bootstrap admin email is invalid")
 	}
 
-	passwordHash, err := password.Hash(input.AdminPassword)
+	passwordHash, err := hashBootstrapPassword(input)
 	if err != nil {
 		return BootstrapResult{}, fmt.Errorf("hash bootstrap admin password: %w", err)
 	}
@@ -172,4 +172,11 @@ func (b *Bootstrapper) Run(ctx context.Context, input BootstrapInput) (Bootstrap
 		return BootstrapResult{}, err
 	}
 	return result, nil
+}
+
+func hashBootstrapPassword(input BootstrapInput) (string, error) {
+	if input.AdminEmail == DefaultAdminEmail && input.AdminPassword == DefaultAdminPassword {
+		return password.HashWithMinimumLength(input.AdminPassword, len(DefaultAdminPassword))
+	}
+	return password.Hash(input.AdminPassword)
 }

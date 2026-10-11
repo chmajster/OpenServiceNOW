@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/chmajster/OpenServiceNOW/internal/audit"
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
@@ -21,17 +20,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	input := identity.BootstrapInput{
-		TenantSlug:    os.Getenv("BOOTSTRAP_TENANT_SLUG"),
-		TenantName:    os.Getenv("BOOTSTRAP_TENANT_NAME"),
-		AdminEmail:    os.Getenv("BOOTSTRAP_ADMIN_EMAIL"),
-		AdminName:     os.Getenv("BOOTSTRAP_ADMIN_NAME"),
-		AdminPassword: os.Getenv("BOOTSTRAP_ADMIN_PASSWORD"),
-	}
-	if strings.TrimSpace(input.AdminPassword) == "" {
-		logger.Error("BOOTSTRAP_ADMIN_PASSWORD is required and must be provided through the environment")
-		os.Exit(2)
-	}
+	input := bootstrapInput()
 
 	db, err := database.OpenMySQL(context.Background(), cfg.MySQL)
 	if err != nil {
@@ -57,4 +46,21 @@ func main() {
 		"role_id", strconv.FormatUint(result.RoleID, 10),
 		"user_created", result.UserCreated,
 	)
+}
+
+func bootstrapInput() identity.BootstrapInput {
+	return identity.BootstrapInput{
+		TenantSlug:    envOrDefault("BOOTSTRAP_TENANT_SLUG", "default"),
+		TenantName:    envOrDefault("BOOTSTRAP_TENANT_NAME", "Default tenant"),
+		AdminEmail:    envOrDefault("BOOTSTRAP_ADMIN_EMAIL", identity.DefaultAdminEmail),
+		AdminName:     envOrDefault("BOOTSTRAP_ADMIN_NAME", "Administrator"),
+		AdminPassword: envOrDefault("BOOTSTRAP_ADMIN_PASSWORD", identity.DefaultAdminPassword),
+	}
+}
+
+func envOrDefault(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
 }

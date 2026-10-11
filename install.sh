@@ -110,14 +110,6 @@ ensure_state_dirs() {
   mkdir -p "$RUN_DIR" "$LOG_DIR" "$BIN_DIR"
 }
 
-generate_secret() {
-  if command_exists openssl; then
-    openssl rand -hex 24
-    return
-  fi
-  od -An -N24 -tx1 /dev/urandom | tr -d ' \n'
-}
-
 set_env_value() {
   local key=$1
   local value=$2
@@ -162,8 +154,8 @@ prepare_env() {
   current_password="${current_password%\"}"
   current_password="${current_password#\"}"
   if [[ -z "$current_password" ]]; then
-    set_env_value BOOTSTRAP_ADMIN_PASSWORD "$(generate_secret)"
-    ok "Generated BOOTSTRAP_ADMIN_PASSWORD and saved it in .env."
+    set_env_value BOOTSTRAP_ADMIN_PASSWORD admin
+    ok "Saved the default administrator password in .env."
   fi
 
   set -a
