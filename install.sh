@@ -14,6 +14,7 @@ WEB_PID_FILE="${RUN_DIR}/web.pid"
 WEB_PORT="${OPENSNOW_WEB_PORT:-5173}"
 PURGE_DATA=0
 NO_START=0
+BOOTSTRAP=0
 
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
   C_GREEN=$'\033[32m'
@@ -50,6 +51,7 @@ OpenServiceNOW installer
 Usage:
   ./install.sh                  Install, build and start OpenServiceNOW
   ./install.sh --no-start       Install and build without starting API/frontend
+  ./install.sh --bootstrap      Create the administrator from .env without the WebUI
   ./install.sh --start          Start dependencies, API and frontend
   ./install.sh --stop           Stop API, frontend and Docker dependencies
   ./install.sh --restart        Restart OpenServiceNOW
@@ -169,6 +171,7 @@ prepare_env() {
     fail "HTTP_ADDR must currently use port 8080 because web/vite.config.ts proxies API requests to 127.0.0.1:8080."
   fi
   [[ -n "${BOOTSTRAP_ADMIN_PASSWORD:-}" ]] || fail "BOOTSTRAP_ADMIN_PASSWORD must not be empty."
+  [[ "${BOOTSTRAP_ON_START:-false}" == "true" || "${BOOTSTRAP_ON_START:-false}" == "false" ]] || fail "BOOTSTRAP_ON_START must be true or false."
 }
 
 compose() {
@@ -421,10 +424,14 @@ install() {
   (cd web && npm ci)
   ok "Go and frontend dependencies installed."
 
-  stage 5 "Database migration and bootstrap"
+  stage 5 "Database migration and account setup"
   go run ./cmd/migrate up
-  go run ./cmd/bootstrap
-  ok "Database schema and initial administrator are ready."
+  if (( BOOTSTRAP )) || [[ "${BOOTSTRAP_ON_START:-false}" == "true" ]]; then
+    go run ./cmd/bootstrap
+    ok "Database schema and initial administrator are ready."
+  else
+    ok "Database schema is ready. Create the first administrator in the WebUI."
+  fi
 
   stage 6 "Build"
   go build -trimpath -o "$API_BIN" ./cmd/api
@@ -467,6 +474,9 @@ while (( $# > 0 )); do
       ;;
     --no-start)
       NO_START=1
+      ;;
+    --bootstrap)
+      BOOTSTRAP=1
       ;;
     *)
       fail "Unknown argument: $1. Run ./install.sh --help."

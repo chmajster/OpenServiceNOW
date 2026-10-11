@@ -4,6 +4,14 @@ All notable repository changes are documented here.
 
 The project is pre-release and currently in architecture/foundation development.
 
+## 2026-10-11 — First-run WebUI installer
+
+- Added a responsive organization/administrator setup wizard with password confirmation, validation, retry feedback and prefilled login after completion.
+- Added a same-origin, CSRF-protected, Redis-rate-limited setup API with bounded password hashing and atomic account, membership, RBAC, audit and completion-state writes.
+- Migration 25 permanently closes setup for existing installations without changing account credentials; row locking prevents concurrent first-admin creation.
+- Local installer and container startup now defer account creation to the WebUI by default. Explicit `--bootstrap` / `BOOTSTRAP_ON_START=true` and the `admin` / `admin` option remain supported.
+- Added API security/validation tests, real MySQL rollback/concurrency/upgrade coverage and desktop/mobile first-run browser verification.
+
 ## 2026-10-11 — Default administrator credentials
 
 - Fresh installations default to tenant `default`, login `admin` and password `admin`; explicit bootstrap environment values remain supported.
