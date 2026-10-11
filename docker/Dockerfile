@@ -5,7 +5,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY cmd ./cmd
 COPY internal ./internal
-RUN for command in api migrate bootstrap worker scheduler; do \
+RUN set -eu; for command in api migrate bootstrap worker scheduler; do \
       CGO_ENABLED=0 go build -trimpath -buildvcs=false -o /out/opensnow-$command ./cmd/$command; \
     done
 
