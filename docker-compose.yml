@@ -2,14 +2,14 @@ services:
   mysql:
     image: mysql:8.4
     environment:
-      MYSQL_DATABASE: opensnow
-      MYSQL_USER: opensnow
-      MYSQL_PASSWORD: opensnow-dev
-      MYSQL_ROOT_PASSWORD: root-dev-only
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-opensnow}
+      MYSQL_USER: ${MYSQL_USER:-opensnow}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-opensnow-dev}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root-dev-only}
     ports:
-      - "127.0.0.1:3306:3306"
+      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-proot-dev-only"]
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysqladmin ping -h 127.0.0.1 -u root"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -18,10 +18,13 @@ services:
 
   redis:
     image: redis:8.2-alpine
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    command: ["sh", "-c", "if [ -n \"$$REDIS_PASSWORD\" ]; then exec redis-server --requirepass \"$$REDIS_PASSWORD\"; else exec redis-server; fi"]
     ports:
-      - "127.0.0.1:6379:6379"
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping"]
       interval: 5s
       timeout: 3s
       retries: 20
