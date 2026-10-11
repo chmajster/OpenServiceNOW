@@ -4,6 +4,16 @@ All notable repository changes are documented here.
 
 The project is pre-release and currently in architecture/foundation development.
 
+## 2026-10-11 — DevBox deployment
+
+- Added a complete frontend/API/worker/scheduler/Redis Compose stack and non-root multi-stage Go/React images.
+- Integrated runtime DevBox MySQL bindings, migrations and idempotent administrator bootstrap without storing credentials in source files or image layers.
+- Added the same-origin Nginx proxy and dependency readiness checks; preserved the infrastructure-only local installer workflow.
+- Quoted the MySQL 8 reserved `groups` table identifier in migrations and repository queries after real deployment exposed the failure.
+- Normalized Go formatting and enforced Linux line endings; fixed shell lint findings and upgraded source-map-js to the patched 1.2.2 release.
+- Corrected browser test selectors and isolated audit assertions; the suite respects the real login limiter and passes all six desktop/mobile journeys against MySQL/Redis.
+- Verified the DevBox rebuild, login/CSRF/readiness, non-root source RW mounts, and SQL queries from API, worker and scheduler; documented the deployment and all 24 migrations.
+
 ## 2026-09-29 — Local installer
 
 ### Added
