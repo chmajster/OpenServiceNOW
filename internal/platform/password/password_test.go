@@ -41,6 +41,27 @@ func TestHashRejectsShortPassword(t *testing.T) {
 	}
 }
 
+func TestHashWithMinimumLength(t *testing.T) {
+	hash, err := HashWithMinimumLength("admin", 4)
+	if err != nil {
+		t.Fatalf("HashWithMinimumLength() error = %v", err)
+	}
+	valid, err := Verify(hash, "admin")
+	if err != nil || !valid {
+		t.Fatalf("Verify() valid=%t error=%v", valid, err)
+	}
+	for _, minimum := range []int{0, MaxPasswordBytes + 1} {
+		if _, err := HashWithMinimumLength("admin", minimum); err == nil {
+			t.Errorf("accepted invalid minimum length %d", minimum)
+		}
+	}
+	for _, input := range []string{"", "abc", strings.Repeat("a", MaxPasswordBytes+1)} {
+		if _, err := HashWithMinimumLength(input, 4); err == nil {
+			t.Error("accepted password outside caller policy bounds")
+		}
+	}
+}
+
 func TestHashRejectsOversizedPassword(t *testing.T) {
 	plain := strings.Repeat("a", MaxPasswordBytes+1)
 	if _, err := HashWithParams(plain, Params{

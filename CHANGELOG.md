@@ -4,6 +4,14 @@ All notable repository changes are documented here.
 
 The project is pre-release and currently in architecture/foundation development.
 
+## 2026-10-11 — Default administrator credentials
+
+- Fresh installations default to tenant `default`, login `admin` and password `admin`; explicit bootstrap environment values remain supported.
+- The administrator login alias resolves to `admin@example.test` and shares its authentication rate limit; existing email login remains compatible.
+- Local installer and container startup use the same bootstrap defaults. Re-bootstrap verifies and preserves existing account passwords.
+- Login accepts the administrator alias and short default password; ordinary user creation retains the 12-byte password policy.
+- Added bootstrap, password-policy, rate-limit, real MySQL persistence and desktop/mobile login regression coverage.
+
 ## 2026-10-11 — DevBox deployment
 
 - Added a complete frontend/API/worker/scheduler/Redis Compose stack and non-root multi-stage Go/React images.

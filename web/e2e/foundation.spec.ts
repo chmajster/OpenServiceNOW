@@ -53,7 +53,7 @@ function isolatedContextOptions(projectName: string) {
 async function login(page: Page, email: string, password: string) {
   await page.goto("/login");
   await page.getByLabel("Tenant").fill(tenant);
-  await page.getByLabel("E-mail").fill(email);
+  await page.getByLabel("Login lub e-mail").fill(email);
   await page.getByLabel("Hasło").fill(password);
   const submit = async () => {
     const response = page.waitForResponse((result) =>
@@ -75,6 +75,28 @@ async function login(page: Page, email: string, password: string) {
   expect(response.status()).toBe(200);
   await expect(page.getByRole("heading", { name: "Fundament platformy" })).toBeVisible();
 }
+
+test("login reports invalid credentials and restores the session after refresh", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Tenant").fill(tenant);
+  await page.getByLabel("Login lub e-mail").fill(adminEmail);
+  await page.getByLabel("Hasło").fill("wrong");
+  const rejected = page.waitForResponse((result) =>
+    result.url().endsWith("/api/v1/auth/login") && result.request().method() === "POST"
+  );
+  await page.getByRole("button", { name: "Zaloguj" }).click();
+  expect((await rejected).status()).toBe(401);
+  await expect(page.getByRole("alert")).toHaveText("Nieprawidłowy tenant, login lub hasło.");
+  expect((await page.request.get("/api/v1/admin/users/")).status()).toBe(401);
+
+  await login(page, adminEmail, adminPassword);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Fundament platformy" })).toBeVisible();
+  expect((await page.request.get("/api/v1/auth/me")).status()).toBe(200);
+  await page.getByRole("button", { name: "Wyloguj" }).first().click();
+  await expect(page.getByRole("heading", { name: "Zaloguj się" })).toBeVisible();
+  expect((await page.request.get("/api/v1/auth/me")).status()).toBe(401);
+});
 
 test("admin creates a least-privilege tenant reader through the UI", async ({ page }, testInfo) => {
   const scope = runScope(testInfo.project.name, testInfo.retry);
