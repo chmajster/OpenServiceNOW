@@ -4,6 +4,14 @@ All notable repository changes are documented here.
 
 The project is pre-release and currently in architecture/foundation development.
 
+## 2026-10-12 — Complete local runtime installer
+
+- Added explicit `--local` install/start/stop/restart/status modes using the current checkout, with strict argument/port validation and persisted frontend port.
+- Built and managed API, worker, scheduler and Vite as ordinary-user background processes with separate logs, PID/start-time records, checkout ownership checks and a lifecycle lock.
+- Reinstallation rebuilds local source and replaces old processes; failed startup rolls back only components started by the failed call.
+- Infrastructure Compose remains separate from DevBox, supports local credentials/ports and validates container ownership while preserving existing SQL volumes.
+- Added installer process/security tests and isolated full-runtime lifecycle verification in CI; documented Linux/WSL commands and operational state.
+
 ## 2026-10-11 — First-run WebUI installer
 
 - Added a responsive organization/administrator setup wizard with password confirmation, validation, retry feedback and prefilled login after completion.
