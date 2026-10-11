@@ -43,11 +43,40 @@ assert_running() {
     [[ "$(stat -c %u "/proc/$(pid_of "$component")")" == "$UID" ]]
   done
 }
+stop_listener() { kill "$listener_pid"; wait "$listener_pid" 2>/dev/null || true; listener_pid=''; }
+occupy_api_ports() {
+  rm -f "$test_dir/listeners-ready"
+  python3 - "$1" "$2" "${3:-0}" "$test_dir/listeners-ready" <<'PY' >"$test_dir/listener.log" 2>&1 &
+import pathlib, socket, sys, time
+listeners = []
+for port in range(int(sys.argv[1]), int(sys.argv[2]) + 1):
+    if port == int(sys.argv[3]):
+        continue
+    listener = socket.socket()
+    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    listener.bind(('127.0.0.1', port))
+    listener.listen()
+    listeners.append(listener)
+pathlib.Path(sys.argv[4]).touch()
+while True:
+    time.sleep(1)
+PY
+  listener_pid=$!
+  for _ in {1..50}; do
+    kill -0 "$listener_pid" || { cat "$test_dir/listener.log" >&2; return 1; }
+    if [[ -f "$test_dir/listeners-ready" ]]; then return; fi
+    sleep 0.1
+  done
+  echo 'Foreign listeners did not start' >&2; return 1
+}
 
 # First run creates .env and runs from the script's location, not the caller's cwd.
 cd /tmp
+occupy_api_ports 8080 8081
 installer
 [[ -f "$checkout/.env" ]]
+[[ "$(cat "$checkout/.opensnow/run/api-port")" == 8082 ]]
+kill -0 "$listener_pid"
 assert_running
 curl --fail --silent http://127.0.0.1:5173/ | grep -q '/src/main.tsx'
 curl --fail --silent http://127.0.0.1:5173/health/ready | grep -q '"status":"ok"'
@@ -63,6 +92,7 @@ assert client.open(request).status == 201
 assert json.load(client.open(base + '/api/v1/setup')) == {'required':False}
 PY
 original_hash="$(sql "SELECT password_hash FROM users WHERE email='admin@example.test'")"
+[[ -n "$original_hash" ]]
 for _ in {1..20}; do
   completed="$(sql "SELECT COUNT(*) FROM jobs WHERE job_type='system.session_cleanup' AND status='COMPLETED'")"
   if (( completed > 0 )); then break; fi
@@ -77,6 +107,21 @@ installer --start
 [[ "$(pid_of api)" == "$api_before" && "$(pid_of web)" == "$web_before" ]]
 [[ "$(pid_of worker)" == "$worker_before" && "$(pid_of scheduler)" == "$scheduler_before" ]]
 installer --status
+stop_listener
+
+# A saved API port taken after API exit also updates an already-running Vite proxy.
+kill -TERM "$api_before"
+sleep 1
+occupy_api_ports 8082 8082
+installer --start
+[[ "$(cat "$checkout/.opensnow/run/api-port")" == 8080 ]]
+[[ "$(pid_of web)" != "$web_before" ]]
+[[ "$(pid_of worker)" == "$worker_before" && "$(pid_of scheduler)" == "$scheduler_before" ]]
+curl --fail --silent http://127.0.0.1:5173/health/ready | grep -q '"status":"ok"'
+kill -0 "$listener_pid"
+stop_listener
+api_before=$(pid_of api)
+web_before=$(pid_of web)
 
 # A failed new scheduler startup rolls back the newly started worker, preserving old API/Vite.
 kill -TERM "$(pid_of scheduler)" "$(pid_of worker)"
@@ -126,13 +171,27 @@ grep -q 'Port 8090 is occupied' "$test_dir/conflict.log"
 kill -0 "$listener_pid"
 kill "$listener_pid"; wait "$listener_pid" 2>/dev/null || true; listener_pid=''
 
-python3 -m http.server 8080 --bind 127.0.0.1 >"$test_dir/listener.log" 2>&1 &
-listener_pid=$!
-sleep 1
-if installer --start >"$test_dir/conflict.log" 2>&1; then echo 'Accepted a foreign API listener' >&2; exit 1; fi
-grep -q 'Port 8080 is occupied' "$test_dir/conflict.log"
+# Every lower API port is unavailable, including the frontend's reserved port.
+occupy_api_ports 8080 8099 8090
+installer --start
+[[ "$(cat "$checkout/.opensnow/run/api-port")" == 8100 ]]
+curl --fail --silent http://127.0.0.1:8090/health/ready | grep -q '"status":"ok"'
+curl --fail --silent http://127.0.0.1:8090/api/v1/setup | grep -q '"required":false'
+api_before=$(pid_of api)
+installer --start
+[[ "$(pid_of api)" == "$api_before" ]]
+installer --status | tee "$test_dir/status.log"
+grep -q 'API address: http://127.0.0.1:8100' "$test_dir/status.log"
 kill -0 "$listener_pid"
-kill "$listener_pid"; wait "$listener_pid" 2>/dev/null || true; listener_pid=''
+installer --stop
+stop_listener
+
+occupy_api_ports 8080 8100 8090
+if installer --start >"$test_dir/conflict.log" 2>&1; then echo 'Exceeded API port limit' >&2; exit 1; fi
+grep -q 'No available API port in 8080-8100' "$test_dir/conflict.log"
+for component in api worker scheduler web; do [[ ! -f "$checkout/.opensnow/run/$component.pid" ]]; done
+kill -0 "$listener_pid"
+stop_listener
 
 installer --start
 assert_running
@@ -143,5 +202,5 @@ installer --start
 assert_running
 installer --status
 verified=1
-printf '%s\n' 'Local runtime fresh install, spaces/absolute path, proxy, real jobs, lifecycle, rebuild, persistence, port conflicts and partial-start cleanup passed.'
+printf '%s\n' 'Local runtime fresh install, spaces/absolute path, dynamic proxy, real jobs, lifecycle, rebuild, persistence, API fallback/8100/exhaustion and partial-start cleanup passed.'
 if [[ "${LOCAL_RUNTIME_KEEP:-0}" == 1 ]]; then printf 'Verification checkout: %s\n' "$checkout"; fi

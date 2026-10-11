@@ -4,6 +4,12 @@ All notable repository changes are documented here.
 
 The project is pre-release and currently in architecture/foundation development.
 
+## 2026-10-12 — Automatic local API port selection
+
+- Local installation tries API ports 8080 through 8100 inclusive, skips occupied/reserved ports and reports exhaustion without stopping foreign listeners.
+- Persists the selected API port for lifecycle commands and status, overrides the API's bind port without changing `.env`, and updates both Vite proxies when the effective port changes.
+- Added full-runtime coverage for consecutive conflicts, port 8100, complete exhaustion, saved-port conflicts with a live frontend, and browser E2E on an alternate API port.
+
 ## 2026-10-12 — Complete local runtime installer
 
 - Added explicit `--local` install/start/stop/restart/status modes using the current checkout, with strict argument/port validation and persisted frontend port.
