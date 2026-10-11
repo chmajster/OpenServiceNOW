@@ -1,0 +1,12 @@
+.git
+.env
+.env.*
+.opensnow
+bin
+coverage.out
+**/*.log
+web/node_modules
+web/dist
+web/.vite
+web/test-results
+web/playwright-report

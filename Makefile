@@ -1,7 +1,7 @@
 .PHONY: dev build test lint migrate-up migrate-down migrate-down-all migrate-version bootstrap scheduler-once worker worker-once frontend frontend-test e2e
 
 dev:
-	docker compose up -d
+	docker compose -f docker-compose.yml up -d
 
 build:
 	go build ./...

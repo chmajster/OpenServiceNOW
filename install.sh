@@ -179,7 +179,7 @@ prepare_env() {
 }
 
 compose() {
-  (cd "$ROOT_DIR" && docker compose "$@")
+  (cd "$ROOT_DIR" && docker compose -f docker-compose.yml "$@")
 }
 
 container_health() {
