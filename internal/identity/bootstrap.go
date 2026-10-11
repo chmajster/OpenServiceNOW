@@ -55,31 +55,18 @@ func NewBootstrapper(repo *MySQLRepository, tx *platformdb.TxManager, auditRepo 
 }
 
 func (b *Bootstrapper) Run(ctx context.Context, input BootstrapInput) (BootstrapResult, error) {
+	return b.run(ctx, input, false, RequestMeta{RequestID: "bootstrap"})
+}
+
+func (b *Bootstrapper) run(ctx context.Context, input BootstrapInput, initialSetup bool, meta RequestMeta) (BootstrapResult, error) {
 	input.TenantSlug = strings.ToLower(strings.TrimSpace(input.TenantSlug))
 	input.TenantName = strings.TrimSpace(input.TenantName)
-	input.AdminEmail = strings.ToLower(strings.TrimSpace(input.AdminEmail))
+	input.AdminEmail = normalizeLoginEmail(input.AdminEmail)
 	input.AdminName = strings.TrimSpace(input.AdminName)
 
-	if !tenantSlugPattern.MatchString(input.TenantSlug) {
-		return BootstrapResult{}, errors.New("bootstrap tenant slug is invalid")
+	if err := validateBootstrapInput(input); err != nil {
+		return BootstrapResult{}, fmt.Errorf("%w: %v", ErrSetupInvalid, err)
 	}
-	if input.TenantName == "" || input.AdminName == "" || input.AdminEmail == "" {
-		return BootstrapResult{}, errors.New("bootstrap tenant name, admin name and admin email are required")
-	}
-	if utf8.RuneCountInString(input.TenantName) > 200 {
-		return BootstrapResult{}, errors.New("bootstrap tenant name exceeds 200 characters")
-	}
-	if utf8.RuneCountInString(input.AdminName) > 200 {
-		return BootstrapResult{}, errors.New("bootstrap admin name exceeds 200 characters")
-	}
-	if len(input.AdminEmail) > 254 {
-		return BootstrapResult{}, errors.New("bootstrap admin email exceeds 254 bytes")
-	}
-	address, err := mail.ParseAddress(input.AdminEmail)
-	if err != nil || address.Address != input.AdminEmail {
-		return BootstrapResult{}, errors.New("bootstrap admin email is invalid")
-	}
-
 	passwordHash, err := hashBootstrapPassword(input)
 	if err != nil {
 		return BootstrapResult{}, fmt.Errorf("hash bootstrap admin password: %w", err)
@@ -87,6 +74,13 @@ func (b *Bootstrapper) Run(ctx context.Context, input BootstrapInput) (Bootstrap
 
 	var result BootstrapResult
 	err = b.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable}, func(exec platformdb.Executor) error {
+		required, err := b.repo.LockInstallation(ctx, exec)
+		if err != nil {
+			return err
+		}
+		if initialSetup && !required {
+			return ErrSetupCompleted
+		}
 		tenantID, err := b.repo.EnsureTenant(ctx, exec, input.TenantSlug, input.TenantName)
 		if err != nil {
 			return err
@@ -146,10 +140,14 @@ func (b *Bootstrapper) Run(ctx context.Context, input BootstrapInput) (Bootstrap
 			return err
 		}
 
+		action, source := "bootstrap.platform_admin", "bootstrap"
+		if initialSetup {
+			action, source = "setup.platform_admin", "setup"
+		}
 		if err := b.audit.Append(ctx, exec, audit.Event{
 			TenantID:    &tenantID,
 			ActorUserID: &userID,
-			Action:      "bootstrap.platform_admin",
+			Action:      action,
 			ObjectType:  "tenant",
 			ObjectID:    fmt.Sprint(tenantID),
 			NewValues: map[string]any{
@@ -157,12 +155,15 @@ func (b *Bootstrapper) Run(ctx context.Context, input BootstrapInput) (Bootstrap
 				"admin_email":  input.AdminEmail,
 				"user_created": created,
 			},
-			RequestID: "bootstrap",
-			Source:    "bootstrap",
+			RequestID: meta.RequestID,
+			Source:    source,
+			IPAddress: meta.IPAddress,
 		}); err != nil {
 			return err
 		}
-
+		if err := b.repo.CompleteInstallation(ctx, exec); err != nil {
+			return err
+		}
 		result = BootstrapResult{
 			TenantID: tenantID, UserID: userID, RoleID: roleID, UserCreated: created,
 		}
@@ -172,6 +173,36 @@ func (b *Bootstrapper) Run(ctx context.Context, input BootstrapInput) (Bootstrap
 		return BootstrapResult{}, err
 	}
 	return result, nil
+}
+
+func validateBootstrapInput(input BootstrapInput) error {
+	if !tenantSlugPattern.MatchString(input.TenantSlug) {
+		return errors.New("organization identifier must use lowercase letters, digits or hyphens and contain at most 100 characters")
+	}
+	if input.TenantName == "" || input.AdminName == "" || input.AdminEmail == "" {
+		return errors.New("organization name, administrator name and login are required")
+	}
+	if utf8.RuneCountInString(input.TenantName) > 200 {
+		return errors.New("organization name exceeds 200 characters")
+	}
+	if utf8.RuneCountInString(input.AdminName) > 200 {
+		return errors.New("administrator name exceeds 200 characters")
+	}
+	if len(input.AdminEmail) > 254 {
+		return errors.New("administrator email exceeds 254 bytes")
+	}
+	address, err := mail.ParseAddress(input.AdminEmail)
+	if err != nil || address.Address != input.AdminEmail {
+		return errors.New("administrator login must be admin or a valid email address")
+	}
+	if len(input.AdminPassword) > password.MaxPasswordBytes {
+		return fmt.Errorf("administrator password exceeds %d bytes", password.MaxPasswordBytes)
+	}
+	if len(input.AdminPassword) < 12 &&
+		!(input.AdminEmail == DefaultAdminEmail && input.AdminPassword == DefaultAdminPassword) {
+		return errors.New("administrator password must contain at least 12 bytes; only the default admin account accepts admin")
+	}
+	return nil
 }
 
 func hashBootstrapPassword(input BootstrapInput) (string, error) {

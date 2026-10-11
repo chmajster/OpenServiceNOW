@@ -36,6 +36,7 @@ Implemented foundation capabilities:
 - CSRF double-submit validation,
 - Redis-backed login throttling,
 - tenant bootstrap with initial platform administrator,
+- first-run organization/administrator WebUI installer with durable completion state, CSRF/rate-limit protection and atomic RBAC/audit creation (migration 25),
 - groups, roles, permission catalog and assignments,
 - backend permission middleware,
 - tenant-scoped user administration with cursor pagination/search, existing-global-account membership linking and membership-triggered session revocation,
@@ -185,9 +186,10 @@ Implemented migration versions:
 - `000021_work_messages`,
 - `000022_work_watchers`,
 - `000023_work_relations`,
-- `000024_job_logs`.
+- `000024_job_logs`,
+- `000025_installation_state`.
 
-Each up/down migration contains one SQL statement. Runtime readiness requires migration version 24, `dirty=false`, and the foundation metadata singleton. The real MySQL lifecycle test passed latest → one-step rollback → latest → full rollback → latest → readiness. The reserved `groups` identifier is quoted in schema and repository SQL.
+Each up/down migration contains one SQL statement. Runtime readiness requires migration version 25, `dirty=false`, and the foundation metadata singleton. The real MySQL lifecycle test passed latest → one-step rollback → latest → full rollback → latest → readiness. Migration 25 permanently closes first-run setup for existing accounts/organizations without changing credentials. The reserved `groups` identifier is quoted in schema and repository SQL.
 
 ## Technical debt
 

@@ -15,7 +15,11 @@ export MYSQL_PASSWORD="${DB_PASSWORD:-${MYSQL_PASSWORD:-}}"
 case "${1:-api}" in
   api)
     opensnow-migrate up
-    opensnow-bootstrap
+    case "${BOOTSTRAP_ON_START:-false}" in
+      true) opensnow-bootstrap ;;
+      false) ;;
+      *) echo 'BOOTSTRAP_ON_START must be true or false' >&2; exit 2 ;;
+    esac
     unset BOOTSTRAP_ADMIN_PASSWORD
     exec opensnow-api
     ;;

@@ -10,6 +10,7 @@ import (
 
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
+	"github.com/chmajster/OpenServiceNOW/internal/platform/password"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
@@ -41,11 +42,26 @@ func TestMigrationLifecycle(t *testing.T) {
 		t.Fatalf("rollback one migration: %v", err)
 	}
 	assertMigrationVersion(t, m, database.RequiredSchemaVersion-1)
+	legacyHash, err := password.Hash("legacy-administrator-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, "INSERT INTO users(email,display_name,password_hash) VALUES('legacy-upgrade@example.test','Legacy administrator',?)", legacyHash); err != nil {
+		t.Fatal(err)
+	}
 
 	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		t.Fatalf("re-upgrade after single rollback: %v", err)
 	}
 	assertMigrationVersion(t, m, database.RequiredSchemaVersion)
+	var installed bool
+	if err := db.QueryRowContext(ctx, "SELECT completed_at IS NOT NULL FROM installation_state WHERE id=1").Scan(&installed); err != nil || !installed {
+		t.Fatalf("legacy installation reopened: installed=%t err=%v", installed, err)
+	}
+	var preservedHash string
+	if err := db.QueryRowContext(ctx, "SELECT password_hash FROM users WHERE email='legacy-upgrade@example.test'").Scan(&preservedHash); err != nil || preservedHash != legacyHash {
+		t.Fatal("upgrade altered existing credentials")
+	}
 
 	if err := m.Down(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		t.Fatalf("full rollback: %v", err)
@@ -58,6 +74,9 @@ func TestMigrationLifecycle(t *testing.T) {
 		t.Fatalf("re-upgrade after full rollback: %v", err)
 	}
 	assertMigrationVersion(t, m, database.RequiredSchemaVersion)
+	if err := db.QueryRowContext(ctx, "SELECT completed_at IS NULL FROM installation_state WHERE id=1").Scan(&installed); err != nil || !installed {
+		t.Fatalf("fresh installation unavailable: required=%t err=%v", installed, err)
+	}
 
 	if err := database.SchemaReady(ctx, db, cfg.MySQL.PingTimeout); err != nil {
 		t.Fatalf("schema readiness after migration lifecycle: %v", err)

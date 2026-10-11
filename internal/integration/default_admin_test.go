@@ -41,6 +41,9 @@ func TestDefaultAdministratorAuthenticationAndPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("bootstrap default administrator: %v", err)
 	}
+	if required, err := repo.SetupRequired(ctx); err != nil || required {
+		t.Fatalf("headless bootstrap did not close web setup: required=%t err=%v", required, err)
+	}
 	t.Cleanup(func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cleanupCancel()

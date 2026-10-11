@@ -14,6 +14,7 @@ x-backend: &backend
     HTTP_ADDR: 0.0.0.0:8080
     REDIS_ADDR: redis:6379
     SESSION_COOKIE_SECURE: "false"
+    BOOTSTRAP_ON_START: ${BOOTSTRAP_ON_START:-false}
     BOOTSTRAP_TENANT_SLUG: default
     BOOTSTRAP_TENANT_NAME: Default tenant
     BOOTSTRAP_ADMIN_EMAIL: admin@example.test

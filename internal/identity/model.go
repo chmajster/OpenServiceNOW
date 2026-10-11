@@ -12,6 +12,8 @@ var (
 	ErrLastPlatformAdmin     = errors.New("tenant must retain at least one active platform administrator")
 	ErrPlatformAdminRequired = errors.New("platform administrator authority required")
 	ErrAuthBusy              = errors.New("authentication password verifier is busy")
+	ErrSetupCompleted        = errors.New("installation is already complete")
+	ErrSetupInvalid          = errors.New("invalid installation settings")
 )
 
 type User struct {

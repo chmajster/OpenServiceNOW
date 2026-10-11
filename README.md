@@ -23,6 +23,7 @@ Implemented foundation capabilities:
 - login rate limiting in Redis,
 - backend permission evaluation,
 - tenant/admin bootstrap command,
+- first-run WebUI installer for atomic organization/administrator creation,
 - cursor-paginated/searchable tenant user administration, including linking an existing active global identity to another tenant without changing its credentials/profile,
 - tenant administration with optimistic locking,
 - cursor-paginated/searchable RBAC administration for groups, roles, permissions and assignments,
@@ -69,13 +70,15 @@ Requirements:
 - Node.js 22.12 or newer with npm,
 - curl and standard Unix shell tools.
 
-Install, migrate, bootstrap, build and start the current stack:
+Install, migrate, build and start the current stack:
 
 ```bash
 ./install.sh
 ```
 
-The installer creates `.env` from `.env.example` when needed, uses the default bootstrap password `admin` when it is empty, starts MySQL and Redis through the repository Compose file, installs Go/npm dependencies, applies migrations, bootstraps the initial administrator, builds the backend/frontend and starts the API plus the Vite frontend. The initial tenant is `default`, login is `admin` and password is `admin`. Explicit credentials in an existing `.env` are preserved.
+The installer creates `.env` from `.env.example` when needed, starts MySQL and Redis through the repository Compose file, installs Go/npm dependencies, applies migrations, builds the backend/frontend and starts the API plus the Vite frontend. Open the displayed WebUI address (normally `http://127.0.0.1:5173`). On a fresh database, the first-run wizard lets you enter the organization name/identifier and create the administrator with a login or email, name and confirmed password. It then takes you to login with the chosen organization/account filled in. You can use `admin` / `admin`, or choose your own email and password. Existing configuration and accounts are preserved.
+
+For unattended installation, explicitly use `./install.sh --bootstrap` or set `BOOTSTRAP_ON_START=true` and supply the `BOOTSTRAP_*` environment values. Headless bootstrap closes the WebUI installer too. The default is `BOOTSTRAP_ON_START=false`.
 
 Operational modes:
 
@@ -95,9 +98,9 @@ Ordinary uninstall preserves `.env` and the MySQL Docker volume. `--purge-data` 
 
 The root `compose.yaml` packages the complete application: React assets served by a non-root Nginx reverse proxy, Go API, worker, scheduler and a private Redis cache. It uses a shared DevBox MySQL server with an application-specific database/account. The existing `docker-compose.yml` remains the infrastructure-only development stack selected explicitly by `make dev` and `install.sh`.
 
-In DevBox, add this local source and choose Docker Compose. Select `frontend` as the HTTP service, container port `8080`, a free host port and readiness path `/health/ready`. Leave the start command empty. Create/bind a MySQL database with a separate application account and schema migration privileges. The first deployment defaults to `admin` / `admin` in tenant `default`. Optionally set `BOOTSTRAP_ADMIN_PASSWORD` in the application's SecretStore and public `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_NAME` and tenant variables to override the defaults. Then deploy.
+In DevBox, add this local source and choose Docker Compose. Select `frontend` as the HTTP service, container port `8080`, a free host port and readiness path `/health/ready`. Leave the start command empty. Create/bind a MySQL database with a separate application account and schema migration privileges. Deploy and open the application's address to create the first administrator in the WebUI. For unattended setup, set `BOOTSTRAP_ON_START=true`, `BOOTSTRAP_ADMIN_PASSWORD` in SecretStore, and the public `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_NAME` and tenant variables as needed.
 
-DevBox injects `DB_*` credentials at runtime; the backend entrypoint maps them to `MYSQL_*`. API startup applies the explicit migrations and performs idempotent administrator bootstrap before accepting traffic. Redis/API readiness gates frontend, worker and scheduler startup. The frontend proxies `/api/` and `/health/` to the API on the same origin, preserving session cookies and CSRF checks. Only the frontend port is published; SQL data stays in DevBox's persistent MySQL volume.
+DevBox injects `DB_*` credentials at runtime; the backend entrypoint maps them to `MYSQL_*`. API startup applies the explicit migrations and accepts traffic for the WebUI installer; administrator bootstrap runs only when explicitly enabled. Redis/API readiness gates frontend, worker and scheduler startup. The frontend proxies `/api/` and `/health/` to the API on the same origin, preserving session cookies and CSRF checks. Only the frontend port is published; SQL data stays in DevBox's persistent MySQL volume.
 
 Go 1.27 and Node build tooling run inside multi-stage Docker builds, so host interpreters are unnecessary for this deployment. Original sources remain visible through DevBox's RW mounts; rebuild the application after changing Go or frontend code. Secrets, Git metadata, local dependencies and build/test artifacts are excluded from the image build context. The HTTP example uses development cookie settings; configure TLS and secure cookies when deploying HTTPS.
 
@@ -115,7 +118,7 @@ Create local configuration:
 cp .env.example .env
 ```
 
-Optionally override `BOOTSTRAP_ADMIN_PASSWORD` (default `admin`), then load the environment:
+Load the environment:
 
 ```bash
 set -a
@@ -123,14 +126,13 @@ source .env
 set +a
 ```
 
-Apply migrations and create the first tenant/admin:
+Apply migrations:
 
 ```bash
 make migrate-up
-make bootstrap
 ```
 
-The bootstrap is idempotent for tenant membership, role and permission assignment. Re-running it does not reset the password of an existing user.
+Create the administrator through the WebUI after starting both services below. Alternatively, set the desired `BOOTSTRAP_*` values and run `make bootstrap` for headless setup. Bootstrap is idempotent for tenant membership, role and permission assignment. Re-running it does not reset the password of an existing user.
 
 Start the backend:
 
@@ -150,7 +152,11 @@ The Vite development server listens on `127.0.0.1:5173` and proxies `/api` and `
 
 ### Initial login
 
-The default administrator uses tenant `default`, login `admin` and password `admin`. The login alias `admin` resolves to the stored account email `admin@example.test`; either identifier works. The API retains the `email` field for compatibility:
+On an empty installation, `/login` and protected pages automatically open `/setup`. The wizard creates the organization, administrator, membership, platform-admin permissions, audit event and permanent completion marker in one database transaction. Invalid input or a failed write leaves setup available for retry. Only one concurrent setup can succeed; subsequent attempts return `409 SETUP_COMPLETED`. Completion survives application restarts and account deletion. Migration 25 marks deployments with existing users or organizations as already installed without changing their credentials.
+
+`GET /api/v1/setup` reports `required` and, while setup is available, issues an HttpOnly, SameSite=Strict installer cookie plus a response token. `POST /api/v1/setup` requires same-origin JSON and that token in `X-Setup-Token`, is rate limited, and shares the login password-hashing concurrency limit. No administrator/session API is exposed through the wizard after installation.
+
+For the default account, choose tenant `default`, login `admin` and password `admin`. The login alias `admin` resolves to the stored account email `admin@example.test`; either identifier works. The API retains the `email` field for compatibility:
 
 ```json
 {
@@ -160,7 +166,7 @@ The default administrator uses tenant `default`, login `admin` and password `adm
 }
 ```
 
-The four-byte default password is accepted only when bootstrapping the default administrator account. Custom administrator passwords and ordinary user creation still require at least 12 bytes. If `BOOTSTRAP_ADMIN_EMAIL` is customized, sign in with that email. Existing administrator passwords are never reset: re-bootstrap requires the current password, so retain the matching override for upgrades and restarts. Set a private bootstrap password before exposing a deployment publicly.
+The four-byte default password is accepted only when installing or bootstrapping the default administrator account. The WebUI requires at least 12 characters for a custom password; the API and ordinary user creation enforce a minimum of 12 UTF-8 bytes. If you choose a custom administrator email, sign in with that email. Existing administrator passwords are never reset: explicit re-bootstrap requires the current password. Normal restarts do not bootstrap an account.
 
 The server sets:
 
@@ -253,20 +259,20 @@ make e2e
 `make e2e` runs the Playwright suite against an already running local API/frontend. Before using it locally:
 
 1. start MySQL/Redis and apply migrations,
-2. bootstrap the E2E tenant/admin,
+2. leave the disposable database empty to test first-run account creation (an existing E2E account is also supported),
 3. start the API,
 4. start Vite on `127.0.0.1:5173`,
 5. export `E2E_TENANT`, `E2E_ADMIN_EMAIL`, `E2E_ADMIN_PASSWORD`, `E2E_OPERATOR_EMAIL`, and `E2E_OPERATOR_PASSWORD`,
 6. install Chromium once with `cd web && npx playwright install chromium`,
 7. run `make e2e`.
 
-CI performs those infrastructure/bootstrap/startup steps automatically in its dedicated `e2e` job.
+CI performs infrastructure/migration/startup steps automatically in its dedicated `e2e` job. The first browser test creates the E2E tenant/admin through the real WebUI; subsequent tests use that account. Run the suite only against a disposable test database.
 
 ## Verification status
 
 On 2026-10-11, local Go formatting/vet/unit/race/build, real MySQL 8.4 integration and all 24 migrations (including full rollback/reapply), frontend typecheck/unit/build/audit and installer/Compose checks passed. A real DevBox rebuild preserved the administrator account and MySQL data; login/logout, CSRF rejection, MySQL/Redis readiness, RW source mounts and SELECT 1 from API/worker/scheduler passed.
 
-All six desktop/mobile Playwright tests passed against the real container stack. Final GitHub CI is recorded in [PR #7](https://github.com/chmajster/OpenServiceNOW/pull/7). The browser suite validates administrator login, user/role/group creation and assignments, audit visibility, least-privilege login and server-side denial, plus two-session tenant/role conflicts. This verifies the current application deployment, without declaring all future roadmap capabilities complete.
+The first-run installer was additionally verified against an isolated MySQL/Redis/API/Nginx stack: all 25 migrations, preservation of existing credentials on upgrade, transactional rollback, concurrent setup and permanent closure after restart/account removal passed. Desktop/mobile browser coverage includes setup validation, expired installer session, network retry, stale-window conflict, account creation, login, RBAC and audit. The implementation and final checks are recorded in [PR #9](https://github.com/chmajster/OpenServiceNOW/pull/9).
 
 ## Architecture and project state
 

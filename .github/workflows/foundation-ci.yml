@@ -303,9 +303,6 @@ jobs:
       - name: Apply migrations
         run: go run ./cmd/migrate up
 
-      - name: Bootstrap E2E tenant
-        run: go run ./cmd/bootstrap
-
       - name: Run browser E2E
         shell: bash
         run: |
