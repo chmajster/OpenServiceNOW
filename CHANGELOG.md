@@ -4,6 +4,11 @@ All notable repository changes are documented here.
 
 The project is pre-release and currently in architecture/foundation development.
 
+## 2026-10-12 — WSL startup and background frontend
+
+- Documented ordinary-user Docker access, refreshing Linux/WSL group membership, and configuring free MySQL/Redis ports while preserving other applications and database data.
+- Start local components in independent sessions so closing the installer's terminal cannot stop them; run Vite in non-interactive CI mode to disable stdin shutdown handling. Lifecycle verification removes the caller's CI setting and checks process session/terminal detachment.
+
 ## 2026-10-12 — Automatic local API port selection
 
 - Local installation tries API ports 8080 through 8100 inclusive, skips occupied/reserved ports and reports exhaustion without stopping foreign listeners.

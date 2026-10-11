@@ -68,7 +68,7 @@ Requirements:
 - Docker Engine/Desktop with Docker Compose v2,
 - Go 1.27 or newer,
 - Node.js 22.12 or newer with npm,
-- Bash on Linux or WSL, curl, `flock` (util-linux), `ss` (iproute2) and standard Unix tools,
+- Bash on Linux or WSL, curl, `flock`/`setsid` (util-linux), `ss` (iproute2) and standard Unix tools,
 - access to a running Docker Engine as your ordinary user; no systemd or application service registration is needed.
 
 Install, migrate, build and start the current stack:
@@ -77,7 +77,7 @@ Install, migrate, build and start the current stack:
 bash ./install.sh --local
 ```
 
-The installer uses the exact checkout containing `install.sh`, including uncommitted source changes. It creates local `.env` from `.env.example` when missing, explicitly starts MySQL/Redis with `docker-compose.yml`, installs Go/npm dependencies, applies migrations, builds API/worker/scheduler into local `bin/`, builds the frontend and runs all four application processes in the background. Vite runs directly from `web/` and proxies `/api` and `/health` to the selected API port. It verifies process ownership, database/cache readiness and the actual frontend proxy before reporting success. It does not move or clone sources, modify Git, or use DevBox configuration.
+The installer uses the exact checkout containing `install.sh`, including uncommitted source changes. It creates local `.env` from `.env.example` when missing, explicitly starts MySQL/Redis with `docker-compose.yml`, installs Go/npm dependencies, applies migrations, builds API/worker/scheduler into local `bin/`, builds the frontend and runs all four application processes in independent background sessions that survive closing the installer's terminal. Vite runs directly from `web/` in non-interactive mode and proxies `/api` and `/health` to the selected API port. It verifies process ownership, database/cache readiness and the actual frontend proxy before reporting success. It does not move or clone sources, modify Git, or use DevBox configuration.
 
 Open the displayed WebUI address (normally `http://127.0.0.1:5173`). On a fresh database, the first-run wizard creates the organization and administrator. You can use `admin` / `admin`, or choose your own email and password. Existing configuration, administrator credentials and SQL data are preserved. Re-running `--local` stops this checkout's old processes, rebuilds current source and starts the new runtime. `--no-start` prepares/builds everything and leaves application processes stopped.
 
@@ -108,6 +108,21 @@ The effective frontend port is stored in `.opensnow/run/web-port`, so later comm
 Frontend/database/cache conflicts still report an error. The installer never stops foreign listeners. Set `MYSQL_PORT` and `REDIS_ADDR` in `.env` if the infrastructure's default loopback ports 3306/6379 are occupied. Configure matching database credentials there before first provisioning; changing a password in `.env` does not reset accounts in an existing MySQL volume. For checkouts with the same directory name, use a distinct `COMPOSE_PROJECT_NAME` in `.env`; existing Compose project names/volumes remain compatible and container ownership is checked against the checkout path.
 
 The script also accepts an absolute path from another directory, including paths with spaces, e.g. `bash "/mnt/c/Projects/OpenServiceNOW local/install.sh" --local`. Logs are `.opensnow/logs/api.log`, `web.log`, `worker.log` and `scheduler.log`; separate PID/start-time records live in `.opensnow/run/`. Start is idempotent; stop preserves data and affects only this checkout's verified processes and infrastructure. Failed startup removes only processes/dependencies started by that invocation and reports log locations. Status returns a nonzero exit code for an incomplete/unready runtime. Ordinary uninstall preserves `.env`, SQL volume, source files, logs and unrelated `bin/` files; `--purge-data` explicitly removes this instance's database volume and `.env`. Previous commands without `--local` remain aliases for the same local mode. Conflicting lifecycle actions/options are rejected.
+
+### Local startup troubleshooting
+
+If preflight cannot access Docker, run `docker info` as your ordinary user. With a local Linux Docker Engine, a socket owned by `root:docker` requires membership in that group:
+
+```bash
+sudo usermod -aG docker "$(id -un)"
+newgrp docker
+docker info
+bash ./install.sh --local
+```
+
+Opening a new WSL terminal also reloads group membership. Keep the installer and application processes under your ordinary user. For Docker Desktop, enable the engine and WSL integration for your distribution first.
+
+If another MySQL service owns port 3306, choose a free port in this checkout's `.env`, for example `MYSQL_PORT=3307`; the installer uses that value for both the container mapping and the Go database connection. For a Redis conflict, set e.g. `REDIS_ADDR=127.0.0.1:6380`. Before editing, check that the proposed ports are free with `ss -ltn '( sport = :3307 or sport = :6380 )'`. Preserve the existing database credentials and run the installer again. A port change does not require stopping another application's database or deleting volumes. Local API conflicts are handled automatically within 8080–8100.
 
 ## DevBox deployment
 

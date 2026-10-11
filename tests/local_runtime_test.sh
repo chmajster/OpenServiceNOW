@@ -31,16 +31,20 @@ REDIS_PASSWORD=local-redis-verification
 MYSQL_PASSWORD=local-mysql-verification
 COMPOSE_PROJECT_NAME=$project
 EOF
-installer() { bash "$checkout/install.sh" --local "$@"; }
+installer() { env -u CI bash "$checkout/install.sh" --local "$@"; }
 sql() {
   docker compose -p "$project" -f "$checkout/docker-compose.yml" exec -T -e MYSQL_PWD=local-mysql-verification mysql mysql -u opensnow opensnow -N -e "$1"
 }
 pid_of() { awk '{print $1}' "$checkout/.opensnow/run/$1.pid"; }
 assert_running() {
-  local component
+  local component pid session terminal
   for component in api worker scheduler web; do
-    kill -0 "$(pid_of "$component")"
-    [[ "$(stat -c %u "/proc/$(pid_of "$component")")" == "$UID" ]]
+    pid=$(pid_of "$component")
+    kill -0 "$pid"
+    [[ "$(stat -c %u "/proc/$pid")" == "$UID" ]]
+    # Closing the installer's terminal must not terminate any runtime component.
+    read -r session terminal < <(ps -o sid=,tty= -p "$pid")
+    [[ "$session" == "$pid" && "$terminal" == '?' ]]
   done
 }
 stop_listener() { kill "$listener_pid"; wait "$listener_pid" 2>/dev/null || true; listener_pid=''; }
@@ -202,5 +206,5 @@ installer --start
 assert_running
 installer --status
 verified=1
-printf '%s\n' 'Local runtime fresh install, spaces/absolute path, dynamic proxy, real jobs, lifecycle, rebuild, persistence, API fallback/8100/exhaustion and partial-start cleanup passed.'
+printf '%s\n' 'Local runtime fresh install, terminal detachment, spaces/absolute path, dynamic proxy, real jobs, lifecycle, rebuild, persistence, API fallback/8100/exhaustion and partial-start cleanup passed.'
 if [[ "${LOCAL_RUNTIME_KEEP:-0}" == 1 ]]; then printf 'Verification checkout: %s\n' "$checkout"; fi
