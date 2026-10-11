@@ -20,6 +20,7 @@ RUN_DIR="$ROOT_DIR/.opensnow/run"
 LOG_DIR="$ROOT_DIR/.opensnow/logs"
 BIN_DIR="$ROOT_DIR/bin"
 WEB_PORT_FILE="$RUN_DIR/web-port"
+API_PORT_FILE="$RUN_DIR/api-port"
 PROJECT_FILE="$RUN_DIR/compose-project"
 ensure_state_dirs
 
@@ -32,12 +33,18 @@ for port in 0 65536 -1 bad '8090;echo injected' 08090; do
   if valid_port "$port"; then echo "Accepted invalid port: $port" >&2; exit 1; fi
 done
 valid_port 8090
+valid_api_port 8080
+valid_api_port 8100
+for port in 8079 8101 bad '8081;echo injected'; do
+  if valid_api_port "$port"; then echo "Accepted invalid API port: $port" >&2; exit 1; fi
+done
 WEB_PORT=8090
+API_PORT=8082
 COMPOSE_PROJECT_NAME=installer-unit
 save_instance
 REQUESTED_WEB_PORT=''
 load_instance
-[[ "$WEB_PORT" == 8090 ]]
+[[ "$WEB_PORT" == 8090 && "$API_PORT" == 8082 ]]
 ACTION=status
 REQUESTED_WEB_PORT=9000
 load_instance

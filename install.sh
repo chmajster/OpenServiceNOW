@@ -9,9 +9,11 @@ RUN_DIR="${STATE_DIR}/run"
 LOG_DIR="${STATE_DIR}/logs"
 BIN_DIR="${ROOT_DIR}/bin"
 WEB_PORT_FILE="${RUN_DIR}/web-port"
+API_PORT_FILE="${RUN_DIR}/api-port"
 PROJECT_FILE="${RUN_DIR}/compose-project"
 REQUESTED_WEB_PORT="${OPENSNOW_WEB_PORT:-}"
 WEB_PORT=5173
+API_PORT=8080
 PURGE_DATA=0
 NO_START=0
 BOOTSTRAP=0
@@ -48,7 +50,8 @@ Usage:
 
 Without --local, existing commands use the same local mode for compatibility.
 OPENSNOW_WEB_PORT selects the frontend port (default 5173); it is saved for later commands.
-API remains on port 8080. Runtime state/logs are under this checkout's .opensnow/.
+API tries ports 8080 through 8100, saving the selected port and updating Vite's proxy.
+Runtime state/logs are under this checkout's .opensnow/.
 EOF
 }
 
@@ -109,9 +112,10 @@ load_env() {
 }
 
 valid_port() { [[ "$1" =~ ^[1-9][0-9]{0,4}$ ]] && (( 10#$1 <= 65535 )); }
+valid_api_port() { valid_port "$1" && (( 10#$1 >= 8080 && 10#$1 <= 8100 )); }
 
 load_instance() {
-  local saved_root saved_project pid argument previous=''
+  local saved_root saved_project pid argument port previous=''
   if [[ -f "${RUN_DIR}/instance-root" ]]; then
     saved_root="$(cat "${RUN_DIR}/instance-root")"
     [[ "$saved_root" == "$ROOT_DIR" ]] || fail "Local runtime state belongs to another checkout: ${saved_root}. Use a checkout without copied .opensnow state."
@@ -129,7 +133,16 @@ load_instance() {
   valid_port "$WEB_PORT" || fail "Invalid saved frontend port in ${WEB_PORT_FILE}."
   if [[ "$ACTION" != status && "$ACTION" != stop && "$ACTION" != uninstall && -n "$REQUESTED_WEB_PORT" ]]; then WEB_PORT=$REQUESTED_WEB_PORT; fi
   valid_port "$WEB_PORT" || fail "OPENSNOW_WEB_PORT must be an integer from 1 to 65535."
-  [[ "$WEB_PORT" != 8080 ]] || fail "Frontend port 8080 conflicts with the API; choose another OPENSNOW_WEB_PORT."
+  API_PORT=8080
+  if [[ -f "$API_PORT_FILE" ]]; then
+    API_PORT="$(cat "$API_PORT_FILE")"
+  elif pid_running api; then
+    # Older instances have no API port record; adopt only this checkout's listener.
+    for ((port=8080; port<=8100; port++)); do
+      if port_owned api "$port"; then API_PORT=$port; break; fi
+    done
+  fi
+  valid_api_port "$API_PORT" || fail "Invalid saved API port in ${API_PORT_FILE}; expected 8080 through 8100."
   if [[ -f "$PROJECT_FILE" ]]; then
     saved_project="$(cat "$PROJECT_FILE")"
     if [[ -n "${COMPOSE_PROJECT_NAME:-}" && "$COMPOSE_PROJECT_NAME" != "$saved_project" ]]; then
@@ -148,6 +161,8 @@ save_instance() {
   printf '%s\n' "$COMPOSE_PROJECT_NAME" >"$PROJECT_FILE"
   printf '%s\n' "$WEB_PORT" >"${WEB_PORT_FILE}.tmp"
   mv -- "${WEB_PORT_FILE}.tmp" "$WEB_PORT_FILE"
+  printf '%s\n' "$API_PORT" >"${API_PORT_FILE}.tmp"
+  mv -- "${API_PORT_FILE}.tmp" "$API_PORT_FILE"
 }
 
 prepare_env() {
@@ -157,7 +172,7 @@ prepare_env() {
   load_env
   case "${HTTP_ADDR:-127.0.0.1:8080}" in
     127.0.0.1:8080|localhost:8080|0.0.0.0:8080|:8080|'[::]:8080') ;;
-    *) fail "HTTP_ADDR must bind locally on port 8080, matching the Vite proxy." ;;
+    *) fail "HTTP_ADDR must use a local bind address and base port 8080; the installer selects an available port up to 8100." ;;
   esac
   [[ "${MYSQL_HOST:-127.0.0.1}" == 127.0.0.1 || "${MYSQL_HOST:-}" == localhost ]] || fail "Local mode requires MYSQL_HOST=127.0.0.1 or localhost."
   valid_port "${MYSQL_PORT:-3306}" || fail "MYSQL_PORT must be an integer from 1 to 65535."
@@ -166,7 +181,7 @@ prepare_env() {
   valid_port "$REDIS_PORT" || fail "Redis port must be from 1 to 65535."
   export REDIS_PORT
   local mysql_port=${MYSQL_PORT:-3306}
-  [[ "$mysql_port" != "$REDIS_PORT" && "$mysql_port" != 8080 && "$mysql_port" != "$WEB_PORT" && "$REDIS_PORT" != 8080 && "$REDIS_PORT" != "$WEB_PORT" ]] || fail "MySQL, Redis, API and frontend must use separate ports."
+  [[ "$mysql_port" != "$REDIS_PORT" && "$mysql_port" != "$WEB_PORT" && "$REDIS_PORT" != "$WEB_PORT" ]] || fail "MySQL, Redis and frontend must use separate ports."
   [[ "${BOOTSTRAP_ON_START:-false}" == true || "${BOOTSTRAP_ON_START:-false}" == false ]] || fail "BOOTSTRAP_ON_START must be true or false."
   load_instance
 }
@@ -288,14 +303,35 @@ port_owned() {
   [[ "$(ss -H -ltnp "sport = :$2")" == *"pid=$pid,"* ]]
 }
 
-check_ports() {
-  local component port
-  for component in api web; do
-    port=8080; [[ "$component" != web ]] || port=$WEB_PORT
-    if port_busy "$port" && ! port_owned "$component" "$port"; then
-      fail "Port ${port} is occupied by another process/checkout; ${component} cannot start. Stop that process or choose another OPENSNOW_WEB_PORT for the frontend."
+api_port_available() {
+  [[ "$1" != "$WEB_PORT" && "$1" != "${MYSQL_PORT:-3306}" && "$1" != "${REDIS_PORT:-6379}" ]] || return 1
+  ! port_busy "$1" || port_owned api "$1"
+}
+
+select_api_port() {
+  local port
+  if [[ "$ACTION" == start ]] && pid_running api && ! api_port_available "$API_PORT"; then
+    fail "This checkout's API is already running on port ${API_PORT}, which conflicts with the requested configuration. Use --local --restart."
+  fi
+  # Keep a usable saved/live port so repeated start and restart remain stable.
+  if api_port_available "$API_PORT"; then return; fi
+  for ((port=8080; port<=8100; port++)); do
+    if api_port_available "$port"; then
+      API_PORT=$port
+      info "Selected available API port ${API_PORT} (range 8080-8100)."
+      return
     fi
   done
+  fail "No available API port in 8080-8100; all ports are occupied or reserved for this instance's frontend/database/cache."
+}
+
+check_ports() {
+  local port
+  if port_busy "$WEB_PORT" && ! port_owned web "$WEB_PORT"; then
+    if [[ "$ACTION" == start ]] || ! port_owned api "$WEB_PORT"; then
+      fail "Port ${WEB_PORT} is occupied by another process/checkout; web cannot start. Choose another OPENSNOW_WEB_PORT for the frontend."
+    fi
+  fi
   if [[ "$ACTION" == start ]] && pid_running web && ! port_owned web "$WEB_PORT"; then fail "This checkout's frontend is already running on another port. Use --local --restart to change its port."; fi
   check_dependency_ownership
   local service container_port mapped_port state
@@ -308,13 +344,15 @@ check_ports() {
       [[ ( "$state" == healthy || "$state" == starting || "$state" == running ) && "$mapped_port" == "127.0.0.1:$port" ]] || fail "Port ${port} is occupied outside this instance's ${service} container. Choose another port in .env or stop the conflicting service."
     fi
   done
+  select_api_port
 }
 
 start_component() {
-  local component=$1 cwd="$ROOT_DIR" pid attempt log_line
+  local component=$1 cwd="$ROOT_DIR" pid attempt log_line bind_address=${HTTP_ADDR:-127.0.0.1:8080}
   if pid_running "$component"; then info "${component} is already running (PID $(pid_from_file "$component"))."; return 0; fi
   local -a command=("$BIN_DIR/opensnow-$component")
-  if [[ "$component" == web ]]; then cwd="$ROOT_DIR/web"; command=(node "$ROOT_DIR/web/node_modules/vite/bin/vite.js" --host 127.0.0.1 --port "$WEB_PORT" --strictPort); fi
+  if [[ "$component" == api ]]; then command=(env "HTTP_ADDR=${bind_address%:*}:$API_PORT" "$BIN_DIR/opensnow-api"); fi
+  if [[ "$component" == web ]]; then cwd="$ROOT_DIR/web"; command=(env "OPENSNOW_API_PORT=$API_PORT" node "$ROOT_DIR/web/node_modules/vite/bin/vite.js" --host 127.0.0.1 --port "$WEB_PORT" --strictPort); fi
   touch "$LOG_DIR/$component.log"
   log_line=$(( $(wc -l <"$LOG_DIR/$component.log") + 1 ))
   (
@@ -351,8 +389,22 @@ wait_for_http() {
   done
   fail "${component} did not become ready on port ${port}; see ${LOG_DIR}/${component}.log."
 }
-start_api() { start_component api; wait_for_http api 8080 /health/ready; }
-start_web() { start_component web; wait_for_http web "$WEB_PORT" /; }
+start_api() {
+  # Recheck after migrations/builds: another process may have taken the chosen port.
+  select_api_port
+  start_component api
+  wait_for_http api "$API_PORT" /health/ready
+}
+start_web() {
+  local proxy_port=8080
+  if [[ -f "$API_PORT_FILE" ]]; then proxy_port="$(cat "$API_PORT_FILE")"; fi
+  if pid_running web && [[ "$proxy_port" != "$API_PORT" ]]; then
+    info "Restarting Vite to proxy to API port ${API_PORT}."
+    stop_pid web
+  fi
+  start_component web
+  wait_for_http web "$WEB_PORT" /
+}
 
 verify_runtime() {
   local component
@@ -361,6 +413,7 @@ verify_runtime() {
   curl --silent --fail --max-time 3 "http://127.0.0.1:${WEB_PORT}/api/v1/setup" >/dev/null || fail "Frontend /api proxy cannot reach the setup API."
   save_instance
   ok "OpenServiceNOW is running: http://127.0.0.1:${WEB_PORT}"
+  info "API address: http://127.0.0.1:${API_PORT}"
   info "Runtime logs: ${LOG_DIR} (api.log, web.log, worker.log, scheduler.log)"
 }
 
@@ -397,7 +450,7 @@ show_status() {
     if pid_running "$component"; then
       state=running
       if [[ "$component" == api || "$component" == web ]]; then
-        port=8080; [[ "$component" != web ]] || port=$WEB_PORT
+        port=$API_PORT; [[ "$component" != web ]] || port=$WEB_PORT
         state=unready
         if port_owned "$component" "$port" && curl --silent --fail --max-time 2 "http://127.0.0.1:$port/health/ready" >/dev/null; then state=ready; fi
       fi
@@ -406,6 +459,7 @@ show_status() {
     [[ "$state" == ready || "$state" == running ]] || failures=$((failures+1))
   done
   info "WebUI address: http://127.0.0.1:${WEB_PORT}"
+  info "API address: http://127.0.0.1:${API_PORT}"
   info "Runtime logs: ${LOG_DIR}"
   (( failures == 0 ))
 }
@@ -469,7 +523,7 @@ main() {
   if [[ "$ACTION" == help ]]; then usage; return; fi
   [[ "$(uname -s)" == Linux && -d /proc/self ]] || fail "Local runtime supports Linux and WSL. Run this script in your Linux/WSL shell."
   local command_name
-  for command_name in flock ss curl nohup stat readlink awk sed sort; do require_command "$command_name" "Install standard Linux utilities (util-linux, iproute2, coreutils and curl)."; done
+  for command_name in flock ss curl nohup env stat readlink awk sed sort; do require_command "$command_name" "Install standard Linux utilities (util-linux, iproute2, coreutils and curl)."; done
   ensure_state_dirs
   exec 9>"$RUN_DIR/installer.lock"
   flock -n 9 || fail "Another installer command is running for this checkout. Wait for it to finish."
