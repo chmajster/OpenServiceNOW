@@ -59,7 +59,7 @@ export function LoginPage() {
       if (cause instanceof ApiError && cause.status === 429) {
         setError("Zbyt wiele prób logowania. Spróbuj ponownie później.");
       } else if (cause instanceof ApiError && cause.status === 401) {
-        setError("Nieprawidłowy tenant, e-mail lub hasło.");
+        setError("Nieprawidłowy tenant, login lub hasło.");
       } else {
         setError(cause instanceof Error ? cause.message : "Logowanie nie powiodło się.");
       }
@@ -96,12 +96,13 @@ export function LoginPage() {
             />
           </label>
           <label>
-            E-mail
+            Login lub e-mail
             <input
-              type="email"
+              type="text"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               autoComplete="username"
+              maxLength={254}
               required
             />
           </label>
@@ -112,7 +113,6 @@ export function LoginPage() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               autoComplete="current-password"
-              minLength={12}
               maxLength={1024}
               required
             />

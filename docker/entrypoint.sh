@@ -14,7 +14,6 @@ export MYSQL_PASSWORD="${DB_PASSWORD:-${MYSQL_PASSWORD:-}}"
 
 case "${1:-api}" in
   api)
-    : "${BOOTSTRAP_ADMIN_PASSWORD:?Set BOOTSTRAP_ADMIN_PASSWORD in DevBox SecretStore}"
     opensnow-migrate up
     opensnow-bootstrap
     unset BOOTSTRAP_ADMIN_PASSWORD

@@ -57,7 +57,7 @@ func NewService(
 
 func (s *Service) Login(ctx context.Context, input LoginInput, meta RequestMeta) (LoginResult, error) {
 	tenantSlug := strings.ToLower(strings.TrimSpace(input.Tenant))
-	email := strings.ToLower(strings.TrimSpace(input.Email))
+	email := normalizeLoginEmail(input.Email)
 	if tenantSlug == "" || email == "" || input.Password == "" {
 		return LoginResult{}, ErrInvalidCredentials
 	}

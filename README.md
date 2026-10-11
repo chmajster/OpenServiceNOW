@@ -75,7 +75,7 @@ Install, migrate, bootstrap, build and start the current stack:
 ./install.sh
 ```
 
-The installer creates `.env` from `.env.example` when needed, generates `BOOTSTRAP_ADMIN_PASSWORD` when it is empty, starts MySQL and Redis through the repository Compose file, installs Go/npm dependencies, applies migrations, bootstraps the initial administrator, builds the backend/frontend and starts the API plus the Vite frontend.
+The installer creates `.env` from `.env.example` when needed, uses the default bootstrap password `admin` when it is empty, starts MySQL and Redis through the repository Compose file, installs Go/npm dependencies, applies migrations, bootstraps the initial administrator, builds the backend/frontend and starts the API plus the Vite frontend. The initial tenant is `default`, login is `admin` and password is `admin`. Explicit credentials in an existing `.env` are preserved.
 
 Operational modes:
 
@@ -95,7 +95,7 @@ Ordinary uninstall preserves `.env` and the MySQL Docker volume. `--purge-data` 
 
 The root `compose.yaml` packages the complete application: React assets served by a non-root Nginx reverse proxy, Go API, worker, scheduler and a private Redis cache. It uses a shared DevBox MySQL server with an application-specific database/account. The existing `docker-compose.yml` remains the infrastructure-only development stack selected explicitly by `make dev` and `install.sh`.
 
-In DevBox, add this local source and choose Docker Compose. Select `frontend` as the HTTP service, container port `8080`, a free host port and readiness path `/health/ready`. Leave the start command empty. Create/bind a MySQL database with a separate application account and schema migration privileges. Set `BOOTSTRAP_ADMIN_PASSWORD` in the application's SecretStore and optionally set public `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_NAME` and tenant variables. Then deploy.
+In DevBox, add this local source and choose Docker Compose. Select `frontend` as the HTTP service, container port `8080`, a free host port and readiness path `/health/ready`. Leave the start command empty. Create/bind a MySQL database with a separate application account and schema migration privileges. The first deployment defaults to `admin` / `admin` in tenant `default`. Optionally set `BOOTSTRAP_ADMIN_PASSWORD` in the application's SecretStore and public `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_NAME` and tenant variables to override the defaults. Then deploy.
 
 DevBox injects `DB_*` credentials at runtime; the backend entrypoint maps them to `MYSQL_*`. API startup applies the explicit migrations and performs idempotent administrator bootstrap before accepting traffic. Redis/API readiness gates frontend, worker and scheduler startup. The frontend proxies `/api/` and `/health/` to the API on the same origin, preserving session cookies and CSRF checks. Only the frontend port is published; SQL data stays in DevBox's persistent MySQL volume.
 
@@ -115,7 +115,7 @@ Create local configuration:
 cp .env.example .env
 ```
 
-Set a strong value for `BOOTSTRAP_ADMIN_PASSWORD`, then load the environment:
+Optionally override `BOOTSTRAP_ADMIN_PASSWORD` (default `admin`), then load the environment:
 
 ```bash
 set -a
@@ -150,15 +150,17 @@ The Vite development server listens on `127.0.0.1:5173` and proxies `/api` and `
 
 ### Initial login
 
-Default example bootstrap values use tenant `default`. Login requires:
+The default administrator uses tenant `default`, login `admin` and password `admin`. The login alias `admin` resolves to the stored account email `admin@example.test`; either identifier works. The API retains the `email` field for compatibility:
 
 ```json
 {
   "tenant": "default",
-  "email": "admin@example.test",
-  "password": "your-password"
+  "email": "admin",
+  "password": "admin"
 }
 ```
+
+The four-byte default password is accepted only when bootstrapping the default administrator account. Custom administrator passwords and ordinary user creation still require at least 12 bytes. If `BOOTSTRAP_ADMIN_EMAIL` is customized, sign in with that email. Existing administrator passwords are never reset: re-bootstrap requires the current password, so retain the matching override for upgrades and restarts. Set a private bootstrap password before exposing a deployment publicly.
 
 The server sets:
 

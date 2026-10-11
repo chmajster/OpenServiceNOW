@@ -92,6 +92,6 @@ services:
       timeout: 3s
       retries: 12
 
-# DevBox injects the application's DB_* binding and bootstrap secret at runtime,
+# DevBox injects the application's DB_* binding and optional bootstrap override at runtime,
 # publishes only frontend:8080 and joins backend workloads to devbox-apps.
 # SQL data remains in the shared DevBox MySQL volume; Redis is disposable cache.

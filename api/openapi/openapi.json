@@ -1505,13 +1505,14 @@
           },
           "email": {
             "type": "string",
-            "format": "email",
+            "description": "Account email or the default administrator login alias admin.",
+            "minLength": 1,
             "maxLength": 254
           },
           "password": {
             "type": "string",
             "format": "password",
-            "minLength": 12,
+            "minLength": 1,
             "maxLength": 1024
           }
         }

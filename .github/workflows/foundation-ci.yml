@@ -271,8 +271,8 @@ jobs:
       BOOTSTRAP_ADMIN_EMAIL: admin@example.test
       BOOTSTRAP_ADMIN_NAME: E2E Administrator
       E2E_TENANT: e2e
-      E2E_ADMIN_EMAIL: admin@example.test
-      E2E_ADMIN_PASSWORD: phase1-admin-${{ github.run_id }}-Password
+      E2E_ADMIN_EMAIL: admin
+      E2E_ADMIN_PASSWORD: admin
       E2E_OPERATOR_EMAIL: e2e-operator@example.test
       E2E_OPERATOR_PASSWORD: phase1-operator-${{ github.run_id }}-Password
       E2E_BASE_URL: http://127.0.0.1:5173
@@ -304,8 +304,6 @@ jobs:
         run: go run ./cmd/migrate up
 
       - name: Bootstrap E2E tenant
-        env:
-          BOOTSTRAP_ADMIN_PASSWORD: ${{ env.E2E_ADMIN_PASSWORD }}
         run: go run ./cmd/bootstrap
 
       - name: Run browser E2E
