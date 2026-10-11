@@ -13,10 +13,10 @@ import (
 )
 
 var (
-	ErrInvalidSequenceConfiguration = errors.New("invalid record sequence configuration")
+	ErrInvalidSequenceConfiguration  = errors.New("invalid record sequence configuration")
 	ErrSequenceConfigurationConflict = errors.New("record sequence configuration conflict")
-	recordTypePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_.-]{0,63}$`)
-	prefixPattern = regexp.MustCompile(`^[A-Z0-9]{1,16}$`)
+	recordTypePattern                = regexp.MustCompile(`^[a-z0-9][a-z0-9_.-]{0,63}$`)
+	prefixPattern                    = regexp.MustCompile(`^[A-Z0-9]{1,16}$`)
 )
 
 type Allocator struct {

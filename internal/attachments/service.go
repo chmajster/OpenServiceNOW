@@ -19,12 +19,12 @@ import (
 )
 
 type Service struct {
-	metadata MetadataStore
+	metadata      MetadataStore
 	transactional TransactionalMetadataStore
-	storage Storage
-	maxBytes int64
-	tx *database.TxManager
-	outbox *events.Repository
+	storage       Storage
+	maxBytes      int64
+	tx            *database.TxManager
+	outbox        *events.Repository
 }
 
 func NewService(metadata MetadataStore, storage Storage, maxBytes int64) (*Service, error) {
@@ -45,12 +45,12 @@ func NewEventingService(
 		return nil, ErrInvalid
 	}
 	return &Service{
-		metadata: metadata,
+		metadata:      metadata,
 		transactional: metadata,
-		storage: storage,
-		maxBytes: maxBytes,
-		tx: tx,
-		outbox: outbox,
+		storage:       storage,
+		maxBytes:      maxBytes,
+		tx:            tx,
+		outbox:        outbox,
 	}, nil
 }
 
@@ -108,11 +108,11 @@ func (s *Service) Upload(
 				return marshalErr
 			}
 			_, _, eventErr := s.outbox.Append(ctx, exec, events.Input{
-				TenantID: attachment.TenantID,
-				Type: "work.attachment.added",
-				AggregateType: attachment.ObjectType,
-				AggregateID: attachment.ObjectID,
-				Payload: payload,
+				TenantID:       attachment.TenantID,
+				Type:           "work.attachment.added",
+				AggregateType:  attachment.ObjectType,
+				AggregateID:    attachment.ObjectID,
+				Payload:        payload,
 				IdempotencyKey: fmt.Sprintf("attachment-added:%d", attachment.ID),
 			})
 			return eventErr
@@ -185,11 +185,11 @@ func (s *Service) DeleteAs(ctx context.Context, tenantID, id, actorUserID uint64
 			return err
 		}
 		_, _, err = s.outbox.Append(finalCtx, exec, events.Input{
-			TenantID: attachment.TenantID,
-			Type: "work.attachment.removed",
-			AggregateType: attachment.ObjectType,
-			AggregateID: attachment.ObjectID,
-			Payload: payload,
+			TenantID:       attachment.TenantID,
+			Type:           "work.attachment.removed",
+			AggregateType:  attachment.ObjectType,
+			AggregateID:    attachment.ObjectID,
+			Payload:        payload,
 			IdempotencyKey: fmt.Sprintf("attachment-removed:%d", attachment.ID),
 		})
 		return err
@@ -198,12 +198,12 @@ func (s *Service) DeleteAs(ctx context.Context, tenantID, id, actorUserID uint64
 
 func attachmentEventPayload(actor *uint64, attachment Attachment) (json.RawMessage, error) {
 	payload, err := json.Marshal(EventPayload{
-		ActorUserID: actor,
+		ActorUserID:  actor,
 		AttachmentID: attachment.ID,
-		FileName: attachment.FileName,
-		ContentType: attachment.ContentType,
-		SizeBytes: attachment.SizeBytes,
-		SHA256: hex.EncodeToString(attachment.SHA256[:]),
+		FileName:     attachment.FileName,
+		ContentType:  attachment.ContentType,
+		SizeBytes:    attachment.SizeBytes,
+		SHA256:       hex.EncodeToString(attachment.SHA256[:]),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("marshal attachment event: %w", err)

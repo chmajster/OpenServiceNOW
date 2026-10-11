@@ -11,10 +11,10 @@ import (
 )
 
 type fakeCleanupStore struct {
-	before time.Time
-	batch int
+	before  time.Time
+	batch   int
 	deleted int64
-	err error
+	err     error
 }
 
 func (f *fakeCleanupStore) CleanupSessions(_ context.Context, before time.Time, batch int) (int64, error) {

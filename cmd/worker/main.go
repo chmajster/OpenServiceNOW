@@ -83,16 +83,16 @@ func main() {
 	projector := activity.NewProjector(database.NewTxManager(db), activity.NewRepository(db))
 	eventHandlers := map[string]struct {
 		entryType string
-		summary string
+		summary   string
 	}{
 		"work.assignment.changed": {entryType: "assignment", summary: "Assignment updated"},
-		"work.comment.added": {entryType: "comment", summary: "Comment added"},
-		"work.work_note.added": {entryType: "work_note", summary: "Work note added"},
-		"work.watcher.added": {entryType: "watcher", summary: "Watcher added"},
-		"work.watcher.removed": {entryType: "watcher", summary: "Watcher removed"},
-		"work.relation.added": {entryType: "relation", summary: "Related record added"},
-		"work.relation.removed": {entryType: "relation", summary: "Related record removed"},
-		"work.attachment.added": {entryType: "attachment", summary: "Attachment added"},
+		"work.comment.added":      {entryType: "comment", summary: "Comment added"},
+		"work.work_note.added":    {entryType: "work_note", summary: "Work note added"},
+		"work.watcher.added":      {entryType: "watcher", summary: "Watcher added"},
+		"work.watcher.removed":    {entryType: "watcher", summary: "Watcher removed"},
+		"work.relation.added":     {entryType: "relation", summary: "Related record added"},
+		"work.relation.removed":   {entryType: "relation", summary: "Related record removed"},
+		"work.attachment.added":   {entryType: "attachment", summary: "Attachment added"},
 		"work.attachment.removed": {entryType: "attachment", summary: "Attachment removed"},
 	}
 	for eventType, metadata := range eventHandlers {

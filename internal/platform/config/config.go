@@ -64,10 +64,10 @@ type SessionConfig struct {
 }
 
 type WorkerConfig struct {
-	Concurrency  int
-	PollInterval time.Duration
+	Concurrency   int
+	PollInterval  time.Duration
 	LeaseDuration time.Duration
-	RetryDelay   time.Duration
+	RetryDelay    time.Duration
 }
 
 type AuthConfig struct {
@@ -226,10 +226,10 @@ func Load() (Config, error) {
 			MaxConcurrentPasswordChecks: maxConcurrentPasswordChecks,
 		},
 		Worker: WorkerConfig{
-			Concurrency: workerConcurrency,
-			PollInterval: workerPollInterval,
+			Concurrency:   workerConcurrency,
+			PollInterval:  workerPollInterval,
 			LeaseDuration: workerLeaseDuration,
-			RetryDelay: workerRetryDelay,
+			RetryDelay:    workerRetryDelay,
 		},
 		TrustedProxyCIDRs: trustedProxyCIDRs,
 	}

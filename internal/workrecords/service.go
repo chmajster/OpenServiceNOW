@@ -14,8 +14,8 @@ import (
 )
 
 type Service struct {
-	repo *Repository
-	tx *database.TxManager
+	repo   *Repository
+	tx     *database.TxManager
 	outbox *events.Repository
 }
 
@@ -51,20 +51,20 @@ func (s *Service) SetAssignment(
 			return nil
 		}
 		payload, err := json.Marshal(AssignmentEventPayload{
-			ActorUserID: actor.UserID,
-			AssignedTo: updated.AssignedTo,
+			ActorUserID:       actor.UserID,
+			AssignedTo:        updated.AssignedTo,
 			AssignmentGroupID: updated.AssignmentGroupID,
-			Version: updated.Version,
+			Version:           updated.Version,
 		})
 		if err != nil {
 			return fmt.Errorf("marshal assignment event: %w", err)
 		}
 		_, _, err = s.outbox.Append(ctx, exec, events.Input{
-			TenantID: actor.TenantID,
-			Type: "work.assignment.changed",
-			AggregateType: objectType,
-			AggregateID: objectID,
-			Payload: payload,
+			TenantID:       actor.TenantID,
+			Type:           "work.assignment.changed",
+			AggregateType:  objectType,
+			AggregateID:    objectID,
+			Payload:        payload,
 			IdempotencyKey: eventKey("assignment", objectType, objectID, fmt.Sprint(updated.Version)),
 		})
 		return err
@@ -94,9 +94,9 @@ func (s *Service) AppendMessage(
 		}
 		payload, err := json.Marshal(MessageEventPayload{
 			ActorUserID: actor.UserID,
-			MessageID: message.ID,
+			MessageID:   message.ID,
 			MessageType: message.Type,
-			Body: message.Body,
+			Body:        message.Body,
 		})
 		if err != nil {
 			return fmt.Errorf("marshal message event: %w", err)
@@ -106,11 +106,11 @@ func (s *Service) AppendMessage(
 			eventType = "work.work_note.added"
 		}
 		_, _, err = s.outbox.Append(ctx, exec, events.Input{
-			TenantID: actor.TenantID,
-			Type: eventType,
-			AggregateType: objectType,
-			AggregateID: objectID,
-			Payload: payload,
+			TenantID:       actor.TenantID,
+			Type:           eventType,
+			AggregateType:  objectType,
+			AggregateID:    objectID,
+			Payload:        payload,
 			IdempotencyKey: eventKey("message", fmt.Sprint(message.ID)),
 		})
 		return err
@@ -140,11 +140,11 @@ func (s *Service) AddWatcher(
 			return fmt.Errorf("marshal watcher event: %w", err)
 		}
 		_, _, err = s.outbox.Append(ctx, exec, events.Input{
-			TenantID: actor.TenantID,
-			Type: "work.watcher.added",
+			TenantID:      actor.TenantID,
+			Type:          "work.watcher.added",
 			AggregateType: objectType,
-			AggregateID: objectID,
-			Payload: payload,
+			AggregateID:   objectID,
+			Payload:       payload,
 		})
 		return err
 	})
@@ -173,17 +173,16 @@ func (s *Service) RemoveWatcher(
 			return fmt.Errorf("marshal watcher removal event: %w", err)
 		}
 		_, _, err = s.outbox.Append(ctx, exec, events.Input{
-			TenantID: actor.TenantID,
-			Type: "work.watcher.removed",
+			TenantID:      actor.TenantID,
+			Type:          "work.watcher.removed",
 			AggregateType: objectType,
-			AggregateID: objectID,
-			Payload: payload,
+			AggregateID:   objectID,
+			Payload:       payload,
 		})
 		return err
 	})
 	return removed, err
 }
-
 
 func (s *Service) AddRelation(
 	ctx context.Context,
@@ -209,21 +208,21 @@ func (s *Service) AddRelation(
 			return err
 		}
 		payload, err := json.Marshal(RelationEventPayload{
-			ActorUserID: actor.UserID,
-			RelationID: relation.ID,
+			ActorUserID:  actor.UserID,
+			RelationID:   relation.ID,
 			RelationType: relation.Type,
-			TargetType: relation.TargetType,
-			TargetID: relation.TargetID,
+			TargetType:   relation.TargetType,
+			TargetID:     relation.TargetID,
 		})
 		if err != nil {
 			return fmt.Errorf("marshal relation event: %w", err)
 		}
 		_, _, err = s.outbox.Append(ctx, exec, events.Input{
-			TenantID: actor.TenantID,
-			Type: "work.relation.added",
-			AggregateType: sourceType,
-			AggregateID: sourceID,
-			Payload: payload,
+			TenantID:       actor.TenantID,
+			Type:           "work.relation.added",
+			AggregateType:  sourceType,
+			AggregateID:    sourceID,
+			Payload:        payload,
 			IdempotencyKey: eventKey("relation", fmt.Sprint(relation.ID)),
 		})
 		return err
@@ -247,28 +246,27 @@ func (s *Service) RemoveRelation(
 		}
 		removed = true
 		payload, err := json.Marshal(RelationEventPayload{
-			ActorUserID: actor.UserID,
-			RelationID: relation.ID,
+			ActorUserID:  actor.UserID,
+			RelationID:   relation.ID,
 			RelationType: relation.Type,
-			TargetType: relation.TargetType,
-			TargetID: relation.TargetID,
+			TargetType:   relation.TargetType,
+			TargetID:     relation.TargetID,
 		})
 		if err != nil {
 			return fmt.Errorf("marshal relation removal event: %w", err)
 		}
 		_, _, err = s.outbox.Append(ctx, exec, events.Input{
-			TenantID: actor.TenantID,
-			Type: "work.relation.removed",
-			AggregateType: relation.SourceType,
-			AggregateID: relation.SourceID,
-			Payload: payload,
+			TenantID:       actor.TenantID,
+			Type:           "work.relation.removed",
+			AggregateType:  relation.SourceType,
+			AggregateID:    relation.SourceID,
+			Payload:        payload,
 			IdempotencyKey: eventKey("relation-removed", fmt.Sprint(relation.ID)),
 		})
 		return err
 	})
 	return removed, err
 }
-
 
 func validActor(actor Actor) bool {
 	return actor.TenantID > 0 && actor.UserID > 0

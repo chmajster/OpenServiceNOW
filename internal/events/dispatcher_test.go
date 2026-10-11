@@ -10,10 +10,10 @@ import (
 )
 
 type fakeStore struct {
-	event Event
-	claimed bool
+	event     Event
+	claimed   bool
 	completed bool
-	failed error
+	failed    error
 }
 
 func (f *fakeStore) Claim(context.Context, string, time.Duration) (Event, bool, error) {

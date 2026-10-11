@@ -7,12 +7,12 @@ import (
 
 func TestValidateSequenceInput(t *testing.T) {
 	tests := []struct {
-		name string
-		tenantID uint64
+		name       string
+		tenantID   uint64
 		recordType string
-		prefix string
-		width int
-		wantErr bool
+		prefix     string
+		width      int
+		wantErr    bool
 	}{
 		{name: "valid", tenantID: 1, recordType: "incident", prefix: "INC", width: 7},
 		{name: "zero tenant", recordType: "incident", prefix: "INC", width: 7, wantErr: true},

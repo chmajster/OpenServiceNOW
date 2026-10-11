@@ -19,14 +19,14 @@ type Store interface {
 type Handler func(context.Context, Event) error
 
 type Dispatcher struct {
-	store Store
-	logger *slog.Logger
-	owner string
-	concurrency int
-	pollInterval time.Duration
+	store         Store
+	logger        *slog.Logger
+	owner         string
+	concurrency   int
+	pollInterval  time.Duration
 	leaseDuration time.Duration
-	retryDelay time.Duration
-	handlers map[string]Handler
+	retryDelay    time.Duration
+	handlers      map[string]Handler
 }
 
 func NewDispatcher(
@@ -46,14 +46,14 @@ func NewDispatcher(
 		return nil, ErrInvalid
 	}
 	return &Dispatcher{
-		store: store,
-		logger: logger,
-		owner: owner,
-		concurrency: concurrency,
-		pollInterval: pollInterval,
+		store:         store,
+		logger:        logger,
+		owner:         owner,
+		concurrency:   concurrency,
+		pollInterval:  pollInterval,
 		leaseDuration: leaseDuration,
-		retryDelay: retryDelay,
-		handlers: make(map[string]Handler),
+		retryDelay:    retryDelay,
+		handlers:      make(map[string]Handler),
 	}, nil
 }
 

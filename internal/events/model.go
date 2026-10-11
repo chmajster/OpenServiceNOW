@@ -9,47 +9,47 @@ import (
 type Status string
 
 const (
-	StatusPending Status = "PENDING"
+	StatusPending    Status = "PENDING"
 	StatusDelivering Status = "DELIVERING"
-	StatusDelivered Status = "DELIVERED"
-	StatusFailed Status = "FAILED"
+	StatusDelivered  Status = "DELIVERED"
+	StatusFailed     Status = "FAILED"
 )
 
 var (
-	ErrInvalid = errors.New("invalid event input")
-	ErrNotFound = errors.New("event not found")
+	ErrInvalid   = errors.New("invalid event input")
+	ErrNotFound  = errors.New("event not found")
 	ErrLeaseLost = errors.New("event lease lost")
 )
 
 type Event struct {
-	ID uint64
-	TenantID uint64
-	Type string
-	Version uint32
-	AggregateType string
-	AggregateID string
-	Payload json.RawMessage
-	Status Status
-	AttemptCount uint32
-	MaxAttempts uint32
-	AvailableAt time.Time
-	LeaseOwner string
+	ID             uint64
+	TenantID       uint64
+	Type           string
+	Version        uint32
+	AggregateType  string
+	AggregateID    string
+	Payload        json.RawMessage
+	Status         Status
+	AttemptCount   uint32
+	MaxAttempts    uint32
+	AvailableAt    time.Time
+	LeaseOwner     string
 	LeaseExpiresAt *time.Time
-	LastError string
+	LastError      string
 	IdempotencyKey string
-	CreatedAt time.Time
-	DeliveredAt *time.Time
+	CreatedAt      time.Time
+	DeliveredAt    *time.Time
 }
 
 type Input struct {
-	TenantID uint64
-	Type string
-	Version uint32
-	AggregateType string
-	AggregateID string
-	Payload json.RawMessage
-	MaxAttempts uint32
-	AvailableAt time.Time
+	TenantID       uint64
+	Type           string
+	Version        uint32
+	AggregateType  string
+	AggregateID    string
+	Payload        json.RawMessage
+	MaxAttempts    uint32
+	AvailableAt    time.Time
 	IdempotencyKey string
 }
 

@@ -39,7 +39,7 @@ func (m *memoryStorage) Delete(_ context.Context, key string) error {
 }
 
 type memoryMetadata struct {
-	item Attachment
+	item   Attachment
 	nextID uint64
 }
 
