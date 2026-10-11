@@ -12,5 +12,5 @@ CREATE TABLE work_assignments (
     CONSTRAINT chk_work_assignments_version CHECK (version >= 1),
     CONSTRAINT fk_work_assignments_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
     CONSTRAINT fk_work_assignments_user FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
-    CONSTRAINT fk_work_assignments_group FOREIGN KEY (assignment_group_id) REFERENCES groups(id) ON DELETE SET NULL
+    CONSTRAINT fk_work_assignments_group FOREIGN KEY (assignment_group_id) REFERENCES `groups`(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
