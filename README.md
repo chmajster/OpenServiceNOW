@@ -77,7 +77,7 @@ Install, migrate, build and start the current stack:
 bash ./install.sh --local
 ```
 
-The installer uses the exact checkout containing `install.sh`, including uncommitted source changes. It creates local `.env` from `.env.example` when missing, explicitly starts MySQL/Redis with `docker-compose.yml`, installs Go/npm dependencies, applies migrations, builds API/worker/scheduler into local `bin/`, builds the frontend and runs all four application processes in the background. Vite runs directly from `web/` and proxies `/api` and `/health` to API port 8080. It verifies process ownership, database/cache readiness and the actual frontend proxy before reporting success. It does not move or clone sources, modify Git, or use DevBox configuration.
+The installer uses the exact checkout containing `install.sh`, including uncommitted source changes. It creates local `.env` from `.env.example` when missing, explicitly starts MySQL/Redis with `docker-compose.yml`, installs Go/npm dependencies, applies migrations, builds API/worker/scheduler into local `bin/`, builds the frontend and runs all four application processes in the background. Vite runs directly from `web/` and proxies `/api` and `/health` to the selected API port. It verifies process ownership, database/cache readiness and the actual frontend proxy before reporting success. It does not move or clone sources, modify Git, or use DevBox configuration.
 
 Open the displayed WebUI address (normally `http://127.0.0.1:5173`). On a fresh database, the first-run wizard creates the organization and administrator. You can use `admin` / `admin`, or choose your own email and password. Existing configuration, administrator credentials and SQL data are preserved. Re-running `--local` stops this checkout's old processes, rebuilds current source and starts the new runtime. `--no-start` prepares/builds everything and leaves application processes stopped.
 
@@ -103,7 +103,9 @@ bash ./install.sh --local --status
 bash ./install.sh --local --restart
 ```
 
-The effective port is stored in `.opensnow/run/web-port`, so later commands use the same address without repeating the variable. API port remains 8080. Port conflicts with another process/checkout are errors; the installer does not claim success or stop the foreign process. Set `MYSQL_PORT` and `REDIS_ADDR` in `.env` if the infrastructure's default loopback ports 3306/6379 are occupied. Configure matching database credentials there before first provisioning; changing a password in `.env` does not reset accounts in an existing MySQL volume. For checkouts with the same directory name, use a distinct `COMPOSE_PROJECT_NAME` in `.env`; existing Compose project names/volumes remain compatible and container ownership is checked against the checkout path.
+The effective frontend port is stored in `.opensnow/run/web-port`, so later commands use the same address without repeating the variable. On first start, the API tries 8080, then 8081, 8082 and so on, through **8100 inclusive**. Ports reserved for this instance's frontend/MySQL/Redis are skipped. If no eligible port is available, the command fails with a concrete error. The selected API port is saved in `.opensnow/run/api-port` and displayed by startup/status; later commands reuse it when available, or search 8080–8100 again when it has been occupied by another process. A running API is reused by `--start`. Both Vite proxies follow the effective API port, including when an existing Vite process needs restarting after the API port changes. Keep `HTTP_ADDR` in `.env` on base port 8080; the installer overrides only its port for the API process without rewriting `.env`.
+
+Frontend/database/cache conflicts still report an error. The installer never stops foreign listeners. Set `MYSQL_PORT` and `REDIS_ADDR` in `.env` if the infrastructure's default loopback ports 3306/6379 are occupied. Configure matching database credentials there before first provisioning; changing a password in `.env` does not reset accounts in an existing MySQL volume. For checkouts with the same directory name, use a distinct `COMPOSE_PROJECT_NAME` in `.env`; existing Compose project names/volumes remain compatible and container ownership is checked against the checkout path.
 
 The script also accepts an absolute path from another directory, including paths with spaces, e.g. `bash "/mnt/c/Projects/OpenServiceNOW local/install.sh" --local`. Logs are `.opensnow/logs/api.log`, `web.log`, `worker.log` and `scheduler.log`; separate PID/start-time records live in `.opensnow/run/`. Start is idempotent; stop preserves data and affects only this checkout's verified processes and infrastructure. Failed startup removes only processes/dependencies started by that invocation and reports log locations. Status returns a nonzero exit code for an incomplete/unready runtime. Ordinary uninstall preserves `.env`, SQL volume, source files, logs and unrelated `bin/` files; `--purge-data` explicitly removes this instance's database volume and `.env`. Previous commands without `--local` remain aliases for the same local mode. Conflicting lifecycle actions/options are rejected.
 
@@ -161,7 +163,7 @@ npm ci
 npm run dev
 ```
 
-The Vite development server listens on `127.0.0.1:5173` and proxies `/api` and `/health` to `127.0.0.1:8080`.
+The Vite development server listens on `127.0.0.1:5173` and proxies `/api` and `/health` to `127.0.0.1:8080` by default. `OPENSNOW_API_PORT` changes the proxy's loopback target port; the local installer sets it automatically from the selected/saved API port.
 
 ### Initial login
 
