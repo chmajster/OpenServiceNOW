@@ -111,13 +111,21 @@ load_env() {
 valid_port() { [[ "$1" =~ ^[1-9][0-9]{0,4}$ ]] && (( 10#$1 <= 65535 )); }
 
 load_instance() {
-  local saved_root saved_project
+  local saved_root saved_project pid argument previous=''
   if [[ -f "${RUN_DIR}/instance-root" ]]; then
     saved_root="$(cat "${RUN_DIR}/instance-root")"
     [[ "$saved_root" == "$ROOT_DIR" ]] || fail "Local runtime state belongs to another checkout: ${saved_root}. Use a checkout without copied .opensnow state."
   fi
   WEB_PORT=5173
-  if [[ -f "$WEB_PORT_FILE" ]]; then WEB_PORT="$(cat "$WEB_PORT_FILE")"; fi
+  if [[ -f "$WEB_PORT_FILE" ]]; then
+    WEB_PORT="$(cat "$WEB_PORT_FILE")"
+  elif pid="$(pid_from_file web 2>/dev/null)"; then
+    # Adopt the effective port of a verified Vite process from the older installer.
+    while IFS= read -r -d '' argument; do
+      if [[ "$previous" == --port ]]; then WEB_PORT=$argument; break; fi
+      previous=$argument
+    done <"/proc/$pid/cmdline"
+  fi
   valid_port "$WEB_PORT" || fail "Invalid saved frontend port in ${WEB_PORT_FILE}."
   if [[ "$ACTION" != status && "$ACTION" != stop && "$ACTION" != uninstall && -n "$REQUESTED_WEB_PORT" ]]; then WEB_PORT=$REQUESTED_WEB_PORT; fi
   valid_port "$WEB_PORT" || fail "OPENSNOW_WEB_PORT must be an integer from 1 to 65535."
@@ -222,14 +230,18 @@ process_stamp() {
 }
 
 process_matches() {
-  local pid=$1 component=$2 expected cwd executable
+  local pid=$1 component=$2 expected cwd executable argument script
   [[ "$pid" =~ ^[1-9][0-9]*$ && -r "/proc/$pid/cmdline" ]] || return 1
   [[ "$(stat -c %u "/proc/$pid")" == "$EUID" ]] || return 1
   cwd="$(readlink "/proc/$pid/cwd")" || return 1
   local -a argv=()
-  mapfile -d '' -t argv <"/proc/$pid/cmdline"
+  while IFS= read -r -d '' argument; do argv+=("$argument"); done <"/proc/$pid/cmdline"
   if [[ "$component" == web ]]; then
-    [[ "$cwd" == "$ROOT_DIR/web" && "${argv[1]:-}" == "$ROOT_DIR/web/node_modules/vite/bin/vite.js" ]]
+    executable="$(readlink "/proc/$pid/exe")" || return 1
+    [[ "$executable" == */node || "$executable" == */'node (deleted)' ]] || return 1
+    script=${argv[1]:-}
+    [[ "$script" == /* ]] || script="$cwd/$script"
+    [[ "$cwd" == "$ROOT_DIR/web" && "$(readlink -f "$script")" == "$ROOT_DIR/web/node_modules/vite/bin/vite.js" ]]
   else
     expected="$BIN_DIR/opensnow-$component"
     executable="$(readlink "/proc/$pid/exe")" || return 1

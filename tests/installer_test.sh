@@ -5,9 +5,11 @@ repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 fixture="$(mktemp -d /tmp/opensnow-installer-unit.XXXXXX)"
 foreign_pid=''
 owned_pid=''
+web_pid=''
 cleanup() {
   if [[ -n "$owned_pid" ]]; then kill "$owned_pid" 2>/dev/null || true; fi
   if [[ -n "$foreign_pid" ]]; then kill "$foreign_pid" 2>/dev/null || true; fi
+  if [[ -n "$web_pid" ]]; then kill "$web_pid" 2>/dev/null || true; fi
   rm -rf -- "$fixture"
 }
 trap cleanup EXIT
@@ -67,6 +69,22 @@ printf '%s %s\n' "$foreign_pid" "$(process_stamp "$foreign_pid")" >"$RUN_DIR/api
 if pid_running api; then echo 'Accepted an unrelated process' >&2; exit 1; fi
 stop_pid api
 kill -0 "$foreign_pid"
+
+mkdir -p "$ROOT_DIR/web/node_modules/vite/bin" "$ROOT_DIR/web/node_modules/.bin"
+printf 'setInterval(() => {}, 1000);\n' >"$ROOT_DIR/web/node_modules/vite/bin/vite.js"
+ln -s ../vite/bin/vite.js "$ROOT_DIR/web/node_modules/.bin/vite"
+(cd "$ROOT_DIR/web" && exec node ./node_modules/.bin/vite --port 8092) &
+web_pid=$!
+sleep 0.1
+printf '%s\n' "$web_pid" >"$RUN_DIR/web.pid"
+pid_running web
+rm -- "$WEB_PORT_FILE"
+REQUESTED_WEB_PORT=''
+load_instance
+[[ "$WEB_PORT" == 8092 ]]
+stop_pid web
+wait "$web_pid" 2>/dev/null || true
+web_pid=''
 
 exec 8>"$RUN_DIR/installer.lock"
 flock -n 8
