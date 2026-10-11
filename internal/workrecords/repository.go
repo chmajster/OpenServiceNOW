@@ -277,7 +277,6 @@ func (r *Repository) ListWatchers(
 	return WatcherPage{Watchers: watchers}, nil
 }
 
-
 func (r *Repository) AddRelation(
 	ctx context.Context,
 	exec database.Executor,
@@ -402,7 +401,6 @@ func (r *Repository) RemoveRelation(
 	return relation, affected == 1, nil
 }
 
-
 func (r *Repository) getAssignment(
 	ctx context.Context,
 	exec database.Executor,
@@ -487,7 +485,7 @@ func validateTargets(
 	if groupID != nil {
 		var found int
 		if err := exec.QueryRowContext(ctx, `
-			SELECT 1 FROM groups WHERE tenant_id = ? AND id = ?
+			SELECT 1 FROM `+"`groups`"+` WHERE tenant_id = ? AND id = ?
 		`, tenantID, *groupID).Scan(&found); errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFound
 		} else if err != nil {

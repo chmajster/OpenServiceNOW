@@ -250,9 +250,9 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	delegatedUserID, err := usersService.Create(ctx, users.Actor{
 		TenantID: adminA.TenantID, UserID: adminA.UserID, RequestID: "integration",
 	}, users.CreateInput{
-		Email: fmt.Sprintf("delegated-rbac-%s@example.test", strings.ReplaceAll(suffix, ".", "")),
+		Email:       fmt.Sprintf("delegated-rbac-%s@example.test", strings.ReplaceAll(suffix, ".", "")),
 		DisplayName: "Delegated RBAC Manager",
-		Password: "integration-password-delegated-rbac",
+		Password:    "integration-password-delegated-rbac",
 	})
 	if err != nil {
 		t.Fatalf("create delegated RBAC user: %v", err)
@@ -260,9 +260,9 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	dormantAdminID, err := usersService.Create(ctx, users.Actor{
 		TenantID: adminA.TenantID, UserID: adminA.UserID, RequestID: "integration",
 	}, users.CreateInput{
-		Email: fmt.Sprintf("dormant-admin-%s@example.test", strings.ReplaceAll(suffix, ".", "")),
+		Email:       fmt.Sprintf("dormant-admin-%s@example.test", strings.ReplaceAll(suffix, ".", "")),
 		DisplayName: "Dormant Admin",
-		Password: "integration-password-dormant-admin",
+		Password:    "integration-password-dormant-admin",
 	})
 	if err != nil {
 		t.Fatalf("create dormant admin candidate: %v", err)
@@ -274,8 +274,8 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	})
 
 	delegatedActor := rbac.Actor{
-		TenantID: adminA.TenantID,
-		UserID: delegatedUserID,
+		TenantID:  adminA.TenantID,
+		UserID:    delegatedUserID,
 		RequestID: "integration",
 	}
 	if err := rbacService.AssignRoleToUser(

@@ -806,8 +806,12 @@ UI
 
 Development:
 
-- Docker Compose starts MySQL and Redis,
-- API/frontend/worker/scheduler may run locally or as containers.
+- `docker-compose.yml` starts the infrastructure-only MySQL/Redis stack for `make dev` and the local installer,
+- root `compose.yaml` builds API/frontend/worker/scheduler and runs private Redis for DevBox,
+- DevBox supplies the shared MySQL database/account and DB_* secrets through its private runtime override; the entrypoint maps them to MYSQL_*,
+- API applies versioned migrations and idempotent bootstrap before readiness; frontend/worker/scheduler wait for API health,
+- the non-root frontend serves built React assets and proxies API/health on the same origin; DevBox publishes its selected port and mounts original sources RW,
+- application SQL state and durable jobs remain in the shared MySQL volume; Redis cache is disposable.
 
 Production direction:
 

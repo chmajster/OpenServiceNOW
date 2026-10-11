@@ -498,11 +498,11 @@ func TestPhase2WorkPlatform(t *testing.T) {
 		}
 		uploader := adminA.UserID
 		item, err := service.Upload(ctx, attachments.CreateInput{
-			TenantID:    adminA.TenantID,
-			ObjectType:  "incident",
-			ObjectID:    "INC-ATTACH-"+suffix,
-			FileName:    " note.txt ",
-			UploadedBy:  &uploader,
+			TenantID:   adminA.TenantID,
+			ObjectType: "incident",
+			ObjectID:   "INC-ATTACH-" + suffix,
+			FileName:   " note.txt ",
+			UploadedBy: &uploader,
 		}, strings.NewReader("attachment-body"))
 		if err != nil {
 			t.Fatalf("upload attachment: %v", err)
@@ -532,7 +532,7 @@ func TestPhase2WorkPlatform(t *testing.T) {
 		if _, err := service.Upload(ctx, attachments.CreateInput{
 			TenantID:   adminA.TenantID,
 			ObjectType: "incident",
-			ObjectID:   "INC-ATTACH-"+suffix,
+			ObjectID:   "INC-ATTACH-" + suffix,
 			FileName:   "foreign.txt",
 			UploadedBy: &wrongUploader,
 		}, strings.NewReader("foreign")); !errors.Is(err, attachments.ErrNotFound) {

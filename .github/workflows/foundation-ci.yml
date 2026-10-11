@@ -259,7 +259,7 @@ jobs:
 
     env:
       APP_ENV: test
-      HTTP_ADDR: 127.0.0.1:18080
+      HTTP_ADDR: 127.0.0.1:8080
       MYSQL_HOST: 127.0.0.1
       MYSQL_PORT: 3306
       MYSQL_DATABASE: opensnow
@@ -334,7 +334,7 @@ jobs:
 
           api_ready=0
           for _ in {1..30}; do
-            if curl --fail --silent http://127.0.0.1:18080/health/ready | grep -q '"status":"ok"'; then
+            if curl --fail --silent http://127.0.0.1:8080/health/ready | grep -q '"status":"ok"'; then
               api_ready=1
               break
             fi

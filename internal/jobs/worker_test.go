@@ -11,13 +11,13 @@ import (
 )
 
 type fakeStore struct {
-	job Job
-	claimed bool
+	job            Job
+	claimed        bool
 	completeResult json.RawMessage
-	failed error
-	cancelled bool
-	heartbeat HeartbeatState
-	logs []string
+	failed         error
+	cancelled      bool
+	heartbeat      HeartbeatState
+	logs           []string
 }
 
 func (f *fakeStore) Claim(context.Context, string, time.Duration) (Job, bool, error) {

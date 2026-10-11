@@ -167,6 +167,7 @@ prepare_env() {
   fi
 
   set -a
+  # shellcheck disable=SC1090 # operator-owned environment file
   source "$ENV_FILE"
   set +a
 
@@ -179,7 +180,7 @@ prepare_env() {
 }
 
 compose() {
-  (cd "$ROOT_DIR" && docker compose "$@")
+  (cd "$ROOT_DIR" && docker compose -f docker-compose.yml "$@")
 }
 
 container_health() {
@@ -263,8 +264,8 @@ stop_pid() {
   fi
 
   kill "$pid" 2>/dev/null || true
-  local i
-  for i in {1..20}; do
+  local attempt
+  for ((attempt = 0; attempt < 20; attempt++)); do
     if ! kill -0 "$pid" 2>/dev/null; then
       rm -f "$file"
       ok "${label} stopped."
@@ -301,6 +302,7 @@ start_api() {
     (
       cd "$ROOT_DIR"
       set -a
+      # shellcheck disable=SC1090 # operator-owned environment file
       source "$ENV_FILE"
       set +a
       exec "$API_BIN"

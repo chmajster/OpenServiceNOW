@@ -7,9 +7,9 @@ func TestValidObjectRef(t *testing.T) {
 		t.Fatal("expected valid object reference")
 	}
 	for _, test := range []struct {
-		tenant uint64
+		tenant     uint64
 		objectType string
-		objectID string
+		objectID   string
 	}{
 		{0, "incident", "1"},
 		{1, "", "1"},

@@ -23,29 +23,29 @@ type Store interface {
 type Handler func(context.Context, Job) (json.RawMessage, error)
 
 type Worker struct {
-	store Store
-	logger *slog.Logger
-	owner string
-	concurrency int
-	pollInterval time.Duration
+	store         Store
+	logger        *slog.Logger
+	owner         string
+	concurrency   int
+	pollInterval  time.Duration
 	leaseDuration time.Duration
-	retryDelay time.Duration
-	handlers map[string]Handler
-	metrics workerMetrics
+	retryDelay    time.Duration
+	handlers      map[string]Handler
+	metrics       workerMetrics
 }
 
 type workerMetrics struct {
-	claimed atomic.Uint64
+	claimed   atomic.Uint64
 	completed atomic.Uint64
-	failed atomic.Uint64
+	failed    atomic.Uint64
 	cancelled atomic.Uint64
 	leaseLost atomic.Uint64
 }
 
 type MetricsSnapshot struct {
-	Claimed uint64
+	Claimed   uint64
 	Completed uint64
-	Failed uint64
+	Failed    uint64
 	Cancelled uint64
 	LeaseLost uint64
 }
@@ -67,14 +67,14 @@ func NewWorker(
 		return nil, ErrInvalid
 	}
 	return &Worker{
-		store: store,
-		logger: logger,
-		owner: owner,
-		concurrency: concurrency,
-		pollInterval: pollInterval,
+		store:         store,
+		logger:        logger,
+		owner:         owner,
+		concurrency:   concurrency,
+		pollInterval:  pollInterval,
 		leaseDuration: leaseDuration,
-		retryDelay: retryDelay,
-		handlers: make(map[string]Handler),
+		retryDelay:    retryDelay,
+		handlers:      make(map[string]Handler),
 	}, nil
 }
 
@@ -91,9 +91,9 @@ func (w *Worker) Register(jobType string, handler Handler) error {
 
 func (w *Worker) Metrics() MetricsSnapshot {
 	return MetricsSnapshot{
-		Claimed: w.metrics.claimed.Load(),
+		Claimed:   w.metrics.claimed.Load(),
 		Completed: w.metrics.completed.Load(),
-		Failed: w.metrics.failed.Load(),
+		Failed:    w.metrics.failed.Load(),
 		Cancelled: w.metrics.cancelled.Load(),
 		LeaseLost: w.metrics.leaseLost.Load(),
 	}

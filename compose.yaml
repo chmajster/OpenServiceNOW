@@ -1,0 +1,97 @@
+x-backend: &backend
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+    target: backend
+  working_dir: /app
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  environment: &backend-environment
+    APP_ENV: development
+    HTTP_ADDR: 0.0.0.0:8080
+    REDIS_ADDR: redis:6379
+    SESSION_COOKIE_SECURE: "false"
+    BOOTSTRAP_TENANT_SLUG: default
+    BOOTSTRAP_TENANT_NAME: Default tenant
+    BOOTSTRAP_ADMIN_EMAIL: admin@example.test
+    BOOTSTRAP_ADMIN_NAME: Administrator
+
+services:
+  api:
+    <<: *backend
+    command: ["api"]
+    expose: ["8080"]
+    labels:
+      io.devbox.role: api
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health/ready"]
+      interval: 5s
+      timeout: 3s
+      start_period: 30s
+      retries: 24
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: frontend
+    working_dir: /srv/opensnow
+    restart: unless-stopped
+    expose: ["8080"]
+    labels:
+      io.devbox.role: web
+      io.devbox.primary: "true"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:8080/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  worker:
+    <<: *backend
+    command: ["worker"]
+    labels:
+      io.devbox.role: worker
+    depends_on:
+      api:
+        condition: service_healthy
+
+  scheduler:
+    <<: *backend
+    command: ["scheduler"]
+    labels:
+      io.devbox.role: scheduler
+    depends_on:
+      api:
+        condition: service_healthy
+
+  redis:
+    image: redis:8.2-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    restart: unless-stopped
+    labels:
+      io.devbox.role: cache
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+# DevBox injects the application's DB_* binding and bootstrap secret at runtime,
+# publishes only frontend:8080 and joins backend workloads to devbox-apps.
+# SQL data remains in the shared DevBox MySQL volume; Redis is disposable cache.

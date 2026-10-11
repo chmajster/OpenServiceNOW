@@ -55,7 +55,24 @@ async function login(page: Page, email: string, password: string) {
   await page.getByLabel("Tenant").fill(tenant);
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Hasło").fill(password);
-  await page.getByRole("button", { name: "Zaloguj" }).click();
+  const submit = async () => {
+    const response = page.waitForResponse((result) =>
+      result.url().endsWith("/api/v1/auth/login") && result.request().method() === "POST"
+    );
+    await page.getByRole("button", { name: "Zaloguj" }).click();
+    return response;
+  };
+  let response = await submit();
+  if (response.status() === 429) {
+    // Both browser projects share one IP. Respect the real limiter's window.
+    const retryAfter = Number(response.headers()["retry-after"]);
+    expect(retryAfter).toBeGreaterThan(0);
+    expect(retryAfter).toBeLessThanOrEqual(60);
+    test.setTimeout(test.info().timeout + retryAfter * 1_000 + 5_000);
+    await new Promise((resolve) => setTimeout(resolve, retryAfter * 1_000));
+    response = await submit();
+  }
+  expect(response.status()).toBe(200);
   await expect(page.getByRole("heading", { name: "Fundament platformy" })).toBeVisible();
 }
 
@@ -106,9 +123,10 @@ test("admin creates a least-privilege tenant reader through the UI", async ({ pa
   await assignmentPanel.getByLabel("Wyszukaj użytkownika").fill(operatorEmail);
   await assignmentPanel.getByRole("button", { name: "Szukaj" }).click();
 
-  const userSelect = assignmentPanel.getByLabel("Użytkownik");
+  const userSelect = assignmentPanel.getByRole("combobox", { name: /^Użytkownik/ });
   await expect(userSelect.locator("option", { hasText: operatorEmail })).toHaveCount(1);
   await userSelect.selectOption({ label: `E2E Operator — ${operatorEmail}` });
+  const operatorID = await userSelect.inputValue();
 
   await assignmentPanel.getByLabel("Rola do przypisania").selectOption({ label: roleName });
   await assignmentPanel.getByRole("button", { name: "Przypisz rolę" }).click();
@@ -131,6 +149,7 @@ test("admin creates a least-privilege tenant reader through the UI", async ({ pa
     has: page.getByRole("heading", { name: "Przypisania grupowe" })
   });
   await groupAssignments.getByLabel("Grupa").selectOption({ label: groupName });
+  const groupID = await groupAssignments.getByLabel("Grupa").inputValue();
 
   const memberSection = groupAssignments.locator(".assignment-section").filter({
     has: page.getByRole("heading", { name: "Członkowie grupy" })
@@ -175,9 +194,17 @@ test("admin creates a least-privilege tenant reader through the UI", async ({ pa
 
   await page.getByRole("link", { name: "Audyt" }).click();
   await expect(page.getByRole("heading", { name: "Audyt" })).toBeVisible();
-  await expect(page.getByText("rbac.user.role.add", { exact: true })).toBeVisible();
-  await expect(page.getByText("rbac.group.member.add", { exact: true })).toBeVisible();
-  await expect(page.getByText("rbac.group.role.add", { exact: true })).toBeVisible();
+  for (const [action, objectID] of [
+    ["rbac.user.role.add", operatorID],
+    ["rbac.group.member.add", groupID],
+    ["rbac.group.role.add", groupID]
+  ]) {
+    const event = page.locator(".audit-entry")
+      .filter({ has: page.getByText(action, { exact: true }) })
+      .filter({ has: page.getByText(`#${objectID}`, { exact: true }) });
+    await expect(event).toHaveCount(1);
+    await expect(event).toBeVisible();
+  }
 });
 
 
@@ -286,7 +313,12 @@ test("role permission optimistic-lock conflict refreshes current data", async ({
       secondPage.getByText("Rola została zmieniona równolegle. Bieżące dane zostały odświeżone; wybierz rolę i ponów edycję.")
     ).toBeVisible();
     await expect(secondPage.getByLabel("Rola do edycji")).toHaveValue("");
-    await expect(secondPage.locator(".list-card").filter({ hasText: conflictRoleName })).toContainText("v2");
+    await expect(
+      secondPage.getByLabel("Rola do edycji").locator("option").filter({ hasText: `${conflictRoleName} — v2` })
+    ).toHaveCount(1);
+    const refreshedRoleCard = secondPage.locator(".list-card").filter({ hasText: conflictRoleName });
+    await expect(refreshedRoleCard).toContainText("tenant.manage");
+    await expect(refreshedRoleCard).not.toContainText("admin.audit.read");
   } finally {
     await firstContext.close();
     await secondContext.close();

@@ -574,7 +574,6 @@ func (r *Repository) ListLogs(
 	return page, nil
 }
 
-
 const jobSelect = `
 	SELECT
 		id, tenant_id, job_type, status, payload, result, COALESCE(error_message, ''),

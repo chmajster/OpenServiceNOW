@@ -278,7 +278,7 @@ func (r *MySQLRepository) ListGroups(
 		SELECT
 			g.id, g.name, COALESCE(g.description, ''), g.version,
 			COUNT(gm.user_id) AS member_count
-		FROM groups g
+		FROM `+"`groups`"+` g
 		LEFT JOIN group_memberships gm
 		  ON gm.tenant_id = g.tenant_id AND gm.group_id = g.id
 		WHERE g.tenant_id = ?
@@ -459,7 +459,7 @@ func (r *MySQLRepository) groupExists(ctx context.Context, tenantID, groupID uin
 	var exists bool
 	if err := r.db.QueryRowContext(ctx, `
 		SELECT EXISTS(
-			SELECT 1 FROM groups
+			SELECT 1 FROM `+"`groups`"+`
 			WHERE tenant_id = ? AND id = ?
 		)
 	`, tenantID, groupID).Scan(&exists); err != nil {
@@ -488,7 +488,7 @@ func (r *MySQLRepository) CreateGroup(
 	input CreateGroupInput,
 ) (uint64, error) {
 	result, err := exec.ExecContext(ctx, `
-		INSERT INTO groups (tenant_id, name, description)
+		INSERT INTO `+"`groups`"+` (tenant_id, name, description)
 		VALUES (?, ?, NULLIF(?, ''))
 	`, tenantID, input.Name, input.Description)
 	if err != nil {
@@ -512,7 +512,7 @@ func (r *MySQLRepository) AddGroupMember(
 	result, err := exec.ExecContext(ctx, `
 		INSERT INTO group_memberships (tenant_id, group_id, user_id)
 		SELECT ?, g.id, tm.user_id
-		FROM groups g
+		FROM `+"`groups`"+` g
 		JOIN tenant_memberships tm ON tm.tenant_id = g.tenant_id AND tm.user_id = ? AND tm.active = TRUE
 		WHERE g.tenant_id = ? AND g.id = ?
 	`, tenantID, userID, tenantID, groupID)
@@ -632,7 +632,7 @@ func (r *MySQLRepository) AssignRoleToGroup(
 	result, err := exec.ExecContext(ctx, `
 		INSERT INTO group_role_assignments (tenant_id, group_id, role_id)
 		SELECT ?, g.id, r.id
-		FROM groups g
+		FROM `+"`groups`"+` g
 		JOIN roles r ON r.tenant_id = g.tenant_id AND r.id = ?
 		WHERE g.tenant_id = ? AND g.id = ?
 	`, tenantID, roleID, tenantID, groupID)

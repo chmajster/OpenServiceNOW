@@ -1,18 +1,18 @@
 # Current Project Status
 
-Last updated: 2026-09-27
+Last updated: 2026-10-11
 
 ## Current phase
 
-Phase 1 — Foundation
+Foundation and shared work-platform development.
 
-The backend and frontend foundations are substantially implemented on the active branch. Local Go and frontend checks pass after dependency resolution and fixes, but Phase 1 is not complete: MySQL/Redis integration, browser E2E, security hardening and GitHub CI remain unverified.
+The repository includes the administration foundation, durable MySQL jobs/worker, scheduler and work-record infrastructure. The full application is deployed through DevBox with real MySQL/Redis readiness. This deployment verification does not declare all roadmap phases complete.
 
 ## Last completed
 
-Phase 0 architecture is merged into `main`.
+Phase 0, the foundation implementation, shared work-platform infrastructure and the local installer are present in `main`. DevBox deployment is tracked in PR #7.
 
-Implemented on the Phase 1 branch:
+Implemented foundation capabilities:
 
 - Go 1.27 module,
 - `cmd/api`,
@@ -81,56 +81,15 @@ Implemented on the Phase 1 branch:
 
 ## Currently in progress
 
-Phase 1 remains IN PROGRESS.
+Deployment verification covers the complete frontend/API/worker/scheduler/Redis stack, application-specific MySQL credentials and the original Windows/WSL source. Live readiness, administrator authentication, CSRF rejection, non-root RW mounts and SQL access from API/worker/scheduler pass after a DevBox rebuild.
 
-Later-phase work intentionally not required for Phase 1:
-
-- `cmd/worker` is deferred to Phase 2B and will only be introduced with the first durable job workload,
-- production reverse-proxy/static-frontend packaging belongs to deployment work,
-- external identity providers such as LDAP/OIDC belong to later identity/integration work.
-
-Remaining verification work:
-
-- obtain a GitHub-hosted runner that actually executes workflow steps,
-- verify the committed lock files on a functioning CI runner,
-- execute MySQL/Redis integration tests and backend build in CI,
-- execute migrations and complete API/auth/RBAC smoke flow,
-- execute the authored full migration lifecycle test: latest → one-step rollback → latest → full rollback → latest → readiness,
-- execute scheduler verification,
-- rerun frontend typecheck, tests and production build in CI,
-- run full Playwright E2E on desktop and mobile Chromium against the real API/MySQL/Redis stack.
+The full desktop/mobile Playwright suite passed 6/6 against the real container stack. Final GitHub checks are tracked in [PR #7](https://github.com/chmajster/OpenServiceNOW/pull/7). Roadmap business capabilities and external identity providers remain separate development work.
 
 ## Known problems
 
-### BLOCKER — GitHub-hosted runner allocation fails before the first step
+The September GitHub runner-allocation failures are historical. Run #564 on the initial deployment commit executed repository code: frontend passed, while backend formatting and the reserved MySQL table identifier stopped the remaining jobs. Both code defects have been fixed; subsequent CI runs are tracked in PR #7.
 
-A workflow YAML parsing defect was found and fixed: an inline `run:` scalar contained `version: none dirty: false`, which made GitHub treat the workflow as invalid. After the fix, GitHub correctly recognizes the workflow name and creates the `test` and `frontend` jobs.
-
-A temporary minimal diagnostic workflow with one `echo` step was also created and then removed. It showed the same remaining failure pattern as the real workflow:
-
-- job object is created,
-- job immediately finishes with `conclusion=failure`,
-- `steps=null`,
-- no job logs are available.
-
-Therefore the YAML/parser problem is resolved. The remaining CI blocker occurs before the first runner step and is separate from application build/test results.
-
-On 2026-09-26 the workflow was changed from `ubuntu-24.04` to `ubuntu-latest`; run #474 still failed with `runner_id=0`, empty runner name and no steps. The workflow was then changed to avoid duplicate `push` + `pull_request` runs for feature branches and to cancel superseded runs. Run #475 still failed identically before runner allocation.
-
-The latest checked reproduction is run #549 (`36293613157`) on commit `5c312169ad0e23005be4ccd68d313c048abae8b6`. Jobs `test`, `frontend` and `e2e` each completed with `conclusion=failure` and `steps=null`; no checkout or repository code executed. This remains a runner-allocation/platform blocker, not an application test failure.
-
-The previous workflow triggered both `push` on `foundation/**` and `pull_request`, causing duplicate runs for each PR-branch commit. This has been corrected; feature branches now run through the PR trigger, while direct `push` CI is limited to `main`.
-
-The current execution environment downloaded the checksum-verified Go 1.27.1 toolchain and resolved modules successfully. GitHub Actions runner allocation remains a separate blocker.
-
-### Dependency lock files
-
-The following lock artifacts were generated using the package managers and committed:
-
-- `go.sum`,
-- `web/package-lock.json`.
-
-Both require verification on CI before this PR is merge-ready.
+No deployment blocker remains after the verified DevBox rebuild. The local endpoint uses development HTTP cookie settings; HTTPS ingress, secure cookies and production datastore policy are deployment choices for a production environment.
 
 ## Tests
 
@@ -197,7 +156,7 @@ CI is configured to run:
 - frontend production build,
 - full-stack Playwright Chromium E2E through UI → API → MySQL.
 
-Local Go 1.27.1 checks passed: `go mod tidy`, `go mod verify`, `go vet ./...`, `go test ./...`, `go test -race ./...`, and `go build -buildvcs=false ./...`; `gofmt` was applied to 14 files. Local frontend checks passed: `npm ci`, typecheck, unit tests (3/3) and production build. MySQL/Redis integration, migration lifecycle, live API and Playwright E2E have not executed. The GitHub workflow still requires a runner to verify its own environment.
+2026-10-11 local verification passed strict Go formatting, vet, unit tests, race tests and build in Go 1.27 Docker; real MySQL 8.4 integration tests covered migration lifecycle, tenant isolation/RBAC/optimistic locking and work-platform/jobs/outbox/attachments. Frontend installation, typecheck, unit tests (3/3), production build and npm audit passed (0 vulnerabilities). Shell syntax, ShellCheck, installer help and both Compose configurations passed. All six desktop/mobile Playwright tests passed against the real container stack. Final GitHub checks are recorded in PR #7.
 
 ## Database migrations
 
@@ -215,26 +174,35 @@ Implemented migration versions:
 - `000010_user_role_assignments`,
 - `000011_group_role_assignments`,
 - `000012_sessions`,
-- `000013_audit_events`.
+- `000013_audit_events`,
+- `000014_record_sequences`,
+- `000015_jobs`,
+- `000016_job_attempts`,
+- `000017_outbox_events`,
+- `000018_attachments`,
+- `000019_activity_entries`,
+- `000020_work_assignments`,
+- `000021_work_messages`,
+- `000022_work_watchers`,
+- `000023_work_relations`,
+- `000024_job_logs`.
 
-Each up/down migration contains one SQL statement. Runtime readiness requires migration version 13, `dirty=false`, and the foundation metadata singleton. The migration CLI supports one-step rollback, full rollback and version inspection.
+Each up/down migration contains one SQL statement. Runtime readiness requires migration version 24, `dirty=false`, and the foundation metadata singleton. The real MySQL lifecycle test passed latest → one-step rollback → latest → full rollback → latest → readiness. The reserved `groups` identifier is quoted in schema and repository SQL.
 
 ## Technical debt
 
 Known non-blocking design work:
 
 - session cleanup scheduler uses a MySQL advisory lock so parallel replicas skip duplicate work; broader multi-job scheduler coordination will evolve with future workloads,
-- `cmd/worker` is intentionally absent until a real durable job workload exists,
-- production packaging for the built frontend is not defined yet,
+- durable job processing and retry/outbox behavior are implemented; broader workload coverage evolves with roadmap features,
+- frontend/API container packaging is implemented; production TLS/ingress and operational deployment policy remain environment-specific,
 - external authentication providers are not implemented yet.
 
 No fake endpoint, placeholder UI or empty worker executable is used to hide these gaps.
 
 ## Next recommended tasks
 
-1. Restore GitHub-hosted runner allocation and rerun `foundation-ci`.
-2. Integrate and verify the system-role privilege-escalation fix from PR #5.
-3. Execute the MySQL/Redis, migration, live API and Playwright matrix and fix every defect it exposes.
-4. Repeat the full Phase 1 verification in CI on the final commit.
-5. Merge PR #3 only after all required checks have actually executed successfully and no blocker remains.
-6. Continue the already-open Draft PR #4 only after Phase 1 is merged and retargeted appropriately.
+1. Complete roadmap capabilities with their API/UI and tenant/RBAC guarantees.
+2. Extend business-workload, retry/cancellation and external-provider verification as those features are introduced.
+3. Configure TLS ingress, secure cookies, datastore policy, backups and monitoring for a production deployment.
+4. Keep full backend/frontend/integration/browser CI passing for future changes.

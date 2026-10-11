@@ -11,7 +11,7 @@ import (
 )
 
 type Projector struct {
-	tx *database.TxManager
+	tx   *database.TxManager
 	repo *Repository
 }
 
@@ -38,15 +38,15 @@ func (p *Projector) Handler(entryType, summary string) events.Handler {
 		eventID := event.ID
 		return p.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec database.Executor) error {
 			_, _, err := p.repo.Append(ctx, exec, Input{
-				TenantID: event.TenantID,
-				ObjectType: event.AggregateType,
-				ObjectID: event.AggregateID,
-				Type: entryType,
-				ActorUserID: actor,
-				Summary: summary,
-				Data: event.Payload,
+				TenantID:      event.TenantID,
+				ObjectType:    event.AggregateType,
+				ObjectID:      event.AggregateID,
+				Type:          entryType,
+				ActorUserID:   actor,
+				Summary:       summary,
+				Data:          event.Payload,
 				SourceEventID: &eventID,
-				EventTime: event.CreatedAt,
+				EventTime:     event.CreatedAt,
 			})
 			return err
 		})

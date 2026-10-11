@@ -125,7 +125,7 @@ func (s *LocalStorage) resolve(key string) (string, error) {
 }
 
 type contextReader struct {
-	ctx context.Context
+	ctx    context.Context
 	reader io.Reader
 }
 

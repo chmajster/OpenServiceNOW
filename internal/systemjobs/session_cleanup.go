@@ -15,7 +15,7 @@ const SessionCleanupType = "system.session_cleanup"
 
 type SessionCleanupPayload struct {
 	RevokedBefore time.Time `json:"revoked_before"`
-	Batch int `json:"batch"`
+	Batch         int       `json:"batch"`
 }
 
 func EnqueueSessionCleanup(
@@ -31,16 +31,16 @@ func EnqueueSessionCleanup(
 	}
 	payload, err := json.Marshal(SessionCleanupPayload{
 		RevokedBefore: now.UTC().Add(-retention),
-		Batch: batch,
+		Batch:         batch,
 	})
 	if err != nil {
 		return jobs.Job{}, false, fmt.Errorf("marshal session cleanup payload: %w", err)
 	}
 	return repo.Enqueue(ctx, jobs.EnqueueInput{
-		Type: SessionCleanupType,
-		Payload: payload,
-		MaxAttempts: 3,
-		AvailableAt: now.UTC(),
+		Type:           SessionCleanupType,
+		Payload:        payload,
+		MaxAttempts:    3,
+		AvailableAt:    now.UTC(),
 		IdempotencyKey: idempotencyKey,
 	})
 }
