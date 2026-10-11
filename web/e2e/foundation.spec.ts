@@ -106,7 +106,7 @@ test("admin creates a least-privilege tenant reader through the UI", async ({ pa
   await assignmentPanel.getByLabel("Wyszukaj użytkownika").fill(operatorEmail);
   await assignmentPanel.getByRole("button", { name: "Szukaj" }).click();
 
-  const userSelect = assignmentPanel.getByLabel("Użytkownik");
+  const userSelect = assignmentPanel.getByRole("combobox", { name: /^Użytkownik/ });
   await expect(userSelect.locator("option", { hasText: operatorEmail })).toHaveCount(1);
   await userSelect.selectOption({ label: `E2E Operator — ${operatorEmail}` });
 
@@ -286,7 +286,12 @@ test("role permission optimistic-lock conflict refreshes current data", async ({
       secondPage.getByText("Rola została zmieniona równolegle. Bieżące dane zostały odświeżone; wybierz rolę i ponów edycję.")
     ).toBeVisible();
     await expect(secondPage.getByLabel("Rola do edycji")).toHaveValue("");
-    await expect(secondPage.locator(".list-card").filter({ hasText: conflictRoleName })).toContainText("v2");
+    await expect(
+      secondPage.getByLabel("Rola do edycji").locator("option").filter({ hasText: `${conflictRoleName} — v2` })
+    ).toHaveCount(1);
+    const refreshedRoleCard = secondPage.locator(".list-card").filter({ hasText: conflictRoleName });
+    await expect(refreshedRoleCard).toContainText("tenant.manage");
+    await expect(refreshedRoleCard).not.toContainText("admin.audit.read");
   } finally {
     await firstContext.close();
     await secondContext.close();
