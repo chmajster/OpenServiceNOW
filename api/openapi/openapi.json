@@ -28,6 +28,9 @@
     },
     {
       "name": "Audit"
+    },
+    {
+      "name": "Installation"
     }
   ],
   "paths": {
@@ -1388,6 +1391,102 @@
           "admin.rbac.manage"
         ]
       }
+    },
+    "/api/v1/setup": {
+      "get": {
+        "tags": [
+          "Installation"
+        ],
+        "operationId": "getInstallationStatus",
+        "security": [],
+        "description": "Reports whether a migrated empty installation needs its first administrator. When required, returns a token and sets opensnow_setup (HttpOnly, SameSite=Strict, 20 minutes). Responses must not be cached.",
+        "responses": {
+          "200": {
+            "description": "Installation status",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Installer CSRF cookie, only before installation is complete"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatus"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Installation"
+        ],
+        "operationId": "completeInstallation",
+        "description": "Creates the first organization, local administrator, membership, platform_admin role and audit event in one transaction. Permanently closes installation. Requires same-origin JSON and matching cookie/header tokens from GET /api/v1/setup. Existing accounts cannot be replaced. Concurrent/replayed attempts return 409. No login session is created; sign in afterward.",
+        "security": [
+          {
+            "setupCookie": [],
+            "setupHeader": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Administrator created; installer cookie cleared",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "description": "Invalid organization, account or password data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1408,6 +1507,18 @@
         "in": "header",
         "name": "X-CSRF-Token",
         "description": "Must equal the CSRF cookie and match the hash stored with the session."
+      },
+      "setupCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "opensnow_setup",
+        "description": "HttpOnly, SameSite=Strict cookie issued by the first-run installer status endpoint."
+      },
+      "setupHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Setup-Token",
+        "description": "Must equal the installer cookie; obtain the token from GET /api/v1/setup."
       }
     },
     "parameters": {
@@ -2135,6 +2246,80 @@
           "next_after_id": {
             "type": "string",
             "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      },
+      "SetupStatus": {
+        "type": "object",
+        "required": [
+          "required"
+        ],
+        "properties": {
+          "required": {
+            "type": "boolean"
+          },
+          "token": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 43,
+            "description": "Present only while first-run installation is available."
+          }
+        }
+      },
+      "SetupRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tenant",
+          "tenant_name",
+          "email",
+          "display_name",
+          "password"
+        ],
+        "properties": {
+          "tenant": {
+            "type": "string",
+            "pattern": "^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$",
+            "maxLength": 100
+          },
+          "tenant_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "email": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 254,
+            "description": "admin alias or a valid email address, normalized to lowercase. UTF-8 size must not exceed 254 bytes."
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true,
+            "minLength": 1,
+            "maxLength": 1024,
+            "description": "12–1024 UTF-8 bytes. Only admin/admin@example.test may use the default password admin."
+          }
+        }
+      },
+      "SetupResult": {
+        "type": "object",
+        "required": [
+          "tenant",
+          "email"
+        ],
+        "properties": {
+          "tenant": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
           }
         }
       }

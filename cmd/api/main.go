@@ -70,6 +70,10 @@ func main() {
 	}
 	identityMiddleware := identity.NewMiddleware(identityService, cfg.Session)
 	identityHandler := identity.NewHandler(identityService, ratelimit.New(redisClient, "opensnow:"), cfg.Session, cfg.Auth)
+	setupHandler := identity.NewSetupHandler(
+		identity.NewInstaller(identity.NewBootstrapper(identityRepo, txManager, auditRepo), identityService),
+		ratelimit.New(redisClient, "opensnow:"), cfg.Session,
+	)
 
 	rbacRepo := rbac.NewMySQLRepository(db)
 	rbacService := rbac.NewService(rbacRepo, txManager, auditRepo, adminSafety)
@@ -99,6 +103,7 @@ func main() {
 			healthHandler,
 			[]func(http.Handler) http.Handler{clientIPResolver.Middleware},
 			func(r chi.Router) {
+				identity.RegisterSetupRoutes(r, setupHandler)
 				identity.RegisterRoutes(r, identityHandler, identityMiddleware)
 			},
 			func(r chi.Router) {

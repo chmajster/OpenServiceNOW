@@ -28,6 +28,7 @@ func TestOpenAPIContractParsesAndContainsImplementedRoutes(t *testing.T) {
 	requiredPaths := []string{
 		"/health/live",
 		"/health/ready",
+		"/api/v1/setup",
 		"/api/v1/auth/login",
 		"/api/v1/auth/me",
 		"/api/v1/auth/logout",
