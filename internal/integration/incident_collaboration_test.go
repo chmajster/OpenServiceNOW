@@ -25,6 +25,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/events"
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
 	"github.com/chmajster/OpenServiceNOW/internal/incidents"
+	"github.com/chmajster/OpenServiceNOW/internal/jobs"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
 	"github.com/chmajster/OpenServiceNOW/internal/rbac"
@@ -55,11 +56,20 @@ func TestIncidentCollaboration(t *testing.T) {
 		t.Fatal(err)
 	}
 	userIDs := []uint64{root.UserID}
+	tenantIDs := []uint64{root.TenantID}
 	defer func() {
-		_, _ = db.ExecContext(context.Background(), "DELETE FROM audit_events WHERE tenant_id=?", root.TenantID)
-		_, _ = db.ExecContext(context.Background(), "DELETE FROM tenants WHERE id=?", root.TenantID)
+		for _, tenantID := range tenantIDs {
+			if _, err := db.ExecContext(context.Background(), "DELETE FROM audit_events WHERE tenant_id=?", tenantID); err != nil {
+				t.Error("audit cleanup", err)
+			}
+			if _, err := db.ExecContext(context.Background(), "DELETE FROM tenants WHERE id=?", tenantID); err != nil {
+				t.Error("tenant cleanup", err)
+			}
+		}
 		for _, id := range userIDs {
-			_, _ = db.ExecContext(context.Background(), "DELETE FROM users WHERE id=?", id)
+			if _, err := db.ExecContext(context.Background(), "DELETE FROM users WHERE id=?", id); err != nil {
+				t.Error("user cleanup", err)
+			}
 		}
 	}()
 	auth, err := identity.NewService(identities, tx, audits, cfg.Session, cfg.Auth)
@@ -144,6 +154,19 @@ func TestIncidentCollaboration(t *testing.T) {
 		t.Fatal(err)
 	}
 	base := "/api/v1/incidents/" + fmt.Sprint(record.ID)
+	foreign, err := bootstrap.Run(ctx, identity.BootstrapInput{TenantSlug: "collaboration-foreign-" + suffix, TenantName: "Foreign", AdminEmail: "collaboration-foreign-" + suffix + "@example.test", AdminName: "Foreign", AdminPassword: password})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tenantIDs = append(tenantIDs, foreign.TenantID)
+	userIDs = append(userIDs, foreign.UserID)
+	foreignLogin, err := auth.Login(ctx, identity.LoginInput{Tenant: "collaboration-foreign-" + suffix, Email: "collaboration-foreign-" + suffix + "@example.test", Password: password}, identity.RequestMeta{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// All collaboration SQL must use the transaction executor, also with a one-connection pool.
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
 	note, err := service.AddMessage(ctx, operator, record.ID, incidents.CommunicationInput{Type: workrecords.MessageWorkNote, Body: "POUFNA-NOTATKA-TEST"}, "private-message-key")
 	if err != nil {
 		t.Fatal(err)
@@ -195,7 +218,36 @@ func TestIncidentCollaboration(t *testing.T) {
 		if other.Code != 404 {
 			t.Fatalf("object read bypass %s %d", path, other.Code)
 		}
+		if other := request(foreignLogin, "GET", path, nil, ""); other.Code != 404 {
+			t.Fatalf("foreign organization %s %d %s", path, other.Code, other.Body)
+		}
 	}
+	for _, fileID := range []uint64{private.ID, public.ID} {
+		if w := request(foreignLogin, "GET", base+"/files/"+fmt.Sprint(fileID), nil, ""); w.Code != 404 {
+			t.Fatal("foreign file URL", w.Code)
+		}
+	}
+	if w := request(foreignLogin, "POST", base+"/messages", incidents.CommunicationInput{Type: workrecords.MessageComment, Body: "cross tenant"}, "foreign-message-key"); w.Code != 404 {
+		t.Fatal("foreign write", w.Code)
+	}
+	t.Run("collaboration rollback leaves no partial write or retry reservation", func(t *testing.T) {
+		failing := incidents.NewService(incidents.NewRepository(db), tx, workrecords.NewAllocator(tx), workrecords.NewService(workrecords.NewRepository(db), tx, outbox), audits, failingIncidentOutbox{outbox}, activityRepo).WithAttachments(files)
+		if _, err := failing.AddMessage(ctx, operator, record.ID, incidents.CommunicationInput{Type: workrecords.MessageWorkNote, Body: "ROLLBACK-PRIVATE"}, "rollback-message-key"); err == nil {
+			t.Fatal("outbox error accepted")
+		}
+		if _, err := failing.UploadFile(ctx, operator, record.ID, "rollback.txt", "INTERNAL", nil, strings.NewReader("ROLLBACK-BYTES"), "rollback-file-key"); err == nil {
+			t.Fatal("outbox error accepted")
+		}
+		var count int
+		for _, query := range []string{`SELECT COUNT(*) FROM work_messages WHERE tenant_id=? AND body='ROLLBACK-PRIVATE'`, `SELECT COUNT(*) FROM attachments WHERE tenant_id=? AND file_name='rollback.txt'`, `SELECT COUNT(*) FROM incident_collaboration_requests WHERE tenant_id=? AND request_key IN ('rollback-message-key','rollback-file-key')`, `SELECT COUNT(*) FROM outbox_events WHERE tenant_id=? AND payload LIKE '%ROLLBACK-PRIVATE%'`} {
+			if err := db.QueryRowContext(ctx, query, root.TenantID).Scan(&count); err != nil || count != 0 {
+				t.Fatal("partial write", query, count, err)
+			}
+		}
+		if _, err := service.AddMessage(ctx, operator, record.ID, incidents.CommunicationInput{Type: workrecords.MessageComment, Body: "Retry after rollback"}, "rollback-message-key"); err != nil {
+			t.Fatal("retry blocked", err)
+		}
+	})
 	for _, login := range []identity.LoginResult{reporterLogin, outsiderLogin} {
 		w := request(login, "GET", base+"/files/"+fmt.Sprint(private.ID), nil, "")
 		if w.Code != 404 {
@@ -418,9 +470,10 @@ func TestIncidentCollaboration(t *testing.T) {
 		if w := request(reporterLogin, "GET", base+"/files/"+fmt.Sprint(public.ID), nil, ""); w.Code != 404 {
 			t.Fatal("deleted download", w.Code)
 		}
-		removed, err = reopened.Cleanup(ctx, metadata, time.Now().Add(-24*time.Hour))
-		if err != nil || removed != 1 {
-			t.Fatal("deleted cleanup", removed, err)
+		payload, _ := json.Marshal(map[string]time.Time{"before": time.Now().Add(-24 * time.Hour)})
+		result, err := attachments.CleanupHandler(reopened, metadata)(ctx, jobs.Job{Type: attachments.CleanupJobType, Payload: payload})
+		if err != nil || string(result) != `{"removed_files":1}` {
+			t.Fatal("deleted cleanup job", string(result), err)
 		}
 	})
 }

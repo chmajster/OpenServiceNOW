@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/chmajster/OpenServiceNOW/internal/events"
@@ -41,7 +40,8 @@ func (p *Projector) Handler(entryType, summary string) events.Handler {
 			actor = &value
 		}
 		visibility := "INTERNAL"
-		if strings.HasPrefix(event.Type, "incident.") || event.Type == "work.comment.added" {
+		switch event.Type {
+		case "incident.created", "incident.updated", "incident.assigned", "incident.state.changed", "incident.reopened", "incident.resolved", "incident.closed", "incident.cancelled", "incident.priority.changed", "work.comment.added":
 			visibility = "PUBLIC"
 		}
 		if actorPayload.Visibility == "PUBLIC" {

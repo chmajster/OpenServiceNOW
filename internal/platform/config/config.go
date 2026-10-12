@@ -242,6 +242,9 @@ func Load() (Config, error) {
 }
 
 func (c Config) Validate() error {
+	if strings.TrimSpace(c.AttachmentRoot) == "" {
+		return errors.New("ATTACHMENT_ROOT must not be empty")
+	}
 	var errs []error
 	if strings.TrimSpace(c.HTTPAddr) == "" {
 		errs = append(errs, errors.New("HTTP_ADDR must not be empty"))

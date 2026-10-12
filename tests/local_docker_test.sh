@@ -127,8 +127,8 @@ original_hash=$(sql "SELECT password_hash FROM users WHERE email='admin@example.
 # changing that administrator or its required-change policy.
 sql "INSERT INTO users(email,display_name,password_hash) SELECT 'attachment-proof@example.test','Storage proof',password_hash FROM users WHERE email='admin@example.test'" >/dev/null
 sql "INSERT INTO tenant_memberships(tenant_id,user_id) SELECT t.id,u.id FROM tenants t JOIN users u ON u.email='attachment-proof@example.test' WHERE t.slug='e2e'" >/dev/null
-sql "INSERT INTO user_role_assignments(tenant_id,user_id,role_id) SELECT r.tenant_id,u.id,r.id FROM roles r JOIN users u ON u.email='attachment-proof@example.test' WHERE r.name='platform_admin' AND r.system_role=TRUE" >/dev/null
-ATTACHMENT_PROOF_PASSWORD=admin
+sql "INSERT INTO user_role_assignments(tenant_id,user_id,role_id) SELECT r.tenant_id,u.id,r.id FROM roles r JOIN users u ON u.email='attachment-proof@example.test' WHERE r.name='platform_admin' AND r.system_role=TRUE AND r.tenant_id=(SELECT id FROM tenants WHERE slug='e2e')" >/dev/null
+ATTACHMENT_PROOF_PASSWORD='admin'
 if [[ "${LOCAL_DOCKER_BROWSER:-0}" == 1 ]]; then ATTACHMENT_PROOF_PASSWORD=e2e-personal-administrator-password; fi
 export ATTACHMENT_PROOF_PASSWORD
 python3 "$checkout/tests/attachment_runtime_proof.py" create http://127.0.0.1:8082 "$test_dir"
