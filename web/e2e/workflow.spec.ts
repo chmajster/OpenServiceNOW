@@ -108,6 +108,42 @@ test("workflow approval preserves proposal, pins version and creates exactly one
       "request.cancel_own",
     ]),
     approver = await actor("approver", ["workflow.approve"]);
+  if (process.env.E2E_SMTP_PORT) {
+    const config = await (
+      await request.get("/api/v1/admin/notifications/smtp")
+    ).json();
+    expect(
+      (
+        await request.put("/api/v1/admin/notifications/smtp", {
+          headers,
+          data: {
+            provider_id: "workflow-mailpit-proof",
+            enabled: true,
+            host: "127.0.0.1",
+            port: Number(process.env.E2E_SMTP_PORT),
+            tls_mode: "NONE",
+            username: "",
+            from_address: "sender@example.test",
+            version: config.version,
+          },
+        })
+      ).status(),
+    ).toBe(200);
+    const prefs = await (
+      await reporter.context.request.get("/api/v1/notifications/preferences")
+    ).json();
+    expect(
+      (
+        await reporter.context.request.put(
+          "/api/v1/notifications/preferences",
+          {
+            headers: await csrf(reporter.context.request),
+            data: { ...prefs, smtp: true, state_changes: true },
+          },
+        )
+      ).status(),
+    ).toBe(200);
+  }
   expect(
     (
       await request.post(
@@ -359,6 +395,24 @@ test("workflow approval preserves proposal, pins version and creates exactly one
       { timeout: 30000 },
     )
     .toBe(true);
+  if (process.env.E2E_SMTP_PORT) {
+    await expect
+      .poll(
+        async () => {
+          const p = await (
+            await reporter.context.request.get(
+              "/api/v1/notifications/mail-history?limit=100",
+            )
+          ).json();
+          return p.deliveries.some(
+            (d: { status: string; attempt_count: number }) =>
+              d.status === "DELIVERED" && d.attempt_count > 0,
+          );
+        },
+        { timeout: 30000 },
+      )
+      .toBe(true);
+  }
   await page.goto(`/approvals/${executionID}`);
   await expect(
     page.getByRole("heading", { name: "Historia prób (ostatnie 100)" }),
