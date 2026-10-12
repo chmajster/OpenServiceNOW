@@ -24,10 +24,14 @@ for distribution in ubuntu:26.04 debian:bookworm-slim; do
     "$image" >/dev/null
   docker exec "$name" bash -euc '
       # Finish boot/tmpfiles setup before APT creates temporary signature files.
-      boot_state=$(timeout 60s systemctl is-system-running --wait || true)
+      for ((attempt=0; attempt<60; attempt++)); do
+        boot_state=$(systemctl is-system-running 2>/dev/null || true)
+        if [[ "$boot_state" == running || "$boot_state" == degraded ]]; then break; fi
+        sleep 1
+      done
       case "$boot_state" in
         running|degraded) ;;
-        *) echo "Engine fixture did not finish booting: $boot_state" >&2; exit 1 ;;
+        *) echo "Engine fixture did not finish booting: $boot_state" >&2; journalctl -b -n 40 --no-pager >&2 || true; exit 1 ;;
       esac
       bash /engine-install.sh root
       docker info >/dev/null
