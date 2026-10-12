@@ -72,10 +72,10 @@ func (r *Repository) watchers(ctx context.Context, a Actor, id, after uint64, li
 	if err := r.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM work_watchers WHERE tenant_id=? AND object_type='incident' AND object_id=? AND user_id=?)`, a.TenantID, fmt.Sprint(id), a.UserID).Scan(&watching); err != nil {
 		return WatcherList{}, err
 	}
-	q := `SELECT w.user_id,u.display_name,w.created_at FROM work_watchers w JOIN users u ON u.id=w.user_id JOIN tenant_memberships tm ON tm.tenant_id=w.tenant_id AND tm.user_id=w.user_id WHERE w.tenant_id=? AND w.object_type='incident' AND w.object_id=? AND w.user_id>? AND u.active=TRUE AND tm.active=TRUE`
+	q := `SELECT w.user_id,u.display_name,w.created_at FROM work_watchers w JOIN users u ON u.id=w.user_id JOIN tenant_memberships tm ON tm.tenant_id=w.tenant_id AND tm.user_id=w.user_id WHERE w.tenant_id=? AND w.object_type='incident' AND w.object_id=? AND w.user_id>?`
 	args := []any{a.TenantID, fmt.Sprint(id), after}
 	if !a.Has("read") {
-		q += " AND w.user_id=?"
+		q += " AND w.user_id=? AND u.active=TRUE AND tm.active=TRUE"
 		args = append(args, a.UserID)
 	}
 	q += " ORDER BY w.user_id LIMIT ?"

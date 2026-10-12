@@ -42,6 +42,8 @@ func (s *Service) Prepare(ctx context.Context, input CreateInput, content io.Rea
 	if err != nil && err != io.EOF && err != bufio.ErrBufferFull {
 		return Prepared{}, err
 	}
+	// Peek aliases bufio's buffer, which streaming may reuse. Sniff before Put.
+	contentType := http.DetectContentType(sniff)
 	key, err := newStorageKey(input.TenantID)
 	if err != nil {
 		return Prepared{}, err
@@ -61,7 +63,7 @@ func (s *Service) Prepare(ctx context.Context, input CreateInput, content io.Rea
 	}
 	var sum [32]byte
 	copy(sum[:], hash.Sum(nil))
-	return Prepared{key, http.DetectContentType(sniff), uint64(size), sum}, nil
+	return Prepared{key, contentType, uint64(size), sum}, nil
 }
 func (s *Service) CreatePreparedInTx(ctx context.Context, exec database.Executor, input CreateInput, p Prepared) (Attachment, error) {
 	if s.transactional == nil || p.Key == "" {

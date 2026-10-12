@@ -302,6 +302,23 @@ func TestIncidentCollaboration(t *testing.T) {
 		if len(w.Watchers) != 1 || w.Watchers[0].UserID != reporter.UserID || w.NextAfterID != 0 {
 			t.Fatal("watcher privacy", w)
 		}
+		t.Run("operators can remove former organization members from the bounded list", func(t *testing.T) {
+			if _, err := db.ExecContext(ctx, `UPDATE tenant_memberships SET active=FALSE WHERE tenant_id=? AND user_id=?`, root.TenantID, reporter.UserID); err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				if _, err := db.ExecContext(context.Background(), `UPDATE tenant_memberships SET active=TRUE WHERE tenant_id=? AND user_id=?`, root.TenantID, reporter.UserID); err != nil {
+					t.Error(err)
+				}
+			}()
+			p, err := service.Watchers(ctx, operator, record.ID, 0, 100)
+			if err != nil || len(p.Watchers) != 2 {
+				t.Fatal("hidden stale watcher prevents removal", p, err)
+			}
+			if err := service.Watch(ctx, operator, record.ID, reporter.UserID, false); err != nil {
+				t.Fatal(err)
+			}
+		})
 		target, _, err := service.Create(ctx, outsider, input, "target-private-incident")
 		if err != nil {
 			t.Fatal(err)
