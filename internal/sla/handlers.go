@@ -82,6 +82,9 @@ func number(s string, zero bool) (uint64, error) {
 }
 func page(r *http.Request) (uint64, int, error) {
 	n, e := number(r.URL.Query().Get("before_id"), true)
+	if e != nil {
+		return 0, 0, ErrInvalid
+	}
 	limit := 25
 	if v := r.URL.Query().Get("limit"); v != "" {
 		limit, e = strconv.Atoi(v)
