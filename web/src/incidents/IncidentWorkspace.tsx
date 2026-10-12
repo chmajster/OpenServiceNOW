@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { PageState } from "../components/PageState";
@@ -30,6 +30,7 @@ type EditorProps = {
   busy: boolean;
   setBusy: (busy: boolean) => void;
   saved: (record: Incident, confirmed?: boolean) => void;
+  retain: (tab: string, needed: boolean) => void;
 };
 export function IncidentWorkspace({
   initial,
@@ -39,6 +40,12 @@ export function IncidentWorkspace({
   metadata: Metadata;
 }) {
   const [record, setRecord] = useState(initial);
+  const [draftTabs, setDraftTabs] = useState<Record<string, boolean>>({});
+  const retain = useCallback((tab: string, needed: boolean) => {
+    setDraftTabs((current) =>
+      current[tab] === needed ? current : { ...current, [tab]: needed },
+    );
+  }, []);
   const heading = useIncidentTitleFocus(initial.id);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string>();
@@ -84,21 +91,25 @@ export function IncidentWorkspace({
   const tab = params.get("tab") ?? "info";
   const tabs = [
     { value: "info", label: "Informacje", available: true },
-    { value: "edit", label: "Edycja", available: record.actions.edit },
+    {
+      value: "edit",
+      label: "Edycja",
+      available: record.actions.edit || draftTabs.edit,
+    },
     {
       value: "assignment",
       label: "Przypisanie",
-      available: record.actions.assign,
+      available: record.actions.assign || draftTabs.assignment,
     },
     {
       value: "state",
       label: "Stan",
-      available: record.actions.transitions.length > 0,
+      available: record.actions.transitions.length > 0 || draftTabs.state,
     },
     {
       value: "priority",
       label: "Priorytet",
-      available: record.actions.override_priority,
+      available: record.actions.override_priority || draftTabs.priority,
     },
     { value: "history", label: "Historia", available: true },
   ];
@@ -113,7 +124,7 @@ export function IncidentWorkspace({
     );
     setError(undefined);
   };
-  const props = { record, metadata, busy, setBusy, saved };
+  const props = { record, metadata, busy, setBusy, saved, retain };
   const backSearch =
     (location.state as { listSearch?: string } | null)?.listSearch ?? "";
   return (
@@ -246,22 +257,22 @@ export function IncidentWorkspace({
           </p>
         )}
       </div>
-      {record.actions.edit && (
+      {(record.actions.edit || draftTabs.edit) && (
         <div hidden={activeTab !== "edit"} className="panel">
           <EditIncident {...props} />
         </div>
       )}
-      {record.actions.assign && (
+      {(record.actions.assign || draftTabs.assignment) && (
         <div hidden={activeTab !== "assignment"} className="panel">
           <AssignIncident {...props} />
         </div>
       )}
-      {record.actions.transitions.length > 0 && (
+      {(record.actions.transitions.length > 0 || draftTabs.state) && (
         <div hidden={activeTab !== "state"} className="panel">
           <TransitionIncident {...props} />
         </div>
       )}
-      {record.actions.override_priority && (
+      {(record.actions.override_priority || draftTabs.priority) && (
         <div hidden={activeTab !== "priority"} className="panel">
           <PriorityIncident {...props} />
         </div>
@@ -272,16 +283,45 @@ export function IncidentWorkspace({
     </section>
   );
 }
-function EditIncident({ record, metadata, busy, setBusy, saved }: EditorProps) {
+function useRetainedDraft(
+  form: { dirty: boolean; conflict?: Incident | null },
+  tab: string,
+  retain: EditorProps["retain"],
+) {
+  const needed = form.dirty || form.conflict !== undefined;
+  useEffect(() => {
+    retain(tab, needed);
+  }, [needed, tab, retain]);
+}
+function BlockedProposal({ allowed }: { allowed: boolean }) {
+  return allowed ? null : (
+    <p className="notice" role="status">
+      Aktualny stan lub uprawnienia nie pozwalają zapisać tej operacji. Twoja
+      propozycja pozostaje dostępna do skopiowania.
+    </p>
+  );
+}
+function EditIncident({
+  record,
+  metadata,
+  busy,
+  setBusy,
+  saved,
+  retain,
+}: EditorProps) {
   const form = useIncidentForm(record, draftOf, saved, setBusy);
+  useRetainedDraft(form, "edit", retain);
   return (
     <>
       <h2>Edycja incydentu</h2>
+      <BlockedProposal allowed={record.actions.edit} />
       <form
         onSubmit={(e) =>
-          void form.submit(e, `/api/v1/incidents/${record.id}`, "PUT", () =>
-            fieldsOf(form.draft),
-          )
+          void form.submit(e, `/api/v1/incidents/${record.id}`, "PUT", () => {
+            if (!record.actions.edit)
+              throw new Error("Zapis edycji nie jest obecnie dozwolony.");
+            return fieldsOf(form.draft);
+          })
         }
       >
         <IncidentFields
@@ -300,7 +340,7 @@ function EditIncident({ record, metadata, busy, setBusy, saved }: EditorProps) {
         />
         <button
           className="button button--primary"
-          disabled={busy || form.conflict !== undefined}
+          disabled={busy || !record.actions.edit || form.conflict !== undefined}
         >
           Zapisz dane incydentu
         </button>
@@ -331,12 +371,14 @@ function AssignmentSummary({ draft }: { draft: AssignmentDraft }) {
     </dl>
   );
 }
-function AssignIncident({ record, busy, setBusy, saved }: EditorProps) {
+function AssignIncident({ record, busy, setBusy, saved, retain }: EditorProps) {
   const form = useIncidentForm(record, assignmentOf, saved, setBusy);
+  useRetainedDraft(form, "assignment", retain);
   const endpoint = `/api/v1/incidents/lookups/users?purpose=assignment${form.draft.group ? `&group_id=${form.draft.group.id}` : ""}`;
   return (
     <>
       <h2>Przypisanie incydentu</h2>
+      <BlockedProposal allowed={record.actions.assign} />
       <p>
         Użytkownik musi mieć aktywne konto i członkostwo w organizacji. W
         wybranej grupie wybierzesz jej członków.
@@ -347,10 +389,16 @@ function AssignIncident({ record, busy, setBusy, saved }: EditorProps) {
             e,
             `/api/v1/incidents/${record.id}/assignment`,
             "PUT",
-            () => ({
-              assigned_to: form.draft.user?.id ?? null,
-              assignment_group_id: form.draft.group?.id ?? null,
-            }),
+            () => {
+              if (!record.actions.assign)
+                throw new Error(
+                  "Zapis przypisania nie jest obecnie dozwolony.",
+                );
+              return {
+                assigned_to: form.draft.user?.id ?? null,
+                assignment_group_id: form.draft.group?.id ?? null,
+              };
+            },
           )
         }
       >
@@ -380,7 +428,9 @@ function AssignIncident({ record, busy, setBusy, saved }: EditorProps) {
         />
         <button
           className="button button--primary"
-          disabled={busy || form.conflict !== undefined}
+          disabled={
+            busy || !record.actions.assign || form.conflict !== undefined
+          }
         >
           Zapisz przypisanie
         </button>
@@ -406,8 +456,10 @@ function TransitionIncident({
   busy,
   setBusy,
   saved,
+  retain,
 }: EditorProps) {
   const form = useIncidentForm(record, transitionOf, saved, setBusy);
+  useRetainedDraft(form, "state", retain);
   const draft = form.draft;
   const reasonRequired =
     draft.state === "ON_HOLD" ||
@@ -418,6 +470,9 @@ function TransitionIncident({
   return (
     <>
       <h2>Zmiana stanu</h2>
+      <BlockedProposal
+        allowed={record.actions.transitions.includes(form.draft.state)}
+      />
       <p>
         Backend sprawdza dozwolone przejścia. Rozpoczęcie obsługi i rozwiązanie
         wymagają aktywnego przypisania.
@@ -490,6 +545,7 @@ function TransitionIncident({
             <label>
               Powód zmiany
               <textarea
+                aria-label="Powód zmiany"
                 required
                 rows={3}
                 value={draft.reason}
@@ -520,6 +576,7 @@ function TransitionIncident({
               <label>
                 Opis rozwiązania
                 <textarea
+                  aria-label="Opis rozwiązania"
                   required
                   rows={4}
                   value={draft.resolution_description}
@@ -560,7 +617,11 @@ function TransitionIncident({
         />
         <button
           className="button button--primary"
-          disabled={busy || form.conflict !== undefined}
+          disabled={
+            busy ||
+            !record.actions.transitions.includes(form.draft.state) ||
+            form.conflict !== undefined
+          }
         >
           Zmień stan
         </button>
@@ -573,11 +634,19 @@ const priorityOf = (r: Incident): PriorityDraft => ({
   priority: r.priority_override !== null ? String(r.priority) : "auto",
   reason: r.priority_reason,
 });
-function PriorityIncident({ record, busy, setBusy, saved }: EditorProps) {
+function PriorityIncident({
+  record,
+  busy,
+  setBusy,
+  saved,
+  retain,
+}: EditorProps) {
   const form = useIncidentForm(record, priorityOf, saved, setBusy);
+  useRetainedDraft(form, "priority", retain);
   return (
     <>
       <h2>Priorytet incydentu</h2>
+      <BlockedProposal allowed={record.actions.override_priority} />
       <p>
         Priorytet wyliczony: P{record.calculated_priority}. Nadpisanie wymaga
         osobnego uprawnienia, uzasadnienia i jest audytowane.
@@ -589,6 +658,8 @@ function PriorityIncident({ record, busy, setBusy, saved }: EditorProps) {
             `/api/v1/incidents/${record.id}/priority`,
             "PUT",
             () => {
+              if (!record.actions.override_priority)
+                throw new Error("Zapis priorytetu nie jest obecnie dozwolony.");
               const priority =
                 form.draft.priority === "auto"
                   ? null
@@ -632,6 +703,7 @@ function PriorityIncident({ record, busy, setBusy, saved }: EditorProps) {
             <label>
               Uzasadnienie priorytetu
               <textarea
+                aria-label="Uzasadnienie priorytetu"
                 rows={3}
                 value={form.draft.reason}
                 onChange={(e) =>
@@ -660,7 +732,11 @@ function PriorityIncident({ record, busy, setBusy, saved }: EditorProps) {
         />
         <button
           className="button button--primary"
-          disabled={busy || form.conflict !== undefined}
+          disabled={
+            busy ||
+            !record.actions.override_priority ||
+            form.conflict !== undefined
+          }
         >
           Zapisz priorytet
         </button>

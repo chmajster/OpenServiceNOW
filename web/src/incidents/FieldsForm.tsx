@@ -35,6 +35,7 @@ export function IncidentFields({
       <label>
         Opis
         <textarea
+          aria-label="Opis"
           required
           rows={5}
           value={draft.description}

@@ -359,7 +359,7 @@ test("incident UI creates once, assigns, handles, resolves and closes with durab
     ).toHaveCount(0);
     await expect(agent.getByText("Zamknięty", { exact: true })).toBeVisible();
     await transition("IN_PROGRESS", "Problem powrócił po ponownym połączeniu");
-    const reopened = await current();
+    let reopened = await current();
     expect(reopened.resolved_at).toBeNull();
     expect(reopened.resolution_description).toBe("");
     expect(
@@ -370,6 +370,59 @@ test("incident UI creates once, assigns, handles, resolves and closes with durab
         })
       ).status(),
     ).toBe(403);
+    const priorityRole = await request.post("/api/v1/admin/rbac/roles", {
+      headers,
+      data: {
+        name: `priority-${scope}`,
+        permissions: ["incident.priority.override"],
+      },
+    });
+    expect(priorityRole.status()).toBe(201);
+    expect(
+      (
+        await request.post(
+          `/api/v1/admin/rbac/users/${agentID}/roles/${(await priorityRole.json()).id}`,
+          { headers },
+        )
+      ).status(),
+    ).toBe(204);
+    await agent.reload();
+    await agent.getByRole("link", { name: "Priorytet", exact: true }).click();
+    await agent
+      .getByLabel("Priorytet docelowy", { exact: true })
+      .selectOption("1");
+    await agent
+      .getByRole("button", { name: "Zapisz priorytet", exact: true })
+      .click();
+    await expect(
+      agent.getByRole("alert").filter({ hasText: "Uzasadnienie wymaga" }),
+    ).toBeVisible();
+    await agent
+      .getByLabel("Uzasadnienie priorytetu", { exact: true })
+      .fill("Potwierdzony wpływ na usługę krytyczną");
+    const override = agent.waitForResponse(
+      (r) =>
+        r.url().endsWith(`/${committedID}/priority`) &&
+        r.request().method() === "PUT",
+    );
+    await agent
+      .getByRole("button", { name: "Zapisz priorytet", exact: true })
+      .click();
+    expect((await override).status()).toBe(200);
+    expect((await current()).priority_override).toBe(1);
+    await agent.getByRole("link", { name: "Edycja", exact: true }).click();
+    await agent.getByLabel("Wpływ", { exact: true }).selectOption("3");
+    const reset = agent.waitForResponse(
+      (r) =>
+        r.url().endsWith(`/${committedID}`) && r.request().method() === "PUT",
+    );
+    await agent
+      .getByRole("button", { name: "Zapisz dane incydentu", exact: true })
+      .click();
+    expect((await reset).status()).toBe(200);
+    reopened = await current();
+    expect(reopened.priority).toBe(3);
+    expect(reopened.priority_override).toBeNull();
     // A fresh read of a concurrent edit must not silently rebase the user's proposal.
     await agent.getByRole("link", { name: "Edycja", exact: true }).click();
     await agent
@@ -418,7 +471,43 @@ test("incident UI creates once, assigns, handles, resolves and closes with durab
       }),
     ).toBeVisible();
     await transition("RESOLVED");
-    await transition("CLOSED");
+    // A concurrent close removes write eligibility, but must preserve the draft.
+    await agent.getByRole("link", { name: "Edycja", exact: true }).click();
+    await agent
+      .getByLabel("Opis", { exact: true })
+      .fill("Niezapisana diagnoza przed równoległym zamknięciem");
+    const readyToClose = await current();
+    expect(
+      (
+        await request.post(`/api/v1/incidents/${committedID}/transition`, {
+          headers,
+          data: { version: readyToClose.version, state: "CLOSED" },
+        })
+      ).status(),
+    ).toBe(200);
+    await agent
+      .getByRole("button", { name: "Zapisz dane incydentu", exact: true })
+      .click();
+    await expect(conflict).toContainText(
+      "Niezapisana diagnoza przed równoległym zamknięciem",
+    );
+    await expect(agent.getByLabel("Opis", { exact: true })).toHaveValue(
+      "Niezapisana diagnoza przed równoległym zamknięciem",
+    );
+    await expect(
+      agent
+        .getByRole("status")
+        .filter({ hasText: "Aktualny stan lub uprawnienia" }),
+    ).toBeVisible();
+    await expect(
+      agent.getByRole("button", { name: "Zapisz dane incydentu", exact: true }),
+    ).toBeDisabled();
+    await conflict
+      .getByRole("button", { name: "Przyjmij aktualny stan" })
+      .click();
+    await expect(
+      agent.getByRole("link", { name: "Edycja", exact: true }),
+    ).toHaveCount(0);
     await expect
       .poll(
         async () =>
