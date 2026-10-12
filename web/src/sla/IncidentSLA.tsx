@@ -19,7 +19,9 @@ export function SLASummary({ items }: { items: Instance[] }) {
       {items.map((i) => (
         <div key={i.id}>
           <strong>{kindLabel(i.kind)}</strong>:{" "}
-          {i.breached_at ? "Naruszenie" : statusLabel(i.status)}
+          {i.breached_at
+            ? `Naruszenie — ${statusLabel(i.status)}`
+            : statusLabel(i.status)}
           <div>
             {i.status === "PAUSED"
               ? `Powód: ${i.pause_reason}`

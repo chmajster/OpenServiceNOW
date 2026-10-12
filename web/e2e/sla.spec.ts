@@ -195,6 +195,34 @@ test("SLA administration, explicit conflict, first reply and autonomous breach s
         BigInt((await (await request.get(slaPath)).json()).items[0].id) >
           9007199254740991n,
       ).toBe(true);
+    // Reporter communication and confidential notes are not first response.
+    expect(
+      (
+        await reporter.request.post(
+          `/api/v1/incidents/${incident.id}/messages`,
+          {
+            headers: {
+              ...(await csrf(reporter.request)),
+              "Idempotency-Key": `${scope}-reporter`,
+            },
+            data: { type: "COMMENT", body: "Uzupełnienie od zgłaszającego" },
+          },
+        )
+      ).status(),
+    ).toBe(200);
+    expect(
+      (
+        await request.post(`/api/v1/incidents/${incident.id}/messages`, {
+          headers: { ...headers, "Idempotency-Key": `${scope}-note` },
+          data: { type: "WORK_NOTE", body: "Poufna notatka operatora" },
+        })
+      ).status(),
+    ).toBe(200);
+    expect(
+      (await (await request.get(slaPath)).json()).items.find(
+        (i: { kind: string }) => i.kind === "response",
+      ).status,
+    ).toBe("ACTIVE");
     expect(
       (
         await request.put(`/api/v1/incidents/${incident.id}/assignment`, {
@@ -328,6 +356,79 @@ test("SLA administration, explicit conflict, first reply and autonomous breach s
     expect(
       (await reporter.request.get("/api/v1/sla/definitions/policy")).status(),
     ).toBe(403);
+    incident = await (
+      await request.get(`/api/v1/incidents/${incident.id}`)
+    ).json();
+    expect(
+      (
+        await request.post(`/api/v1/incidents/${incident.id}/transition`, {
+          headers,
+          data: {
+            version: incident.version,
+            state: "RESOLVED",
+            resolution_code: "FIXED",
+            resolution_description: "Naprawiono problem",
+          },
+        })
+      ).status(),
+    ).toBe(200);
+    incident = await (
+      await request.get(`/api/v1/incidents/${incident.id}`)
+    ).json();
+    expect(
+      (
+        await request.post(`/api/v1/incidents/${incident.id}/transition`, {
+          headers,
+          data: {
+            version: incident.version,
+            state: "IN_PROGRESS",
+            reason: "Problem powrócił",
+          },
+        })
+      ).status(),
+    ).toBe(200);
+    await expect
+      .poll(
+        async () =>
+          (await (await request.get(slaPath)).json()).items.find(
+            (i: { kind: string }) => i.kind === "resolution",
+          )?.cycle,
+        { timeout: 15000 },
+      )
+      .toBe("2");
+    const reopened = (await (await request.get(slaPath)).json()).items;
+    expect(
+      reopened.find((i: { kind: string }) => i.kind === "response").cycle,
+    ).toBe("1");
+    expect(
+      reopened.find((i: { kind: string }) => i.kind === "resolution")
+        .policy_version,
+    ).toBe("3");
+    incident = await (
+      await request.get(`/api/v1/incidents/${incident.id}`)
+    ).json();
+    expect(
+      (
+        await request.post(`/api/v1/incidents/${incident.id}/transition`, {
+          headers,
+          data: {
+            version: incident.version,
+            state: "RESOLVED",
+            resolution_code: "FIXED",
+            resolution_description: "Ponownie naprawiono",
+          },
+        })
+      ).status(),
+    ).toBe(200);
+    await expect
+      .poll(
+        async () =>
+          (await (await request.get(slaPath)).json()).items.every(
+            (i: { status: string }) => i.status === "COMPLETED",
+          ),
+        { timeout: 15000 },
+      )
+      .toBe(true);
   } finally {
     if (policyID) {
       const current = await (
