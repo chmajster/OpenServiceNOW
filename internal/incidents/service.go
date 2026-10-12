@@ -402,7 +402,7 @@ func (s *Service) History(ctx context.Context, a Actor, id, before uint64, limit
 	for _, entry := range page.Entries {
 		result.Entries = append(result.Entries, HistoryEntry{ID: entry.ID, Type: entry.Type, Summary: entry.Summary, ActorUserID: entry.ActorUserID, EventTime: entry.EventTime, Data: entry.Data, ActorName: entry.ActorName, SourceEventID: entry.SourceEventID})
 	}
-	query := `SELECT EXISTS(SELECT 1 FROM outbox_events WHERE tenant_id=? AND aggregate_type='incident' AND aggregate_id=? AND status<>'DELIVERED'`
+	query := `SELECT EXISTS(SELECT 1 FROM outbox_events WHERE tenant_id=? AND aggregate_type='incident' AND aggregate_id=? AND (status<>'DELIVERED' OR EXISTS(SELECT 1 FROM event_deliveries d WHERE d.event_id=outbox_events.id AND d.consumer_id='activity.v1' AND d.status<>'DELIVERED'))`
 	if !notesAllowed(a) {
 		query += ` AND (event_type IN ('incident.created','incident.updated','incident.assigned','incident.state.changed','incident.reopened','incident.resolved','incident.closed','incident.cancelled','incident.priority.changed','work.comment.added') OR JSON_UNQUOTE(JSON_EXTRACT(payload,'$.visibility'))='PUBLIC') AND event_type<>'work.work_note.added' AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload,'$.message_type')),'')<>'WORK_NOTE'`
 	}
