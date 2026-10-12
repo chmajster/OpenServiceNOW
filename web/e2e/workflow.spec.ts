@@ -128,7 +128,7 @@ test("workflow approval preserves proposal, pins version and creates exactly one
           },
         })
       ).status(),
-    ).toBe(200);
+    ).toBe(204);
     const prefs = await (
       await reporter.context.request.get("/api/v1/notifications/preferences")
     ).json();
@@ -142,7 +142,7 @@ test("workflow approval preserves proposal, pins version and creates exactly one
           },
         )
       ).status(),
-    ).toBe(200);
+    ).toBe(204);
   }
   expect(
     (
