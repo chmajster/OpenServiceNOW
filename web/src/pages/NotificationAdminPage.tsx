@@ -40,7 +40,7 @@ function AdminWorkspace() {
           </p>
         </div>
       </div>
-      <nav className="tab-list" aria-label="Administracja powiadomień">
+      <nav className="action-row tabs" aria-label="Administracja powiadomień">
         {(
           [
             ["smtp", "Konfiguracja SMTP"],
@@ -175,7 +175,7 @@ function ConfigurationForm({ initial }: { initial: SMTPConfig }) {
     <>
       <UnsavedGuard dirty={dirty} />
       <form
-        className="panel form-grid"
+        className="panel form-stack notification-form"
         onSubmit={(e) => {
           e.preventDefault();
           void save();
@@ -186,7 +186,7 @@ function ConfigurationForm({ initial }: { initial: SMTPConfig }) {
           Kanał w aplikacji działa niezależnie. SMTP może wysłać duplikat po
           przyjęciu wiadomości przez serwer i utracie potwierdzenia.
         </p>
-        <fieldset disabled={busy} className="form-grid">
+        <fieldset disabled={busy} className="form-stack">
           <label className="checkbox-row">
             <input
               type="checkbox"
@@ -450,22 +450,23 @@ function DeliveryQueue({
               >
                 Historia prób
               </button>
-              {["FAILED", "NOT_CONFIGURED"].includes(d.status) && (
-                <button
-                  className="button button--small button--secondary"
-                  disabled={busy || !!confirm}
-                  onClick={() => setConfirm(d)}
-                >
-                  Ponów
-                </button>
-              )}
+              {["FAILED", "NOT_CONFIGURED"].includes(d.status) &&
+                d.attempt_count < 100 && (
+                  <button
+                    className="button button--small button--secondary"
+                    disabled={busy || !!confirm}
+                    onClick={() => setConfirm(d)}
+                  >
+                    Ponów
+                  </button>
+                )}
             </div>
           )}
         />
       ) : !query.data?.deliveries.length ? (
         <PageState title="Brak dostaw zdarzeń" />
       ) : (
-        <div className="table-scroll">
+        <div className="table-scroll" tabIndex={0} aria-label="Tabela dostaw">
           <table>
             <thead>
               <tr>

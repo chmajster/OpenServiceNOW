@@ -10,7 +10,7 @@ export function NotificationBadge() {
   const { session } = useAuth();
   const location = useLocation();
   const [count, setCount] = useState<{ key: string; value: string }>();
-  const key = `${session?.tenant.id}:${session?.user.id}:${session?.expires_at}:${location.key}`;
+  const key = `${session?.tenant.id}:${session?.user.id}:${session?.expires_at}:${session?.permissions.join(",")}:${location.key}`;
   useEffect(() => {
     let controller: AbortController | undefined;
     const load = () => {

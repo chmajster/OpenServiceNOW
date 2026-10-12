@@ -979,3 +979,4 @@ tbody tr:last-child td {
 .confirm-dialog { width: min(100%, 34rem); background: white; max-height: 90vh; overflow: auto; }
 .queue-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-block: 1rem; }
 .queue-results { overflow-wrap: anywhere; }
+.notification-form { width: 100%; max-width: 52rem; box-sizing: border-box; }

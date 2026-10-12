@@ -14,7 +14,7 @@ export function useIncidentTitleFocus(key?: string) {
 export function useIncidentQuery<T>(path: string) {
   const { session } = useAuth();
   const [revision, setRevision] = useState(0);
-  const key = `${session?.tenant.id}:${session?.user.id}:${path}:${revision}`;
+  const key = `${session?.tenant.id}:${session?.user.id}:${session?.expires_at}:${session?.permissions?.join(",")}:${path}:${revision}`;
   const current = useRef(key);
   current.current = key;
   const [state, setState] = useState<{

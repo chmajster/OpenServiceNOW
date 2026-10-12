@@ -87,6 +87,7 @@ export const errorLabels: Record<string, string> = {
     "Nie potwierdzono przyjęcia wiadomości; ponowienie może utworzyć duplikat",
   SMTP_KEY_UNAVAILABLE: "Klucz szyfrowania jest niedostępny lub niezgodny",
   SMTP_PROTOCOL_FAILED: "Błąd protokołu SMTP",
+  SMTP_ATTEMPT_LIMIT: "Osiągnięto limit prób dostawy",
   CONSUMER_FAILED: "Odbiorca nie zakończył przetwarzania",
   LEASE_EXHAUSTED: "Wyczerpano próby po utracie procesu",
   JOB_EXHAUSTED: "Zadanie wyczerpało próby",

@@ -64,7 +64,7 @@ function NotificationWorkspace() {
           </p>
         </div>
       </div>
-      <nav className="tab-list" aria-label="Widok powiadomień">
+      <nav className="action-row tabs" aria-label="Widok powiadomień">
         {(
           [
             ["list", "Lista"],
@@ -260,7 +260,7 @@ function PreferenceForm({ initial }: { initial: Preference }) {
   ];
   return (
     <form
-      className="panel form-grid"
+      className="panel form-stack notification-form"
       onSubmit={(e) => {
         e.preventDefault();
         void save();
@@ -369,7 +369,7 @@ export function MailTable({
   return !deliveries.length ? (
     <PageState title="Brak dostaw SMTP" />
   ) : (
-    <div className="table-scroll">
+    <div className="table-scroll" tabIndex={0} aria-label="Tabela dostaw">
       <table>
         <thead>
           <tr>
