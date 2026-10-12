@@ -287,6 +287,9 @@ func (s *Service) Transition(ctx context.Context, a Actor, id uint64, input Tran
 }
 func (s *Service) OverridePriority(ctx context.Context, a Actor, id uint64, input PriorityInput) (Record, error) {
 	input.Reason = strings.TrimSpace(input.Reason)
+	if !validText(input.Reason, 0, 1000) {
+		return Record{}, fmt.Errorf("%w: uzasadnienie priorytetu nie może przekraczać 1000 znaków", ErrInvalid)
+	}
 	if input.Priority != nil && (*input.Priority < 1 || *input.Priority > 5) {
 		return Record{}, fmt.Errorf("%w: priorytet musi mieć wartość 1–5", ErrInvalid)
 	}

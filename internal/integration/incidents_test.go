@@ -414,6 +414,17 @@ func TestIncidentProcess(t *testing.T) {
 		}
 	})
 	t.Run("worker projection and persistence", func(t *testing.T) {
+		cancelled, _, err := service.Create(ctx, agent, input, "cancelled-incident-proof")
+		if err != nil {
+			t.Fatal(err)
+		}
+		cancelled, err = service.Transition(ctx, agent, cancelled.ID, incidents.TransitionInput{Version: cancelled.Version, State: "CANCELLED", Reason: "Zgłoszenie wycofane"})
+		if err != nil || cancelled.CancelledAt == nil {
+			t.Fatalf("cancel=%+v %v", cancelled, err)
+		}
+		if _, err := service.Transition(ctx, agent, cancelled.ID, incidents.TransitionInput{Version: cancelled.Version, State: "IN_PROGRESS"}); !errors.Is(err, incidents.ErrTransition) {
+			t.Fatalf("cancelled reopened: %v", err)
+		}
 		history, err := service.History(ctx, requester, item.ID, 0, 100)
 		if err != nil || !history.Pending || len(history.Entries) != 0 {
 			t.Fatalf("pre-worker history=%+v %v", history, err)
@@ -423,6 +434,28 @@ func TestIncidentProcess(t *testing.T) {
 			t.Fatal(err)
 		}
 		if err := incidents.RegisterEventHandlers(dispatcher, incidents.NewRepository(db), activity.NewProjector(tx, activityRepo)); err != nil {
+			t.Fatal(err)
+		}
+		// Process the newest event first using the real dispatcher, then older
+		// events. History must follow source order rather than projection row IDs.
+		if _, err := db.ExecContext(ctx, "UPDATE outbox_events SET available_at=UTC_TIMESTAMP(6)+INTERVAL 1 MINUTE WHERE tenant_id=? AND status='PENDING'", tenantA.TenantID); err != nil {
+			t.Fatal(err)
+		}
+		var latestEventID uint64
+		if err := db.QueryRowContext(ctx, "SELECT MAX(id) FROM outbox_events WHERE tenant_id=? AND aggregate_type='incident' AND aggregate_id=?", tenantA.TenantID, fmt.Sprint(item.ID)).Scan(&latestEventID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.ExecContext(ctx, "UPDATE outbox_events SET available_at=UTC_TIMESTAMP(6) WHERE id=?", latestEventID); err != nil {
+			t.Fatal(err)
+		}
+		if processed, err := dispatcher.RunOnce(ctx); err != nil || !processed {
+			t.Fatalf("newest projection: %t %v", processed, err)
+		}
+		firstHistory, err := service.History(ctx, requester, item.ID, 0, 100)
+		if err != nil || len(firstHistory.Entries) != 1 {
+			t.Fatalf("first history: %+v %v", firstHistory, err)
+		}
+		if _, err := db.ExecContext(ctx, "UPDATE outbox_events SET available_at=UTC_TIMESTAMP(6) WHERE tenant_id=? AND status='PENDING'", tenantA.TenantID); err != nil {
 			t.Fatal(err)
 		}
 		for n := 0; n < 100; n++ {
@@ -462,6 +495,37 @@ func TestIncidentProcess(t *testing.T) {
 		}
 		if !sawReopen || !sawOverride {
 			t.Fatal("expected domain history missing")
+		}
+		var registeredTypes int
+		if err := db.QueryRowContext(ctx, "SELECT COUNT(DISTINCT entry_type) FROM activity_entries WHERE tenant_id=? AND object_type='incident'", tenantA.TenantID).Scan(&registeredTypes); err != nil || registeredTypes != len(incidents.EventSummaries) {
+			t.Fatalf("projected %d event types, want %d: %v", registeredTypes, len(incidents.EventSummaries), err)
+		}
+		previousVersion := item.Version + 1
+		cursor := uint64(0)
+		count := 0
+		for {
+			page, err := service.History(ctx, requester, item.ID, cursor, 3)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, entry := range page.Entries {
+				var event incidents.ChangeEvent
+				if err := json.Unmarshal(entry.Data, &event); err != nil {
+					t.Fatal(err)
+				}
+				if event.IncidentVersion >= previousVersion {
+					t.Fatal("history cursor lost source event ordering")
+				}
+				previousVersion = event.IncidentVersion
+				count++
+			}
+			if page.NextBeforeEventID == 0 {
+				break
+			}
+			cursor = page.NextBeforeEventID
+		}
+		if count != len(history.Entries) {
+			t.Fatalf("paginated history %d != %d", count, len(history.Entries))
 		}
 		var eventID uint64
 		if err := db.QueryRowContext(ctx, "SELECT id FROM outbox_events WHERE tenant_id=? AND aggregate_type='incident' AND aggregate_id=? ORDER BY id LIMIT 1", tenantA.TenantID, fmt.Sprint(item.ID)).Scan(&eventID); err != nil {
