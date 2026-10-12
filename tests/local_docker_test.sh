@@ -123,10 +123,12 @@ stop_listener
 
 # Replacing the API also refreshes an already-running Nginx upstream.
 api_before=$(compose ps -aq api)
+api_address=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$api_before")
 compose rm -sf api
-docker run -d --name "${project}-api-address-holder" --network "${project}_default" alpine:3.22 sleep 300 >/dev/null
+docker run -d --name "${project}-api-address-holder" --network "${project}_default" --ip "$api_address" alpine:3.22 sleep 300 >/dev/null
 installer --start
 [[ "$(compose ps -aq api)" != "$api_before" ]]
+[[ "$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$(compose ps -aq api)")" != "$api_address" ]]
 assert_healthy
 docker rm -f "${project}-api-address-holder" >/dev/null
 ids_before=$(compose ps -aq | sort)
