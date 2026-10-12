@@ -19,6 +19,8 @@ import { SetupPage } from "./pages/SetupPage";
 import { DiagnosticsPage } from "./pages/DiagnosticsPage";
 import { AccountPage } from "./pages/AccountPage";
 import { IncidentsPage } from "./pages/IncidentsPage";
+import { NotificationsPage } from "./pages/NotificationsPage";
+import { NotificationAdminPage } from "./pages/NotificationAdminPage";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -40,6 +42,15 @@ const router = createBrowserRouter(
       >
         <Route index element={<OverviewPage />} />
         <Route path="account" element={<AccountPage />} />
+        <Route path="notifications" element={<NotificationsPage />} />
+        <Route
+          path="notification-admin"
+          element={
+            <RequirePermission permission="admin.notifications.manage">
+              <NotificationAdminPage />
+            </RequirePermission>
+          }
+        />
         <Route path="incidents" element={<IncidentsPage />} />
         <Route path="incidents/:incidentID" element={<IncidentsPage />} />
         <Route

@@ -45,7 +45,7 @@ export function UnsavedGuard({ dirty }: { dirty: boolean }) {
       >
         <h2 id="leave-title">Niezapisana praca</h2>
         <p>
-          Opuszczenie incydentu usunie niezapisane dane. Zapisz je lub świadomie
+          Opuszczenie strony usunie niezapisane dane. Zapisz je lub świadomie
           zrezygnuj z edycji.
         </p>
         <div className="action-row">

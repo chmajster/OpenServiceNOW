@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
+import { NotificationBadge } from "../notifications/NotificationBadge";
 
 type NavItem = {
   to: string;
@@ -22,6 +23,12 @@ const navigation: NavItem[] = [
     anyPermissions: ["incident.read", "incident.read_own"],
   },
   { to: "/account", label: "Moje konto" },
+  { to: "/notifications", label: "Powiadomienia" },
+  {
+    to: "/notification-admin",
+    label: "Dostarczanie powiadomień",
+    permission: "admin.notifications.manage",
+  },
   { to: "/", label: "Przegląd" },
   { to: "/tenant", label: "Organizacja", permission: "tenant.read" },
   { to: "/users", label: "Użytkownicy", permission: "admin.users.manage" },
@@ -136,6 +143,11 @@ export function AppShell() {
             <span className="muted"> / {session?.tenant.slug}</span>
           </div>
           <div className="topbar-actions">
+            {status === "authenticated" &&
+            session &&
+            !session.password_change_required ? (
+              <NotificationBadge />
+            ) : null}
             {status === "authenticated" && session ? (
               <span className="status-pill">Zalogowano</span>
             ) : null}
