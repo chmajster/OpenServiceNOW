@@ -90,7 +90,7 @@ function ProcessWorkspace({ initial }: { initial: Execution }) {
         Wersja procesu {x.definition_version} · {labels[x.state]} · krok{" "}
         {x.current_node} · wykonanie #{x.id}
       </p>
-      <p>
+      <p className="action-row">
         {hasPermission("workflow.approve") ? (
           <Link to="/approvals">Moje akceptacje</Link>
         ) : null}
@@ -173,7 +173,10 @@ function ProcessWorkspace({ initial }: { initial: Execution }) {
             ) : null}
             {s.decisions?.map((d) => (
               <p key={d.user_id}>
-                {d.name}: {labels[d.decision]}
+                {d.name}:{" "}
+                {d.decision === "PENDING" && s.state !== "WAITING"
+                  ? "Decyzja niewymagana — krok zakończony"
+                  : labels[d.decision]}
                 {d.reason ? ` · ${d.reason}` : ""}
               </p>
             ))}
