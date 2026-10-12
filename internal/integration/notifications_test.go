@@ -341,6 +341,16 @@ func TestIndependentNotifications(t *testing.T) {
 	if err != nil || mailPage.Deliveries[0].Status != "FAILED" || mailPage.Deliveries[0].Attempts != 3 || mailPage.Deliveries[0].ErrorCode != "SMTP_CONNECT_FAILED" {
 		t.Fatal("SMTP error status", mailPage, err)
 	}
+	// Simulate the last handler dying before finalization while its durable job
+	// has already exhausted its lease. History must not claim it is still sending.
+	failedMail := mailPage.Deliveries[0]
+	if _, err = db.ExecContext(ctx, `UPDATE notification_mail_attempts SET status='SENDING',error_code='',finished_at=NULL WHERE delivery_id=? AND attempt_number=3`, failedMail.ID); err != nil {
+		t.Fatal(err)
+	}
+	attempts, err := service.Attempts(ctx, root.TenantID, root.UserID, failedMail.ID)
+	if err != nil || len(attempts) != 3 || attempts[0].Status != "UNKNOWN" || attempts[0].ErrorCode != "LEASE_LOST" || attempts[0].FinishedAt == nil {
+		t.Fatal("stale SMTP attempt misreported", attempts, err)
+	}
 	page, err = service.List(ctx, root.TenantID, reporter, 0, 25)
 	if err != nil || len(page.Notifications) != 3 {
 		t.Fatal("SMTP blocked in-app", page, err)

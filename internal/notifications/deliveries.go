@@ -79,7 +79,11 @@ func (s *Service) Attempts(ctx context.Context, tenant, user, id uint64) ([]Atte
 	if !exists {
 		return nil, ErrNotFound
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT attempt_number,status,error_code,started_at,finished_at FROM notification_mail_attempts WHERE delivery_id=? ORDER BY attempt_number DESC LIMIT 100`, id)
+	// An exhausted/cancelled job or expired lease cannot still be sending. A
+	// crash may prevent the handler from finalizing its last attempt, so expose
+	// that outcome as unknown until a later retry persists the reconciliation.
+	const lost = `a.status='SENDING' AND (j.id IS NULL OR j.status<>'RUNNING' OR j.lease_expires_at<=UTC_TIMESTAMP(6))`
+	rows, err := s.db.QueryContext(ctx, `SELECT a.attempt_number,CASE WHEN `+lost+` THEN 'UNKNOWN' ELSE a.status END,CASE WHEN `+lost+` THEN 'LEASE_LOST' ELSE a.error_code END,a.started_at,CASE WHEN `+lost+` THEN COALESCE(a.finished_at,j.finished_at,j.lease_expires_at) ELSE a.finished_at END FROM notification_mail_attempts a JOIN notification_mail_deliveries d ON d.id=a.delivery_id LEFT JOIN jobs j ON j.id=d.job_id WHERE d.tenant_id=? AND a.delivery_id=? ORDER BY a.attempt_number DESC LIMIT 100`, tenant, id)
 	if err != nil {
 		return nil, err
 	}
