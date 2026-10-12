@@ -1,10 +1,18 @@
 import { useEffect, useRef } from "react";
 import { useBlocker } from "react-router-dom";
 
-export function UnsavedGuard({ dirty }: { dirty: boolean }) {
+export function UnsavedGuard({
+  dirty,
+  includeSearch = false,
+}: {
+  dirty: boolean;
+  includeSearch?: boolean;
+}) {
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      dirty && currentLocation.pathname !== nextLocation.pathname,
+      dirty &&
+      (currentLocation.pathname !== nextLocation.pathname ||
+        (includeSearch && currentLocation.search !== nextLocation.search)),
   );
   const stay = useRef<HTMLButtonElement>(null);
   useEffect(() => {

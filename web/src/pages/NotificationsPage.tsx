@@ -256,7 +256,7 @@ function PreferenceForm({ initial }: { initial: Preference }) {
     ],
     ["assignments", "Przypisanie incydentu"],
     ["replies", "Odpowiedzi i dozwolone notatki"],
-    ["state_changes", "Zmiany stanu"],
+    ["state_changes", "Zmiany stanu i SLA"],
     ["resolutions", "Rozwiązanie incydentu"],
   ];
   return (

@@ -27,6 +27,7 @@ import {
 import { CommunicationPanel } from "./CommunicationPanel";
 import { ParticipantsPanel } from "./ParticipantsPanel";
 import { UnsavedGuard } from "./UnsavedGuard";
+import { IncidentSLA } from "../sla/IncidentSLA";
 
 type EditorProps = {
   record: Incident;
@@ -198,6 +199,7 @@ export function IncidentWorkspace({
             </Link>
           ))}
       </nav>
+      <IncidentSLA id={record.id} version={record.version} />
       <div hidden={activeTab !== "info"} className="panel">
         <h2>Informacje o incydencie</h2>
         <FieldSummary draft={draftOf(record)} metadata={metadata} />

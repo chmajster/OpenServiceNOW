@@ -24,6 +24,7 @@ const navigation: NavItem[] = [
   },
   { to: "/account", label: "Moje konto" },
   { to: "/notifications", label: "Powiadomienia" },
+  { to: "/sla", label: "SLA i kalendarze", permission: "admin.sla.manage" },
   {
     to: "/notification-admin",
     label: "Dostarczanie powiadomień",
@@ -200,10 +201,19 @@ export function AppShell() {
                   <span aria-hidden="true">/</span>
                   {objectID ? (
                     <>
-                      <Link to={`/rbac?kind=${kind}`}>{current?.label}</Link>
+                      <Link
+                        to={
+                          location.pathname === "/sla"
+                            ? `/sla?kind=${params.get("kind") ?? "policy"}`
+                            : `/rbac?kind=${kind}`
+                        }
+                      >
+                        {current?.label}
+                      </Link>
                       <span aria-hidden="true">/</span>
                       <span aria-current="page">
-                        {params.get("create") === "1"
+                        {params.get("create") === "1" ||
+                        (location.pathname === "/sla" && objectID === "new")
                           ? "Tworzenie"
                           : `#${objectID}`}
                       </span>
