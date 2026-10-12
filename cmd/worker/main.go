@@ -22,6 +22,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/notifications"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
+	"github.com/chmajster/OpenServiceNOW/internal/requests"
 	"github.com/chmajster/OpenServiceNOW/internal/sla"
 	"github.com/chmajster/OpenServiceNOW/internal/systemjobs"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
@@ -119,6 +120,10 @@ func main() {
 	}
 	if err := incidents.RegisterEventHandlers(dispatcher, incidents.NewRepository(db), projector); err != nil {
 		logger.Error("register incident activity handlers", "error", err)
+		os.Exit(1)
+	}
+	if err := requests.RegisterEventHandlers(dispatcher, projector); err != nil {
+		logger.Error("register request activity handlers", "error", err)
 		os.Exit(1)
 	}
 

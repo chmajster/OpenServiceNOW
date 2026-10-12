@@ -167,7 +167,7 @@ func securityHeaders(next http.Handler) http.Handler {
 	})
 }
 
-var incidentUploadPath = regexp.MustCompile(`^/api/v1/incidents/[0-9]+/files$`)
+var incidentUploadPath = regexp.MustCompile(`^/api/v1/(incidents|requests)/[0-9]+/files$`)
 
 func limitBody(max int64) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
