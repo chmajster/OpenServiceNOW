@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/chmajster/OpenServiceNOW/internal/activity"
+	"github.com/chmajster/OpenServiceNOW/internal/attachments"
 	"github.com/chmajster/OpenServiceNOW/internal/audit"
 	"github.com/chmajster/OpenServiceNOW/internal/events"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
@@ -31,11 +32,13 @@ type Service struct {
 	outbox    OutboxAppender
 	activity  *activity.Repository
 	now       func() time.Time
+	files     *attachments.Service
 }
 
 func NewService(repo *Repository, tx *database.TxManager, allocator *workrecords.Allocator, work *workrecords.Service, auditRepo *audit.MySQLRepository, outbox OutboxAppender, activityRepo *activity.Repository) *Service {
-	return &Service{repo, tx, allocator, work, auditRepo, outbox, activityRepo, time.Now}
+	return &Service{repo: repo, tx: tx, allocator: allocator, work: work, audit: auditRepo, outbox: outbox, activity: activityRepo, now: time.Now}
 }
+func (s *Service) WithAttachments(files *attachments.Service) *Service { s.files = files; return s }
 
 var requestKeyPattern = regexp.MustCompile(`^[A-Za-z0-9._:-]{8,128}$`)
 
@@ -391,14 +394,18 @@ func (s *Service) History(ctx context.Context, a Actor, id, before uint64, limit
 	if _, err := s.Get(ctx, a, id); err != nil {
 		return HistoryPage{}, err
 	}
-	page, err := s.activity.ListBySourceEvent(ctx, a.TenantID, "incident", fmt.Sprint(id), before, limit)
+	page, err := s.activity.ListVisibleBySourceEvent(ctx, a.TenantID, "incident", fmt.Sprint(id), before, limit, notesAllowed(a))
 	if err != nil {
 		return HistoryPage{}, err
 	}
 	result := HistoryPage{Entries: []HistoryEntry{}, NextBeforeEventID: page.NextBeforeID}
 	for _, entry := range page.Entries {
-		result.Entries = append(result.Entries, HistoryEntry{entry.ID, entry.Type, entry.Summary, entry.ActorUserID, entry.EventTime, entry.Data})
+		result.Entries = append(result.Entries, HistoryEntry{ID: entry.ID, Type: entry.Type, Summary: entry.Summary, ActorUserID: entry.ActorUserID, EventTime: entry.EventTime, Data: entry.Data, ActorName: entry.ActorName, SourceEventID: entry.SourceEventID})
 	}
-	err = s.repo.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM outbox_events WHERE tenant_id=? AND aggregate_type='incident' AND aggregate_id=? AND status<>'DELIVERED')`, a.TenantID, fmt.Sprint(id)).Scan(&result.Pending)
+	query := `SELECT EXISTS(SELECT 1 FROM outbox_events WHERE tenant_id=? AND aggregate_type='incident' AND aggregate_id=? AND status<>'DELIVERED'`
+	if !notesAllowed(a) {
+		query += ` AND (event_type IN ('incident.created','incident.updated','incident.assigned','incident.state.changed','incident.reopened','incident.resolved','incident.closed','incident.cancelled','incident.priority.changed','work.comment.added') OR JSON_UNQUOTE(JSON_EXTRACT(payload,'$.visibility'))='PUBLIC') AND event_type<>'work.work_note.added' AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload,'$.message_type')),'')<>'WORK_NOTE'`
+	}
+	err = s.repo.db.QueryRowContext(ctx, query+`)`, a.TenantID, fmt.Sprint(id)).Scan(&result.Pending)
 	return result, err
 }

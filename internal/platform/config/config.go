@@ -18,6 +18,7 @@ const (
 )
 
 type Config struct {
+	AttachmentRoot    string
 	AppEnv            string
 	HTTPAddr          string
 	ShutdownTimeout   time.Duration
@@ -185,6 +186,7 @@ func Load() (Config, error) {
 
 	cfg := Config{
 		AppEnv:          appEnv,
+		AttachmentRoot:  getenv("ATTACHMENT_ROOT", ".opensnow/attachments"),
 		HTTPAddr:        getenv("HTTP_ADDR", "127.0.0.1:8080"),
 		ShutdownTimeout: shutdownTimeout,
 		MySQL: MySQLConfig{

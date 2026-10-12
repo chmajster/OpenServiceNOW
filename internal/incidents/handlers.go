@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/chmajster/OpenServiceNOW/internal/attachments"
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/httpapi"
@@ -34,9 +35,23 @@ func RegisterRoutes(r chi.Router, h *Handler, m *identity.Middleware) {
 		r.Get("/", h.List)
 		r.Get("/metadata", h.Metadata)
 		r.Get("/lookups/{kind}", h.Choices)
+		r.With(m.RequireCSRF).Post("/batch", h.Batch)
 		r.With(m.RequireCSRF).Post("/", h.Create)
 		r.Get("/{incidentID}", h.Get)
 		r.Get("/{incidentID}/history", h.History)
+		r.Get("/{incidentID}/communication-access", h.CommunicationAccess)
+		r.Get("/{incidentID}/messages", h.Messages)
+		r.With(m.RequireCSRF).Post("/{incidentID}/messages", h.AddMessage)
+		r.Get("/{incidentID}/files", h.FileList)
+		r.With(m.RequireCSRF).Post("/{incidentID}/files", h.UploadFile)
+		r.Get("/{incidentID}/files/{fileID}", h.DownloadFile)
+		r.With(m.RequireCSRF).Delete("/{incidentID}/files/{fileID}", h.DeleteFile)
+		r.Get("/{incidentID}/watchers", h.Watchers)
+		r.With(m.RequireCSRF).Put("/{incidentID}/watchers/{userID}", h.Watch)
+		r.With(m.RequireCSRF).Delete("/{incidentID}/watchers/{userID}", h.Watch)
+		r.Get("/{incidentID}/relations", h.Relations)
+		r.With(m.RequireCSRF).Post("/{incidentID}/relations", h.AddRelation)
+		r.With(m.RequireCSRF).Delete("/{incidentID}/relations/{relationID}", h.RemoveRelation)
 		r.With(m.RequireCSRF).Put("/{incidentID}", h.Update)
 		r.With(m.RequireCSRF).Put("/{incidentID}/assignment", h.Assign)
 		r.With(m.RequireCSRF).Post("/{incidentID}/transition", h.Transition)
@@ -271,6 +286,12 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		return
 	}
 	switch {
+	case errors.Is(err, attachments.ErrTooLarge):
+		httpapi.WriteError(w, r, 413, "FILE_TOO_LARGE", "Plik może mieć najwyżej 10 MiB; całe żądanie 11 MiB.")
+	case errors.Is(err, attachments.ErrInvalid):
+		httpapi.WriteError(w, r, 400, "FILE_INVALID", "Wybierz niepusty plik z poprawną nazwą i kategorią dostępu.")
+	case errors.Is(err, attachments.ErrNotFound):
+		httpapi.WriteError(w, r, 404, "FILE_NOT_FOUND", "Plik nie istnieje lub nie masz do niego dostępu.")
 	case errors.Is(err, ErrNotFound):
 		httpapi.WriteError(w, r, 404, "INCIDENT_NOT_FOUND", "Incydent nie istnieje lub nie masz do niego dostępu.")
 	case errors.Is(err, ErrForbidden):

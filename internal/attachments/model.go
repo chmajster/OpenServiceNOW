@@ -22,6 +22,8 @@ var (
 )
 
 type Attachment struct {
+	Visibility  string
+	MessageID   *uint64
 	ID          uint64
 	TenantID    uint64
 	ObjectType  string
@@ -38,6 +40,8 @@ type Attachment struct {
 }
 
 type CreateInput struct {
+	Visibility string
+	MessageID  *uint64
 	TenantID   uint64
 	ObjectType string
 	ObjectID   string

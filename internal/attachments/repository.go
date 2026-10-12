@@ -73,13 +73,19 @@ func (r *Repository) create(
 			return Attachment{}, err
 		}
 	}
+	if input.Visibility == "" {
+		input.Visibility = "INTERNAL"
+	}
+	if input.Visibility != "PUBLIC" && input.Visibility != "INTERNAL" {
+		return Attachment{}, ErrInvalid
+	}
 	result, err := exec.ExecContext(ctx, `
 		INSERT INTO attachments (
 			tenant_id, object_type, object_id, file_name, content_type,
-			size_bytes, sha256, storage_key, uploaded_by
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			size_bytes, sha256, storage_key, uploaded_by, visibility, message_id
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, input.TenantID, input.ObjectType, input.ObjectID, input.FileName, contentType,
-		size, sum[:], storageKey, nullableUint64(input.UploadedBy))
+		size, sum[:], storageKey, nullableUint64(input.UploadedBy), input.Visibility, nullableUint64(input.MessageID))
 	if err != nil {
 		return Attachment{}, fmt.Errorf("create attachment metadata: %w", err)
 	}
@@ -254,7 +260,7 @@ func (r *Repository) finishDelete(
 const attachmentSelect = `
 	SELECT
 		id, tenant_id, object_type, object_id, file_name, content_type,
-		size_bytes, sha256, storage_key, status, uploaded_by, created_at, deleted_at
+		size_bytes, sha256, storage_key, status, uploaded_by, created_at, deleted_at, visibility, message_id
 	FROM attachments
 `
 
@@ -267,6 +273,7 @@ func scanAttachment(row rowScanner) (Attachment, error) {
 	var sum []byte
 	var uploadedBy sql.Null[uint64]
 	var deletedAt sql.NullTime
+	var messageID sql.Null[uint64]
 	if err := row.Scan(
 		&attachment.ID,
 		&attachment.TenantID,
@@ -281,6 +288,8 @@ func scanAttachment(row rowScanner) (Attachment, error) {
 		&uploadedBy,
 		&attachment.CreatedAt,
 		&deletedAt,
+		&attachment.Visibility,
+		&messageID,
 	); err != nil {
 		return Attachment{}, err
 	}
@@ -295,6 +304,9 @@ func scanAttachment(row rowScanner) (Attachment, error) {
 	if deletedAt.Valid {
 		value := deletedAt.Time
 		attachment.DeletedAt = &value
+	}
+	if messageID.Valid {
+		attachment.MessageID = &messageID.V
 	}
 	return attachment, nil
 }

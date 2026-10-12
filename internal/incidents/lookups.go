@@ -30,6 +30,15 @@ func (s *Service) Choices(ctx context.Context, a Actor, kind, purpose, q string,
 	var query string
 	args := []any{a.TenantID, after}
 	switch kind {
+	case "incidents":
+		access, acl := readPredicate(a, "i")
+		query = `SELECT i.id,CONCAT(i.number,' · ',i.title),'' FROM incidents i WHERE i.tenant_id=? AND i.id>? AND ` + access
+		args = append(args, acl...)
+		if q != "" {
+			query += ` AND (i.number LIKE ? ESCAPE '!' OR i.title LIKE ? ESCAPE '!')`
+			args = append(args, "%"+escaped+"%", "%"+escaped+"%")
+		}
+		query += " ORDER BY i.id"
 	case "users":
 		if purpose != "affected" && purpose != "assignment" {
 			return Choices{}, ErrInvalid
@@ -97,7 +106,7 @@ func (s *Service) Choices(ctx context.Context, a Actor, kind, purpose, q string,
 		choices = choices[:limit]
 		result.NextAfterID = choices[limit-1].ID
 	}
-	if kind == "users" {
+	if kind == "users" || kind == "incidents" {
 		result.Users = choices
 	} else {
 		result.Groups = choices

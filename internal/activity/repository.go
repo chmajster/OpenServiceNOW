@@ -36,6 +36,12 @@ func (r *Repository) Append(ctx context.Context, exec database.Executor, input I
 	if len(input.Data) > 0 && !json.Valid(input.Data) {
 		return 0, false, ErrInvalid
 	}
+	if input.Visibility == "" {
+		input.Visibility = "INTERNAL"
+	}
+	if input.Visibility != "PUBLIC" && input.Visibility != "INTERNAL" {
+		return 0, false, ErrInvalid
+	}
 	if input.EventTime.IsZero() {
 		input.EventTime = time.Now().UTC()
 	}
@@ -48,10 +54,10 @@ func (r *Repository) Append(ctx context.Context, exec database.Executor, input I
 		result, err := exec.ExecContext(ctx, `
 			INSERT INTO activity_entries (
 				tenant_id, object_type, object_id, entry_type, actor_user_id,
-				summary, data, event_time
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+				summary, data, event_time, visibility
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`, input.TenantID, input.ObjectType, input.ObjectID, input.Type,
-			nullableUint64(input.ActorUserID), input.Summary, data, input.EventTime.UTC())
+			nullableUint64(input.ActorUserID), input.Summary, data, input.EventTime.UTC(), input.Visibility)
 		if err != nil {
 			return 0, false, fmt.Errorf("append activity entry: %w", err)
 		}
@@ -65,11 +71,11 @@ func (r *Repository) Append(ctx context.Context, exec database.Executor, input I
 	result, err := exec.ExecContext(ctx, `
 		INSERT INTO activity_entries (
 			tenant_id, object_type, object_id, entry_type, actor_user_id,
-			summary, data, source_event_id, event_time
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			summary, data, source_event_id, event_time, visibility
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)
 	`, input.TenantID, input.ObjectType, input.ObjectID, input.Type,
-		nullableUint64(input.ActorUserID), input.Summary, data, *input.SourceEventID, input.EventTime.UTC())
+		nullableUint64(input.ActorUserID), input.Summary, data, *input.SourceEventID, input.EventTime.UTC(), input.Visibility)
 	if err != nil {
 		return 0, false, fmt.Errorf("append event-backed activity entry: %w", err)
 	}
@@ -91,16 +97,16 @@ func (r *Repository) List(
 	beforeID uint64,
 	limit int,
 ) (Page, error) {
-	return r.list(ctx, tenantID, objectType, objectID, beforeID, limit, false)
+	return r.list(ctx, tenantID, objectType, objectID, beforeID, limit, false, true)
 }
 
 // ListBySourceEvent follows transactional event order even if workers project
 // concurrent events out of order. Its cursor identifies the source event.
 func (r *Repository) ListBySourceEvent(ctx context.Context, tenantID uint64, objectType, objectID string, beforeEventID uint64, limit int) (Page, error) {
-	return r.list(ctx, tenantID, objectType, objectID, beforeEventID, limit, true)
+	return r.list(ctx, tenantID, objectType, objectID, beforeEventID, limit, true, true)
 }
 
-func (r *Repository) list(ctx context.Context, tenantID uint64, objectType, objectID string, beforeID uint64, limit int, bySource bool) (Page, error) {
+func (r *Repository) list(ctx context.Context, tenantID uint64, objectType, objectID string, beforeID uint64, limit int, bySource, internal bool) (Page, error) {
 	objectType = strings.TrimSpace(objectType)
 	objectID = strings.TrimSpace(objectID)
 	if tenantID == 0 || objectType == "" || objectID == "" || limit < 1 || limit > 200 {
@@ -108,11 +114,14 @@ func (r *Repository) list(ctx context.Context, tenantID uint64, objectType, obje
 	}
 	query := `
 		SELECT id, tenant_id, object_type, object_id, entry_type, actor_user_id,
-		       summary, data, source_event_id, event_time
+		       summary, data, source_event_id, event_time, (SELECT display_name FROM users WHERE users.id=activity_entries.actor_user_id)
 		FROM activity_entries
 		WHERE tenant_id = ? AND object_type = ? AND object_id = ?
 	`
 	args := []any{tenantID, objectType, objectID}
+	if !internal {
+		query += " AND visibility = 'PUBLIC' AND entry_type <> 'work_note' AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(data,'$.message_type')),'') <> 'WORK_NOTE'"
+	}
 	orderColumn := "id"
 	if bySource {
 		orderColumn = "source_event_id"
@@ -153,6 +162,11 @@ func (r *Repository) list(ctx context.Context, tenantID uint64, objectType, obje
 	return page, nil
 }
 
+// ListVisibleBySourceEvent never returns hidden payloads, summaries or cursors.
+func (r *Repository) ListVisibleBySourceEvent(ctx context.Context, tenantID uint64, objectType, objectID string, before uint64, limit int, internal bool) (Page, error) {
+	return r.list(ctx, tenantID, objectType, objectID, before, limit, true, internal)
+}
+
 type rowScanner interface {
 	Scan(...any) error
 }
@@ -172,6 +186,7 @@ func scanEntry(row rowScanner) (Entry, error) {
 		&data,
 		&source,
 		&entry.EventTime,
+		&entry.ActorName,
 	); err != nil {
 		return Entry{}, err
 	}

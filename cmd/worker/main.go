@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/chmajster/OpenServiceNOW/internal/activity"
+	"github.com/chmajster/OpenServiceNOW/internal/attachments"
 	"github.com/chmajster/OpenServiceNOW/internal/events"
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
 	"github.com/chmajster/OpenServiceNOW/internal/incidents"
@@ -21,6 +22,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
 	"github.com/chmajster/OpenServiceNOW/internal/systemjobs"
+	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 )
 
 func main() {
@@ -82,25 +84,18 @@ func main() {
 		os.Exit(1)
 	}
 	projector := activity.NewProjector(database.NewTxManager(db), activity.NewRepository(db))
-	eventHandlers := map[string]struct {
-		entryType string
-		summary   string
-	}{
-		"work.assignment.changed": {entryType: "assignment", summary: "Assignment updated"},
-		"work.comment.added":      {entryType: "comment", summary: "Comment added"},
-		"work.work_note.added":    {entryType: "work_note", summary: "Work note added"},
-		"work.watcher.added":      {entryType: "watcher", summary: "Watcher added"},
-		"work.watcher.removed":    {entryType: "watcher", summary: "Watcher removed"},
-		"work.relation.added":     {entryType: "relation", summary: "Related record added"},
-		"work.relation.removed":   {entryType: "relation", summary: "Related record removed"},
-		"work.attachment.added":   {entryType: "attachment", summary: "Attachment added"},
-		"work.attachment.removed": {entryType: "attachment", summary: "Attachment removed"},
+	if err := workrecords.RegisterActivityHandlers(dispatcher, projector); err != nil {
+		logger.Error("register work activity handlers", "error", err)
+		os.Exit(1)
 	}
-	for eventType, metadata := range eventHandlers {
-		if err := dispatcher.Register(eventType, projector.Handler(metadata.entryType, metadata.summary)); err != nil {
-			logger.Error("register activity projection handler", "event_type", eventType, "error", err)
-			os.Exit(1)
-		}
+	storage, err := attachments.NewLocalStorage(cfg.AttachmentRoot)
+	if err != nil {
+		logger.Error("attachment storage unavailable", "error", err)
+		os.Exit(1)
+	}
+	if err := jobWorker.Register(attachments.CleanupJobType, attachments.CleanupHandler(storage, attachments.NewRepository(db))); err != nil {
+		logger.Error("register attachment cleanup", "error", err)
+		os.Exit(1)
 	}
 	if err := incidents.RegisterEventHandlers(dispatcher, incidents.NewRepository(db), projector); err != nil {
 		logger.Error("register incident activity handlers", "error", err)

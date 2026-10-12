@@ -141,17 +141,25 @@ func (r *Repository) ListMessages(
 	beforeID uint64,
 	limit int,
 ) (MessagePage, error) {
+	return r.ListMessagesVisible(ctx, tenantID, objectType, objectID, beforeID, limit, true)
+}
+
+// ListMessagesVisible filters before lookahead/pagination, including the cursor.
+func (r *Repository) ListMessagesVisible(ctx context.Context, tenantID uint64, objectType, objectID string, beforeID uint64, limit int, internal bool) (MessagePage, error) {
 	objectType = strings.TrimSpace(objectType)
 	objectID = strings.TrimSpace(objectID)
 	if !validObjectRef(tenantID, objectType, objectID) || limit < 1 || limit > 200 {
 		return MessagePage{}, ErrInvalid
 	}
 	query := `
-		SELECT id, tenant_id, object_type, object_id, message_type, body, author_user_id, created_at
+		SELECT id, tenant_id, object_type, object_id, message_type, body, author_user_id, created_at, (SELECT display_name FROM users WHERE users.id=work_messages.author_user_id)
 		FROM work_messages
 		WHERE tenant_id = ? AND object_type = ? AND object_id = ?
 	`
 	args := []any{tenantID, objectType, objectID}
+	if !internal {
+		query += " AND message_type = 'COMMENT'"
+	}
 	if beforeID > 0 {
 		query += " AND id < ?"
 		args = append(args, beforeID)
@@ -169,7 +177,7 @@ func (r *Repository) ListMessages(
 		var item Message
 		if err := rows.Scan(
 			&item.ID, &item.TenantID, &item.ObjectType, &item.ObjectID,
-			&item.Type, &item.Body, &item.AuthorUserID, &item.CreatedAt,
+			&item.Type, &item.Body, &item.AuthorUserID, &item.CreatedAt, &item.AuthorName,
 		); err != nil {
 			return MessagePage{}, fmt.Errorf("scan work message: %w", err)
 		}
@@ -442,12 +450,12 @@ func (r *Repository) getAssignment(
 func (r *Repository) getMessage(ctx context.Context, exec database.Executor, tenantID, id uint64) (Message, error) {
 	var item Message
 	if err := exec.QueryRowContext(ctx, `
-		SELECT id, tenant_id, object_type, object_id, message_type, body, author_user_id, created_at
+		SELECT id, tenant_id, object_type, object_id, message_type, body, author_user_id, created_at, (SELECT display_name FROM users WHERE users.id=work_messages.author_user_id)
 		FROM work_messages
 		WHERE tenant_id = ? AND id = ?
 	`, tenantID, id).Scan(
 		&item.ID, &item.TenantID, &item.ObjectType, &item.ObjectID,
-		&item.Type, &item.Body, &item.AuthorUserID, &item.CreatedAt,
+		&item.Type, &item.Body, &item.AuthorUserID, &item.CreatedAt, &item.AuthorName,
 	); err != nil {
 		return Message{}, fmt.Errorf("get work message: %w", err)
 	}

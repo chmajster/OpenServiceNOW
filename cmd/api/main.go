@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/chmajster/OpenServiceNOW/internal/activity"
+	"github.com/chmajster/OpenServiceNOW/internal/attachments"
 	"github.com/chmajster/OpenServiceNOW/internal/audit"
 	"github.com/chmajster/OpenServiceNOW/internal/auditapi"
 	"github.com/chmajster/OpenServiceNOW/internal/events"
@@ -95,6 +96,17 @@ func main() {
 	incidentService := incidents.NewService(incidents.NewRepository(db), txManager,
 		workrecords.NewAllocator(txManager), workrecords.NewService(workrecords.NewRepository(db), txManager, outboxRepo),
 		auditRepo, outboxRepo, activity.NewRepository(db))
+	storage, err := attachments.NewLocalStorage(cfg.AttachmentRoot)
+	if err != nil {
+		logger.Error("attachment storage unavailable", "error", err)
+		os.Exit(1)
+	}
+	files, err := attachments.NewEventingService(attachments.NewRepository(db), storage, attachments.MaxFileBytes, txManager, outboxRepo)
+	if err != nil {
+		logger.Error("attachment service unavailable", "error", err)
+		os.Exit(1)
+	}
+	incidentService.WithAttachments(files)
 	incidentHandler := incidents.NewHandler(incidentService, identityService)
 
 	healthHandler := health.New(

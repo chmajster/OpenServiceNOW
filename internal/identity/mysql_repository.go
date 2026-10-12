@@ -157,7 +157,12 @@ func (r *MySQLRepository) RevokeUserSessions(
 }
 
 func (r *MySQLRepository) ListPermissions(ctx context.Context, tenantID, userID uint64) ([]string, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	return r.ListPermissionsInTx(ctx, r.db, tenantID, userID)
+}
+
+// Reuses permission SQL in a domain transaction, including a one-connection pool.
+func (r *MySQLRepository) ListPermissionsInTx(ctx context.Context, exec platformdb.Executor, tenantID, userID uint64) ([]string, error) {
+	rows, err := exec.QueryContext(ctx, `
 		SELECT p.permission_key
 		FROM permissions p
 		WHERE EXISTS (

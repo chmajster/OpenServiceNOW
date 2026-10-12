@@ -175,12 +175,14 @@ func fields(r Record) Fields {
 }
 
 type HistoryEntry struct {
-	ID          uint64          `json:"id,string"`
-	Type        string          `json:"type"`
-	Summary     string          `json:"summary"`
-	ActorUserID *uint64         `json:"actor_user_id,string,omitempty"`
-	EventTime   time.Time       `json:"event_time"`
-	Data        json.RawMessage `json:"data"`
+	ID            uint64          `json:"id,string"`
+	Type          string          `json:"type"`
+	Summary       string          `json:"summary"`
+	ActorUserID   *uint64         `json:"actor_user_id,string,omitempty"`
+	EventTime     time.Time       `json:"event_time"`
+	Data          json.RawMessage `json:"data"`
+	ActorName     string          `json:"actor_name"`
+	SourceEventID *uint64         `json:"source_event_id,string,omitempty"`
 }
 type HistoryPage struct {
 	Entries           []HistoryEntry `json:"entries"`
