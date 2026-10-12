@@ -637,18 +637,15 @@ test("catalog retry and duplicate creation preserve the role draft", async ({
 }) => {
   await login(page);
   await page.goto("/rbac?kind=roles");
-  let first = true;
   await page.route("**/api/v1/admin/rbac/permissions", (route) => {
-    if (first) {
-      first = false;
-      return route.abort("failed");
-    }
-    return route.continue();
+    return route.abort("failed");
   });
   await page.getByRole("button", { name: "Nowa rola" }).click();
   const name = `draft-${scope()}`;
   await page.getByLabel("Nazwa", { exact: true }).fill(name);
   await page.getByLabel("Opis", { exact: true }).fill("Zachowaj tę pracę");
+  await expect(page.getByRole("button", { name: "Pobierz katalog uprawnień" })).toBeVisible();
+  await page.unroute("**/api/v1/admin/rbac/permissions");
   await page.getByRole("button", { name: "Pobierz katalog uprawnień" }).click();
   await expect(page.getByLabel("Nazwa", { exact: true })).toHaveValue(name);
   await checkbox(page, "tenant.read").check();
