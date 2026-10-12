@@ -182,7 +182,7 @@ Exit criteria:
 
 ## Phase 3 — Incident Management
 
-Core process delivered in PR #17: model/migrations, create/read/update/list, active assignment, category/subcategory catalog, explicit priority matrix/override, backend lifecycle, object RBAC/read-own, idempotency/versioning and agent/reporting UI with real worker history. This is the first complete business process, not completion of every extension below. Communication/files are the next stage; CMDB/service fields wait for a real data source. Templates, bulk and major/parent-child workflows remain future work. Verification evidence is maintained in STATUS.md.
+Core process delivered in PR #17: model/migrations, create/read/update/list, active assignment, category/subcategory catalog, explicit priority matrix/override, backend lifecycle, object RBAC/read-own, idempotency/versioning and agent/reporting UI with real worker history. This is the first complete business process, not completion of every extension below. PR #18 extends the process with public replies/internal notes, files, filtered activity, observers, related/parent-child records and two controlled operator batch actions. CMDB/service fields wait for a real data source; templates and major-incident orchestration remain future work. This does not mark all advanced bulk/workflow capabilities delivered. Verification evidence is maintained in STATUS.md.
 
 Goal: production-capable incident lifecycle.
 

@@ -45,8 +45,8 @@ Durable MySQL-backed jobs, worker/scheduler execution and shared work-record inf
 | --- | --- | --- | --- |
 | First-run setup, authentication, tenants, users, RBAC and audit | Services, repositories and migrations | Documented in OpenAPI | Setup, login and administration screens |
 | Jobs and scheduler | Durable jobs/attempts/logs, leases, retry/cancellation primitives; scheduler → worker session cleanup | No public job-management endpoints | No job-management screen |
-| Work records, outbox, activity and attachments | Shared libraries, SQL persistence, worker projections and integration tests | Numbering, assignment and history through incidents; no generic work/file endpoints | Incident assignment/history; communication/files remain future work |
-| Incident Management | Transactional lifecycle, numbering, RBAC, audit and worker history | Documented `/api/v1/incidents` routes | List, creation, details and lifecycle actions |
+| Work records, outbox, activity and attachments | Shared libraries, SQL persistence, worker projections and integration tests | Incident-bound numbering, assignment, communication, files, watchers, relations and history; no generic work/file endpoints | Incident details, communication/files, participants and operator queue |
+| Incident Management | Transactional lifecycle, numbering, RBAC, audit and worker history | Documented `/api/v1/incidents` routes | List, creation, details, lifecycle and operator queue |
 | SLA and other roadmap business modules | Remaining roadmap work | Not available | Not available |
 
 ## Incident Management
@@ -85,10 +85,22 @@ Holding/cancelling requires a reason; resolving requires a code and description.
 | `incident.assign` | Change assignment |
 | `incident.resolve` | Resolve and close |
 | `incident.priority.override` | Set/reset an audited priority override |
+| `incident.communicate` | Public replies and files, together with concrete incident read access |
+| `incident.notes.read` | Internal notes/files/history, together with organization-wide `incident.read` |
+| `incident.notes.write` | Add internal notes/files, together with internal-note read access |
+| `incident.attachments.delete` | Delete accessible files uploaded by others; uploaders can delete their own accessible files |
 
 Writes also require read access to the concrete incident. Create requester/agent roles in **Role** and assign them to users/groups; the protected `platform_admin` inherits the live catalog. Read-own reporters can select themselves as the affected person; agents with organization-wide read can select other active organization members.
 
-Incident, required shared assignment row, audit, request digest and outbox event are persisted atomically in MySQL. Every emitted incident event has a production worker handler. **Historia** shows before/after changes and business occurrence time/version, ordered by source event rather than projection completion. While the worker is unavailable, records remain saved and history reports pending processing; **Odśwież historię** reads the latest state. Communication, files, CMDB/service relations, SLA, templates, bulk actions and major/parent-child workflows are subsequent stages with no unfinished controls in this release.
+Incident, required shared assignment row, audit, request digest and outbox event are persisted atomically in MySQL. Every emitted incident event has a production worker handler. **Historia** shows before/after changes and business occurrence time/version, ordered by source event rather than projection completion. While the worker is unavailable, records remain saved and history reports pending processing; **Odśwież historię** reads the latest state. **Komunikacja i pliki** separates **Odpowiedź dla zgłaszającego** from **Notatka wewnętrzna**. The backend filters private message bodies, file names, payloads and pending-history indicators before pagination. Internal access requires both organization-wide incident read and note-read permissions; read-own reporters receive only public entries. Each download/delete URL checks both the incident and the file. Files inherit their linked message visibility or use an explicit PUBLIC/INTERNAL category. There are no unauthenticated static file URLs or storage keys in public DTOs.
+
+Replies/notes are append-only. Message and upload retries keep their original key/content; another body with that key returns 409. Replies and notes keep separate drafts in memory while switching detail tabs and warn before leaving or refreshing; private notes are never saved in localStorage. The browser sets multipart boundaries, shows actual upload progress and reports transport/size errors. The limit is 10 MiB per file and 11 MiB for multipart requests in the API and Nginx; other request bodies retain their existing limit. MIME is detected from bytes, file names are validated, and downloads use attachment disposition and nosniff.
+
+**Obserwatorzy i powiązania** lists bounded, independently paginated observers and related/parent-child incidents. Observing does not grant access or send email: notifications need a later real delivery provider. Both relationship ends must be accessible; a child has at most one parent and cycles are rejected. **Otwórz kolejkę operatora** keeps filters/cursors in the URL, selects up to 50 displayed records and supports confirmed assignment to self or starting work. Every selected record uses its captured decimal version and returns its own outcome; successful records remain saved when another fails. Read the refreshed records before retrying an uncertain bulk response.
+
+MySQL stores file metadata; bytes live in `ATTACHMENT_ROOT` (native default `.opensnow/attachments`). Docker/DevBox API, worker and scheduler share the persistent `attachment-data` volume at `/var/lib/opensnow/attachments`. Rebuilding/recreating containers and ordinary uninstall/reinstall retain it. Back up both SQL and file storage. Native and Docker storage locations are separate: when changing installer modes or storage roots, copy/restore the referenced bytes while the stack is stopped; sharing the SQL volume alone does not migrate files. Explicit Docker data purge removes its file volume too; custom/native storage is never implicitly deleted.
+
+File deletion immediately disables listing/downloads and commits its audit/outbox in MySQL. The scheduler enqueues an hourly attachment cleanup job; the real worker removes managed temporary/orphan/deleted files older than the 24-hour grace period in bounded SQL batches. Confirmed rollback removes newly prepared bytes immediately; ambiguous commits retain them for reconciliation. Timeline projection remains asynchronous and replay-safe, with author, business date/type, decimal version/source-event cursor and explicit refresh. CMDB/service relations, SLA, templates and major-incident coordination remain subsequent stages.
 
 ## Administration panel
 
@@ -214,7 +226,7 @@ bash ./install.sh --local-docker --no-start
 bash ./install.sh --local-docker --uninstall
 ```
 
-Re-run `--local-docker` after source changes to rebuild and update the application. `--no-start` prepares images and schema while leaving application containers stopped. Restart reuses existing images. Logs are saved as `.opensnow/logs/docker-*.log`. Failed startup stops only components started by that invocation. Uninstall removes this checkout's containers/network and preserves `.env`, SQL volume, Engine and image cache; adding `--purge-data` explicitly removes its SQL volume and `.env`. DevBox's `compose.yaml` remains independent; the local Docker installer explicitly combines `docker-compose.yml` with `docker/compose.local.yaml`.
+Re-run `--local-docker` after source changes to rebuild and update the application. `--no-start` prepares images and schema while leaving application containers stopped. Restart reuses existing images. Logs are saved as `.opensnow/logs/docker-*.log`. Failed startup stops only components started by that invocation. Uninstall removes this checkout's containers/network and preserves `.env`, SQL/file volumes, Engine and image cache; adding `--purge-data` explicitly removes its SQL/file volumes and `.env`. DevBox's `compose.yaml` remains independent; the local Docker installer explicitly combines `docker-compose.yml` with `docker/compose.local.yaml`.
 
 ## DevBox deployment
 
@@ -222,7 +234,7 @@ The root `compose.yaml` packages the complete application: React assets served b
 
 In DevBox, add this local source and choose Docker Compose. Select `frontend` as the HTTP service, container port `8080`, a free host port and readiness path `/health/ready`. Leave the start command empty. Create/bind a MySQL database with a separate application account and schema migration privileges. Deploy and open the application's address to create the first administrator in the WebUI. For unattended setup, set `BOOTSTRAP_ON_START=true`, `BOOTSTRAP_ADMIN_PASSWORD` in SecretStore, and the public `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_NAME` and tenant variables as needed.
 
-DevBox injects `DB_*` credentials at runtime; the backend entrypoint maps them to `MYSQL_*`. API startup applies the explicit migrations and accepts traffic for the WebUI installer; administrator bootstrap runs only when explicitly enabled. Redis/API readiness gates frontend, worker and scheduler startup. The frontend proxies `/api/` and `/health/` to the API on the same origin, preserving session cookies and CSRF checks. Only the frontend port is published; SQL data stays in DevBox's persistent MySQL volume.
+DevBox injects `DB_*` credentials at runtime; the backend entrypoint maps them to `MYSQL_*`. API startup applies the explicit migrations and accepts traffic for the WebUI installer; administrator bootstrap runs only when explicitly enabled. Redis/API readiness gates frontend, worker and scheduler startup. The frontend proxies `/api/` and `/health/` to the API on the same origin, preserving session cookies and CSRF checks. Only the frontend port is published; SQL data stays in DevBox's persistent MySQL volume and file bytes in the shared persistent attachment volume.
 
 Go 1.27 and Node build tooling run inside multi-stage Docker builds, so host interpreters are unnecessary for this deployment. Original sources remain visible through DevBox's RW mounts; rebuild the application after changing Go or frontend code. Secrets, Git metadata, local dependencies and build/test artifacts are excluded from the image build context. The HTTP example uses development cookie settings; configure TLS and secure cookies when deploying HTTPS.
 
@@ -406,6 +418,8 @@ CI performs infrastructure/migration/startup steps automatically in its dedicate
 When testing a fresh default `admin` password, the setup scenario completes its required change before the remaining tests. Suite-created accounts also complete the temporary-password flow. Test login helpers respect real `Retry-After` limits instead of weakening authentication policy.
 
 ## Verification status
+
+Incident collaboration in [PR #18](https://github.com/chmajster/OpenServiceNOW/pull/18) extends the existing process with private/public communication, persistent files, replay-safe activity, observers/relations and two versioned operator batch actions. Current verification results, container durability proof and limitations are recorded in [STATUS.md](STATUS.md) and the PR; earlier results below describe their specific historical revisions.
 
 Incident Management in [PR #17](https://github.com/chmajster/OpenServiceNOW/pull/17) passed local Go unit/race/vet/build, disposable MySQL integration and migration lifecycle 1–32, 15 frontend unit tests, TypeScript/build and 24/24 desktop/mobile browser scenarios. Additional 4/4 isolated scenarios verify priority override/reset and a retained proposal after concurrent closure. Coverage includes concurrent/idempotent creation, lost-response reconciliation, object/tenant isolation, all nine real worker projections and out-of-order history. An actual API/worker process restart preserved UI-created incidents, numbers, versions, assignments, history and saved login. Native lifecycle CI also verifies those records through port changes and ordinary uninstall/reinstall. Final CI/review/merge results are recorded in PR #17.
 
