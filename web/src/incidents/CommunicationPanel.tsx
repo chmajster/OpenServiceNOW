@@ -54,7 +54,18 @@ export function CommunicationPanel({
     `${base}/files?limit=20${filesBefore ? `&before_id=${filesBefore}` : ""}`,
   );
   const [kind, setKind] = useState<"COMMENT" | "WORK_NOTE">("COMMENT");
-  const [body, setBody] = useState("");
+  const [drafts, setDrafts] = useState({ COMMENT: "", WORK_NOTE: "" });
+  const body = drafts[kind];
+  function setBody(value: string) {
+    setDrafts((current) => ({ ...current, [kind]: value }));
+  }
+  function selectKind(next: "COMMENT" | "WORK_NOTE") {
+    if (next === kind) return;
+    setKind(next);
+    setMessageId("");
+    if (next === "WORK_NOTE") setVisibility("INTERNAL");
+    else if (!file) setVisibility("PUBLIC");
+  }
   const [file, setFile] = useState<globalThis.File>();
   const [visibility, setVisibility] = useState("PUBLIC");
   const [messageId, setMessageId] = useState("");
@@ -87,9 +98,14 @@ export function CommunicationPanel({
   useEffect(() => {
     retain(
       "communication",
-      !!body || !!file || !!messageRetry || !!fileRetry || busy,
+      !!drafts.COMMENT ||
+        !!drafts.WORK_NOTE ||
+        !!file ||
+        !!messageRetry ||
+        !!fileRetry ||
+        busy,
     );
-  }, [body, file, messageRetry, fileRetry, busy, retain]);
+  }, [drafts, file, messageRetry, fileRetry, busy, retain]);
   function page(key: string, value?: string) {
     const next = new URLSearchParams(params);
     if (value) next.set(key, value);
@@ -103,6 +119,7 @@ export function CommunicationPanel({
   async function send() {
     if (
       busy ||
+      fileRetry ||
       !access.data ||
       !(kind === "COMMENT" ? access.data.reply : access.data.write_notes)
     )
@@ -257,8 +274,8 @@ export function CommunicationPanel({
                 type="button"
                 className="button button--secondary"
                 aria-pressed={kind === "COMMENT"}
-                disabled={busy || !!messageRetry}
-                onClick={() => setKind("COMMENT")}
+                disabled={busy || !!messageRetry || !!fileRetry}
+                onClick={() => selectKind("COMMENT")}
               >
                 Odpowiedź dla zgłaszającego
               </button>
@@ -268,8 +285,8 @@ export function CommunicationPanel({
                 type="button"
                 className="button button--secondary"
                 aria-pressed={kind === "WORK_NOTE"}
-                disabled={busy || !!messageRetry}
-                onClick={() => setKind("WORK_NOTE")}
+                disabled={busy || !!messageRetry || !!fileRetry}
+                onClick={() => selectKind("WORK_NOTE")}
               >
                 Notatka wewnętrzna
               </button>
@@ -287,8 +304,11 @@ export function CommunicationPanel({
               }
               rows={5}
               value={body}
-              disabled={busy || !!messageRetry}
-              onChange={(event) => setBody(event.target.value)}
+              disabled={busy || !!messageRetry || !!fileRetry}
+              onChange={(event) => {
+                setBody(event.target.value);
+                setMessageId("");
+              }}
             />
           </label>
           <p className="muted">
@@ -304,7 +324,7 @@ export function CommunicationPanel({
           )}
           <button
             className="button button--primary"
-            disabled={busy || !body.trim()}
+            disabled={busy || !!fileRetry || !body.trim()}
           >
             {messageRetry
               ? "Sprawdź zapis wiadomości"
@@ -425,7 +445,7 @@ export function CommunicationPanel({
                   className="button button--secondary"
                   onClick={() => {
                     setMessageId("");
-                    setVisibility(access.data!.reply ? "PUBLIC" : "INTERNAL");
+                    setVisibility(kind === "WORK_NOTE" ? "INTERNAL" : "PUBLIC");
                   }}
                 >
                   Plik bez powiązanej wiadomości

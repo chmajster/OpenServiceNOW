@@ -147,6 +147,18 @@ test("incident communication protects notes/files and supports watchers, relatio
     await page
       .getByLabel("Treść notatki wewnętrznej")
       .fill(`TAJNA-NOTATKA-${scope}`);
+    await expect(page.getByLabel("Kategoria dostępu")).toHaveValue("INTERNAL");
+    await page
+      .getByRole("button", { name: "Odpowiedź dla zgłaszającego", exact: true })
+      .click();
+    await expect(page.getByLabel("Treść odpowiedzi")).toHaveValue("");
+    await expect(page.getByLabel("Kategoria dostępu")).toHaveValue("PUBLIC");
+    await page
+      .getByRole("button", { name: "Notatka wewnętrzna", exact: true })
+      .click();
+    await expect(page.getByLabel("Treść notatki wewnętrznej")).toHaveValue(
+      `TAJNA-NOTATKA-${scope}`,
+    );
     await page
       .getByRole("navigation", { name: "Główna nawigacja" })
       .getByRole("link", { name: "Incydenty", exact: true })
@@ -176,6 +188,13 @@ test("incident communication protects notes/files and supports watchers, relatio
       mimeType: "text/plain",
       buffer: Buffer.from("TAJNE-BAJTY"),
     });
+    await page
+      .getByRole("button", { name: "Odpowiedź dla zgłaszającego", exact: true })
+      .click();
+    await expect(page.getByLabel("Kategoria dostępu")).toHaveValue("INTERNAL");
+    await page
+      .getByRole("button", { name: "Notatka wewnętrzna", exact: true })
+      .click();
     const privateUpload = page.waitForResponse(
       (r) =>
         r.url().endsWith(base + "/files") && r.request().method() === "POST",
