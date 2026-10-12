@@ -192,9 +192,6 @@ func (s *Service) Logout(ctx context.Context, identity SessionIdentity, meta Req
 			IPAddress:   meta.IPAddress,
 		})
 	})
-	if errors.Is(err, ErrUnauthenticated) {
-		return nil
-	}
 	return err
 }
 

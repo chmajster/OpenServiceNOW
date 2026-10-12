@@ -147,6 +147,9 @@ func TestOwnAccountGlobalCredentialsAndSessions(t *testing.T) {
 	if rotated.SessionToken == current.SessionToken || rotated.CSRFToken == current.CSRFToken {
 		t.Fatal("tokens were not renewed")
 	}
+	if err := s.Logout(ctx, current.Identity, identity.RequestMeta{}); !errors.Is(err, identity.ErrUnauthenticated) {
+		t.Fatalf("stale logout after rotation: %v", err)
+	}
 	rotated.Identity, err = s.Authenticate(ctx, rotated.SessionToken)
 	if err != nil || rotated.Identity.PasswordChangeRequired {
 		t.Fatalf("restored rotated session: %v", err)
@@ -240,6 +243,38 @@ func TestOwnAccountGlobalCredentialsAndSessions(t *testing.T) {
 		if !strings.Contains(events, action) {
 			t.Fatalf("missing audit %s", action)
 		}
+	}
+	// Competing changes with the same authenticated snapshot commit only once.
+	results := make(chan struct {
+		result identity.LoginResult
+		err    error
+	}, 2)
+	start := make(chan struct{})
+	for range 2 {
+		go func() {
+			<-start
+			result, err := s.ChangePassword(ctx, restored, identity.PasswordInput{CurrentPassword: next, NewPassword: "concurrent-personal-password", CredentialVersion: restored.CredentialVersion}, identity.RequestMeta{})
+			results <- struct {
+				result identity.LoginResult
+				err    error
+			}{result, err}
+		}()
+	}
+	close(start)
+	committed := 0
+	for range 2 {
+		item := <-results
+		if item.err == nil {
+			committed++
+			if _, err := s.Authenticate(ctx, item.result.SessionToken); err != nil {
+				t.Fatal(err)
+			}
+		} else if !errors.Is(item.err, identity.ErrUnauthenticated) && !errors.Is(item.err, identity.ErrAccountConflict) {
+			t.Fatalf("competing password change: %v", item.err)
+		}
+	}
+	if committed != 1 {
+		t.Fatalf("concurrent changes committed %d times", committed)
 	}
 }
 

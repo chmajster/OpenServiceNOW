@@ -15,6 +15,7 @@ type NavItem = {
 };
 
 const navigation: NavItem[] = [
+  { to: "/account", label: "Moje konto" },
   { to: "/", label: "Przegląd" },
   { to: "/tenant", label: "Organizacja", permission: "tenant.read" },
   { to: "/users", label: "Użytkownicy", permission: "admin.users.manage" },
@@ -47,7 +48,7 @@ export function AppShell() {
   const [logoutError, setLogoutError] = useState<string | null>(null);
 
   const visibleNavigation = navigation.filter(
-    (item) => !item.permission || hasPermission(item.permission),
+    (item) => session?.password_change_required ? item.to === "/account" : !item.permission || hasPermission(item.permission),
   );
 
   async function handleLogout() {
@@ -143,11 +144,11 @@ export function AppShell() {
         </header>
         <div className="workspace-content">
           <nav className="breadcrumbs" aria-label="Ścieżka nawigacji">
-            <Link to="/">Przegląd</Link>
+            <Link to={session?.password_change_required ? "/account" : "/"}>{session?.password_change_required ? "Moje konto" : "Przegląd"}</Link>
             {location.pathname !== "/" ? (
               <>
                 <span aria-hidden="true">/</span>
-                <span>Administracja</span>
+                <span>{location.pathname === "/account" ? "Konto" : "Administracja"}</span>
                 <span aria-hidden="true">/</span>
                 {objectID ? (
                   <>

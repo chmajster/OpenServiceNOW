@@ -154,7 +154,7 @@ export function SetupPage() {
                   <label>Login lub e-mail<input value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" maxLength={254} aria-describedby="login-help" required /></label>
                   <small id="login-help" className="muted">Użyj loginu admin lub własnego adresu e-mail.</small>
                   <label>Hasło<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" maxLength={1024} aria-describedby="password-help" required /></label>
-                  <small id="password-help" className="muted">Własne hasło: minimum 12 znaków. Dla loginu admin dostępne jest też hasło admin.</small>
+                  <small id="password-help" className="muted">Własne hasło: minimum 12 znaków Unicode, najwyżej 1024 bajty UTF-8. Domyślne hasło admin wymaga zmiany po pierwszym logowaniu.</small>
                   <label>Powtórz hasło<input type="password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="new-password" maxLength={1024} required /></label>
                 </fieldset>
               </div>

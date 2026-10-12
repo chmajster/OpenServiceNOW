@@ -77,6 +77,19 @@ describe("api client", () => {
     document.cookie = "opensnow_csrf=abc%20123; Path=/";
     expect(readCookie("opensnow_csrf")).toBe("abc 123");
   });
+  it("ignores an old 401 after the browser receives rotated CSRF cookies", async () => {
+    document.cookie = "opensnow_csrf=before-rotation; Path=/";
+    let finish!: (response: Response) => void;
+    const expired = vi.fn(); const unsubscribe = onSessionExpired(expired);
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(resolve => { finish = resolve; })));
+    try {
+      const pending = api("/api/v1/auth/me");
+      document.cookie = "opensnow_csrf=after-rotation; Path=/";
+      finish(new Response(null, { status: 401 }));
+      await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+      expect(expired).not.toHaveBeenCalled();
+    } finally { unsubscribe(); }
+  });
 
   it("adds CSRF header to unsafe requests", async () => {
     document.cookie = "opensnow_csrf=csrf-token; Path=/";

@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Locator } from "@playwright/test";
+import { changeTemporaryPassword, permanentRootPassword, personalPassword } from "./account-fixtures";
 
 const tenant = process.env.E2E_TENANT ?? "e2e";
 let adminEmail = process.env.E2E_ADMIN_EMAIL ?? "admin@example.test";
@@ -24,7 +25,7 @@ test.beforeAll(async ({ request }, testInfo) => {
     data: {
       tenant,
       email: process.env.E2E_ADMIN_EMAIL ?? "admin",
-      password: requireEnv("E2E_ADMIN_PASSWORD"),
+      password: permanentRootPassword,
     },
   });
   expect(result.status()).toBe(200);
@@ -57,7 +58,12 @@ test.beforeAll(async ({ request }, testInfo) => {
   ).toBe(204);
   await request.post("/api/v1/auth/logout", { headers });
   adminEmail = email;
-  adminPassword = operatorPassword;
+  const signedIn = await request.post("/api/v1/auth/login", { data: { tenant, email, password: operatorPassword } });
+  expect(signedIn.status()).toBe(200);
+  const signedInData = await signedIn.json();
+  const ownCSRF = (await request.storageState()).cookies.find(cookie => cookie.name === "opensnow_csrf")!.value;
+  expect((await request.post("/api/v1/auth/password", { headers: { "X-CSRF-Token": ownCSRF }, data: { current_password: operatorPassword, new_password: personalPassword(operatorPassword), credential_version: signedInData.user.credential_version } })).status()).toBe(200);
+  adminPassword = personalPassword(operatorPassword);
 });
 
 function contextOptions() {
@@ -99,6 +105,11 @@ async function login(page: Page, email = adminEmail, password = adminPassword) {
   await page.getByLabel("Login lub e-mail").fill(email);
   await page.getByLabel("Hasło").fill(password);
   expect((await submitLogin(page)).status()).toBe(200);
+  const me = await (await page.request.get("/api/v1/auth/me")).json();
+  if (me.password_change_required) {
+    await changeTemporaryPassword(page, password, personalPassword(password));
+    await page.goto("/");
+  }
   await expect(
     page.getByRole("heading", { name: "Przegląd", exact: true }),
   ).toBeVisible();

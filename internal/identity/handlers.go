@@ -142,6 +142,10 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 		IPAddress: requestinfo.ClientIP(r),
 		UserAgent: r.UserAgent(),
 	}); err != nil {
+		if errors.Is(err, ErrUnauthenticated) {
+			httpapi.WriteError(w, r, http.StatusUnauthorized, "UNAUTHENTICATED", "Authentication required")
+			return
+		}
 		if httpapi.WriteContextError(w, r, err) {
 			return
 		}

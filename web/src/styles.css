@@ -929,6 +929,10 @@ tbody tr:last-child td {
 .detail-grid dd { overflow-wrap: anywhere; }
 .conflict-notice { border: 2px solid #d89125; border-radius: 0.7rem; padding: 1rem; background: #fffbef; }
 .conflict-notice p { overflow-wrap: anywhere; }
+.notice { padding: 1rem; border: 1px solid #b6c9dd; border-radius: .7rem; background: #f1f7fd; }
+.notice--error { border-color: #c65757; background: #fff4f4; }
+.table-scroll { width: 100%; overflow-x: auto; }
+.table-scroll td details { max-width: 18rem; overflow-wrap: anywhere; }
 .remote-combobox { position: relative; min-width: 0; }
 .combobox-input { display: flex; gap: 0.4rem; }
 .combobox-popup { position: relative; margin-top: 0.3rem; border: 1px solid var(--border); border-radius: 0.65rem; background: #fff; box-shadow: var(--shadow); padding: 0.5rem; }
