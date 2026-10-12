@@ -102,4 +102,14 @@ cp "$repo_dir/docker/local-runtime.sh" "$ROOT_DIR/docker/local-runtime.sh"
 if bash "$ROOT_DIR/install.sh" --local --status >"$fixture/error" 2>&1; then echo 'Accepted concurrent lifecycle action' >&2; exit 1; fi
 grep -q 'Another installer command' "$fixture/error"
 exec 8>&-
+# Status on a fresh checkout must not create directories, locks or binaries.
+fresh_checkout="$fixture/fresh checkout"
+mkdir -p "$fresh_checkout/docker"
+cp "$repo_dir/install.sh" "$fresh_checkout/install.sh"
+cp "$repo_dir/docker/local-runtime.sh" "$fresh_checkout/docker/local-runtime.sh"
+if DOCKER_HOST=tcp://127.0.0.1:1 bash "$fresh_checkout/install.sh" --local --status >"$fixture/fresh-status" 2>&1; then echo 'Uninstalled runtime reported healthy' >&2; exit 1; fi
+[[ ! -e "$fresh_checkout/.opensnow" && ! -e "$fresh_checkout/bin" && ! -e "$fresh_checkout/.env" ]]
+grep -q 'worker: stopped' "$fixture/fresh-status"
+grep -q 'scheduler: stopped' "$fixture/fresh-status"
+grep -q 'API address: http://127.0.0.1:8080' "$fixture/fresh-status"
 printf '%s\n' 'Installer argument, port/state, process ownership, PID reuse and lifecycle-lock tests passed.'

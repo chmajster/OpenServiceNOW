@@ -471,18 +471,12 @@ stop_all() {
 }
 
 status_line() { case "$2" in healthy|ready|running) ok "$1: $2" ;; *) warn "$1: $2" ;; esac; }
-show_status() {
-  local component state failures=0 port
-  check_docker
-  check_dependency_ownership
-  for component in mysql redis; do
-    state="$(container_health "$component" || true)"; state=${state:-stopped}
-    status_line "$component" "$state"
-    [[ "$state" == healthy ]] || failures=$((failures+1))
-  done
+show_process_status() {
+  local component state failures=0 port pid
   for component in api worker scheduler web; do
     state=stopped
-    if pid_running "$component"; then
+    pid=''
+    if pid="$(pid_from_file "$component" 2>/dev/null)"; then
       state=running
       if [[ "$component" == api || "$component" == web ]]; then
         port=$API_PORT; [[ "$component" != web ]] || port=$WEB_PORT
@@ -491,8 +485,28 @@ show_status() {
       fi
     elif [[ -f "$RUN_DIR/$component.pid" ]]; then state=stale/unrelated; fi
     status_line "$component" "$state"
+    info "${component} details: PID ${pid:-none}; log ${LOG_DIR}/${component}.log"
     [[ "$state" == ready || "$state" == running ]] || failures=$((failures+1))
   done
+  info "Background 'running' confirms process identity/liveness; job processing is verified separately."
+  (( failures == 0 ))
+}
+
+show_status() {
+  local component state failures=0 docker_available=0
+  if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    docker_available=1
+    check_dependency_ownership
+  else
+    warn "Docker Engine/Compose is unavailable; dependency state cannot be inspected."
+  fi
+  for component in mysql redis; do
+    state=unavailable
+    if (( docker_available )); then state="$(container_health "$component" || true)"; state=${state:-stopped}; fi
+    status_line "$component" "$state"
+    [[ "$state" == healthy ]] || failures=$((failures+1))
+  done
+  if ! show_process_status; then failures=$((failures+1)); fi
   info "WebUI address: http://127.0.0.1:${WEB_PORT}"
   info "API address: http://127.0.0.1:${API_PORT}"
   info "Runtime logs: ${LOG_DIR}"
@@ -546,11 +560,19 @@ install() {
 on_exit() {
   local result=$? component
   trap - ERR EXIT INT TERM
-  if (( result != 0 )); then
+  if (( result != 0 )) && [[ "$ACTION" != status ]]; then
     warn "Command failed. Runtime logs: ${LOG_DIR}"
     if [[ "$MODE" == local-docker ]]; then capture_docker_logs; fi
+    if [[ "$MODE" == local && ( ${#STARTED_COMPONENTS[@]} -gt 0 || ${#STARTED_SERVICES[@]} -gt 0 ) ]]; then
+      info "Process state before startup rollback:"
+      show_process_status || true
+    fi
     for component in "${STARTED_COMPONENTS[@]}"; do stop_pid "$component" || true; done
     if (( ${#STARTED_SERVICES[@]} > 0 )); then compose stop "${STARTED_SERVICES[@]}" >/dev/null 2>&1 || true; fi
+    if [[ "$MODE" == local && ( ${#STARTED_COMPONENTS[@]} -gt 0 || ${#STARTED_SERVICES[@]} -gt 0 ) ]]; then
+      info "Process state after startup rollback (previously running components preserved):"
+      show_process_status || true
+    fi
   fi
   return "$result"
 }
@@ -565,9 +587,17 @@ main() {
   if [[ "$MODE" == local ]]; then
     for command_name in ss curl nohup setsid; do require_command "$command_name" "Install util-linux, iproute2, coreutils and curl."; done
   fi
-  ensure_state_dirs
-  exec 9>"$RUN_DIR/installer.lock"
-  flock -n 9 || fail "Another installer command is running for this checkout. Wait for it to finish."
+  if [[ "$ACTION" == status ]]; then
+    # Inspect an uninstalled checkout without creating runtime state or binaries.
+    if [[ -f "$RUN_DIR/installer.lock" ]]; then
+      exec 9<"$RUN_DIR/installer.lock"
+      flock -n 9 || fail "Another installer command is running for this checkout. Wait for it to finish."
+    fi
+  else
+    ensure_state_dirs
+    exec 9>"$RUN_DIR/installer.lock"
+    flock -n 9 || fail "Another installer command is running for this checkout. Wait for it to finish."
+  fi
   trap 'on_exit' EXIT
   trap 'printf "[FAIL] Command failed at install.sh line %s.\n" "$LINENO" >&2' ERR
   trap 'exit 130' INT
