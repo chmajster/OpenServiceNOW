@@ -53,6 +53,14 @@ func TestOpenAPIContractParsesAndContainsImplementedRoutes(t *testing.T) {
 		"/api/v1/admin/rbac/groups/{groupID}/roles",
 		"/api/v1/admin/rbac/groups/{groupID}/roles/{roleID}",
 		"/api/v1/admin/audit/",
+		"/api/v1/incidents/",
+		"/api/v1/incidents/metadata",
+		"/api/v1/incidents/lookups/{kind}",
+		"/api/v1/incidents/{incidentID}",
+		"/api/v1/incidents/{incidentID}/assignment",
+		"/api/v1/incidents/{incidentID}/transition",
+		"/api/v1/incidents/{incidentID}/priority",
+		"/api/v1/incidents/{incidentID}/history",
 	}
 	for _, path := range requiredPaths {
 		if _, ok := doc.Paths[path]; !ok {
@@ -90,6 +98,47 @@ func TestOwnAccountSecurityContract(t *testing.T) {
 		value, err := resolveLocalRef(root, "#/components/schemas/AccountPasswordRequest/properties/"+field)
 		if err != nil || value.(map[string]any)["writeOnly"] != true {
 			t.Fatal("password contract is not write-only")
+		}
+	}
+}
+
+func TestIncidentSecurityAndConcurrencyContract(t *testing.T) {
+	var root map[string]any
+	if err := json.Unmarshal(loadDocument(t), &root); err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range []struct {
+		path, method, request string
+		write                 bool
+	}{
+		{"/api/v1/incidents/", "get", "", false},
+		{"/api/v1/incidents/", "post", "IncidentFields", true},
+		{"/api/v1/incidents/metadata", "get", "", false},
+		{"/api/v1/incidents/lookups/{kind}", "get", "", false},
+		{"/api/v1/incidents/{incidentID}", "get", "", false},
+		{"/api/v1/incidents/{incidentID}", "put", "IncidentUpdate", true},
+		{"/api/v1/incidents/{incidentID}/assignment", "put", "IncidentAssign", true},
+		{"/api/v1/incidents/{incidentID}/transition", "post", "IncidentTransition", true},
+		{"/api/v1/incidents/{incidentID}/priority", "put", "IncidentPriority", true},
+		{"/api/v1/incidents/{incidentID}/history", "get", "", false},
+	} {
+		operation := root["paths"].(map[string]any)[item.path].(map[string]any)[item.method].(map[string]any)
+		security := operation["security"].([]any)[0].(map[string]any)
+		if _, ok := security["sessionCookie"]; !ok {
+			t.Fatalf("%s lacks session security", item.path)
+		}
+		_, csrf := security["csrfHeader"]
+		if csrf != item.write {
+			t.Fatalf("%s CSRF=%t", item.path, csrf)
+		}
+		if reads, ok := operation["x-any-read-permissions"].([]any); !ok || len(reads) != 2 {
+			t.Fatalf("%s lacks object read contract", item.path)
+		}
+		if item.write && item.request != "IncidentFields" {
+			value, err := resolveLocalRef(root, "#/components/schemas/"+item.request+"/properties/version")
+			if err != nil || value.(map[string]any)["type"] != "string" {
+				t.Fatalf("%s missing incident version", item.path)
+			}
 		}
 	}
 }
@@ -194,6 +243,19 @@ func TestOpenAPIBigIntValuesUseDecimalStrings(t *testing.T) {
 		"#/components/schemas/AssignedRolePage/properties/next_after_id",
 		"#/components/schemas/AuditRecord/properties/id",
 		"#/components/schemas/AuditPage/properties/next_before_id",
+		"#/components/schemas/Incident/properties/id",
+		"#/components/schemas/Incident/properties/tenant_id",
+		"#/components/schemas/Incident/properties/reporter_id",
+		"#/components/schemas/Incident/properties/affected_user_id",
+		"#/components/schemas/Incident/properties/version",
+		"#/components/schemas/IncidentAssignment/properties/assigned_to",
+		"#/components/schemas/IncidentAssignment/properties/assignment_group_id",
+		"#/components/schemas/IncidentAssignment/properties/version",
+		"#/components/schemas/IncidentPage/properties/next_after_id",
+		"#/components/schemas/IncidentPage/properties/next_after_priority",
+		"#/components/schemas/IncidentHistory/properties/next_before_event_id",
+		"#/components/schemas/IncidentChange/properties/actor_user_id",
+		"#/components/schemas/IncidentChange/properties/incident_version",
 	} {
 		value, err := resolveLocalRef(root, ref)
 		if err != nil {
