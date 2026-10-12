@@ -40,6 +40,7 @@ func TestForcedPasswordChangeRejectsEveryOtherAuthenticatedRoute(t *testing.T) {
 
 type fakeAccountService struct {
 	passwordCalls int
+	passwordError error
 	identity      SessionIdentity
 }
 
@@ -49,6 +50,9 @@ func (f *fakeAccountService) UpdateProfile(context.Context, SessionIdentity, Pro
 func (f *fakeAccountService) ChangePassword(_ context.Context, i SessionIdentity, _ PasswordInput, _ RequestMeta) (LoginResult, error) {
 	f.passwordCalls++
 	f.identity = i
+	if f.passwordError != nil {
+		return LoginResult{}, f.passwordError
+	}
 	return LoginResult{Identity: SessionIdentity{UserID: i.UserID, Version: 2, CredentialVersion: 2, ExpiresAt: time.Now().Add(time.Hour)}, SessionToken: "secret-session", CSRFToken: "secret-csrf"}, nil
 }
 func (f *fakeAccountService) ListOwnSessions(_ context.Context, i SessionIdentity, _ uint64, _ int) (AccountSessions, error) {
@@ -99,6 +103,11 @@ func TestAccountHTTPUsesSessionActorAndPreventsSecretSerialization(t *testing.T)
 	}
 	if strings.Contains(w.Body.String(), "secret-") || strings.Contains(w.Body.String(), "password_hash") {
 		t.Fatal("secret serialized")
+	}
+	f.passwordError = ErrAccountResultUnknown
+	w = call("POST", "/api/v1/auth/password", body, true)
+	if w.Code != 500 || !strings.Contains(w.Body.String(), "ACCOUNT_RESULT_UNKNOWN") || len(w.Result().Cookies()) != 0 {
+		t.Fatal("uncertain password commit did not report a safe recovery outcome")
 	}
 	w = call("GET", "/api/v1/auth/sessions", "", false)
 	for _, fragment := range []string{`"id":"9007199254740993"`, `"tenant_id":"9007199254740995"`, `"next_after_id":"9007199254740993"`} {

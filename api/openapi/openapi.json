@@ -1768,7 +1768,7 @@
             "$ref": "#/components/responses/Forbidden"
           },
           "500": {
-            "description": "Operation failed; transaction errors before commit leave credentials and sessions unchanged.",
+            "description": "ACCOUNT_RESULT_UNKNOWN means the SQL COMMIT acknowledgement was lost and the outcome must be reconciled via /me or a fresh login. Do not retry automatically. Errors before COMMIT roll back the entire password/session/audit transaction.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1832,9 +1832,7 @@
         "description": "Active, usable sessions belonging to the authenticated global identity, across its organizations. Metadata only. Unavailable during forced password change.",
         "security": [
           {
-            "sessionCookie": [],
-            "csrfCookie": [],
-            "csrfHeader": []
+            "sessionCookie": []
           }
         ],
         "responses": {
@@ -2383,7 +2381,8 @@
           "password": {
             "type": "string",
             "minLength": 12,
-            "description": "At least 12 Unicode code points, at most 1024 UTF-8 bytes. No normalization. Must differ from the current password."
+            "description": "At least 12 Unicode code points, at most 1024 UTF-8 bytes. No normalization. Must differ from the current password.",
+            "writeOnly": true
           }
         },
         "description": "Administrator-supplied passwords are always temporary. The user must change the password before using private APIs. Adding an existing membership never alters global credentials or the profile."
@@ -2900,12 +2899,14 @@
           "current_password": {
             "type": "string",
             "minLength": 1,
-            "description": "Current password; max 1024 UTF-8 bytes. Legacy short passwords remain verifiable."
+            "description": "Current password; max 1024 UTF-8 bytes. Legacy short passwords remain verifiable.",
+            "writeOnly": true
           },
           "new_password": {
             "type": "string",
             "minLength": 12,
-            "description": "At least 12 Unicode code points, at most 1024 UTF-8 bytes. No normalization. Must differ from the current password."
+            "description": "At least 12 Unicode code points, at most 1024 UTF-8 bytes. No normalization. Must differ from the current password.",
+            "writeOnly": true
           },
           "credential_version": {
             "type": "string",

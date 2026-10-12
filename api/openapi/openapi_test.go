@@ -64,6 +64,36 @@ func TestOpenAPIContractParsesAndContainsImplementedRoutes(t *testing.T) {
 	}
 }
 
+func TestOwnAccountSecurityContract(t *testing.T) {
+	var root map[string]any
+	if err := json.Unmarshal(loadDocument(t), &root); err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range []struct {
+		path, method string
+		csrf         bool
+	}{
+		{"/api/v1/auth/profile", "put", true}, {"/api/v1/auth/password", "post", true},
+		{"/api/v1/auth/sessions", "get", false}, {"/api/v1/auth/sessions", "delete", true}, {"/api/v1/auth/sessions/{sessionID}", "delete", true},
+	} {
+		operation := root["paths"].(map[string]any)[item.path].(map[string]any)[item.method].(map[string]any)
+		security := operation["security"].([]any)[0].(map[string]any)
+		if _, ok := security["sessionCookie"]; !ok {
+			t.Fatalf("%s missing session authentication", item.path)
+		}
+		_, hasCSRF := security["csrfHeader"]
+		if hasCSRF != item.csrf {
+			t.Fatalf("%s %s CSRF=%t", item.method, item.path, hasCSRF)
+		}
+	}
+	for _, field := range []string{"current_password", "new_password"} {
+		value, err := resolveLocalRef(root, "#/components/schemas/AccountPasswordRequest/properties/"+field)
+		if err != nil || value.(map[string]any)["writeOnly"] != true {
+			t.Fatal("password contract is not write-only")
+		}
+	}
+}
+
 func TestOpenAPILocalReferencesResolve(t *testing.T) {
 	raw := loadDocument(t)
 	var root any

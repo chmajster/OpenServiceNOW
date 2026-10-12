@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
+	"github.com/chmajster/OpenServiceNOW/internal/platform/password"
 	"github.com/chmajster/OpenServiceNOW/internal/users"
 )
 
@@ -134,5 +136,26 @@ func TestDefaultAdministratorAuthenticationAndPersistence(t *testing.T) {
 	}
 	if restored, err := service.Authenticate(ctx, changed.SessionToken); err != nil || restored.PasswordChangeRequired {
 		t.Fatal("re-bootstrap imposed a temporary-password flag on an existing account")
+	}
+	// Legacy policy counted bytes. Re-bootstrap must verify rather than replace a
+	// matching old Unicode hash, even when it is shorter than the new policy.
+	legacyPassword := strings.Repeat("😀", 4)
+	legacyHash, err := password.HashWithMinimumLength(legacyPassword, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, "UPDATE users SET password_hash=? WHERE id=?", legacyHash, admin.UserID); err != nil {
+		t.Fatal(err)
+	}
+	input.AdminPassword = legacyPassword
+	if _, err := bootstrap.Run(ctx, input); err != nil {
+		t.Fatalf("legacy Unicode bootstrap: %v", err)
+	}
+	var unchanged string
+	if err := db.QueryRowContext(ctx, "SELECT password_hash FROM users WHERE id=?", admin.UserID).Scan(&unchanged); err != nil || unchanged != legacyHash {
+		t.Fatal("legacy bootstrap replaced credentials")
+	}
+	if _, err := service.Login(ctx, identity.LoginInput{Tenant: input.TenantSlug, Email: "admin", Password: legacyPassword}, identity.RequestMeta{}); err != nil {
+		t.Fatalf("legacy Unicode login: %v", err)
 	}
 }
