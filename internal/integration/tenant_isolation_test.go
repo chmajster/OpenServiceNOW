@@ -65,6 +65,10 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	auditRepo := audit.NewMySQLRepository()
 	identityRepo := identity.NewMySQLRepository(db)
 	bootstrap := identity.NewBootstrapper(identityRepo, tx, auditRepo)
+	identityService, err := identity.NewService(identityRepo, tx, auditRepo, cfg.Session, cfg.Auth)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	adminA, err := bootstrap.Run(ctx, identity.BootstrapInput{
 		TenantSlug: tenantASlug, TenantName: "Isolation A",
@@ -178,7 +182,7 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 
 	rbacRepo := rbac.NewMySQLRepository(db)
 	adminSafety := identity.NewAdminSafetyRepository()
-	usersService := users.NewService(usersRepo, tx, auditRepo, adminSafety, identityRepo)
+	usersService := users.NewService(usersRepo, tx, auditRepo, adminSafety, identityRepo, identityService)
 	rbacService := rbac.NewService(rbacRepo, tx, auditRepo, adminSafety)
 	actorA := rbac.Actor{TenantID: adminA.TenantID, UserID: adminA.UserID, RequestID: "integration"}
 	groupID, err := rbacService.CreateGroup(ctx, actorA, rbac.CreateGroupInput{Name: "isolation-group"})

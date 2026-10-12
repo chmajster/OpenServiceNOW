@@ -44,9 +44,18 @@ func (m *Middleware) Authenticate(next http.Handler) http.Handler {
 			return
 		}
 
+		if identity.PasswordChangeRequired && !allowedDuringPasswordChange(r) {
+			httpapi.WriteError(w, r, http.StatusForbidden, "PASSWORD_CHANGE_REQUIRED", "Change your temporary password before continuing")
+			return
+		}
 		ctx := context.WithValue(r.Context(), identityContextKey, identity)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func allowedDuringPasswordChange(r *http.Request) bool {
+	return (r.Method == http.MethodGet && r.URL.Path == "/api/v1/auth/me") ||
+		(r.Method == http.MethodPost && (r.URL.Path == "/api/v1/auth/password" || r.URL.Path == "/api/v1/auth/logout"))
 }
 
 func (m *Middleware) RequireCSRF(next http.Handler) http.Handler {

@@ -4,6 +4,7 @@ import { ApiError, api, jsonBody } from "../api/client";
 import type { CreatedID, TenantUser } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { useRemotePage } from "../components/useRemotePage";
+import { passwordProblem } from "../auth/passwordPolicy";
 
 export function UsersPage() {
   const { session, refresh } = useAuth();
@@ -31,6 +32,7 @@ export function UsersPage() {
   async function create(event: FormEvent, existing: boolean) {
     event.preventDefault();
     if (busy) return;
+    if (!existing && passwordProblem(password)) { setError(passwordProblem(password)); return; }
     setBusy(true);
     setError(null);
     setMessage(null);
@@ -168,11 +170,11 @@ export function UsersPage() {
                       autoComplete="new-password"
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
-                      minLength={12}
                       maxLength={1024}
                       required
                     />
                   </label>
+                  <p className="muted">To hasło tymczasowe. Użytkownik musi je zmienić po pierwszym logowaniu. Co najmniej 12 znaków Unicode, najwyżej 1024 bajty UTF-8.</p>
                 </>
               ) : (
                 <>

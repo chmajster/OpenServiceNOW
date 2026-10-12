@@ -32,6 +32,10 @@ func TestOpenAPIContractParsesAndContainsImplementedRoutes(t *testing.T) {
 		"/api/v1/auth/login",
 		"/api/v1/auth/me",
 		"/api/v1/auth/logout",
+		"/api/v1/auth/profile",
+		"/api/v1/auth/password",
+		"/api/v1/auth/sessions",
+		"/api/v1/auth/sessions/{sessionID}",
 		"/api/v1/admin/tenant/",
 		"/api/v1/admin/users/",
 		"/api/v1/admin/users/memberships",
@@ -57,6 +61,36 @@ func TestOpenAPIContractParsesAndContainsImplementedRoutes(t *testing.T) {
 	}
 	if len(doc.Components) == 0 {
 		t.Fatal("OpenAPI components are missing")
+	}
+}
+
+func TestOwnAccountSecurityContract(t *testing.T) {
+	var root map[string]any
+	if err := json.Unmarshal(loadDocument(t), &root); err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range []struct {
+		path, method string
+		csrf         bool
+	}{
+		{"/api/v1/auth/profile", "put", true}, {"/api/v1/auth/password", "post", true},
+		{"/api/v1/auth/sessions", "get", false}, {"/api/v1/auth/sessions", "delete", true}, {"/api/v1/auth/sessions/{sessionID}", "delete", true},
+	} {
+		operation := root["paths"].(map[string]any)[item.path].(map[string]any)[item.method].(map[string]any)
+		security := operation["security"].([]any)[0].(map[string]any)
+		if _, ok := security["sessionCookie"]; !ok {
+			t.Fatalf("%s missing session authentication", item.path)
+		}
+		_, hasCSRF := security["csrfHeader"]
+		if hasCSRF != item.csrf {
+			t.Fatalf("%s %s CSRF=%t", item.method, item.path, hasCSRF)
+		}
+	}
+	for _, field := range []string{"current_password", "new_password"} {
+		value, err := resolveLocalRef(root, "#/components/schemas/AccountPasswordRequest/properties/"+field)
+		if err != nil || value.(map[string]any)["writeOnly"] != true {
+			t.Fatal("password contract is not write-only")
+		}
 	}
 }
 
@@ -138,6 +172,11 @@ func TestOpenAPIBigIntValuesUseDecimalStrings(t *testing.T) {
 		"#/components/parameters/RoleID/schema",
 		"#/components/parameters/GroupID/schema",
 		"#/components/schemas/AuthUser/properties/id",
+		"#/components/schemas/AuthUser/properties/version",
+		"#/components/schemas/AuthUser/properties/credential_version",
+		"#/components/schemas/AccountSession/properties/id",
+		"#/components/schemas/AccountSession/properties/tenant_id",
+		"#/components/schemas/AccountSessions/properties/next_after_id",
 		"#/components/schemas/AuthTenant/properties/id",
 		"#/components/schemas/Tenant/properties/id",
 		"#/components/schemas/Tenant/properties/version",

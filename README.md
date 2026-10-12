@@ -248,7 +248,15 @@ For the default account, choose tenant `default`, login `admin` and password `ad
 }
 ```
 
-The four-byte default password is accepted only when installing or bootstrapping the default administrator account. The WebUI requires at least 12 characters for a custom password; the API and ordinary user creation enforce a minimum of 12 UTF-8 bytes. If you choose a custom administrator email, sign in with that email. Existing administrator passwords are never reset: explicit re-bootstrap requires the current password. Normal restarts do not bootstrap an account.
+The default password is accepted only when installing or bootstrapping the default administrator account and requires a password change on first login. New passwords require at least 12 Unicode code points and at most 1024 UTF-8 bytes in both API and UI; their Unicode representation is not normalized. Custom passwords selected by the first-run administrator are permanent. Headless bootstrap can explicitly mark a newly created custom account as temporary with `BOOTSTRAP_REQUIRE_PASSWORD_CHANGE=true`. Every account created through user administration receives a temporary password. These policies apply to new accounts only: migrations, restart and re-bootstrap preserve existing passwords and flags. Explicit re-bootstrap requires the current password.
+
+### My account
+
+Every authenticated user can open **Moje konto** to edit their global display name, change the password with the current password, and inspect/revoke their own active sessions across organizations. Login email changes, MFA, LDAP and OIDC are outside this stage. Session lists expose organization, creation/expiry, IP and browser metadata, never tokens. Lists use bounded cursor pagination. Profile writes use the decimal-string user version and retain the local draft on errors or conflicts.
+
+Password changes atomically increment the credential version, revoke all other sessions, clear the temporary-password flag and rotate the current session token and CSRF token in place. Concurrent login checks the credential version again under the global user lock before inserting a session. Old-password verification cannot create a session after a committed password change. A repeated request carrying the old session or credential version cannot change the password twice. Failures before commit preserve credentials and sessions. A lost response or SQL commit acknowledgement has an uncertain outcome (`ACCOUNT_RESULT_UNKNOWN` for a commit error). Reload `/me` to reconcile, or log in with the new password if the old session was rejected. Do not retry password changes automatically.
+
+An account requiring a password change can only use authenticated `GET /api/v1/auth/me` (empty permissions), `POST /api/v1/auth/password` and `POST /api/v1/auth/logout`. Backend middleware enforces this for every authenticated module, including direct API calls. Organization administrators can manage membership and revoke sessions within their organization when disabling membership; membership authority cannot reset global credentials or revoke sessions in another organization.
 
 The server sets:
 
@@ -353,7 +361,11 @@ make e2e
 
 CI performs infrastructure/migration/startup steps automatically in its dedicated `e2e` job. The first browser test creates the E2E tenant/admin through the real WebUI; subsequent tests use that account. Run the suite only against a disposable test database.
 
+When testing a fresh default `admin` password, the setup scenario completes its required change before the remaining tests. Suite-created accounts also complete the temporary-password flow. Test login helpers respect real `Retry-After` limits instead of weakening authentication policy.
+
 ## Verification status
+
+Own-account implementation in [PR #16](https://github.com/chmajster/OpenServiceNOW/pull/16) passed local Go unit/race/vet/build, disposable MySQL integration and migration lifecycle 1–27, 13 frontend unit tests and 22/22 desktop/mobile browser scenarios. Tests cover credential-version fencing, global session rotation/revocation, restricted temporary accounts, profile conflicts, rollback on audit failure, restart persistence and legacy Unicode credentials. The PR records final CI and merge evidence; [STATUS.md](STATUS.md) distinguishes these delivered APIs/screens from internal shared libraries and future providers.
 
 The preceding installer revision passed all six jobs in [foundation-ci #600](https://github.com/chmajster/OpenServiceNOW/actions/runs/38189545233): backend/migrations/integration, frontend, desktop/mobile E2E, native local lifecycle, Docker lifecycle and Docker Engine tests. September runner-allocation failures are historical and do not describe the current CI state.
 

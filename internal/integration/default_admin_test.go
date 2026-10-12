@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -72,7 +73,7 @@ func TestDefaultAdministratorAuthenticationAndPersistence(t *testing.T) {
 		if restored, err := service.Authenticate(ctx, result.SessionToken); err != nil || restored.UserID != admin.UserID {
 			t.Fatalf("restore database session: identity=%+v err=%v", restored, err)
 		}
-		if allowed, err := service.HasPermission(ctx, result.Identity, "admin.users.manage"); err != nil || !allowed {
+		if allowed, err := service.HasPermission(ctx, result.Identity, "admin.users.manage"); err != nil || allowed || !result.Identity.PasswordChangeRequired {
 			t.Fatalf("default administrator permission: allowed=%t err=%v", allowed, err)
 		}
 		if err := service.Logout(ctx, result.Identity, identity.RequestMeta{}); err != nil {
@@ -91,7 +92,7 @@ func TestDefaultAdministratorAuthenticationAndPersistence(t *testing.T) {
 			t.Fatalf("invalid login returned %v", err)
 		}
 	}
-	usersService := users.NewService(users.NewMySQLRepository(db), tx, auditRepo, identity.NewAdminSafetyRepository(), repo)
+	usersService := users.NewService(users.NewMySQLRepository(db), tx, auditRepo, identity.NewAdminSafetyRepository(), repo, service)
 	if _, err := usersService.Create(ctx, users.Actor{TenantID: admin.TenantID, UserID: admin.UserID}, users.CreateInput{
 		Email: "short-password@example.test", DisplayName: "Short password", Password: "admin",
 	}); !errors.Is(err, users.ErrInvalid) {
@@ -100,11 +101,19 @@ func TestDefaultAdministratorAuthenticationAndPersistence(t *testing.T) {
 	if !admin.UserCreated {
 		return // Never change credentials of an account that existed before this test.
 	}
-	changedHash, err := password.Hash("changed-administrator-password")
+	current, err := service.Login(ctx, identity.LoginInput{Tenant: input.TenantSlug, Email: "admin", Password: "admin"}, identity.RequestMeta{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, "UPDATE users SET password_hash = ? WHERE id = ?", changedHash, admin.UserID); err != nil {
+	changed, err := service.ChangePassword(ctx, current.Identity, identity.PasswordInput{CurrentPassword: "admin", NewPassword: "changed-administrator-password", CredentialVersion: current.Identity.CredentialVersion}, identity.RequestMeta{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if allowed, err := service.HasPermission(ctx, changed.Identity, "admin.users.manage"); err != nil || !allowed {
+		t.Fatal("changed administrator remains restricted")
+	}
+	var changedHash string
+	if err := db.QueryRowContext(ctx, "SELECT password_hash FROM users WHERE id=?", admin.UserID).Scan(&changedHash); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := bootstrap.Run(ctx, input); err == nil {
@@ -119,5 +128,34 @@ func TestDefaultAdministratorAuthenticationAndPersistence(t *testing.T) {
 	}
 	if _, err := service.Login(ctx, identity.LoginInput{Tenant: input.TenantSlug, Email: "admin", Password: "admin"}, identity.RequestMeta{}); !errors.Is(err, identity.ErrInvalidCredentials) {
 		t.Fatalf("default password bypasses changed credentials: %v", err)
+	}
+	input.AdminPassword = "changed-administrator-password"
+	input.RequirePasswordChange = true
+	if _, err := bootstrap.Run(ctx, input); err != nil {
+		t.Fatal(err)
+	}
+	if restored, err := service.Authenticate(ctx, changed.SessionToken); err != nil || restored.PasswordChangeRequired {
+		t.Fatal("re-bootstrap imposed a temporary-password flag on an existing account")
+	}
+	// Legacy policy counted bytes. Re-bootstrap must verify rather than replace a
+	// matching old Unicode hash, even when it is shorter than the new policy.
+	legacyPassword := strings.Repeat("😀", 4)
+	legacyHash, err := password.HashWithMinimumLength(legacyPassword, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, "UPDATE users SET password_hash=? WHERE id=?", legacyHash, admin.UserID); err != nil {
+		t.Fatal(err)
+	}
+	input.AdminPassword = legacyPassword
+	if _, err := bootstrap.Run(ctx, input); err != nil {
+		t.Fatalf("legacy Unicode bootstrap: %v", err)
+	}
+	var unchanged string
+	if err := db.QueryRowContext(ctx, "SELECT password_hash FROM users WHERE id=?", admin.UserID).Scan(&unchanged); err != nil || unchanged != legacyHash {
+		t.Fatal("legacy bootstrap replaced credentials")
+	}
+	if _, err := service.Login(ctx, identity.LoginInput{Tenant: input.TenantSlug, Email: "admin", Password: legacyPassword}, identity.RequestMeta{}); err != nil {
+		t.Fatalf("legacy Unicode login: %v", err)
 	}
 }

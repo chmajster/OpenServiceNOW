@@ -10,11 +10,11 @@ The repository includes the administration foundation, durable MySQL jobs/worker
 
 ## Last completed
 
-Phase 0, the administration foundation, shared work-platform libraries and both local installer modes are delivered through PR #14. DevBox deployment was delivered in PR #7. PR #15 rebuilds the existing administration UX while preserving the same backend permissions and architecture.
+Phase 0, the administration foundation, shared work-platform libraries and both local installer modes are delivered through PR #14. DevBox deployment was delivered in PR #7. PR #15 delivered the administration UX rebuild; all six jobs in [foundation-ci #616](https://github.com/chmajster/OpenServiceNOW/actions/runs/38246614044) passed. Own-account implementation and local verification are recorded in [PR #16](https://github.com/chmajster/OpenServiceNOW/pull/16), which also tracks final CI and merge evidence.
 
 Availability boundaries:
 
-- Setup, authentication, tenant/user/RBAC administration and audit have implemented services, OpenAPI routes and React screens.
+- Setup, authentication, own-account profile/password/sessions, tenant/user/RBAC administration and audit have implemented services, OpenAPI routes and React screens.
 - Jobs, attempts/logs, leases, retries/cancellation, session-cleanup scheduling and worker execution are implemented internally. There is no public job-management API or UI.
 - Work records, outbox, attachments and activity have shared libraries, migrations, worker projections and integration tests. They have no public business-record/attachment routes or screens yet; object-specific business authorization must be supplied by their future domain consumers.
 - Incident/SLA/request and later business capabilities remain roadmap work.
@@ -99,9 +99,19 @@ Business-module APIs/UI, broader asynchronous operational monitoring and externa
 
 Organization/role conflicts preserve the draft, retrieve the current version by object identity and require explicit resolution before saving. Failure to refetch a conflict or permission catalog is retryable without discarding the form. Mutations refetch durable assignments and refresh session context; protected 401 clears the whole application and older session responses cannot restore it. Readiness diagnostics are under administration.
 
-Audit uses session tenant scope with parameterized inclusive date/exact actor/action/object/request filters and bounded cursors. New permission changes store before/after snapshots under the same transaction/role lock. Historical audit rows without old values display only the data they originally recorded. No migration was added; schema version remains 25.
+Audit uses session tenant scope with parameterized inclusive date/exact actor/action/object/request filters and bounded cursors. New permission changes store before/after snapshots under the same transaction/role lock. Historical audit rows without old values display only the data they originally recorded. PR #15 added no migration and was verified at schema version 25; own-account changes extend the current schema to 27.
 
 Local Go unit/HTTP/OpenAPI tests, nine frontend unit tests, TypeScript/build and the disposable MySQL integration/migration lifecycle passed. Browser verification passed 20/20 scenarios on desktop Chromium and Pixel 7, including real users beyond the first 50 results, delayed user/group responses, conflict-refetch failure, catalog retry, duplicate-name draft preservation, keyboard navigation, backend logout and context changes. Regression coverage also verifies that a post-write session refresh supersedes a pending earlier read and that removing one's RBAC-management permission refreshes navigation even when object refetch is forbidden. The final revision, all six CI job results and the end-to-end evidence are recorded in [PR #15](https://github.com/chmajster/OpenServiceNOW/pull/15).
+
+## Own-account result
+
+**Moje konto** exposes versioned global display-name editing, password change with the current password, and bounded cursor-paginated active-session metadata across the user's organizations. Current sessions are marked; users can revoke one session or all others. HTTP handlers derive the owner from the backend session, require CSRF for writes, reject foreign session IDs and expose no tokens in JSON. Organization administrators retain organization-scoped membership/session controls without gaining global password/session authority.
+
+Password changes share the bounded Argon2 pool and global-account/IP attempt limits, rotate the current session/CSRF hashes in place, revoke other sessions, increment credential/profile versions and audit in one transaction. Login rechecks the credential version under the global user lock, so an old password verified before a committed change cannot create a new session. Competing changes with one snapshot commit at most once. A stale logout cannot revoke the rotated session. SQL COMMIT acknowledgement failure returns `ACCOUNT_RESULT_UNKNOWN`; the UI explains reconciliation and never blindly retries the write. A confirmed change followed by a failed context read is reported as a confirmed password change.
+
+New administrator-created accounts and new default-password installation accounts require a password change. Until then authenticated API access is limited to minimal `/me`, password change and logout. Custom first-run passwords are permanent; headless bootstrap can explicitly mark a new custom account temporary. Existing hashes and flags survive migrations, re-bootstrap and restart, including Unicode passwords accepted under the earlier byte-based policy. New passwords use the same 12-code-point/1024-UTF-8-byte policy in API and UI. Email changes, MFA, LDAP and OIDC remain outside the delivered scope.
+
+Local verification passed Go unit/HTTP/OpenAPI tests, race tests, vet/build, all 27 migrations and full rollback/re-upgrade on disposable MySQL 8.4, account/RBAC/tenant integration, 13 Vitest tests, TypeScript/build and 22/22 Playwright scenarios on desktop Chromium and Pixel 7. Coverage includes failed current password, transport failure with retained input, profile conflict decisions, real token rotation/revocation, forced-change API rejection, foreign-session rejection, tenant-scoped membership revocation, transactional audit rollback, old verified credential fencing, two concurrent password changes, session restoration with a new service/SQL pool, and preservation of legacy bootstrap credentials. Final CI results and merge evidence are maintained in PR #16; historical runner failures are not current implementation findings.
 
 ## Native local installer result
 
@@ -214,9 +224,11 @@ Implemented migration versions:
 - `000022_work_watchers`,
 - `000023_work_relations`,
 - `000024_job_logs`,
-- `000025_installation_state`.
+- `000025_installation_state`,
+- `000026_user_credentials`,
+- `000027_account_sessions`.
 
-Each up/down migration contains one SQL statement. Runtime readiness requires migration version 25, `dirty=false`, and the foundation metadata singleton. The real MySQL lifecycle test passed latest → one-step rollback → latest → full rollback → latest → readiness. Migration 25 permanently closes first-run setup for existing accounts/organizations without changing credentials. The reserved `groups` identifier is quoted in schema and repository SQL.
+Each up/down migration contains one SQL statement. Runtime readiness requires migration version 27, `dirty=false`, and the foundation metadata singleton. The real MySQL lifecycle test passed latest → one-step rollback → latest → legacy schema 24 → latest → full rollback → latest → readiness. Migration 25 permanently closes first-run setup for existing accounts/organizations without changing credentials; migration 26 preserves existing hashes and defaults the required-change flag to false. The reserved `groups` identifier is quoted in schema and repository SQL.
 
 ## Technical debt
 

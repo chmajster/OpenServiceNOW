@@ -30,11 +30,12 @@ var platformAdminPermissions = []struct {
 }
 
 type BootstrapInput struct {
-	TenantSlug    string
-	TenantName    string
-	AdminEmail    string
-	AdminName     string
-	AdminPassword string
+	TenantSlug            string
+	TenantName            string
+	AdminEmail            string
+	AdminName             string
+	AdminPassword         string
+	RequirePasswordChange bool
 }
 
 type BootstrapResult struct {
@@ -64,16 +65,16 @@ func (b *Bootstrapper) run(ctx context.Context, input BootstrapInput, initialSet
 	input.AdminEmail = normalizeLoginEmail(input.AdminEmail)
 	input.AdminName = strings.TrimSpace(input.AdminName)
 
-	if err := validateBootstrapInput(input); err != nil {
-		return BootstrapResult{}, fmt.Errorf("%w: %v", ErrSetupInvalid, err)
+	validate := validateBootstrapSettings
+	if initialSetup {
+		validate = validateBootstrapInput
 	}
-	passwordHash, err := hashBootstrapPassword(input)
-	if err != nil {
-		return BootstrapResult{}, fmt.Errorf("hash bootstrap admin password: %w", err)
+	if err := validate(input); err != nil {
+		return BootstrapResult{}, fmt.Errorf("%w: %v", ErrSetupInvalid, err)
 	}
 
 	var result BootstrapResult
-	err = b.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable}, func(exec platformdb.Executor) error {
+	err := b.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable}, func(exec platformdb.Executor) error {
 		required, err := b.repo.LockInstallation(ctx, exec)
 		if err != nil {
 			return err
@@ -98,7 +99,13 @@ func (b *Bootstrapper) run(ctx context.Context, input BootstrapInput, initialSet
 			exec,
 			input.AdminEmail,
 			input.AdminName,
-			passwordHash,
+			func() (string, error) {
+				if err := validateBootstrapInput(input); err != nil {
+					return "", fmt.Errorf("%w: %v", ErrSetupInvalid, err)
+				}
+				return hashBootstrapPassword(input)
+			},
+			input.RequirePasswordChange || (input.AdminEmail == DefaultAdminEmail && input.AdminPassword == DefaultAdminPassword),
 		)
 		if err != nil {
 			return err
@@ -176,6 +183,16 @@ func (b *Bootstrapper) run(ctx context.Context, input BootstrapInput, initialSet
 }
 
 func validateBootstrapInput(input BootstrapInput) error {
+	if err := validateBootstrapSettings(input); err != nil {
+		return err
+	}
+	if !(input.AdminEmail == DefaultAdminEmail && input.AdminPassword == DefaultAdminPassword) {
+		return password.Validate(input.AdminPassword)
+	}
+	return nil
+}
+
+func validateBootstrapSettings(input BootstrapInput) error {
 	if !tenantSlugPattern.MatchString(input.TenantSlug) {
 		return errors.New("organization identifier must use lowercase letters, digits or hyphens and contain at most 100 characters")
 	}
@@ -198,9 +215,8 @@ func validateBootstrapInput(input BootstrapInput) error {
 	if len(input.AdminPassword) > password.MaxPasswordBytes {
 		return fmt.Errorf("administrator password exceeds %d bytes", password.MaxPasswordBytes)
 	}
-	if len(input.AdminPassword) < 12 &&
-		!(input.AdminEmail == DefaultAdminEmail && input.AdminPassword == DefaultAdminPassword) {
-		return errors.New("administrator password must contain at least 12 bytes; only the default admin account accepts admin")
+	if input.AdminPassword == "" {
+		return errors.New("administrator password is required")
 	}
 	return nil
 }

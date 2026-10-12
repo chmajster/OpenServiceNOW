@@ -80,7 +80,7 @@ func main() {
 	rbacHandler := rbac.NewHandler(rbacService)
 
 	usersRepo := users.NewMySQLRepository(db)
-	usersService := users.NewService(usersRepo, txManager, auditRepo, adminSafety, identityRepo)
+	usersService := users.NewService(usersRepo, txManager, auditRepo, adminSafety, identityRepo, identityService)
 	usersHandler := users.NewHandler(usersService)
 
 	tenantsRepo := tenants.NewMySQLRepository(db)
@@ -104,7 +104,7 @@ func main() {
 			[]func(http.Handler) http.Handler{clientIPResolver.Middleware},
 			func(r chi.Router) {
 				identity.RegisterSetupRoutes(r, setupHandler)
-				identity.RegisterRoutes(r, identityHandler, identityMiddleware)
+				identity.RegisterRoutes(r, identityHandler, identityMiddleware, identity.NewAccountHandler(identityService, identityHandler))
 			},
 			func(r chi.Router) {
 				rbac.RegisterRoutes(r, rbacHandler, identityMiddleware)

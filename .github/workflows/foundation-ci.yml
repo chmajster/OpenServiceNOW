@@ -165,6 +165,10 @@ jobs:
             curl --fail --silent --show-error               -c operator-cookies.txt               -H 'Content-Type: application/json'               --data '{"tenant":"ci","email":"operator@example.test","password":"operator-password-1234"}'               http://127.0.0.1:18080/api/v1/auth/login
           )"
           printf '%s' "$user_login" | grep -q '"operator@example.test"'
+          printf '%s' "$user_login" | grep -q '"password_change_required":true'
+          operator_csrf="$(awk '$6 == "opensnow_csrf" {print $7}' operator-cookies.txt)"
+          password_body="$(printf '%s' "$user_login" | python3 -c 'import json,sys; user=json.load(sys.stdin)["user"]; print(json.dumps(dict(current_password="operator-password-1234", new_password="operator-personal-password-1234", credential_version=user["credential_version"])))')"
+          curl --fail --silent --show-error -o /dev/null -b operator-cookies.txt -c operator-cookies.txt -H 'Content-Type: application/json' -H "X-CSRF-Token: $operator_csrf" --data "$password_body" http://127.0.0.1:18080/api/v1/auth/password
 
           operator_me="$(
             curl --fail --silent --show-error               -b operator-cookies.txt               http://127.0.0.1:18080/api/v1/auth/me

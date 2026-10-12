@@ -151,7 +151,8 @@
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
           }
-        }
+        },
+        "description": "Minimal context is available during forced password change, with an empty permissions list. Every authenticated endpoint except GET /me, POST /password and POST /logout is denied with PASSWORD_CHANGE_REQUIRED until the flag is cleared."
       }
     },
     "/api/v1/auth/logout": {
@@ -1653,6 +1654,362 @@
           }
         }
       }
+    },
+    "/api/v1/auth/profile": {
+      "put": {
+        "tags": [
+          "Authentication"
+        ],
+        "operationId": "updateOwnProfile",
+        "description": "Updates the authenticated global identity only; membership permissions grant no authority over another identity. Unavailable until a required password change is completed.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Completed; repeat revocation is a no-op."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "description": "Operation failed; transaction errors before commit leave credentials and sessions unchanged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version conflict. Reload /me and explicitly decide before retrying. Local input must be retained."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must match the current CSRF cookie and server-side hash."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountProfileRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/password": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "operationId": "changeOwnPassword",
+        "description": "Atomically changes global credentials, revokes all other sessions across organizations and rotates the current session and CSRF cookies in place. Requires the current password and credential version. Available during forced password change. A stale/repeated old request cannot commit twice. If the response is lost, reload /me or log in with the new password; do not automatically retry. Errors before commit leave credentials and sessions unchanged. No secret is returned in JSON.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountPasswordResponse"
+                }
+              }
+            },
+            "headers": {
+              "Set-Cookie": {
+                "description": "Rotated HttpOnly session and readable CSRF cookies; SameSite=Strict.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "description": "ACCOUNT_RESULT_UNKNOWN means the SQL COMMIT acknowledgement was lost and the outcome must be reconciled via /me or a fresh login. Do not retry automatically. Errors before COMMIT roll back the entire password/session/audit transaction.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version conflict. Reload /me and explicitly decide before retrying. Local input must be retained."
+          },
+          "429": {
+            "description": "Account-global or IP attempt limit reached.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Argon2 concurrency limit or limiter unavailable. Retry-After is supplied for AUTH_BUSY."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must match the current CSRF cookie and server-side hash."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountPasswordRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/sessions": {
+      "get": {
+        "tags": [
+          "Authentication"
+        ],
+        "operationId": "listOwnSessions",
+        "description": "Active, usable sessions belonging to the authenticated global identity, across its organizations. Metadata only. Unavailable during forced password change.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountSessions"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "description": "Operation failed; transaction errors before commit leave credentials and sessions unchanged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "after_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Unsigned BIGINT serialized as a decimal string."
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Authentication"
+        ],
+        "operationId": "revokeOtherOwnSessions",
+        "description": "Revokes all other sessions of this global identity across organizations, preserving the current session. Repeated requests are safe.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Completed; repeat revocation is a no-op."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "description": "Operation failed; transaction errors before commit leave credentials and sessions unchanged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must match the current CSRF cookie and server-side hash."
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/sessions/{sessionID}": {
+      "delete": {
+        "tags": [
+          "Authentication"
+        ],
+        "operationId": "revokeOwnSession",
+        "description": "Revokes an owned session only, regardless of its organization. Foreign identities return 404, including for organization administrators. Revoking the current session clears its cookies.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Completed; repeat revocation is a no-op."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "description": "Operation failed; transaction errors before commit leave credentials and sessions unchanged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session does not belong to this identity or was removed by retention cleanup."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must match the current CSRF cookie and server-side hash."
+          },
+          {
+            "name": "sessionID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Unsigned BIGINT serialized as a decimal string."
+            }
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -1799,7 +2156,8 @@
         "required": [
           "user",
           "tenant",
-          "expires_at"
+          "expires_at",
+          "password_change_required"
         ],
         "properties": {
           "user": {
@@ -1817,6 +2175,9 @@
           "expires_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "password_change_required": {
+            "type": "boolean"
           }
         }
       },
@@ -1825,7 +2186,9 @@
         "required": [
           "id",
           "email",
-          "display_name"
+          "display_name",
+          "version",
+          "credential_version"
         ],
         "properties": {
           "id": {
@@ -1838,6 +2201,16 @@
           },
           "display_name": {
             "type": "string"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT serialized as a decimal string."
+          },
+          "credential_version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT serialized as a decimal string."
           }
         }
       },
@@ -2007,11 +2380,12 @@
           },
           "password": {
             "type": "string",
-            "format": "password",
             "minLength": 12,
-            "maxLength": 1024
+            "description": "At least 12 Unicode code points, at most 1024 UTF-8 bytes. No normalization. Must differ from the current password.",
+            "writeOnly": true
           }
-        }
+        },
+        "description": "Administrator-supplied passwords are always temporary. The user must change the password before using private APIs. Adding an existing membership never alters global credentials or the profile."
       },
       "MembershipRequest": {
         "type": "object",
@@ -2291,7 +2665,8 @@
         "required": [
           "user",
           "tenant",
-          "expires_at"
+          "expires_at",
+          "password_change_required"
         ],
         "properties": {
           "user": {
@@ -2303,6 +2678,9 @@
           "expires_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "password_change_required": {
+            "type": "boolean"
           }
         }
       },
@@ -2469,7 +2847,7 @@
             "writeOnly": true,
             "minLength": 1,
             "maxLength": 1024,
-            "description": "12–1024 UTF-8 bytes. Only admin/admin@example.test may use the default password admin."
+            "description": "A custom password requires at least 12 Unicode code points and at most 1024 UTF-8 bytes. The default administrator password admin is temporary and requires a change on first login."
           }
         }
       },
@@ -2486,6 +2864,143 @@
           "email": {
             "type": "string",
             "format": "email"
+          }
+        }
+      },
+      "AccountProfileRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "display_name",
+          "version"
+        ],
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT serialized as a decimal string."
+          }
+        }
+      },
+      "AccountPasswordRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "current_password",
+          "new_password",
+          "credential_version"
+        ],
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Current password; max 1024 UTF-8 bytes. Legacy short passwords remain verifiable.",
+            "writeOnly": true
+          },
+          "new_password": {
+            "type": "string",
+            "minLength": 12,
+            "description": "At least 12 Unicode code points, at most 1024 UTF-8 bytes. No normalization. Must differ from the current password.",
+            "writeOnly": true
+          },
+          "credential_version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT serialized as a decimal string."
+          }
+        }
+      },
+      "AccountSession": {
+        "type": "object",
+        "required": [
+          "id",
+          "tenant_id",
+          "tenant_slug",
+          "tenant_name",
+          "ip_address",
+          "user_agent",
+          "created_at",
+          "expires_at",
+          "current"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT serialized as a decimal string."
+          },
+          "tenant_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT serialized as a decimal string."
+          },
+          "tenant_slug": {
+            "type": "string"
+          },
+          "tenant_name": {
+            "type": "string"
+          },
+          "ip_address": {
+            "type": "string"
+          },
+          "user_agent": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "current": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AccountSessions": {
+        "type": "object",
+        "required": [
+          "sessions"
+        ],
+        "properties": {
+          "sessions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountSession"
+            }
+          },
+          "next_after_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT serialized as a decimal string."
+          }
+        }
+      },
+      "AccountPasswordResponse": {
+        "type": "object",
+        "required": [
+          "user",
+          "password_change_required",
+          "expires_at"
+        ],
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/AuthUser"
+          },
+          "password_change_required": {
+            "type": "boolean",
+            "const": false
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       }

@@ -2,7 +2,7 @@
 
 ## Status
 
-Phase 0 established the target architecture and module boundaries. Current `main` contains API, migration/bootstrap, worker and scheduler executables, MySQL schema through migration 25, Redis-backed controls, identity/RBAC/audit services, the first-run installer and React administration UI.
+Phase 0 established the target architecture and module boundaries. The implemented stack contains API, migration/bootstrap, worker and scheduler executables, MySQL schema through migration 27, Redis-backed controls, identity/RBAC/audit services, the first-run installer, React administration and own-account UI.
 
 Shared work-record, jobs, outbox, activity and attachment libraries are implemented and integration-tested. The scheduler enqueues durable session-cleanup jobs; the worker executes them and dispatches activity events. These libraries have no public business-record/job-management API or UI yet. Existing HTTP routes and screens cover setup, authentication and tenant/user/RBAC/audit administration. The remaining sections distinguish implemented foundations from target business capabilities; see STATUS.md and TODO.md for verified progress.
 
@@ -735,6 +735,16 @@ error
 ```
 
 Passwords, tokens, session secrets, encryption keys, and full credentials must never be logged.
+
+## Global identity and account security
+
+`users` holds a global identity and credential version; `tenant_memberships` holds organization access. Self-service profile/password/session APIs derive the global user and current organization from the backend session. Organization-administration permissions grant no authority to reset another user's global credentials or manage their sessions elsewhere. Membership deactivation retains organization-scoped session revocation.
+
+Login verifies Argon2id outside SQL locks, then locks the current tenant and global user, validates the credential version and active membership, and inserts the session in the same transaction. Account writes use the same tenant-before-user lock order and revalidate the current session and CSRF hash under lock. Password rotation increments the credential version, clears the required-change flag, revokes other global sessions and replaces the current token/CSRF hashes without creating a duplicate session. Audit shares the transaction and contains no password, hash or token. Redis attempt limits and a shared bounded Argon2 pool cover password operations and administrative account creation.
+
+Migration 26 defaults the required-change flag to false and credential version to one, preserving existing credentials. New administrator-created accounts and the default installation password are temporary; custom first-run passwords are permanent unless headless bootstrap explicitly requests a temporary password. Restricted accounts can only access minimal `/me`, password change and logout. Identity middleware rejects all other authenticated routes before module handlers. Migration 27 indexes bounded global account-session reads. The React account page, public API and persistence are implemented together; MFA and external identity providers remain future stages.
+
+Password transactions either commit fully or roll back fully; a lost COMMIT acknowledgement is explicitly reported as an uncertain result. Session rotation makes old-cookie retries unauthenticated, while credential-version preconditions reject stale writes. Uncertain commit/transport outcomes are reconciled through `/me` or a fresh login with the new password, without an automatic write retry. The API client ignores late unauthorized responses belonging to a previous CSRF generation so they cannot clear a newly rotated session. Bootstrap applies new-password validation only when creating an identity; existing matching legacy credentials and required-change flags are preserved.
 
 ## Graceful shutdown
 

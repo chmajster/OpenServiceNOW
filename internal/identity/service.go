@@ -104,6 +104,11 @@ func (s *Service) Login(ctx context.Context, input LoginInput, meta RequestMeta)
 
 	var sessionID uint64
 	err = s.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec platformdb.Executor) error {
+		current, err := s.repo.ValidateLoginForUpdate(ctx, exec, tenant.ID, user.ID, user.CredentialVersion)
+		if err != nil {
+			return err
+		}
+		user = current
 		var createErr error
 		sessionID, createErr = s.repo.CreateSession(
 			ctx, exec, tenant.ID, user.ID, sessionHash, csrfHash, expiresAt,
@@ -138,6 +143,7 @@ func (s *Service) Login(ctx context.Context, input LoginInput, meta RequestMeta)
 			TenantName:  tenant.Name,
 			CSRFHash:    csrfHash,
 			ExpiresAt:   expiresAt,
+			Version:     user.Version, CredentialVersion: user.CredentialVersion, PasswordChangeRequired: user.PasswordChangeRequired,
 		},
 		SessionToken: sessionToken,
 		CSRFToken:    csrfToken,
@@ -168,7 +174,7 @@ func (s *Service) VerifyCSRF(identity SessionIdentity, token string) bool {
 }
 
 func (s *Service) Logout(ctx context.Context, identity SessionIdentity, meta RequestMeta) error {
-	return s.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec platformdb.Executor) error {
+	err := s.accountTx(ctx, identity, func(exec platformdb.Executor, _ User) error {
 		if err := s.repo.RevokeSession(ctx, exec, identity.SessionID, identity.TenantID, identity.UserID); err != nil {
 			if errors.Is(err, ErrNotFound) {
 				return nil
@@ -186,13 +192,20 @@ func (s *Service) Logout(ctx context.Context, identity SessionIdentity, meta Req
 			IPAddress:   meta.IPAddress,
 		})
 	})
+	return err
 }
 
 func (s *Service) Permissions(ctx context.Context, identity SessionIdentity) ([]string, error) {
+	if identity.PasswordChangeRequired {
+		return []string{}, nil
+	}
 	return s.repo.ListPermissions(ctx, identity.TenantID, identity.UserID)
 }
 
 func (s *Service) HasPermission(ctx context.Context, identity SessionIdentity, permission string) (bool, error) {
+	if identity.PasswordChangeRequired {
+		return false, nil
+	}
 	return s.repo.HasPermission(ctx, identity.TenantID, identity.UserID, permission)
 }
 

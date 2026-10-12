@@ -3,6 +3,7 @@ package users
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/mail"
 	"strings"
@@ -14,7 +15,10 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/platform/password"
 )
 
+type PasswordHasher interface{ HashPassword(string) (string, error) }
+
 type Service struct {
+	hasher       PasswordHasher
 	repo         *MySQLRepository
 	tx           *platformdb.TxManager
 	audit        *audit.MySQLRepository
@@ -28,8 +32,10 @@ func NewService(
 	auditRepo *audit.MySQLRepository,
 	adminSafety *identity.AdminSafetyRepository,
 	identityRepo *identity.MySQLRepository,
+	hasher PasswordHasher,
 ) *Service {
 	return &Service{
+		hasher:       hasher,
 		repo:         repo,
 		tx:           tx,
 		audit:        auditRepo,
@@ -59,17 +65,20 @@ func (s *Service) Create(ctx context.Context, actor Actor, input CreateInput) (u
 	input.DisplayName = strings.TrimSpace(input.DisplayName)
 
 	address, err := mail.ParseAddress(input.Email)
-	if err != nil || address.Address != input.Email {
+	if err != nil || address.Address != input.Email || len(input.Email) > 254 {
 		return 0, fmt.Errorf("%w: invalid email", ErrInvalid)
 	}
 	nameLength := utf8.RuneCountInString(input.DisplayName)
-	if nameLength < 1 || nameLength > 200 {
+	if !utf8.ValidString(input.DisplayName) || nameLength < 1 || nameLength > 200 {
 		return 0, fmt.Errorf("%w: display name must contain between 1 and 200 characters", ErrInvalid)
 	}
 
-	passwordHash, err := password.Hash(input.Password)
-	if err != nil {
+	if err := password.Validate(input.Password); err != nil {
 		return 0, fmt.Errorf("%w: %v", ErrInvalid, err)
+	}
+	passwordHash, err := s.hasher.HashPassword(input.Password)
+	if err != nil {
+		return 0, err
 	}
 
 	var userID uint64
@@ -115,6 +124,9 @@ func (s *Service) AddExistingMembership(
 
 	var userID uint64
 	err = s.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec platformdb.Executor) error {
+		if err := s.adminSafety.LockTenant(ctx, exec, actor.TenantID); err != nil {
+			return err
+		}
 		var addErr error
 		userID, addErr = s.repo.AddExistingMembership(ctx, exec, actor.TenantID, email)
 		if addErr != nil {
@@ -144,6 +156,12 @@ func (s *Service) SetMembershipActive(ctx context.Context, actor Actor, userID u
 	}
 	return s.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec platformdb.Executor) error {
 		if err := s.adminSafety.LockTenant(ctx, exec, actor.TenantID); err != nil {
+			return err
+		}
+		if err := s.identityRepo.LockMembershipUser(ctx, exec, actor.TenantID, userID); err != nil {
+			if errors.Is(err, identity.ErrNotFound) {
+				return ErrNotFound
+			}
 			return err
 		}
 		current, err := s.repo.MembershipActiveForUpdate(ctx, exec, actor.TenantID, userID)

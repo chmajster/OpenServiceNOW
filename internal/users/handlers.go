@@ -175,6 +175,9 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		return
 	}
 	switch {
+	case errors.Is(err, identity.ErrAuthBusy):
+		w.Header().Set("Retry-After", "1")
+		httpapi.WriteError(w, r, http.StatusServiceUnavailable, "AUTH_BUSY", "Authentication is temporarily busy")
 	case errors.Is(err, identity.ErrLastPlatformAdmin):
 		httpapi.WriteError(
 			w,

@@ -1,10 +1,11 @@
 import type { PropsWithChildren } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { PageState } from "../components/PageState";
 
 export function RequireAuth({ children }: PropsWithChildren) {
-  const { status, error, refresh } = useAuth();
+  const { status, session, error, refresh } = useAuth();
+  const location = useLocation();
 
   if (status === "loading") {
     return <PageState title="Ładowanie sesji" detail="Sprawdzanie aktywnej sesji użytkownika." />;
@@ -29,6 +30,8 @@ export function RequireAuth({ children }: PropsWithChildren) {
   if (status !== "authenticated") {
     return <Navigate to="/login" replace />;
   }
+  if (session?.password_change_required && location.pathname !== "/account")
+    return <Navigate to="/account" replace />;
   return children;
 }
 

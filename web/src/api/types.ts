@@ -10,6 +10,8 @@ export type AuthUser = {
   id: string;
   email: string;
   display_name: string;
+  version: string;
+  credential_version: string;
 };
 
 export type AuthTenant = {
@@ -19,6 +21,7 @@ export type AuthTenant = {
 };
 
 export type AuthMe = {
+  password_change_required: boolean;
   user: AuthUser;
   tenant: AuthTenant;
   permissions: string[];

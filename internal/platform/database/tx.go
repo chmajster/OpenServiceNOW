@@ -3,8 +3,12 @@ package database
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 )
+
+// A lost COMMIT acknowledgement cannot be treated as a confirmed rollback.
+var ErrCommitUncertain = errors.New("commit transaction outcome uncertain")
 
 type Executor interface {
 	ExecContext(context.Context, string, ...any) (sql.Result, error)
@@ -50,7 +54,7 @@ func runTransaction(tx transaction, fn func(Executor) error) (err error) {
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit transaction: %w", err)
+		return fmt.Errorf("%w: %w", ErrCommitUncertain, err)
 	}
 	return nil
 }

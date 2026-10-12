@@ -28,7 +28,9 @@ func (r *MySQLRepository) EnsureTenant(ctx context.Context, exec platformdb.Exec
 func (r *MySQLRepository) EnsureUser(
 	ctx context.Context,
 	exec platformdb.Executor,
-	email, name, passwordHash string,
+	email, name string,
+	createPasswordHash func() (string, error),
+	requirePasswordChange bool,
 ) (uint64, bool, string, error) {
 	var existingID uint64
 	var existingPasswordHash string
@@ -43,11 +45,15 @@ func (r *MySQLRepository) EnsureUser(
 	if !errors.Is(err, sql.ErrNoRows) {
 		return 0, false, "", fmt.Errorf("find existing user: %w", err)
 	}
+	passwordHash, err := createPasswordHash()
+	if err != nil {
+		return 0, false, "", err
+	}
 
 	result, err := exec.ExecContext(ctx, `
-		INSERT INTO users (email, display_name, password_hash)
-		VALUES (?, ?, ?)
-	`, email, name, passwordHash)
+		INSERT INTO users (email, display_name, password_hash, password_change_required)
+		VALUES (?, ?, ?, ?)
+	`, email, name, passwordHash, requirePasswordChange)
 	if err != nil {
 		return 0, false, "", fmt.Errorf("create user: %w", err)
 	}

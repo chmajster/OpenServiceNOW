@@ -23,7 +23,7 @@ func (r *MySQLRepository) FindForLogin(ctx context.Context, tenantSlug, email st
 	var tenant Tenant
 	err := r.db.QueryRowContext(ctx, `
 		SELECT
-			u.id, u.email, u.display_name, u.password_hash,
+			u.id, u.email, u.display_name, u.password_hash, u.version, u.credential_version, u.password_change_required,
 			t.id, t.slug, t.name
 		FROM users u
 		JOIN tenant_memberships tm ON tm.user_id = u.id AND tm.active = TRUE
@@ -32,6 +32,7 @@ func (r *MySQLRepository) FindForLogin(ctx context.Context, tenantSlug, email st
 		LIMIT 1
 	`, tenantSlug, email).Scan(
 		&user.ID, &user.Email, &user.DisplayName, &user.PasswordHash,
+		&user.Version, &user.CredentialVersion, &user.PasswordChangeRequired,
 		&tenant.ID, &tenant.Slug, &tenant.Name,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -74,7 +75,7 @@ func (r *MySQLRepository) FindSession(ctx context.Context, tokenHash [32]byte) (
 	err := r.db.QueryRowContext(ctx, `
 		SELECT
 			s.id, s.user_id, s.tenant_id, s.csrf_hash, s.expires_at,
-			u.email, u.display_name,
+			u.email, u.display_name, u.version, u.credential_version, u.password_change_required,
 			t.slug, t.name
 		FROM sessions s
 		JOIN users u ON u.id = s.user_id AND u.active = TRUE
@@ -93,6 +94,7 @@ func (r *MySQLRepository) FindSession(ctx context.Context, tokenHash [32]byte) (
 		&identity.ExpiresAt,
 		&identity.Email,
 		&identity.DisplayName,
+		&identity.Version, &identity.CredentialVersion, &identity.PasswordChangeRequired,
 		&identity.TenantSlug,
 		&identity.TenantName,
 	)

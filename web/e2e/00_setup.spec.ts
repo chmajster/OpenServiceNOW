@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { changeTemporaryPassword, permanentRootPassword } from "./account-fixtures";
 
 const tenant = process.env.E2E_TENANT ?? "e2e";
 const email = process.env.E2E_ADMIN_EMAIL ?? "admin";
@@ -102,6 +103,12 @@ test("first-run installer creates the administrator and permanently closes setup
     await expect(page.getByLabel("Login lub e-mail")).toHaveValue(email);
     await page.getByLabel("Hasło").fill(password!);
     await page.getByRole("button", { name: "Zaloguj" }).click();
+    if (password === "admin") {
+      await expect(page.getByRole("heading", { name: "Moje konto", exact: true })).toBeVisible();
+      expect((await page.request.get("/api/v1/admin/users/")).status()).toBe(403);
+      await changeTemporaryPassword(page, password, permanentRootPassword);
+      await page.goto("/");
+    }
     await expect(page.getByRole("heading", { name: "Przegląd", exact: true })).toBeVisible();
     const me = await page.request.get("/api/v1/auth/me");
     expect(me.status()).toBe(200);
