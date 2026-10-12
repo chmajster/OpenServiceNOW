@@ -352,6 +352,9 @@ jobs:
       E2E_BIGINT: "1"
       E2E_SMTP_PORT: "1025"
       SMTP_ALLOW_INSECURE: "true"
+      # Repeated administrator logins in the disposable browser suite keep the
+      # real attempt limits, with a bounded window compatible with test retries.
+      AUTH_LOGIN_ACCOUNT_WINDOW: "1m"
 
     steps:
       - uses: actions/checkout@v4
