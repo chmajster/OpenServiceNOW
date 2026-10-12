@@ -121,14 +121,23 @@ installer --start
 installer --status
 stop_listener
 
-# Replacing the API also refreshes an already-running Nginx upstream.
+# Nginx follows an API address change without restarting the frontend.
 api_before=$(compose ps -aq api)
 api_address=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$api_before")
+frontend_started=$(docker inspect --format '{{.State.StartedAt}}' "$(compose ps -aq frontend)")
 compose rm -sf api
 docker run -d --name "${project}-api-address-holder" --network "${project}_default" --ip "$api_address" alpine:3.22 sleep 300 >/dev/null
-installer --start
+compose up -d --no-build --pull never api
 [[ "$(compose ps -aq api)" != "$api_before" ]]
 [[ "$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$(compose ps -aq api)")" != "$api_address" ]]
+proxy_ready=0
+for _ in {1..60}; do
+  if curl --fail --silent http://127.0.0.1:8082/health/ready >/dev/null; then proxy_ready=1; break; fi
+  sleep 1
+done
+[[ "$proxy_ready" == 1 ]]
+[[ "$(docker inspect --format '{{.State.StartedAt}}' "$(compose ps -aq frontend)")" == "$frontend_started" ]]
+installer --start
 assert_healthy
 docker rm -f "${project}-api-address-holder" >/dev/null
 ids_before=$(compose ps -aq | sort)
