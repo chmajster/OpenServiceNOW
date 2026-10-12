@@ -1,4 +1,4 @@
-.PHONY: dev build test lint migrate-up migrate-down migrate-down-all migrate-version bootstrap scheduler-once worker worker-once frontend frontend-test e2e
+.PHONY: dev build test lint migrate-up migrate-down migrate-down-all migrate-version bootstrap scheduler scheduler-once worker worker-once frontend frontend-test e2e local-install local-start local-stop local-restart local-status local-test
 
 dev:
 	docker compose -f docker-compose.yml up -d
@@ -31,6 +31,9 @@ bootstrap:
 scheduler-once:
 	go run ./cmd/scheduler --once
 
+scheduler:
+	go run ./cmd/scheduler
+
 worker:
 	go run ./cmd/worker
 
@@ -45,3 +48,21 @@ frontend-test:
 
 e2e:
 	cd web && npm run e2e
+
+local-install:
+	bash ./install.sh --local
+
+local-start:
+	bash ./install.sh --local --start
+
+local-stop:
+	bash ./install.sh --local --stop
+
+local-restart:
+	bash ./install.sh --local --restart
+
+local-status:
+	bash ./install.sh --local --status
+
+local-test:
+	bash tests/local_runtime_test.sh

@@ -1,6 +1,6 @@
 # Current Project Status
 
-Last updated: 2026-10-11
+Last updated: 2026-10-12
 
 ## Current phase
 
@@ -10,7 +10,14 @@ The repository includes the administration foundation, durable MySQL jobs/worker
 
 ## Last completed
 
-Phase 0, the foundation implementation, shared work-platform infrastructure and the local installer are present in `main`. DevBox deployment is tracked in PR #7.
+Phase 0, the administration foundation, shared work-platform libraries and both local installer modes are present in `main` through PR #13. DevBox deployment was delivered in PR #7; it is preserved by the native installer work in PR #14.
+
+Availability boundaries:
+
+- Setup, authentication, tenant/user/RBAC administration and audit have implemented services, OpenAPI routes and React screens.
+- Jobs, attempts/logs, leases, retries/cancellation, session-cleanup scheduling and worker execution are implemented internally. There is no public job-management API or UI.
+- Work records, outbox, attachments and activity have shared libraries, migrations, worker projections and integration tests. They have no public business-record/attachment routes or screens yet; object-specific business authorization must be supplied by their future domain consumers.
+- Incident/SLA/request and later business capabilities remain roadmap work.
 
 Implemented foundation capabilities:
 
@@ -24,12 +31,12 @@ Implemented foundation capabilities:
 - HTTP access logging, body limits, security/privacy headers, server-generated request IDs and timeouts,
 - controlled JSON panic recovery,
 - panic-safe transaction rollback,
-- graceful API and scheduler shutdown,
+- graceful API, worker and scheduler shutdown,
 - MySQL connection pool using `database/sql`,
 - Redis connectivity,
 - central transaction manager,
 - explicit migrations,
-- schema-aware liveness/readiness,
+- independent liveness and MySQL/schema/Redis readiness,
 - local users and tenant memberships,
 - Argon2id password hashing,
 - opaque database-backed sessions,
@@ -78,17 +85,23 @@ Implemented foundation capabilities:
 - mobile-safe logout and permission-aware read-only tenant UI,
 - server-side bounded search/pagination controls in user/RBAC screens,
 - role permission editor using optimistic locking,
-- CI workflow covering dependency manifest stability, backend format/vet/unit/race/build/migrations/integration/smoke/advisory-lock scheduler/rollback and frontend typecheck/test/build.
+- CI workflow covering dependency manifest stability, backend format/vet/unit/race/build/migrations/integration/smoke/durable scheduler-worker/rollback, frontend typecheck/test/build/browser E2E, native lifecycle, Docker lifecycle and Engine installation/update tests.
 
 ## Currently in progress
 
-Deployment verification covers the complete frontend/API/worker/scheduler/Redis stack, application-specific MySQL credentials and the original Windows/WSL source. Live readiness, administrator authentication, CSRF rejection, non-root RW mounts and SQL access from API/worker/scheduler pass after a DevBox rebuild.
+Business-module APIs/UI, broader asynchronous operational monitoring and external identity providers remain roadmap work. Implemented shared libraries are available to domain consumers, rather than exposed as unfinished screens.
 
-The full desktop/mobile Playwright suite passed 6/6 against the real container stack. Final GitHub checks are tracked in [PR #7](https://github.com/chmajster/OpenServiceNOW/pull/7). Roadmap business capabilities and external identity providers remain separate development work.
+## Native local installer result
+
+[PR #14](https://github.com/chmajster/OpenServiceNOW/pull/14) extends the existing four-process runtime with read-only status during Docker outages, individual PID/log details, before/after startup-rollback diagnostics and safe PID reads when processes exit. Makefile includes native lifecycle and continuous scheduler commands.
+
+On 2026-10-12, the expanded native suite passed against executable revision `0a49ac574a749a1584fb51cf9324310340aa05b2` in a disposable Docker-in-Docker environment with its own network, checkout, SQL volume and credentials. It verified all four detached processes; known scheduler job IDs correlated with a completed worker attempt, result and execution logs; actual expired-session deletion; duplicate prevention; dead background process visibility with successful synchronous authentication; status leaving SQL/runtime state unchanged; API fallback/proxy updates through port 8100; frontend port persistence; startup rollback; safe bootstrap with an incorrect old password; and preservation of configuration, tenant data, password hash and active session across ordinary uninstall/reinstall. The host's existing application was left running.
+
+`--status` reports worker/scheduler process liveness, not processing throughput or queue lag. API/schema/Redis readiness remains independent of those processes. Processing proof belongs to the isolated test; status never creates a job. Current-branch CI execution and final verification are recorded in PR #14.
 
 ## Known problems
 
-The September GitHub runner-allocation failures are historical. Run #564 on the initial deployment commit executed repository code: frontend passed, while backend formatting and the reserved MySQL table identifier stopped the remaining jobs. Both code defects have been fixed; subsequent CI runs are tracked in PR #7.
+The September GitHub runner-allocation failures and early formatting/reserved-identifier failures are historical, fixed issues. [foundation-ci #600](https://github.com/chmajster/OpenServiceNOW/actions/runs/38189545233) on `70c6a319a964d6f120449a981d52367e6e50fa35` completed successfully with all six jobs, including native and Docker lifecycle verification. They are not current blockers.
 
 No deployment blocker remains after the verified DevBox rebuild. The local endpoint uses development HTTP cookie settings; HTTPS ingress, secure cookies and production datastore policy are deployment choices for a production environment.
 
@@ -157,7 +170,7 @@ CI is configured to run:
 - frontend production build,
 - full-stack Playwright Chromium E2E through UI → API → MySQL.
 
-2026-10-11 local verification passed strict Go formatting, vet, unit tests, race tests and build in Go 1.27 Docker; real MySQL 8.4 integration tests covered migration lifecycle, tenant isolation/RBAC/optimistic locking and work-platform/jobs/outbox/attachments. Frontend installation, typecheck, unit tests (3/3), production build and npm audit passed (0 vulnerabilities). Shell syntax, ShellCheck, installer help and both Compose configurations passed. All six desktop/mobile Playwright tests passed against the real container stack. Final GitHub checks are recorded in PR #7.
+[foundation-ci #606](https://github.com/chmajster/OpenServiceNOW/actions/runs/38237188306) passed all six jobs on executable revision `0a49ac574a749a1584fb51cf9324310340aa05b2`: backend format/vet/unit/race/build, all 25 migrations/integration/rollback and auth/RBAC smoke flow; frontend typecheck/unit/build; desktop/mobile E2E; expanded native lifecycle with known-ID scheduler/worker proof; Docker lifecycle/browser workflow; and Engine installation/update. Local shell syntax, ShellCheck, installer help/unit tests and both Compose configurations also passed. No migration or API/UI change was needed for this stage.
 
 ## Database migrations
 
@@ -195,7 +208,8 @@ Each up/down migration contains one SQL statement. Runtime readiness requires mi
 
 Known non-blocking design work:
 
-- session cleanup scheduler uses a MySQL advisory lock so parallel replicas skip duplicate work; broader multi-job scheduler coordination will evolve with future workloads,
+- session cleanup scheduler deduplicates through time-bucket job keys and a unique MySQL index; broader multi-job scheduler coordination will evolve with future workloads,
+- installer background status reports verified process liveness; durable heartbeats, queue-lag monitoring and public job administration are future operational work,
 - durable job processing and retry/outbox behavior are implemented; broader workload coverage evolves with roadmap features,
 - frontend/API container packaging is implemented; production TLS/ingress and operational deployment policy remain environment-specific,
 - external authentication providers are not implemented yet.
