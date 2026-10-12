@@ -27,6 +27,7 @@ function NotificationWorkspace() {
   const before = params.get("before_id") ?? "";
   const query = useIncidentQuery<NotificationPage>(
     `/api/v1/notifications/?limit=25${before ? `&before_id=${encodeURIComponent(before)}` : ""}`,
+    tab,
   );
   const [busy, setBusy] = useState(false),
     [error, setError] = useState<string>();

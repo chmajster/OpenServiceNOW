@@ -11,10 +11,10 @@ export function useIncidentTitleFocus(key?: string) {
   return heading;
 }
 
-export function useIncidentQuery<T>(path: string) {
+export function useIncidentQuery<T>(path: string, scope = "") {
   const { session } = useAuth();
   const [revision, setRevision] = useState(0);
-  const key = `${session?.tenant.id}:${session?.user.id}:${session?.expires_at}:${session?.permissions?.join(",")}:${path}:${revision}`;
+  const key = `${session?.tenant.id}:${session?.user.id}:${session?.expires_at}:${session?.permissions?.join(",")}:${path}:${scope}:${revision}`;
   const current = useRef(key);
   current.current = key;
   const [state, setState] = useState<{

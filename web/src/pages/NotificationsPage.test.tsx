@@ -10,7 +10,8 @@ it("keeps exact BIGINT notification links and an explicit zero unread count afte
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const id = "9007199254750019",
     incident = "9007199254750027";
-  let read = false;
+  let read = false,
+    projected = false;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (path: string, init?: RequestInit) => {
@@ -31,22 +32,36 @@ it("keeps exact BIGINT notification links and an explicit zero unread count afte
                 password_change_required: false,
                 expires_at: new Date(Date.now() + 600000).toISOString(),
               }
-            : path.includes("/read") && init?.method === "POST"
-              ? ((read = true), null)
-              : {
-                  notifications: [
-                    {
-                      id,
-                      incident_id: incident,
-                      source_event_id: "9007199254750049",
-                      kind: "reply",
-                      summary: "Nowa odpowiedź",
-                      occurred_at: new Date().toISOString(),
-                      ...(read ? { read_at: new Date().toISOString() } : {}),
-                    },
-                  ],
-                  unread: read ? "0" : "1",
-                };
+            : path === "/api/v1/notifications/preferences"
+              ? {
+                  in_app_enabled: true,
+                  smtp_enabled: false,
+                  assignments: true,
+                  replies: true,
+                  state_changes: true,
+                  resolutions: true,
+                  version: "0",
+                }
+              : path.includes("/read") && init?.method === "POST"
+                ? ((read = true), null)
+                : {
+                    notifications: projected
+                      ? [
+                          {
+                            id,
+                            incident_id: incident,
+                            source_event_id: "9007199254750049",
+                            kind: "reply",
+                            summary: "Nowa odpowiedź",
+                            occurred_at: new Date().toISOString(),
+                            ...(read
+                              ? { read_at: new Date().toISOString() }
+                              : {}),
+                          },
+                        ]
+                      : [],
+                    unread: read ? "0" : "1",
+                  };
       return payload === null
         ? new Response(null, { status: 204 })
         : new Response(JSON.stringify(payload), {
@@ -59,12 +74,21 @@ it("keeps exact BIGINT notification links and an explicit zero unread count afte
   try {
     await act(async () =>
       root.render(
-        <MemoryRouter>
+        <MemoryRouter initialEntries={["/notifications?tab=preferences"]}>
           <AuthProvider>
             <NotificationsPage />
           </AuthProvider>
         </MemoryRouter>,
       ),
+    );
+    expect(
+      container.querySelector(`a[href="/incidents/${incident}"]`),
+    ).toBeNull();
+    projected = true;
+    await act(async () =>
+      [...container.querySelectorAll("button")]
+        .find((b) => b.textContent === "Lista")!
+        .click(),
     );
     expect(
       container.querySelector<HTMLAnchorElement>(

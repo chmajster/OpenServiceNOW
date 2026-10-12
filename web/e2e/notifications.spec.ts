@@ -109,6 +109,39 @@ test("independent incident notifications, preferences, current access and real S
     await expect(
       reporter.getByLabel("Powiadomienia e-mail", { exact: false }),
     ).toBeChecked();
+    const preference = await (
+      await reporter.request.get("/api/v1/notifications/preferences")
+    ).json();
+    await reporter.getByLabel("Zmiany stanu", { exact: true }).uncheck();
+    expect(
+      (
+        await reporter.request.put("/api/v1/notifications/preferences", {
+          headers: reporterHeaders,
+          data: { ...preference, assignments: false },
+        })
+      ).status(),
+    ).toBe(204);
+    await reporter
+      .getByRole("button", { name: "Zapisz preferencje", exact: true })
+      .click();
+    await expect(
+      reporter.getByRole("heading", { name: "Konflikt wersji", exact: true }),
+    ).toBeVisible();
+    await expect(
+      reporter.getByLabel("Zmiany stanu", { exact: true }),
+    ).not.toBeChecked();
+    await reporter
+      .getByRole("button", {
+        name: "Zachowaj propozycję do ponownego zapisu",
+        exact: true,
+      })
+      .click();
+    await reporter
+      .getByRole("button", { name: "Zapisz preferencje", exact: true })
+      .click();
+    await expect(
+      reporter.getByText("Zapisano preferencje", { exact: true }),
+    ).toBeVisible();
     expect(
       (
         await request.post(`/api/v1/incidents/${incident}/messages`, {
