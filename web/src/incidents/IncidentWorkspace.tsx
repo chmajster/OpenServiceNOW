@@ -24,6 +24,10 @@ import {
   useIncidentTitleFocus,
 } from "./hooks";
 
+import { CommunicationPanel } from "./CommunicationPanel";
+import { ParticipantsPanel } from "./ParticipantsPanel";
+import { UnsavedGuard } from "./UnsavedGuard";
+
 type EditorProps = {
   record: Incident;
   metadata: Metadata;
@@ -111,6 +115,12 @@ export function IncidentWorkspace({
       label: "Priorytet",
       available: record.actions.override_priority || draftTabs.priority,
     },
+    { value: "communication", label: "Komunikacja i pliki", available: true },
+    {
+      value: "participants",
+      label: "Obserwatorzy i powiązania",
+      available: true,
+    },
     { value: "history", label: "Historia", available: true },
   ];
   const activeTab =
@@ -129,6 +139,7 @@ export function IncidentWorkspace({
     (location.state as { listSearch?: string } | null)?.listSearch ?? "";
   return (
     <section className="page incident-page">
+      <UnsavedGuard dirty={Object.values(draftTabs).some(Boolean)} />
       <div className="page-heading">
         <div>
           <p className="eyebrow">{record.number}</p>
@@ -275,6 +286,14 @@ export function IncidentWorkspace({
       {(record.actions.override_priority || draftTabs.priority) && (
         <div hidden={activeTab !== "priority"} className="panel">
           <PriorityIncident {...props} />
+        </div>
+      )}
+      <div hidden={activeTab !== "communication"} className="panel">
+        <CommunicationPanel record={record} retain={retain} />
+      </div>
+      {activeTab === "participants" && (
+        <div className="panel">
+          <ParticipantsPanel record={record} />
         </div>
       )}
       {activeTab === "history" && (
@@ -809,10 +828,16 @@ function HistoryPanel({
               <li key={entry.id}>
                 <h3>{entry.summary}</h3>
                 <p className="muted">
-                  {dateLabel(entry.event_time)} · Wersja{" "}
-                  {entry.data.incident_version}
+                  {dateLabel(entry.event_time)} ·{" "}
+                  {entry.actor_name ||
+                    "Użytkownik " + (entry.actor_user_id ?? "—")}{" "}
+                  · {entry.type} · Wersja {entry.data.incident_version}
                 </p>
                 {entry.data.reason && <p>Uzasadnienie: {entry.data.reason}</p>}
+                {entry.data.body && (
+                  <p className="preserve-lines">{entry.data.body}</p>
+                )}
+                {entry.data.file_name && <p>Plik: {entry.data.file_name}</p>}
                 <dl className="incident-changes">
                   {auditChanges(entry.data.before, entry.data.after)
                     .filter(

@@ -15,6 +15,11 @@ import {
   type IncidentPage,
   type Metadata,
 } from "../incidents/contracts";
+import {
+  QueueActions,
+  selectedRecord,
+  type Selection,
+} from "../incidents/QueueActions";
 import { IncidentWorkspace } from "../incidents/IncidentWorkspace";
 
 export function IncidentsPage() {
@@ -59,6 +64,7 @@ function IncidentContents() {
   );
 }
 function IncidentList({ metadata }: { metadata: Metadata }) {
+  const { hasPermission } = useAuth();
   const heading = useIncidentTitleFocus();
   const [params, setParams] = useSearchParams();
   const [query, setQuery] = useState(params.get("q") ?? "");
@@ -69,6 +75,18 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
     `/api/v1/incidents/?${requestParams}`,
   );
   const view = params.get("view") ?? "all";
+  const operator =
+    hasPermission("incident.read") &&
+    (hasPermission("incident.assign") || hasPermission("incident.update"));
+  const queue = operator && params.get("queue") === "1";
+  const selectionKey = params.toString();
+  const [queueBusy, setQueueBusy] = useState(false);
+  const [picked, setPicked] = useState<{ key: string; items: Selection }>({
+    key: selectionKey,
+    items: {},
+  });
+  const selection = picked.key === selectionKey ? picked.items : {};
+  const select = (items: Selection) => setPicked({ key: selectionKey, items });
   function filter(values: Record<string, string>) {
     const next = new URLSearchParams(params);
     next.delete("after_id");
@@ -92,7 +110,7 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
         <div>
           <p className="eyebrow">Obsługa zgłoszeń</p>
           <h1 ref={heading} tabIndex={-1}>
-            Incydenty
+            {queue ? "Kolejka operatora" : "Incydenty"}
           </h1>
           <p className="muted">
             Wyniki są filtrowane i stronicowane na serwerze.
@@ -293,6 +311,31 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
         </details>
       </div>
       <div className="panel">
+        {operator && (
+          <Link
+            className="button button--secondary"
+            to={`?${(() => {
+              const next = new URLSearchParams(params);
+              if (queue) next.delete("queue");
+              else next.set("queue", "1");
+              return next;
+            })()}`}
+          >
+            {queue ? "Zwykła lista incydentów" : "Otwórz kolejkę operatora"}
+          </Link>
+        )}
+        {queue && (
+          <QueueActions
+            selection={selection}
+            clear={() => select({})}
+            refresh={result.reload}
+            canAssign={hasPermission("incident.assign")}
+            canStart={hasPermission("incident.update")}
+            loading={result.loading}
+            busy={queueBusy}
+            setBusy={setQueueBusy}
+          />
+        )}
         <div className="action-row">
           <h2>Lista incydentów</h2>
           <button
@@ -321,6 +364,31 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
               </caption>
               <thead>
                 <tr>
+                  {queue && (
+                    <th scope="col">
+                      <input
+                        type="checkbox"
+                        disabled={queueBusy}
+                        aria-label="Wybierz wszystkie incydenty na stronie"
+                        checked={
+                          !!result.data?.incidents.length &&
+                          result.data.incidents.every((r) => !!selection[r.id])
+                        }
+                        onChange={(event) =>
+                          select(
+                            event.target.checked
+                              ? Object.fromEntries(
+                                  result.data!.incidents.map((r) => [
+                                    r.id,
+                                    selectedRecord(r),
+                                  ]),
+                                )
+                              : {},
+                          )
+                        }
+                      />
+                    </th>
+                  )}
                   <th scope="col">Numer i tytuł</th>
                   <th scope="col">Stan</th>
                   <th scope="col">Priorytet</th>
@@ -332,6 +400,23 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
               <tbody>
                 {result.data.incidents.map((r) => (
                   <tr key={r.id}>
+                    {queue && (
+                      <td>
+                        <input
+                          type="checkbox"
+                          disabled={queueBusy}
+                          aria-label={`Wybierz ${r.number}`}
+                          checked={!!selection[r.id]}
+                          onChange={(event) => {
+                            const next = { ...selection };
+                            if (event.target.checked)
+                              next[r.id] = selectedRecord(r);
+                            else delete next[r.id];
+                            select(next);
+                          }}
+                        />
+                      </td>
+                    )}
                     <td className="wrap-cell">
                       <Link
                         to={`/incidents/${r.id}`}

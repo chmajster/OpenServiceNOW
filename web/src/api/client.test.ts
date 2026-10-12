@@ -12,6 +12,39 @@ afterEach(() => {
 });
 
 describe("api client", () => {
+  it("lets the browser set multipart boundary and retains exact decimal IDs", async () => {
+    const data = new FormData();
+    data.append("file", new Blob(["bytes"]), "plik.txt");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_path, init?: RequestInit) => {
+        expect(new Headers(init?.headers).has("Content-Type")).toBe(false);
+        expect(init?.body).toBe(data);
+        return new Response(
+          '{"id":"9007199254741999","assigned_to":"9007199254741999","assignment_group_id":"9007199254741999","actor_user_id":"9007199254741999","source_event_id":"9007199254741999"}',
+          { headers: { "Content-Type": "application/json" } },
+        );
+      }),
+    );
+    const result = await api<Record<string, string>>(
+      "/api/v1/incidents/1/files",
+      { method: "POST", body: data },
+    );
+    expect(Object.values(result)).toEqual(Array(5).fill("9007199254741999"));
+  });
+  it("downloads binary data through the shared authenticated pipeline", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response("file bytes", {
+            headers: { "Content-Type": "application/octet-stream" },
+          }),
+      ),
+    );
+    const result = await api<Blob>("/api/v1/incidents/1/files/2", {}, "blob");
+    expect(await result.text()).toBe("file bytes");
+  });
   it("expires the shared session on protected 401, but not on a failed login", async () => {
     const expired = vi.fn();
     const unsubscribe = onSessionExpired(expired);
@@ -80,15 +113,26 @@ describe("api client", () => {
   it("ignores an old 401 after the browser receives rotated CSRF cookies", async () => {
     document.cookie = "opensnow_csrf=before-rotation; Path=/";
     let finish!: (response: Response) => void;
-    const expired = vi.fn(); const unsubscribe = onSessionExpired(expired);
-    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(resolve => { finish = resolve; })));
+    const expired = vi.fn();
+    const unsubscribe = onSessionExpired(expired);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            finish = resolve;
+          }),
+      ),
+    );
     try {
       const pending = api("/api/v1/auth/me");
       document.cookie = "opensnow_csrf=after-rotation; Path=/";
       finish(new Response(null, { status: 401 }));
       await expect(pending).rejects.toMatchObject({ name: "AbortError" });
       expect(expired).not.toHaveBeenCalled();
-    } finally { unsubscribe(); }
+    } finally {
+      unsubscribe();
+    }
   });
 
   it("adds CSRF header to unsafe requests", async () => {

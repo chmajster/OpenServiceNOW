@@ -115,13 +115,17 @@ export type HistoryEntry = {
   type: string;
   summary: string;
   actor_user_id?: string;
+  actor_name?: string;
+  source_event_id?: string;
   event_time: string;
   data: {
     actor_user_id: string;
     incident_version: string;
     occurred_at: string;
-    before: Record<string, unknown> | null;
-    after: Record<string, unknown>;
+    before?: Record<string, unknown> | null;
+    after?: Record<string, unknown>;
+    body?: string;
+    file_name?: string;
     reason?: string;
   };
 };
