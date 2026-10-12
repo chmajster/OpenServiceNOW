@@ -325,4 +325,17 @@ func TestDurableSLA(t *testing.T) {
 	if err = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM outbox_events WHERE tenant_id=? AND aggregate_id=? AND event_type IN ('sla.warning','sla.breached')`, root.TenantID, create.AggregateID).Scan(&thresholdCount); err != nil || thresholdCount != 4 {
 		t.Fatal("batch restart duplicated escalation", thresholdCount, err)
 	}
+	// Disabled organizations must not repeatedly occupy the bounded due queue.
+	if _, err = db.ExecContext(ctx, `UPDATE tenants SET status='DISABLED' WHERE id=?`, root.TenantID); err != nil {
+		t.Fatal(err)
+	}
+	if err = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM jobs WHERE tenant_id=?`, root.TenantID).Scan(&jobsBefore); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = service.Schedule(ctx, clock.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if err = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM jobs WHERE tenant_id=?`, root.TenantID).Scan(&jobsAfter); err != nil || jobsAfter != jobsBefore {
+		t.Fatal("disabled organization occupied scheduler queue", jobsBefore, jobsAfter, err)
+	}
 }

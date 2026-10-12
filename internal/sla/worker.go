@@ -54,7 +54,7 @@ func (s *Service) HandleEvent(ctx context.Context, event events.Event) error {
 func (s *Service) Schedule(ctx context.Context, now time.Time) (int, error) {
 	count := 0
 	err := s.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(e database.Executor) error {
-		rows, err := e.QueryContext(ctx, `SELECT i.tenant_id,i.id FROM incidents i LEFT JOIN sla_work w ON w.tenant_id=i.tenant_id AND w.incident_id=i.id WHERE (w.next_check_at<=? OR w.incident_id IS NULL AND EXISTS(SELECT 1 FROM sla_definitions d WHERE d.tenant_id=i.tenant_id AND d.kind='policy' AND d.created_at<=i.created_at)) ORDER BY COALESCE(w.next_check_at,i.created_at),i.tenant_id,i.id LIMIT 100`, now.UTC())
+		rows, err := e.QueryContext(ctx, `SELECT i.tenant_id,i.id FROM incidents i JOIN tenants t ON t.id=i.tenant_id AND t.status='ACTIVE' LEFT JOIN sla_work w ON w.tenant_id=i.tenant_id AND w.incident_id=i.id WHERE (w.next_check_at<=? OR w.incident_id IS NULL AND EXISTS(SELECT 1 FROM sla_definitions d WHERE d.tenant_id=i.tenant_id AND d.kind='policy' AND d.created_at<=i.created_at)) ORDER BY COALESCE(w.next_check_at,i.created_at),i.tenant_id,i.id LIMIT 100`, now.UTC())
 		if err != nil {
 			return err
 		}
