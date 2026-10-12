@@ -3,7 +3,7 @@
   "info": {
     "title": "OpenServiceNOW API",
     "version": "0.1.0",
-    "description": "Phase 1 foundation API. The backend is authoritative for authentication, tenant scope and RBAC.\nEvery API response includes a server-generated X-Request-ID header; client-supplied request IDs are not trusted.\nAll MySQL BIGINT identifiers and cursor IDs are serialized as decimal strings to preserve precision in JavaScript clients."
+    "description": "Implemented administration, incidents and notifications API. The backend is authoritative for authentication, tenant scope and RBAC.\nEvery API response includes a server-generated X-Request-ID header; client-supplied request IDs are not trusted.\nAll MySQL BIGINT identifiers and cursor IDs are serialized as decimal strings to preserve precision in JavaScript clients."
   },
   "servers": [
     {
@@ -34,7 +34,11 @@
     },
     {
       "name": "Incident Management",
-      "description": "First complete business process; communication, attachments and CMDB integrations are separate stages."
+      "description": "Incident lifecycle, protected communication/files/participants, operator queue and asynchronous activity."
+    },
+    {
+      "name": "Notifications",
+      "description": "Authorized in-app effects and independent durable SMTP delivery. History is never implicitly mailed."
     }
   ],
   "paths": {
@@ -4781,6 +4785,897 @@
           }
         }
       }
+    },
+    "/api/v1/notifications/": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "operationId": "listNotifications",
+        "summary": "Own accessible notifications and unread counter",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "description": "Operation failed; no secret details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "description": "Organization and actor come from the backend session. Own-user data only. Incident access and private-note access are rechecked before list/count/read. Notifications do not grant access.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "in": "query",
+            "name": "before_id",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/notifications/preferences": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "operationId": "getNotificationPreferences",
+        "summary": "Preferences in the current organization",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPreference"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "description": "Operation failed; no secret details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "description": "Organization and actor come from the backend session. Own-user data only. Incident access and private-note access are rechecked before list/count/read. Notifications do not grant access."
+      },
+      "put": {
+        "tags": [
+          "Notifications"
+        ],
+        "operationId": "saveNotificationPreferences",
+        "summary": "Versioned preference update",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success without a body"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "description": "Operation failed; no secret details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "description": "Organization and actor come from the backend session. Own-user data only. Incident access and private-note access are rechecked before list/count/read. Notifications do not grant access.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationPreference"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/read-all": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "operationId": "readAllNotifications",
+        "summary": "Idempotently mark all currently accessible notifications read",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success without a body"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "description": "Operation failed; no secret details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "description": "Organization and actor come from the backend session. Own-user data only. Incident access and private-note access are rechecked before list/count/read. Notifications do not grant access."
+      }
+    },
+    "/api/v1/notifications/{id}/read": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "operationId": "readNotification",
+        "summary": "Idempotently mark one accessible notification read",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success without a body"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "description": "Operation failed; no secret details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "description": "Organization and actor come from the backend session. Own-user data only. Incident access and private-note access are rechecked before list/count/read. Notifications do not grant access.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/notifications/mail-history": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "operationId": "ownNotificationMailHistory",
+        "summary": "Own SMTP delivery outcomes; inaccessible incidents are filtered",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationMailPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "description": "Operation failed; no secret details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "description": "Organization and actor come from the backend session. Own-user data only. Incident access and private-note access are rechecked before list/count/read. Notifications do not grant access.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "in": "query",
+            "name": "before_id",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/notifications/smtp": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "operationId": "getNotificationSMTP",
+        "summary": "Safe configuration with a password-presence flag",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSMTPConfig"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "description": "Operation failed; no secret details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "description": "Organization and actor come from the backend session. Requires admin.notifications.manage. Operational DTOs contain no event/message payloads or SMTP credentials.",
+        "x-required-permissions": [
+          "admin.notifications.manage"
+        ]
+      },
+      "put": {
+        "tags": [
+          "Notifications"
+        ],
+        "operationId": "saveNotificationSMTP",
+        "summary": "Versioned configuration and encrypted password update",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success without a body"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "description": "Operation failed; no secret details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SMTP encryption key unavailable or invalid; local proposal remains unsaved"
+          }
+        },
+        "description": "Organization and actor come from the backend session. Requires admin.notifications.manage. Operational DTOs contain no event/message payloads or SMTP credentials.",
+        "x-required-permissions": [
+          "admin.notifications.manage"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationSMTPConfigInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/notifications/smtp/test": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "operationId": "testNotificationSMTP",
+        "summary": "Controlled delivery to own account",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Queued for a real worker",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSMTPTestResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "description": "Operation failed; no secret details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "description": "Organization and actor come from the backend session. Requires admin.notifications.manage. Operational DTOs contain no event/message payloads or SMTP credentials. Targets only the authenticated administrator own login email. A repeated key reuses the same delivery. 202 is queued, not accepted by SMTP; inspect the actual mail status.",
+        "x-required-permissions": [
+          "admin.notifications.manage"
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/notifications/deliveries": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "operationId": "listEventDeliveries",
+        "summary": "Durable results per event and consumer",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventDeliveryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "description": "Operation failed; no secret details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "description": "Organization and actor come from the backend session. Requires admin.notifications.manage. Operational DTOs contain no event/message payloads or SMTP credentials.",
+        "x-required-permissions": [
+          "admin.notifications.manage"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "in": "query",
+            "name": "before_id",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/notifications/deliveries/{id}/retry": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "operationId": "retryEventDelivery",
+        "summary": "Retry only a failed consumer with captured attempt count",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success without a body"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "description": "Operation failed; no secret details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "description": "Organization and actor come from the backend session. Requires admin.notifications.manage. Operational DTOs contain no event/message payloads or SMTP credentials.",
+        "x-required-permissions": [
+          "admin.notifications.manage"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventDeliveryRetry"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/notifications/mail": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "operationId": "listNotificationMail",
+        "summary": "SMTP queue, attempts, errors and actual outcomes",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationMailPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "description": "Operation failed; no secret details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "description": "Organization and actor come from the backend session. Requires admin.notifications.manage. Operational DTOs contain no event/message payloads or SMTP credentials.",
+        "x-required-permissions": [
+          "admin.notifications.manage"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "in": "query",
+            "name": "before_id",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/notifications/mail/{id}/attempts": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "operationId": "notificationMailAttempts",
+        "summary": "Bounded SMTP attempt history",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationMailAttempts"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "description": "Operation failed; no secret details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "description": "Organization and actor come from the backend session. Requires admin.notifications.manage. Operational DTOs contain no event/message payloads or SMTP credentials.",
+        "x-required-permissions": [
+          "admin.notifications.manage"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/notifications/mail/{id}/retry": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "operationId": "retryNotificationMail",
+        "summary": "Versioned retry of failed or unconfigured delivery only",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success without a body"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "description": "Operation failed; no secret details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "description": "Organization and actor come from the backend session. Requires admin.notifications.manage. Operational DTOs contain no event/message payloads or SMTP credentials.",
+        "x-required-permissions": [
+          "admin.notifications.manage"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationMailRetry"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -7301,6 +8196,486 @@
         },
         "required": [
           "results"
+        ],
+        "additionalProperties": false
+      },
+      "Notification": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "incident_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "source_event_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "kind": {
+            "enum": [
+              "assignment",
+              "reply",
+              "state",
+              "resolution"
+            ]
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "read_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "incident_id",
+          "source_event_id",
+          "kind",
+          "summary",
+          "occurred_at"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationPage": {
+        "type": "object",
+        "properties": {
+          "notifications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Notification"
+            },
+            "maxItems": 100
+          },
+          "unread": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "notifications",
+          "unread"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationPreference": {
+        "type": "object",
+        "properties": {
+          "in_app_enabled": {
+            "type": "boolean"
+          },
+          "smtp_enabled": {
+            "type": "boolean"
+          },
+          "assignments": {
+            "type": "boolean"
+          },
+          "replies": {
+            "type": "boolean"
+          },
+          "state_changes": {
+            "type": "boolean"
+          },
+          "resolutions": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        },
+        "required": [
+          "in_app_enabled",
+          "smtp_enabled",
+          "assignments",
+          "replies",
+          "state_changes",
+          "resolutions",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationSMTPConfig": {
+        "type": "object",
+        "properties": {
+          "provider_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "host": {
+            "type": "string",
+            "maxLength": 253
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "tls_mode": {
+            "enum": [
+              "STARTTLS",
+              "TLS",
+              "NONE"
+            ]
+          },
+          "username": {
+            "type": "string",
+            "maxLength": 254
+          },
+          "from_address": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 254
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "has_password": {
+            "type": "boolean"
+          },
+          "encryption_ready": {
+            "type": "boolean"
+          },
+          "insecure_allowed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "provider_id",
+          "enabled",
+          "host",
+          "port",
+          "tls_mode",
+          "username",
+          "from_address",
+          "version",
+          "has_password",
+          "encryption_ready",
+          "insecure_allowed"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationSMTPConfigInput": {
+        "type": "object",
+        "properties": {
+          "provider_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "host": {
+            "type": "string",
+            "maxLength": 253
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "tls_mode": {
+            "enum": [
+              "STARTTLS",
+              "TLS",
+              "NONE"
+            ]
+          },
+          "username": {
+            "type": "string",
+            "maxLength": 254
+          },
+          "from_address": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 254
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true,
+            "description": "Optional; omitted preserves the ciphertext, empty removes it. At most 1024 UTF-8 bytes. AES-256-GCM key must be supplied outside MySQL."
+          }
+        },
+        "required": [
+          "provider_id",
+          "enabled",
+          "host",
+          "port",
+          "tls_mode",
+          "username",
+          "from_address",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationMailDelivery": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "user_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "notification_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "provider_id": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "QUEUED",
+              "SENDING",
+              "DELIVERED",
+              "FAILED",
+              "NOT_CONFIGURED",
+              "SKIPPED"
+            ]
+          },
+          "attempt_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "error_code": {
+            "type": "string",
+            "description": "Sanitized module code; no raw server responses or secrets."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "provider_id",
+          "status",
+          "attempt_count",
+          "version",
+          "error_code",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "EventDelivery": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "event_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "consumer_id": {
+            "type": "string",
+            "description": "Stable versioned consumer ID."
+          },
+          "status": {
+            "enum": [
+              "PENDING",
+              "DELIVERING",
+              "DELIVERED",
+              "FAILED",
+              "SKIPPED"
+            ]
+          },
+          "attempt_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "max_attempts": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "last_error": {
+            "type": "string",
+            "description": "Safe error code, never event payload."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "event_id",
+          "consumer_id",
+          "status",
+          "attempt_count",
+          "max_attempts",
+          "last_error",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationMailPage": {
+        "type": "object",
+        "properties": {
+          "deliveries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationMailDelivery"
+            },
+            "maxItems": 100
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "deliveries"
+        ],
+        "additionalProperties": false
+      },
+      "EventDeliveryPage": {
+        "type": "object",
+        "properties": {
+          "deliveries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EventDelivery"
+            },
+            "maxItems": 100
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "deliveries"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationMailAttempt": {
+        "type": "object",
+        "properties": {
+          "attempt_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "status": {
+            "enum": [
+              "SENDING",
+              "DELIVERED",
+              "FAILED",
+              "UNKNOWN"
+            ]
+          },
+          "error_code": {
+            "type": "string"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "attempt_number",
+          "status",
+          "error_code",
+          "started_at"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationMailAttempts": {
+        "type": "object",
+        "properties": {
+          "attempts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationMailAttempt"
+            },
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "attempts"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationMailRetry": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "EventDeliveryRetry": {
+        "type": "object",
+        "properties": {
+          "attempt_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 99
+          }
+        },
+        "required": [
+          "attempt_count"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationSMTPTestResult": {
+        "type": "object",
+        "properties": {
+          "delivery_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "delivery_id"
         ],
         "additionalProperties": false
       }
