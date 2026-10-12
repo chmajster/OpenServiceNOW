@@ -10,7 +10,7 @@ Legend: `[ ]` not delivered, `[-]` in progress, `[x]` implemented and verified f
 
 [P2] [x] Implement API, migration/bootstrap executables, validated configuration, structured logs, request/security controls and graceful shutdown.
 
-[P2] [x] Implement MySQL/Redis connectivity, transactions and explicit migrations 1-37 with clean-schema readiness. Migration history and verified lifecycle evidence are in STATUS.md.
+[P2] [x] Implement MySQL/Redis connectivity, transactions and explicit migrations 1-48 with clean-schema readiness. Migration history and verified lifecycle evidence are in STATUS.md.
 
 [P2] [x] Implement first-run WebUI setup with durable completion, atomic organization/admin/RBAC/audit creation, concurrency protection and safe upgrades.
 
@@ -93,7 +93,8 @@ September runner-allocation failures (including run #523) and early deployment f
 [P2] [ ] Change and Problem Management.
 [P2] [ ] CMDB and Asset Management.
 [P2] [ ] Knowledge Base.
-[P2] [ ] Notifications and Integrations, including external identity providers.
+[P2] [x] Deliver independent outbox consumers and incident in-app/optional SMTP notifications with preferences, encrypted secrets/external key, real delivery history, safe retries and working API/UI. Disposable MySQL, real SMTP, unit/build, desktop/mobile and process restart verification passed; current full CI/review/merge evidence is recorded in PR #19 and STATUS.md. No historical notification replay or external exactly-once guarantee is claimed.
+[P2] [ ] Extend notifications with editable templates, webhooks/inbound mail, other integrations and external identity providers.
 [P2] [ ] Automation.
 [P2] [ ] Reporting and Dashboards.
 [P2] [ ] Self-Service Portal.
