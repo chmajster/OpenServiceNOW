@@ -5,6 +5,8 @@ x-backend: &backend
     target: backend
   working_dir: /app
   restart: unless-stopped
+  volumes:
+    - attachment-data:/var/lib/opensnow/attachments
   security_opt:
     - no-new-privileges:true
   cap_drop:
@@ -14,6 +16,7 @@ x-backend: &backend
     HTTP_ADDR: 0.0.0.0:8080
     REDIS_ADDR: redis:6379
     SESSION_COOKIE_SECURE: "false"
+    ATTACHMENT_ROOT: /var/lib/opensnow/attachments
     BOOTSTRAP_ON_START: ${BOOTSTRAP_ON_START:-false}
     BOOTSTRAP_REQUIRE_PASSWORD_CHANGE: ${BOOTSTRAP_REQUIRE_PASSWORD_CHANGE:-false}
     BOOTSTRAP_TENANT_SLUG: default
@@ -97,3 +100,6 @@ services:
 # DevBox injects the application's DB_* binding and optional bootstrap override at runtime,
 # publishes only frontend:8080 and joins backend workloads to devbox-apps.
 # SQL data remains in the shared DevBox MySQL volume; Redis is disposable cache.
+
+volumes:
+  attachment-data:

@@ -123,6 +123,15 @@ PY
 fi
 original_hash=$(sql "SELECT password_hash FROM users WHERE email='admin@example.test'")
 [[ -n "$original_hash" ]]
+# An isolated fixture identity uses the test administrator's hash without
+# changing that administrator or its required-change policy.
+sql "INSERT INTO users(email,display_name,password_hash) SELECT 'attachment-proof@example.test','Storage proof',password_hash FROM users WHERE email='admin@example.test'" >/dev/null
+sql "INSERT INTO tenant_memberships(tenant_id,user_id) SELECT t.id,u.id FROM tenants t JOIN users u ON u.email='attachment-proof@example.test' WHERE t.slug='e2e'" >/dev/null
+sql "INSERT INTO user_role_assignments(tenant_id,user_id,role_id) SELECT r.tenant_id,u.id,r.id FROM roles r JOIN users u ON u.email='attachment-proof@example.test' WHERE r.name='platform_admin' AND r.system_role=TRUE" >/dev/null
+ATTACHMENT_PROOF_PASSWORD=admin
+if [[ "${LOCAL_DOCKER_BROWSER:-0}" == 1 ]]; then ATTACHMENT_PROOF_PASSWORD=e2e-personal-administrator-password; fi
+export ATTACHMENT_PROOF_PASSWORD
+python3 "$checkout/tests/attachment_runtime_proof.py" create http://127.0.0.1:8082 "$test_dir"
 for _ in {1..25}; do
   completed=$(sql "SELECT COUNT(*) FROM jobs WHERE job_type='system.session_cleanup' AND status='COMPLETED'")
   if (( completed > 0 )); then break; fi
@@ -150,6 +159,7 @@ for _ in {1..60}; do
   sleep 1
 done
 [[ "$proxy_ready" == 1 ]]
+python3 "$checkout/tests/attachment_runtime_proof.py" verify http://127.0.0.1:8082 "$test_dir"
 [[ "$(docker inspect --format '{{.State.StartedAt}}' "$(compose ps -aq frontend)")" == "$frontend_started" ]]
 installer --start
 assert_healthy
@@ -170,6 +180,7 @@ path.write_text(path.read_text().replace('map[string]any{"status": "ok"}', 'map[
 PY
 installer
 curl --fail --silent http://127.0.0.1:8082/health/live | grep -q docker-update-verified
+python3 "$checkout/tests/attachment_runtime_proof.py" verify http://127.0.0.1:8082 "$test_dir"
 [[ "$(sql "SELECT password_hash FROM users WHERE email='admin@example.test'")" == "$original_hash" ]]
 
 # Failed worker startup preserves already-running API/frontend/scheduler containers.
@@ -221,6 +232,8 @@ if [[ "${LOCAL_DOCKER_KEEP:-0}" != 1 ]]; then
   assert_healthy
   [[ "$(sql "SELECT password_hash FROM users WHERE email='admin@example.test'")" == "$original_hash" ]]
   curl --fail --silent http://127.0.0.1:8080/api/v1/setup | grep -q '"required":false'
+  docker volume inspect "${project}_attachment-data" >/dev/null
+  python3 "$checkout/tests/attachment_runtime_proof.py" verify http://127.0.0.1:8080 "$test_dir"
   # Stop/uninstall remain possible if the operator loses the local configuration.
   mv "$checkout/.env" "$test_dir/env-saved"
   installer --stop
