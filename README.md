@@ -48,6 +48,18 @@ Durable MySQL-backed jobs, worker/scheduler execution and shared work-record inf
 | Work records, outbox, activity and attachments | Shared libraries, SQL persistence, worker projections and integration tests | No public business-record/attachment endpoints | No business-record/attachment screens |
 | Incident, SLA and other roadmap business modules | Remaining roadmap work | Not available | Not available |
 
+## Administration panel
+
+The Polish administration navigation separates Users, Roles, Groups, Organization, Audit and Diagnostics. Roles and groups have searchable, paginated tables and deep-linked details: role information/permissions/assignments and group information/members/role assignments. Creation forms open through an explicit action. User creation shows the created account even when it falls beyond the first list page; linking an existing global identity preserves its profile and password.
+
+User, group and role comboboxes search the real tenant-scoped API and have their own `after_id` pagination. Use arrows, Home/End and Enter to select, Escape to close and Tab to reach pagination/clear controls. Selections survive searches and page loading. User identities require `admin.users.manage` in addition to `admin.rbac.manage` on the relevant RBAC operations.
+
+List filters and detail tabs are stored in the URL. Reads are bound to the current object/query, cancelled on changes and guarded against late responses. Assignment mutations are disabled while the current state is loading or failed. Organization and role-permission version conflicts retain the local proposal, display the current server state and require an explicit choice before another save. A failed conflict refetch leaves the proposal available and saving blocked until the current state can be read.
+
+Protected HTTP 401 responses clear the shared session and navigation. Login, organization updates and permission/membership mutations refresh the backend context; returning to the window and the server-provided expiry also trigger a session check. A late response from a previous login cannot restore a revoked session. Diagnostics lives in administration and reports existing API/MySQL/Redis readiness; background process status remains an installer capability.
+
+Audit filters run on the server: inclusive RFC3339 `from`/`to`, decimal `actor_user_id`, exact `action`, `object_type`, `object_id` and `request_id`, combined with bounded `before_id` pagination. The UI accepts dates in the browser's local timezone, shows field differences and retains raw JSON/request metadata in technical details. New role-permission replacements record both sides in their write transaction; historical events without a prior snapshot cannot reconstruct missing values. No new database migration is required.
+
 ## Stack
 
 Backend:

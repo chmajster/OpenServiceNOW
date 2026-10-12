@@ -24,6 +24,8 @@ Legend: `[ ]` not delivered, `[-]` in progress, `[x]` implemented and verified f
 
 [P2] [x] Deliver setup/login/overview/tenant/users/RBAC/audit React screens, permission-aware navigation, errors/loading/empty states and desktop/mobile browser coverage.
 
+[P2] [x] Rebuild existing administration with role/group lists and detail tabs, explicit creation forms, API-searchable paginated comboboxes, object-bound responses, retained drafts/explicit version-conflict resolution, shared session expiry/context refresh, server audit filters/differences, Polish breadcrumbs and administrative diagnostics. Verification scope and limits are recorded in STATUS.md and PR #15.
+
 [P2] [x] Generate and commit real Go/npm dependency lock files; CI #600 verified manifest stability and backend/frontend builds.
 
 [P2] [x] Deliver the DevBox API/frontend/worker/scheduler stack with same-origin proxy, private Redis and application-scoped MySQL bindings.
