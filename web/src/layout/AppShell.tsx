@@ -192,7 +192,8 @@ export function AppShell() {
                 <>
                   <span aria-hidden="true">/</span>
                   <span>
-                    {location.pathname === "/account"
+                    {location.pathname === "/account" ||
+                    location.pathname === "/notifications"
                       ? "Konto"
                       : "Administracja"}
                   </span>
