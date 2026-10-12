@@ -10,7 +10,7 @@ import { api, ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useRemotePage } from "../components/useRemotePage";
 import { LoadState } from "../requests/LoadState";
-import { useIncidentQuery } from "../incidents/hooks";
+import { useIncidentQuery, useIncidentTitleFocus } from "../incidents/hooks";
 import { UnsavedGuard } from "../incidents/UnsavedGuard";
 import { ServiceForm } from "../requests/ServiceForm";
 import {
@@ -26,6 +26,7 @@ export function CatalogPage() {
   return itemID ? <Order key={itemID} id={itemID} /> : <Browse />;
 }
 function Browse() {
+  const heading = useIncidentTitleFocus();
   const { hasPermission } = useAuth();
   const [params, set] = useSearchParams();
   const q = params.get("q") ?? "",
@@ -47,7 +48,9 @@ function Browse() {
     return <LoadState error="Brak uprawnień do katalogu." />;
   return (
     <>
-      <h1>Katalog usług</h1>
+      <h1 ref={heading} tabIndex={-1}>
+        Katalog usług
+      </h1>
       <p>
         Wybierz usługę i wypełnij jej formularz.{" "}
         <Link to="/requests">Moje wnioski</Link>
@@ -124,6 +127,16 @@ function Browse() {
           </button>
         ) : null}
       </div>
+      <LoadState
+        loading={catalogs.loading}
+        error={catalogs.error}
+        retry={catalogs.retry}
+      />
+      <LoadState
+        loading={categories.loading}
+        error={categories.error}
+        retry={categories.retry}
+      />
       <LoadState loading={page.loading} error={page.error} retry={page.retry} />
       {!page.loading && !page.error && !page.items.length ? (
         <p role="status">Brak dostępnych usług.</p>
@@ -154,6 +167,7 @@ function Browse() {
 function Order({ id }: { id: string }) {
   const { hasPermission } = useAuth();
   const query = useIncidentQuery<Publication>(`/api/v1/catalog/items/${id}`);
+  const heading = useIncidentTitleFocus(query.data?.version);
   const navigate = useNavigate();
   const [values, setValues] = useState<Values>({}),
     [busy, setBusy] = useState(false),
@@ -229,7 +243,9 @@ function Order({ id }: { id: string }) {
   }
   return (
     <>
-      <h1>{query.data?.title ?? "Usługa"}</h1>
+      <h1 ref={heading} tabIndex={-1}>
+        {query.data?.title ?? "Usługa"}
+      </h1>
       <Link to="/catalog">Katalog usług</Link>
       <LoadState
         loading={query.loading}

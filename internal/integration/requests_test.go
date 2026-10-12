@@ -129,7 +129,7 @@ func TestCatalogRequestFulfillment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d := catalog.Definition{Title: "System access", Description: "Public service", Method: "MANUAL_TASKS", GroupID: uint64(gid), Fields: []catalog.Field{{Key: "system", Label: "System", Type: "text", Required: true}, {Key: "extra", Label: "Extra", Type: "checkbox"}, {Key: "details", Label: "Details", Type: "longtext", Required: true, VisibleWhen: &catalog.Condition{Field: "extra", Equals: json.RawMessage("true")}}}, Steps: []catalog.Step{{Title: "Provision", Instructions: "PRIVATE INSTRUCTIONS", Required: true}, {Title: "Deliver", Required: true}}}
+	d := catalog.Definition{Title: "System access", Description: "Public service", Method: "MANUAL_TASKS", GroupID: uint64(gid), Fields: []catalog.Field{{Key: "system", Label: "System", Type: "text", Required: true}, {Key: "extra", Label: "Extra", Type: "checkbox"}, {Key: "details", Label: "Details", Type: "longtext", Required: true, VisibleWhen: &catalog.Condition{Field: "extra", Equals: json.RawMessage("true")}}}, Steps: []catalog.Step{{Title: "Provision", Instructions: "PRIVATE INSTRUCTIONS", Required: true}, {Title: "Deliver", Required: true}, {Title: "Optional follow-up", Required: false}}}
 	item, err := c.SaveItem(ctx, admin, 0, catalog.Item{CategoryID: category.ID, Draft: d})
 	if err != nil {
 		t.Fatal(err)
@@ -218,7 +218,7 @@ func TestCatalogRequestFulfillment(t *testing.T) {
 		t.Fatal(err)
 	}
 	tasks := page.(requests.TaskPage).Items
-	if len(tasks) != 2 {
+	if len(tasks) != 3 {
 		t.Fatal("not actual tasks", tasks)
 	}
 	if _, err := service.Transition(ctx, admin, r.ID, requests.Change{Version: r.Version, State: "FULFILLED"}); !errors.Is(err, requests.ErrTransition) {
@@ -227,6 +227,9 @@ func TestCatalogRequestFulfillment(t *testing.T) {
 	for _, task := range tasks {
 		if _, err := service.Task(ctx, reporter, task.ID); !errors.Is(err, requests.ErrNotFound) {
 			t.Fatal("operator data leaked", err)
+		}
+		if !task.Required {
+			continue
 		}
 		assigned, err := service.ChangeTask(ctx, agent, task.ID, requests.Change{Version: task.Version, AssignedTo: &agentID}, true)
 		if err != nil {
@@ -285,6 +288,18 @@ func TestCatalogRequestFulfillment(t *testing.T) {
 	r, err = service.Transition(ctx, admin, r.ID, requests.Change{Version: r.Version, State: "FULFILLED"})
 	if err != nil {
 		t.Fatal(err)
+	}
+	for _, task := range tasks {
+		if task.Required {
+			continue
+		}
+		cancelled, err := service.Task(ctx, agent, task.ID)
+		if err != nil || cancelled.State != "CANCELLED" || len(cancelled.Actions) != 0 {
+			t.Fatal("unfinished optional work survived finalization", cancelled, err)
+		}
+		if _, err := service.ChangeTask(ctx, agent, task.ID, requests.Change{Version: cancelled.Version, AssignedTo: &agentID}, true); !errors.Is(err, requests.ErrTransition) {
+			t.Fatal("finalized task still writable", err)
+		}
 	}
 	r, err = service.Transition(ctx, admin, r.ID, requests.Change{Version: r.Version, State: "CLOSED"})
 	if err != nil {
@@ -350,6 +365,20 @@ func TestCatalogRequestFulfillment(t *testing.T) {
 	history, err := service.History(ctx, reporter, r.ID, 0, 100)
 	if err != nil || len(history.Entries) < 7 {
 		t.Fatal("no actual worker history", history, err)
+	}
+	var source events.Event
+	source.TenantID, source.Type, source.AggregateType, source.AggregateID = root.TenantID, "request.created", "request", fmt.Sprint(r.ID)
+	if err := db.QueryRowContext(ctx, "SELECT id,payload,created_at FROM outbox_events WHERE tenant_id=? AND event_type=? AND aggregate_id=?", root.TenantID, source.Type, source.AggregateID).Scan(&source.ID, &source.Payload, &source.CreatedAt); err != nil {
+		t.Fatal(err)
+	}
+	for n := 0; n < 2; n++ {
+		if err := projector.Handler("request.created", "Złożono wniosek")(ctx, source); err != nil {
+			t.Fatal(err)
+		}
+	}
+	repeatedHistory, err := service.History(ctx, reporter, r.ID, 0, 100)
+	if err != nil || len(repeatedHistory.Entries) != len(history.Entries) {
+		t.Fatal("projection replay duplicated durable history", err)
 	}
 	payload, _ := json.Marshal(history)
 	if bytes.Contains(payload, []byte("PRIVATE")) {

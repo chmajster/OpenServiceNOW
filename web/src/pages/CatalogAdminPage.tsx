@@ -4,7 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { api, ApiError, jsonBody } from "../api/client";
 import { RemoteCombobox, type Choice } from "../components/RemoteCombobox";
 import { useRemotePage } from "../components/useRemotePage";
-import { useIncidentQuery } from "../incidents/hooks";
+import { useIncidentQuery, useIncidentTitleFocus } from "../incidents/hooks";
 import { UnsavedGuard } from "../incidents/UnsavedGuard";
 import { LoadState } from "../requests/LoadState";
 import { useEditor } from "../requests/useEditor";
@@ -27,6 +27,7 @@ const blank: Definition = {
   steps: [{ title: "Realizacja usługi", instructions: "", required: true }],
 };
 export function CatalogAdminPage() {
+  const heading = useIncidentTitleFocus();
   const [params, setParams] = useSearchParams();
   const id = params.get("id"),
     [create, setCreate] = useState<Definition | null>(null);
@@ -48,7 +49,9 @@ export function CatalogAdminPage() {
   }
   return (
     <>
-      <h1>Administracja katalogiem</h1>
+      <h1 ref={heading} tabIndex={-1}>
+        Administracja katalogiem
+      </h1>
       <p>
         Zmiany szkicu nie zmieniają bieżącej publikacji. Publikuj świadomie po
         wskazaniu grupy i zadań realizacji.

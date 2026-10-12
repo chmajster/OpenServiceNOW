@@ -4,7 +4,7 @@ import { useAuth } from "../auth/AuthContext";
 import { RemoteCombobox, type Choice } from "../components/RemoteCombobox";
 import { useRemotePage } from "../components/useRemotePage";
 import { CommunicationPanel } from "../incidents/CommunicationPanel";
-import { useIncidentQuery } from "../incidents/hooks";
+import { useIncidentQuery, useIncidentTitleFocus } from "../incidents/hooks";
 import { UnsavedGuard } from "../incidents/UnsavedGuard";
 import { LoadState } from "../requests/LoadState";
 import { useEditor } from "../requests/useEditor";
@@ -18,6 +18,7 @@ export function RequestsPage({ tasks = false }: { tasks?: boolean }) {
   );
 }
 function Queue({ tasks }: { tasks: boolean }) {
+  const heading = useIncidentTitleFocus(String(tasks));
   const { hasPermission } = useAuth();
   const [params, set] = useSearchParams();
   const root = tasks ? "fulfillment" : "requests";
@@ -45,7 +46,9 @@ function Queue({ tasks }: { tasks: boolean }) {
     return <LoadState error="Brak uprawnień do realizacji." />;
   return (
     <>
-      <h1>{tasks ? "Kolejka realizacji" : "Moje wnioski"}</h1>
+      <h1 ref={heading} tabIndex={-1}>
+        {tasks ? "Kolejka realizacji" : "Moje wnioski"}
+      </h1>
       {!tasks ? <Link to="/catalog">Złóż wniosek z katalogu</Link> : null}
       <div className="panel form-grid">
         <label>
@@ -177,8 +180,14 @@ function Workspace({
   const { session } = useAuth();
   const editor = useEditor(initial, path);
   const r = editor.record;
+  const heading = useIncidentTitleFocus(r.id);
   const [params, setParams] = useSearchParams();
-  const tab = params.get("tab") ?? "info";
+  const selectedTab = params.get("tab");
+  const tab =
+    selectedTab &&
+    ["info", "actions", "communication", "history"].includes(selectedTab)
+      ? selectedTab
+      : "info";
   const [state, setState] = useState(""),
     [reason, setReason] = useState(""),
     [assigned, setAssigned] = useState<Choice | null>(() =>
@@ -259,7 +268,7 @@ function Workspace({
           Object.values(draftTabs).some(Boolean)
         }
       />
-      <h1>
+      <h1 ref={heading} tabIndex={-1}>
         {r.number}
         {"title" in r ? ` · ${r.title}` : ""}
       </h1>
@@ -280,8 +289,31 @@ function Workspace({
             key={t}
             role="tab"
             aria-selected={tab === t}
+            id={`request-tab-${t}`}
+            aria-controls={`request-panel-${t}`}
+            tabIndex={tab === t ? 0 : -1}
             className="button button--secondary"
             onClick={() => changeTab(t)}
+            onKeyDown={(event) => {
+              const tabs = ["info", "actions", "communication", "history"];
+              const index = tabs.indexOf(t);
+              const next =
+                event.key === "ArrowRight"
+                  ? (index + 1) % tabs.length
+                  : event.key === "ArrowLeft"
+                    ? (index + tabs.length - 1) % tabs.length
+                    : event.key === "Home"
+                      ? 0
+                      : event.key === "End"
+                        ? tabs.length - 1
+                        : -1;
+              if (next < 0) return;
+              event.preventDefault();
+              const target = tabs[next];
+              if (!target) return;
+              changeTab(target);
+              document.getElementById(`request-tab-${target}`)?.focus();
+            }}
           >
             {
               {
@@ -313,7 +345,13 @@ function Workspace({
           </button>
         </section>
       ) : null}
-      <div hidden={tab !== "info"} className="panel">
+      <div
+        hidden={tab !== "info"}
+        className="panel"
+        role="tabpanel"
+        id="request-panel-info"
+        aria-labelledby="request-tab-info"
+      >
         {"title" in r ? (
           <>
             <h2>Instrukcja realizacji</h2>
@@ -342,7 +380,13 @@ function Workspace({
           </>
         )}
       </div>
-      <div hidden={tab !== "actions"} className="panel">
+      <div
+        hidden={tab !== "actions"}
+        className="panel"
+        role="tabpanel"
+        id="request-panel-actions"
+        aria-labelledby="request-tab-actions"
+      >
         {"title" in r && r.state !== "COMPLETED" && r.state !== "CANCELLED" ? (
           <form
             onSubmit={(e) => {
@@ -436,14 +480,25 @@ function Workspace({
           )}
         </form>
       </div>
-      <div hidden={tab !== "communication"}>
+      <div
+        hidden={tab !== "communication"}
+        role="tabpanel"
+        id="request-panel-communication"
+        aria-labelledby="request-tab-communication"
+      >
         <CommunicationPanel
           record={{ id: requestID }}
           apiBase={`/api/v1/requests/${requestID}`}
           retain={retain}
         />
       </div>
-      <div hidden={tab !== "history"} className="panel">
+      <div
+        hidden={tab !== "history"}
+        className="panel"
+        role="tabpanel"
+        id="request-panel-history"
+        aria-labelledby="request-tab-history"
+      >
         <h2>Historia</h2>
         <p>Worker aktualizuje historię asynchronicznie.</p>
         <button className="button button--secondary" onClick={history.reload}>

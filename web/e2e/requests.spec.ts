@@ -165,6 +165,10 @@ test("published service creates once, retains snapshot and fulfills scoped tasks
   await page.getByRole("button", { name: "Opublikuj zapisaną wersję" }).click();
   await expect(page.getByText(/publikacja 1/)).toBeVisible();
   await noOverflow(page);
+  await page.screenshot({
+    path: info.outputPath("catalog-administration.png"),
+    fullPage: true,
+  });
   async function actorPage(email: string) {
     const context = await browser.newContext({
       viewport: page.viewportSize() ?? undefined,
@@ -193,6 +197,10 @@ test("published service creates once, retains snapshot and fulfills scoped tasks
   await portal
     .getByRole("combobox", { name: "Wariant", exact: true })
     .selectOption("Opcja 1");
+  await portal.screenshot({
+    path: info.outputPath("catalog-order.png"),
+    fullPage: true,
+  });
   let committed = "",
     number = "",
     key = "";
@@ -227,6 +235,19 @@ test("published service creates once, retains snapshot and fulfills scoped tasks
   await expect(
     portal.getByRole("heading", { name: number, exact: true }),
   ).toBeVisible();
+  await expect(
+    portal.getByRole("heading", { name: number, exact: true }),
+  ).toBeFocused();
+  await portal.getByRole("tab", { name: "Informacje", exact: true }).focus();
+  await portal.keyboard.press("ArrowRight");
+  await expect(
+    portal.getByRole("tab", { name: "Realizacja", exact: true }),
+  ).toBeFocused();
+  await expect(portal).toHaveURL(/tab=actions/);
+  await portal.keyboard.press("Home");
+  await expect(
+    portal.getByRole("tab", { name: "Informacje", exact: true }),
+  ).toBeFocused();
   expect(await portal.locator("body").innerText()).not.toContain("PRIVATE");
   // Publish a different required schema; the already ordered snapshot is unchanged.
   const current = await (
@@ -426,6 +447,14 @@ test("published service creates once, retains snapshot and fulfills scoped tasks
   expect(await portal.locator("body").innerText()).not.toContain("PRIVATE");
   await noOverflow(portal);
   await noOverflow(operator);
+  await portal.screenshot({
+    path: info.outputPath("request-history.png"),
+    fullPage: true,
+  });
+  await operator.screenshot({
+    path: info.outputPath("request-fulfillment.png"),
+    fullPage: true,
+  });
   await reporting.context.close();
   await operating.context.close();
 });
