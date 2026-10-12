@@ -151,6 +151,11 @@ func TestCatalogRequestFulfillment(t *testing.T) {
 	}
 	service := requests.NewService(db, files)
 	input := requests.Submission{Items: []requests.SubmissionItem{{ItemID: item.ID, Version: *item.PublishedVersion, Values: map[string]json.RawMessage{"system": json.RawMessage(`"ERP 🛠️"`)}}}}
+	exec("UPDATE `groups` SET active=FALSE WHERE tenant_id=? AND id=?", root.TenantID, gid)
+	if _, _, err := service.Create(ctx, reporter, input, "request-inactive-group"); !errors.Is(err, catalog.ErrInvalid) {
+		t.Fatal("inactive fulfillment group accepted", err)
+	}
+	exec("UPDATE `groups` SET active=TRUE WHERE tenant_id=? AND id=?", root.TenantID, gid)
 	bad := input
 	bad.Items = append([]requests.SubmissionItem{}, input.Items...)
 	bad.Items[0].Values = map[string]json.RawMessage{"system": json.RawMessage(`"ERP"`), "details": json.RawMessage(`"hidden"`)}
@@ -231,6 +236,14 @@ func TestCatalogRequestFulfillment(t *testing.T) {
 		if !task.Required {
 			continue
 		}
+		if _, err := service.ChangeTask(ctx, agent, task.ID, requests.Change{Version: task.Version, AssignedTo: &reporterID}, true); !errors.Is(err, requests.ErrInvalid) {
+			t.Fatal("non-member assignment accepted", err)
+		}
+		exec("UPDATE users SET active=FALSE WHERE id=?", otherID)
+		if _, err := service.ChangeTask(ctx, agent, task.ID, requests.Change{Version: task.Version, AssignedTo: &otherID}, true); !errors.Is(err, requests.ErrInvalid) {
+			t.Fatal("inactive assignment accepted", err)
+		}
+		exec("UPDATE users SET active=TRUE WHERE id=?", otherID)
 		assigned, err := service.ChangeTask(ctx, agent, task.ID, requests.Change{Version: task.Version, AssignedTo: &agentID}, true)
 		if err != nil {
 			t.Fatal(err)

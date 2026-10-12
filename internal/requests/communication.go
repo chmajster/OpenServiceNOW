@@ -48,9 +48,6 @@ func (s *Service) Messages(ctx context.Context, a Actor, id, before uint64, limi
 		err := accessErr
 		return workrecords.MessagePage{}, err
 	}
-	if _, err := s.Get(ctx, a, id); err != nil {
-		return workrecords.MessagePage{}, err
-	}
 	return workrecords.NewRepository(s.db).ListMessagesVisible(ctx, a.TenantID, "request", fmt.Sprint(id), before, limit, notesAllowed(a))
 }
 func (s *Service) AddMessage(ctx context.Context, a Actor, id uint64, input CommunicationInput, key string) (workrecords.Message, error) {
@@ -113,9 +110,6 @@ func (s *Service) FileList(ctx context.Context, a Actor, id, before uint64, limi
 		err := accessErr
 		return FilePage{}, err
 	}
-	if _, err := s.Get(ctx, a, id); err != nil {
-		return FilePage{}, err
-	}
 	p, err := attachments.NewRepository(s.db).ListVisible(ctx, a.TenantID, "request", fmt.Sprint(id), before, limit, notesAllowed(a))
 	if err != nil {
 		return FilePage{}, err
@@ -140,7 +134,10 @@ func (s *Service) authorizedFile(ctx context.Context, e database.Executor, a Act
 	if f.MessageID != nil {
 		m, err := workrecords.NewRepository(s.db).GetMessage(ctx, e, a.TenantID, *f.MessageID)
 		if err != nil {
-			return f, ErrNotFound
+			if errors.Is(err, workrecords.ErrNotFound) {
+				return f, ErrNotFound
+			}
+			return f, err
 		}
 		if m.ObjectType != "request" || m.ObjectID != fmt.Sprint(id) || m.Type == workrecords.MessageWorkNote && !notesAllowed(a) {
 			return f, ErrNotFound
@@ -153,9 +150,6 @@ func (s *Service) OpenFile(ctx context.Context, a Actor, id, fileID uint64) (Fil
 	a, accessErr = s.communicationActor(ctx, a, id)
 	if accessErr != nil {
 		err := accessErr
-		return FileDTO{}, nil, err
-	}
-	if _, err := s.Get(ctx, a, id); err != nil {
 		return FileDTO{}, nil, err
 	}
 	if s.files == nil {
@@ -175,9 +169,6 @@ func (s *Service) UploadFile(ctx context.Context, a Actor, id uint64, name, visi
 		err := accessErr
 		return FileDTO{}, err
 	}
-	if _, err := s.Get(ctx, a, id); err != nil {
-		return FileDTO{}, err
-	}
 	if s.files == nil {
 		return FileDTO{}, errors.New("storage not configured")
 	}
@@ -189,7 +180,13 @@ func (s *Service) UploadFile(ctx context.Context, a Actor, id uint64, name, visi
 	authorize := func(e database.Executor, a Actor) error {
 		if messageID != nil {
 			m, err := workrecords.NewRepository(s.db).GetMessage(ctx, e, a.TenantID, *messageID)
-			if err != nil || m.ObjectType != "request" || m.ObjectID != fmt.Sprint(id) {
+			if err != nil {
+				if errors.Is(err, workrecords.ErrNotFound) {
+					return ErrNotFound
+				}
+				return err
+			}
+			if m.ObjectType != "request" || m.ObjectID != fmt.Sprint(id) {
 				return ErrNotFound
 			}
 			input.Visibility = "PUBLIC"
@@ -198,7 +195,7 @@ func (s *Service) UploadFile(ctx context.Context, a Actor, id uint64, name, visi
 			}
 		}
 		if input.Visibility == "INTERNAL" {
-			if !notesAllowed(a) || !notesAllowed(a) {
+			if !notesAllowed(a) {
 				return ErrForbidden
 			}
 		} else if input.Visibility == "PUBLIC" {

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/chmajster/OpenServiceNOW/internal/activity"
 	"github.com/chmajster/OpenServiceNOW/internal/attachments"
@@ -255,7 +256,10 @@ func (s *Service) ChangeTask(ctx context.Context, a Actor, id uint64, in Change,
 		if assign {
 			if in.AssignedTo != nil {
 				if err := workrecords.ValidateActiveUser(ctx, e, a.TenantID, *in.AssignedTo); err != nil {
-					return ErrInvalid
+					if errors.Is(err, workrecords.ErrNotFound) {
+						return ErrInvalid
+					}
+					return err
 				}
 				var member bool
 				if err := e.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM group_memberships WHERE tenant_id=? AND group_id=? AND user_id=?)", a.TenantID, t.Assignment.AssignmentGroupID, *in.AssignedTo).Scan(&member); err != nil {
