@@ -10,11 +10,13 @@ Legend: `[ ]` not delivered, `[-]` in progress, `[x]` implemented and verified f
 
 [P2] [x] Implement API, migration/bootstrap executables, validated configuration, structured logs, request/security controls and graceful shutdown.
 
-[P2] [x] Implement MySQL/Redis connectivity, transactions and explicit migrations 1-25 with clean-schema readiness. CI #600 passed migration apply, MySQL integration and full rollback.
+[P2] [x] Implement MySQL/Redis connectivity, transactions and explicit migrations 1-27 with clean-schema readiness. Migration history and verified lifecycle evidence are in STATUS.md.
 
 [P2] [x] Implement first-run WebUI setup with durable completion, atomic organization/admin/RBAC/audit creation, concurrency protection and safe upgrades.
 
 [P2] [x] Implement local users/authentication, opaque SQL sessions, CSRF, rate limiting, bounded Argon2 checks and session-derived organization/actor.
+
+[P2] [x] Deliver own global account profile/password/session APIs and UI with credential-version fencing, temporary-password restrictions, retained conflict drafts and secret-free audit. Local MySQL/migration/race and 22/22 desktop/mobile scenarios passed; final CI/review evidence is recorded in PR #16 and STATUS.md. Email verification/changes, MFA, LDAP and OIDC remain separate work.
 
 [P2] [x] Implement tenant and user administration, bounded search/cursor pagination, optimistic locking and safe linking of existing global identities.
 
