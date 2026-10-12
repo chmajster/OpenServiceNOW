@@ -64,6 +64,25 @@ func TestWarsawDaylightSaving(t *testing.T) {
 		}
 	}
 }
+func TestMidnightDaylightSaving(t *testing.T) {
+	c := Calendar{Name: "Północ", Timezone: "Africa/Cairo", Week: []Day{{5, []Window{{"00:00", "04:00"}}}}}
+	start := utc("2026-04-23T22:00:00Z")
+	n, err := c.Elapsed(start, utc("2026-04-24T02:00:00Z"))
+	if err != nil || n != 10800 {
+		t.Fatal("skipped midnight shifted the end of the local window", n, err)
+	}
+	due, err := c.Add(start, 14400)
+	if err != nil || !due.Equal(utc("2026-04-30T22:00:00Z")) {
+		t.Fatal("normalized midnight shifted subsequent civil dates", due, err)
+	}
+	c.Week = []Day{{4, []Window{{"23:00", "24:00"}}}}
+	start, end := utc("2026-10-29T20:00:00Z"), utc("2026-10-29T22:00:00Z")
+	n, err = c.Elapsed(start, end)
+	due, addErr := c.Add(start, 7200)
+	if err != nil || addErr != nil || n != 7200 || !due.Equal(end) {
+		t.Fatal("repeated final hour of civil date", n, due, err, addErr)
+	}
+}
 func TestPauseResumeAndDelayedClock(t *testing.T) {
 	c := office()
 	p := Policy{ID: 1, Version: 1, Name: "Standard", CalendarID: 2, CalendarVersion: 1, ResponseSeconds: 3600, ResolutionSeconds: 7200, WarningPercent: 50, PauseReasons: []string{"Oczekiwanie na klienta"}}

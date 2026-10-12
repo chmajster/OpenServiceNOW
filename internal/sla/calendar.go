@@ -106,20 +106,36 @@ func (c Calendar) windows(date time.Time) []Window {
 // Working intervals are intersections with the real UTC timeline. On a DST
 // transition day repeated local minutes count twice and missing minutes never
 // count. Windows are minute-aligned; elapsed values retain second precision.
-func (c Calendar) spans(date time.Time) []span {
-	end := date.AddDate(0, 0, 1)
+func (c Calendar) spans(date time.Time, loc *time.Location) []span {
+	y, m, d := date.Date()
+	next := date.AddDate(0, 0, 1)
+	ny, nm, nd := next.Date()
+	start := time.Date(y, m, d, 0, 0, 0, 0, loc)
+	end := time.Date(ny, nm, nd, 0, 0, 0, 0, loc)
 	w := c.windows(date)
 	result := []span{}
-	if end.Sub(date) == 24*time.Hour {
+	if len(w) == 0 {
+		return result
+	}
+	sy, sm, sd := start.Date()
+	ey, em, ed := end.Date()
+	if end.Sub(start) == 24*time.Hour && start.Hour() == 0 && start.Minute() == 0 && start.Second() == 0 && end.Hour() == 0 && end.Minute() == 0 && end.Second() == 0 && sy == y && sm == m && sd == d && ey == ny && em == nm && ed == nd {
 		for _, v := range w {
 			a, _ := minute(v.Start)
 			b, _ := minute(v.End)
-			result = append(result, span{date.Add(time.Duration(a) * time.Minute), date.Add(time.Duration(b) * time.Minute)})
+			result = append(result, span{start.Add(time.Duration(a) * time.Minute), start.Add(time.Duration(b) * time.Minute)})
 		}
 		return result
 	}
-	for t := date; t.Before(end); t = t.Add(time.Minute) {
-		local := t.In(date.Location())
+	// Midnight itself can be skipped or repeated. Scan a padded real timeline
+	// and filter by the requested civil date rather than shifting every window
+	// with Go's normalization of a nonexistent midnight.
+	for t := start.Add(-24 * time.Hour); t.Before(end.Add(24 * time.Hour)); t = t.Add(time.Minute) {
+		local := t.In(loc)
+		ly, lm, ld := local.Date()
+		if ly != y || lm != m || ld != d {
+			continue
+		}
 		m := local.Hour()*60 + local.Minute()
 		active := false
 		for _, v := range w {
@@ -146,13 +162,16 @@ func (c Calendar) traverse(start, end time.Time, seconds int64) (int64, time.Tim
 		return 0, time.Time{}, ErrInvalid
 	}
 	local := start.In(loc)
-	date := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
+	// Iterate civil dates in UTC, which has no missing/repeated local midnight.
+	date := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.UTC)
+	endLocal := end.In(loc)
+	endDate := time.Date(endLocal.Year(), endLocal.Month(), endLocal.Day(), 0, 0, 0, 0, time.UTC)
 	elapsed := int64(0)
 	for day := 0; day < 3660; day++ {
-		if !end.IsZero() && !date.Before(end) {
+		if !end.IsZero() && date.After(endDate) {
 			return elapsed, end.UTC(), nil
 		}
-		for _, v := range c.spans(date) {
+		for _, v := range c.spans(date, loc) {
 			a := v.start
 			b := v.end
 			if a.Before(start) {
