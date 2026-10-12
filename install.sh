@@ -266,8 +266,11 @@ process_stamp() {
   local proc_stat
   local -a fields
   [[ -r "/proc/$1/stat" ]] || return 1
-  proc_stat="$(cat "/proc/$1/stat")"
+  # A short-lived process can exit between the existence check and the read.
+  proc_stat="$(cat "/proc/$1/stat" 2>/dev/null)" || return 1
+  [[ "$proc_stat" == *') '* ]] || return 1
   read -r -a fields <<<"${proc_stat##*) }"
+  (( ${#fields[@]} >= 20 )) || return 1
   [[ "${fields[0]}" != Z ]] || return 1
   printf '%s %s\n' "${fields[19]}" "$(cat /proc/sys/kernel/random/boot_id)"
 }
@@ -275,7 +278,7 @@ process_stamp() {
 process_matches() {
   local pid=$1 component=$2 expected cwd executable argument script
   [[ "$pid" =~ ^[1-9][0-9]*$ && -r "/proc/$pid/cmdline" ]] || return 1
-  [[ "$(stat -c %u "/proc/$pid")" == "$EUID" ]] || return 1
+  [[ "$(stat -c %u "/proc/$pid" 2>/dev/null)" == "$EUID" ]] || return 1
   cwd="$(readlink "/proc/$pid/cwd")" || return 1
   local -a argv=()
   while IFS= read -r -d '' argument; do argv+=("$argument"); done <"/proc/$pid/cmdline"

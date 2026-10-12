@@ -69,6 +69,8 @@ printf '%s\n' "$owned_pid" >"$RUN_DIR/api.pid"
 pid_running api # Safe adoption of an old installer PID file.
 stop_pid api
 wait "$owned_pid" 2>/dev/null || true
+if process_stamp "$owned_pid" >"$fixture/stamp" 2>"$fixture/stamp-error"; then echo 'Accepted an exited process stamp' >&2; exit 1; fi
+[[ ! -s "$fixture/stamp" && ! -s "$fixture/stamp-error" ]]
 owned_pid=''
 
 sleep 600 &

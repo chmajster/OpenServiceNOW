@@ -240,6 +240,7 @@ grep -q 'Process state after startup rollback' "$test_dir/failure.log"
 grep -q 'api: ready' "$test_dir/failure.log"
 grep -q 'web: ready' "$test_dir/failure.log"
 grep -q 'worker: stopped' "$test_dir/failure.log"
+if grep -q 'unbound variable' "$test_dir/failure.log"; then echo 'Process-exit race caused an unexpected shell error' >&2; exit 1; fi
 kill -0 "$api_before" "$web_before"
 [[ ! -f "$checkout/.opensnow/run/worker.pid" ]]
 mv "$checkout/bin/scheduler-original" "$checkout/bin/opensnow-scheduler"
