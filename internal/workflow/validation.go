@@ -145,13 +145,13 @@ func Validate(c Config, publish bool) error {
 	// Check every reachable path. Approval failure/timeout never grants task or
 	// fulfillment authority. Task references must dominate their wait nodes.
 	seen := map[string]bool{}
-	var path func(string, bool, bool, uint64, uint64) error
+	var path func(string, bool, bool, string, uint64, uint64) error
 	index := map[string]uint{}
 	for i, n := range c.Nodes {
 		index[n.ID] = uint(i)
 	}
-	path = func(id string, approved, cancelled bool, tasks, waited uint64) error {
-		key := fmt.Sprintf("%s:%t:%t:%d:%d", id, approved, cancelled, tasks, waited)
+	path = func(id string, approved, cancelled bool, final string, tasks, waited uint64) error {
+		key := fmt.Sprintf("%s:%t:%t:%s:%d:%d", id, approved, cancelled, final, tasks, waited)
 		if seen[key] {
 			return nil
 		}
@@ -160,6 +160,9 @@ func Validate(c Config, publish bool) error {
 			return invalid("graf ma zbyt wiele wariantów wykonania")
 		}
 		n := nodes[id]
+		if final != "" && n.Type != "END" && n.Type != "NOTIFY" && n.Type != "WAIT_TIMER" && !(final == "FULFILLED" && n.Type == "UPDATE_RECORD" && n.State == "CLOSED") {
+			return invalid("po realizacji dozwolone są tylko zamknięcie, termin, powiadomienie i koniec")
+		}
 		if cancelled && n.Type != "END" && n.Type != "NOTIFY" {
 			return invalid("po anulowaniu dozwolone są tylko powiadomienie i koniec")
 		}
@@ -182,9 +185,13 @@ func Validate(c Config, publish bool) error {
 				return invalid("aktualizacja stanu wymaga akceptacji")
 			}
 			if n.State == "FULFILLED" || n.State == "CLOSED" {
+				if n.State == "CLOSED" && final != "FULFILLED" {
+					return invalid("zamknięcie musi następować po realizacji wniosku")
+				}
 				if tasks == 0 || tasks != waited {
 					return invalid("realizacja wymaga utworzenia i oczekiwania na wszystkie zadania")
 				}
+				final = n.State
 			}
 		case "END":
 			if !cancelled && (!approved || tasks == 0 || tasks != waited) {
@@ -193,28 +200,28 @@ func Validate(c Config, publish bool) error {
 			return nil
 		}
 		if n.Type == "APPROVAL" {
-			if err := path(n.Next, true, cancelled, tasks, waited); err != nil {
+			if err := path(n.Next, true, cancelled, final, tasks, waited); err != nil {
 				return err
 			}
 			for _, to := range []string{n.Rejected, n.Timeout} {
-				if err := path(to, false, cancelled, tasks, waited); err != nil {
+				if err := path(to, false, cancelled, final, tasks, waited); err != nil {
 					return err
 				}
 			}
 			return nil
 		}
 		if n.Type == "WAIT_TASK" {
-			if err := path(n.Timeout, false, cancelled, tasks, waited); err != nil {
+			if err := path(n.Timeout, false, cancelled, final, tasks, waited); err != nil {
 				return err
 			}
-			return path(n.Next, approved, cancelled, tasks, waited)
+			return path(n.Next, approved, cancelled, final, tasks, waited)
 		}
 		for _, to := range edges(n) {
-			if err := path(to, approved, cancelled, tasks, waited); err != nil {
+			if err := path(to, approved, cancelled, final, tasks, waited); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
-	return path(start(c), false, false, 0, 0)
+	return path(start(c), false, false, "", 0, 0)
 }

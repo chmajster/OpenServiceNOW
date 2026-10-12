@@ -16415,7 +16415,8 @@
               "assignment",
               "reply",
               "state",
-              "resolution"
+                "resolution",
+                "approval"
             ]
           },
           "summary": {

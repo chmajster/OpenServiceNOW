@@ -111,6 +111,11 @@ func (s *Service) Create(ctx context.Context, a Actor, in Submission, key string
 			if err != nil {
 				return err
 			}
+			// Combining process instances needs a join policy for the parent request.
+			// Manual multi-item submissions remain supported; workflow is one item.
+			if d.Method == "WORKFLOW" && len(in.Items) != 1 {
+				return fmt.Errorf("%w: pozycję workflow należy złożyć jako osobny wniosek", ErrInvalid)
+			}
 			if err := catalog.ActiveGroup(ctx, e, a.TenantID, d.GroupID); err != nil {
 				return err
 			}

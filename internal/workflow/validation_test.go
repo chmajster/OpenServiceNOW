@@ -39,6 +39,14 @@ func TestPublishGraph(t *testing.T) {
 		{"negative timer", func(c *Config) { c.Nodes[1].Seconds = -1 }},
 		{"empty reason", func(c *Config) { c.Nodes[4].Reason = "" }},
 		{"arbitrary field update", func(c *Config) { c.Nodes[4].State = "ADMIN" }},
+		{"close without fulfilled", func(c *Config) { c.Nodes[4].State = "CLOSED" }},
+		{"approval after fulfillment", func(c *Config) {
+			c.Nodes[4].Next = "lateapproval"
+			late := c.Nodes[1]
+			late.ID = "lateapproval"
+			late.Next = "end"
+			c.Nodes = append(c.Nodes, late)
+		}},
 		{"orphan node", func(c *Config) { c.Nodes = append(c.Nodes, Node{ID: "orphan", Label: "Orphan", Type: "END"}) }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

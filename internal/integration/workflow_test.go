@@ -165,6 +165,10 @@ func TestDurableRequestWorkflow(t *testing.T) {
 		t.Fatal(err)
 	}
 	input := requests.Submission{Items: []requests.SubmissionItem{{ItemID: item.ID, Version: *item.PublishedVersion, Values: map[string]json.RawMessage{"system": json.RawMessage(`"ERP"`)}}}}
+	combined := requests.Submission{Items: []requests.SubmissionItem{input.Items[0], input.Items[0]}}
+	if _, _, err := requestsService.Create(ctx, reporter, combined, "workflow-no-join"); !errors.Is(err, requests.ErrInvalid) {
+		t.Fatal("combined workflow request accepted without a join policy", err)
+	}
 	if _, _, err := requests.NewServiceWithOutbox(db, nil, requestFailingOutbox{}).Create(ctx, reporter, input, "workflow-rollback"); err == nil {
 		t.Fatal("failed outbox committed workflow")
 	}
@@ -453,5 +457,111 @@ func TestDurableRequestWorkflow(t *testing.T) {
 	}
 	if _, err = s.Repair(ctx, admin, failed.ID, failed.Version, "CANCEL", "Stop execution"); err != nil {
 		t.Fatal(err)
+	}
+	// ALL freezes its participant set, does not silently shrink after revocation,
+	// and checks the prior signatures again before permitting continuation.
+	publishVariant := func(config workflow.Config, label string) {
+		t.Helper()
+		config.Name = label
+		d, err := s.Save(ctx, admin, 0, workflow.Definition{Draft: config}, "variant-"+label)
+		if err != nil {
+			t.Fatal(err)
+		}
+		d, err = s.Publish(ctx, admin, d.ID, d.Version)
+		if err != nil {
+			t.Fatal(err)
+		}
+		v, _ := strconv.ParseUint(d.PublishedVersion, 10, 64)
+		data := draft
+		data.Title = label
+		data.WorkflowID = d.ID
+		data.WorkflowVersion = v
+		i, err := catalogs.SaveItem(ctx, admin, 0, catalog.Item{CategoryID: category.ID, Draft: data})
+		if err != nil {
+			t.Fatal(err)
+		}
+		i, err = catalogs.Publish(ctx, admin, i.ID, i.Version, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		input.Items[0].ItemID = i.ID
+		input.Items[0].Version = *i.PublishedVersion
+	}
+	all := c
+	all.Nodes = append([]workflow.Node{}, c.Nodes...)
+	all.Nodes[1].Policy = "ALL"
+	publishVariant(all, "all-policy")
+	_, allWait := create("workflow-all-revoked")
+	allWait = advance(allWait.ID)
+	allWait = advance(allWait.ID)
+	allWait, err = s.Decide(ctx, approver, allWait.ID, "approval", workflow.DecisionInput{Version: step(allWait, "approval").Version, Decision: "APPROVED", Reason: "First signature"})
+	if err != nil || allWait.State != "WAITING" {
+		t.Fatal(allWait, err)
+	}
+	exec("INSERT INTO group_memberships(tenant_id,group_id,user_id) VALUES(?,?,?)", root.TenantID, ag, outsider.UserID)
+	if _, err = s.Decide(ctx, outsider, allWait.ID, "approval", workflow.DecisionInput{Version: step(allWait, "approval").Version, Decision: "APPROVED", Reason: "Joined late"}); !errors.Is(err, workflow.ErrNotFound) {
+		t.Fatal("late member joined existing approval", err)
+	}
+	exec("DELETE FROM group_memberships WHERE tenant_id=? AND group_id=? AND user_id=?", root.TenantID, ag, approver.UserID)
+	allWait, err = s.Decide(ctx, other, allWait.ID, "approval", workflow.DecisionInput{Version: step(allWait, "approval").Version, Decision: "APPROVED", Reason: "Second signature"})
+	if err != nil || allWait.State != "WAITING" || allWait.Approved {
+		t.Fatal("revoked prior signature authorized continuation", allWait, err)
+	}
+	now = *step(allWait, "approval").Deadline
+	allWait = advance(allWait.ID)
+	if allWait.CurrentNode != "cancel" || allWait.Approved {
+		t.Fatal("ALL revoked signature did not timeout", allWait)
+	}
+	exec("DELETE FROM group_memberships WHERE tenant_id=? AND group_id=? AND user_id=?", root.TenantID, ag, outsider.UserID)
+	exec("INSERT INTO group_memberships(tenant_id,group_id,user_id) VALUES(?,?,?)", root.TenantID, ag, approver.UserID)
+	_, allSuccess := create("workflow-all-success")
+	allSuccess = advance(allSuccess.ID)
+	allSuccess = advance(allSuccess.ID)
+	for _, a := range []workflow.Actor{approver, other} {
+		allSuccess, err = s.Decide(ctx, a, allSuccess.ID, "approval", workflow.DecisionInput{Version: step(allSuccess, "approval").Version, Decision: "APPROVED", Reason: "All authorized"})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if allSuccess.State != "READY" || !allSuccess.Approved {
+		t.Fatal("ALL did not progress", allSuccess)
+	}
+	// Explicit ALLOW permits only an authorized target, never arbitrary requesters.
+	self := c
+	self.Nodes = append([]workflow.Node{}, c.Nodes...)
+	self.SelfApproval = "ALLOW"
+	self.Nodes[1].TargetType = "USER"
+	self.Nodes[1].TargetID = reporter.UserID
+	publishVariant(self, "self-allow")
+	_, selfWait := create("workflow-self-allow")
+	selfWait = advance(selfWait.ID)
+	selfWait = advance(selfWait.ID)
+	selfWait, err = s.Decide(ctx, reporter, selfWait.ID, "approval", workflow.DecisionInput{Version: step(selfWait, "approval").Version, Decision: "APPROVED", Reason: "Explicit policy"})
+	if err != nil || !selfWait.Approved {
+		t.Fatal("explicit self policy did not work", selfWait, err)
+	}
+	// Declarative conditions read the immutable form values; timers and repeated
+	// early scheduler visits do not hold a process or churn business versions.
+	timer := c
+	timer.Nodes = append([]workflow.Node{}, c.Nodes...)
+	timer.Nodes[0].Next = "condition"
+	timer.Nodes = append(timer.Nodes, workflow.Node{ID: "condition", Label: "Form condition", Type: "CONDITION", Field: "system", Equals: json.RawMessage(`"ERP"`), Next: "timer", Otherwise: "cancel"}, workflow.Node{ID: "timer", Label: "Timer", Type: "WAIT_TIMER", Seconds: 10, Next: "approval"})
+	publishVariant(timer, "timer-condition")
+	_, timerWait := create("workflow-timer")
+	timerWait = advance(timerWait.ID)
+	timerWait = advance(timerWait.ID)
+	timerWait = advance(timerWait.ID)
+	if timerWait.CurrentNode != "timer" || timerWait.State != "WAITING" {
+		t.Fatal(timerWait)
+	}
+	v := timerWait.Version
+	timerWait = advance(timerWait.ID)
+	if timerWait.Version != v {
+		t.Fatal("early wait visit created a business version")
+	}
+	now = *step(timerWait, "timer").Deadline
+	timerWait = advance(timerWait.ID)
+	if timerWait.CurrentNode != "approval" || timerWait.State != "READY" {
+		t.Fatal("timer did not advance", timerWait)
 	}
 }

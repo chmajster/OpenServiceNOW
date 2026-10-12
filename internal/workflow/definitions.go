@@ -88,6 +88,13 @@ func (s *Service) Save(ctx context.Context, a Actor, id uint64, d Definition, ke
 				d, err = GetDefinition(ctx, e, a.TenantID, old)
 				return err
 			}
+			var count int
+			if err = e.QueryRowContext(ctx, "SELECT COUNT(*) FROM workflow_definitions WHERE tenant_id=?", a.TenantID).Scan(&count); err != nil {
+				return err
+			}
+			if count >= 100 {
+				return invalid("organizacja może mieć najwyżej 100 definicji procesu")
+			}
 			result, err := e.ExecContext(ctx, "INSERT INTO workflow_definitions(tenant_id,name,draft) VALUES(?,?,?)", a.TenantID, d.Draft.Name, raw)
 			if err != nil {
 				return err
