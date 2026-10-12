@@ -206,8 +206,10 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
-      - name: Verify complete local installer lifecycle on isolated data
-        run: bash tests/local_runtime_test.sh
+      - name: Verify native lifecycle and known-ID scheduler/worker execution on isolated data
+        run: |
+          mkdir -p .opensnow/local-runtime-verification
+          bash tests/local_runtime_test.sh 2>&1 | tee .opensnow/local-runtime-verification/lifecycle.log
       - name: Upload installer verification logs
         if: failure()
         uses: actions/upload-artifact@v4
