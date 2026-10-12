@@ -989,3 +989,6 @@ tbody tr:last-child td {
 .sla-hours { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
 .sla-card { border-top: 1px solid var(--border); padding-top: 1rem; }
 .sla-summary { display: grid; gap: .7rem; font-size: .85rem; }
+.catalog-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); gap:1rem; }
+.preserve-lines { white-space:pre-wrap; overflow-wrap:anywhere; }
+.conflict-panel pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:24rem; overflow:auto; }

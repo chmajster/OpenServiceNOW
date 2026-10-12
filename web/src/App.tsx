@@ -22,13 +22,28 @@ import { IncidentsPage } from "./pages/IncidentsPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { NotificationAdminPage } from "./pages/NotificationAdminPage";
 import { SlaAdminPage } from "./pages/SlaAdminPage";
+import { lazy, Suspense } from "react";
+import { PageState } from "./components/PageState";
+const CatalogPage = lazy(() =>
+  import("./pages/CatalogPage").then((m) => ({ default: m.CatalogPage })),
+);
+const CatalogAdminPage = lazy(() =>
+  import("./pages/CatalogAdminPage").then((m) => ({
+    default: m.CatalogAdminPage,
+  })),
+);
+const RequestsPage = lazy(() =>
+  import("./pages/RequestsPage").then((m) => ({ default: m.RequestsPage })),
+);
 
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route
       element={
         <AuthProvider>
-          <Outlet />
+          <Suspense fallback={<PageState title="Ładowanie widoku…" />}>
+            <Outlet />
+          </Suspense>
         </AuthProvider>
       }
     >
@@ -43,6 +58,20 @@ const router = createBrowserRouter(
       >
         <Route index element={<OverviewPage />} />
         <Route path="account" element={<AccountPage />} />
+        <Route path="catalog" element={<CatalogPage />} />
+        <Route path="catalog/:itemID" element={<CatalogPage />} />
+        <Route path="requests" element={<RequestsPage />} />
+        <Route path="requests/:recordID" element={<RequestsPage />} />
+        <Route path="fulfillment" element={<RequestsPage tasks />} />
+        <Route path="fulfillment/:recordID" element={<RequestsPage tasks />} />
+        <Route
+          path="catalog-admin"
+          element={
+            <RequirePermission permission="admin.catalog.manage">
+              <CatalogAdminPage />
+            </RequirePermission>
+          }
+        />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route
           path="sla"

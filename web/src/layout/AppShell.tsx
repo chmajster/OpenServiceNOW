@@ -17,6 +17,22 @@ type NavItem = {
 };
 
 const navigation: NavItem[] = [
+  { to: "/catalog", label: "Katalog usług", permission: "catalog.read" },
+  {
+    to: "/requests",
+    label: "Moje wnioski",
+    anyPermissions: ["request.read_own", "request.fulfill", "request.manage"],
+  },
+  {
+    to: "/fulfillment",
+    label: "Kolejka realizacji",
+    anyPermissions: ["request.fulfill", "request.manage"],
+  },
+  {
+    to: "/catalog-admin",
+    label: "Administracja katalogiem",
+    permission: "admin.catalog.manage",
+  },
   {
     to: "/incidents",
     label: "Incydenty",
@@ -56,8 +72,10 @@ export function AppShell() {
   const current = navigation.find(
     (item) =>
       (item.to.split("?")[0] === location.pathname ||
-        (item.to === "/incidents" &&
-          location.pathname.startsWith("/incidents/"))) &&
+        (["/incidents", "/catalog", "/requests", "/fulfillment"].includes(
+          item.to,
+        ) &&
+          location.pathname.startsWith(`${item.to}/`))) &&
       (!item.to.includes("kind=") || item.to.endsWith(kind)),
   );
   const [loggingOut, setLoggingOut] = useState(false);
@@ -172,14 +190,18 @@ export function AppShell() {
               {session?.password_change_required ? "Moje konto" : "Przegląd"}
             </Link>
             {location.pathname !== "/" ? (
-              location.pathname.startsWith("/incidents") ? (
+              ["/incidents", "/catalog", "/requests", "/fulfillment"].some(
+                (root) =>
+                  location.pathname === root ||
+                  location.pathname.startsWith(`${root}/`),
+              ) ? (
                 <>
                   <span aria-hidden="true">/</span>
-                  {location.pathname === "/incidents" ? (
-                    <span aria-current="page">Incydenty</span>
+                  {location.pathname.split("/").length === 2 ? (
+                    <span aria-current="page">{current?.label}</span>
                   ) : (
                     <>
-                      <Link to="/incidents">Incydenty</Link>
+                      <Link to={current?.to ?? "/"}>{current?.label}</Link>
                       <span aria-hidden="true">/</span>
                       <span aria-current="page">
                         {location.pathname.endsWith("/new")
@@ -203,9 +225,11 @@ export function AppShell() {
                     <>
                       <Link
                         to={
-                          location.pathname === "/sla"
-                            ? `/sla?kind=${params.get("kind") ?? "policy"}`
-                            : `/rbac?kind=${kind}`
+                          location.pathname === "/catalog-admin"
+                            ? "/catalog-admin"
+                            : location.pathname === "/sla"
+                              ? `/sla?kind=${params.get("kind") ?? "policy"}`
+                              : `/rbac?kind=${kind}`
                         }
                       >
                         {current?.label}

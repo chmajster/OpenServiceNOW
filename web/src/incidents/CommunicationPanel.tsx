@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { api, ApiError, jsonBody, upload, download } from "../api/client";
 import { PageState } from "../components/PageState";
 import { useIncidentQuery } from "./hooks";
-import { dateLabel, type Incident } from "./contracts";
+import { dateLabel } from "./contracts";
 
 export type Access = {
   reply: boolean;
@@ -37,11 +37,13 @@ const errorText = (cause: unknown) =>
 export function CommunicationPanel({
   record,
   retain,
+  apiBase,
 }: {
-  record: Incident;
+  record: { id: string };
   retain: (tab: string, needed: boolean) => void;
+  apiBase?: string;
 }) {
-  const base = `/api/v1/incidents/${record.id}`;
+  const base = apiBase ?? `/api/v1/incidents/${record.id}`;
   const access = useIncidentQuery<Access>(`${base}/communication-access`);
   const [params, setParams] = useSearchParams();
   const before = params.get("messages_before_id") ?? "";
@@ -429,7 +431,7 @@ export function CommunicationPanel({
               >
                 {access.data.reply && (
                   <option value="PUBLIC">
-                    Publiczny dla osób z dostępem do incydentu
+                    Publiczny dla osób z dostępem do zgłoszenia
                   </option>
                 )}
                 {access.data.write_notes && (
