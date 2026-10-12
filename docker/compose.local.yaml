@@ -1,0 +1,90 @@
+# Standalone application overlay; always combine with root docker-compose.yml.
+x-local-backend: &backend
+  image: ${COMPOSE_PROJECT_NAME}-backend:local
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+    target: backend
+  working_dir: /app
+  env_file: .env
+  environment: &backend-environment
+    MYSQL_HOST: mysql
+    MYSQL_PORT: "3306"
+    REDIS_ADDR: redis:6379
+    HTTP_ADDR: 0.0.0.0:8080
+    BOOTSTRAP_ON_START: "false"
+    DB_HOST: ""
+    DB_PORT: ""
+    DB_NAME: ""
+    DB_USER: ""
+    DB_PASSWORD: ""
+  restart: unless-stopped
+  stop_grace_period: 30s
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: ["ALL"]
+
+services:
+  mysql:
+    restart: unless-stopped
+  redis:
+    restart: unless-stopped
+  api:
+    <<: *backend
+    command: ["api"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health/ready"]
+      interval: 5s
+      timeout: 3s
+      start_period: 15s
+      retries: 24
+  frontend:
+    image: ${COMPOSE_PROJECT_NAME}-frontend:local
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: frontend
+    ports: ["127.0.0.1:${OPENSNOW_DOCKER_PORT:-8080}:8080"]
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:8080/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  worker:
+    <<: *backend
+    command: ["worker"]
+    environment:
+      <<: *backend-environment
+      BOOTSTRAP_ADMIN_PASSWORD: ""
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "test \"$$(readlink /proc/1/exe)\" = /usr/local/bin/opensnow-worker"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  scheduler:
+    <<: *backend
+    command: ["scheduler"]
+    environment:
+      <<: *backend-environment
+      BOOTSTRAP_ADMIN_PASSWORD: ""
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "test \"$$(readlink /proc/1/exe)\" = /usr/local/bin/opensnow-scheduler"]
+      interval: 5s
+      timeout: 3s
+      retries: 12

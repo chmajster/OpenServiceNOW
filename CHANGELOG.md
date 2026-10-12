@@ -4,6 +4,12 @@ All notable repository changes are documented here.
 
 The project is pre-release and currently in architecture/foundation development.
 
+## 2026-10-12 — Local Docker installer and updates
+
+- Added `--local-docker` to install/update apt-managed Docker Engine/Compose/Buildx, build current sources with refreshed image bases, migrate and run the full application in containers without host Go/Node.
+- Added health-checked lifecycle commands, loopback WebUI port fallback through 8100, safe mode switching with shared SQL data/credentials, explicit bootstrap and build/startup failure handling.
+- Added isolated Ubuntu/Debian package installation/update verification and complete Docker lifecycle/browser CI coverage.
+
 ## 2026-10-12 — WSL startup and background frontend
 
 - Documented ordinary-user Docker access, refreshing Linux/WSL group membership, and configuring free MySQL/Redis ports while preserving other applications and database data.
