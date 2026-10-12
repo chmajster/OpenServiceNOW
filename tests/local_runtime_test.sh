@@ -80,7 +80,7 @@ assert_completed_job() {
   printf 'Verified scheduler job %s: COMPLETED by worker PID %s, deleted_sessions=%s\n' "$job_id" "$(pid_of worker)" "$deleted"
 }
 assert_session() {
-  python3 - "$1" "$test_dir/session-cookies" <<'PY'
+  python3 - "$1" "$test_dir/session-cookies" "$test_dir/incident-proof" <<'PY'
 import http.cookiejar, json, sys, urllib.request
 cookies = http.cookiejar.MozillaCookieJar(sys.argv[2])
 cookies.load(ignore_discard=True)
@@ -89,6 +89,12 @@ session = json.load(client.open(sys.argv[1] + '/api/v1/auth/me'))
 assert session['tenant']['slug'] == 'e2e'
 assert session['user']['email'] == 'admin@example.test'
 assert 'admin.rbac.manage' in session['permissions']
+with open(sys.argv[3]) as proof_file:
+    proof = json.load(proof_file)
+record = json.load(client.open(sys.argv[1] + '/api/v1/incidents/' + proof['record']['id']))
+assert record == proof['record'], 'Incident/number/version/assignment changed across lifecycle'
+history = json.load(client.open(sys.argv[1] + '/api/v1/incidents/' + record['id'] + '/history'))
+assert history == proof['history'], 'Incident business history changed across lifecycle'
 PY
 }
 assert_running() {
@@ -139,8 +145,8 @@ kill -0 "$listener_pid"
 assert_running
 curl --fail --silent http://127.0.0.1:5173/ | grep -q '/src/main.tsx'
 curl --fail --silent http://127.0.0.1:5173/health/ready | grep -q '"status":"ok"'
-python3 - "$test_dir/session-cookies" <<'PY'
-import http.cookiejar, json, sys, urllib.request
+python3 - "$test_dir/session-cookies" "$test_dir/incident-proof" <<'PY'
+import http.cookiejar, json, sys, time, urllib.request
 base = 'http://127.0.0.1:5173'
 cookies = http.cookiejar.MozillaCookieJar(sys.argv[1])
 client = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookies))
@@ -151,8 +157,34 @@ request = urllib.request.Request(base + '/api/v1/setup', data=body, headers={'Co
 assert client.open(request).status == 201
 assert json.load(client.open(base + '/api/v1/setup')) == {'required':False}
 login = urllib.request.Request(base + '/api/v1/auth/login', data=json.dumps(dict(tenant='e2e', email='admin', password='local-runtime-admin-password')).encode(), headers={'Content-Type':'application/json'})
-assert client.open(login).status == 200
+session = json.load(client.open(login))
 cookies.save(ignore_discard=True)
+csrf = next(cookie.value for cookie in cookies if cookie.name == 'opensnow_csrf')
+headers = {'Content-Type':'application/json', 'X-CSRF-Token':csrf, 'Idempotency-Key':'native-incident-restart-proof'}
+body = dict(title='Native restart proof', description='Persistent incident and worker history', category='other', subcategory='other', impact=3, urgency=3)
+create = urllib.request.Request(base + '/api/v1/incidents/', data=json.dumps(body).encode(), headers=headers)
+response = client.open(create)
+assert response.status == 201
+record = json.load(response)
+repeat = client.open(create)
+assert repeat.status == 200 and json.load(repeat)['id'] == record['id']
+assignment = urllib.request.Request(base + '/api/v1/incidents/' + record['id'] + '/assignment', method='PUT', data=json.dumps(dict(version=record['version'], assigned_to=session['user']['id'], assignment_group_id=None)).encode(), headers=headers)
+record = json.load(client.open(assignment))
+transition = urllib.request.Request(base + '/api/v1/incidents/' + record['id'] + '/transition', data=json.dumps(dict(version=record['version'], state='IN_PROGRESS')).encode(), headers=headers)
+record = json.load(client.open(transition))
+assert record['version'] == '3' and record['number'] == 'INC0000001'
+for _ in range(100):
+    history = json.load(client.open(base + '/api/v1/incidents/' + record['id'] + '/history'))
+    if not history['pending'] and len(history['entries']) == 3:
+        break
+    time.sleep(.2)
+assert [entry['type'] for entry in history['entries']] == ['incident.state.changed','incident.assigned','incident.created']
+assert not history['pending']
+for entry in history['entries']:
+    assert entry['event_time'] == entry['data']['occurred_at']
+    assert entry['data']['incident_version'] == entry['data']['after']['version']
+with open(sys.argv[2], 'w') as proof_file:
+    json.dump(dict(record=record, history=history), proof_file)
 PY
 original_hash="$(sql "SELECT password_hash FROM users WHERE email='admin@example.test'")"
 [[ -n "$original_hash" ]]
@@ -340,5 +372,5 @@ assert_running
 assert_session http://127.0.0.1:5173
 installer --status
 verified=1
-printf '%s\n' 'Local runtime fresh install, known-ID scheduler/worker execution and session cleanup, read-only status, background failure/API independence, lifecycle, port/proxy changes, bootstrap safety and uninstall/reinstall persistence passed.'
+printf '%s\n' 'Local runtime fresh install, known-ID scheduler/worker execution, incident/number/assignment/history persistence across restarts and reinstall, session cleanup, read-only status, background failure/API independence, lifecycle, port/proxy changes and bootstrap safety passed.'
 if [[ "${LOCAL_RUNTIME_KEEP:-0}" == 1 ]]; then printf 'Verification checkout: %s\n' "$checkout"; fi
