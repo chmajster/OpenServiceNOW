@@ -2,6 +2,7 @@ package workrecords
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
@@ -26,13 +27,19 @@ func LockPrincipal(ctx context.Context, e database.Executor, a Principal) (Princ
 	}
 	var status string
 	if err := e.QueryRowContext(ctx, "SELECT status FROM tenants WHERE id=? FOR UPDATE", a.TenantID).Scan(&status); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return a, ErrForbidden
+		}
 		return a, err
 	}
 	if status != "ACTIVE" {
 		return a, ErrForbidden
 	}
 	if err := ValidateActiveUser(ctx, e, a.TenantID, a.UserID); err != nil {
-		return a, ErrForbidden
+		if errors.Is(err, ErrNotFound) {
+			return a, ErrForbidden
+		}
+		return a, err
 	}
 	keys, err := identity.NewMySQLRepository(nil).ListPermissionsInTx(ctx, e, a.TenantID, a.UserID)
 	if err != nil {

@@ -1,4 +1,4 @@
-CREATE TABLE service_request_operations (
+CREATE TABLE work_operation_keys (
  tenant_id BIGINT UNSIGNED NOT NULL,
  user_id BIGINT UNSIGNED NOT NULL,
  request_key VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,

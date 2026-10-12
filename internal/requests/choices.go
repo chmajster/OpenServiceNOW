@@ -7,9 +7,9 @@ import (
 
 type choice struct {
 	ID               uint64 `json:"id,string"`
-	Name             string `json:"name"`
-	DisplayName      string `json:"display_name"`
-	Email            string `json:"email"`
+	Name             string `json:"name,omitempty"`
+	DisplayName      string `json:"display_name,omitempty"`
+	Email            string `json:"email,omitempty"`
 	UserActive       bool   `json:"user_active"`
 	MembershipActive bool   `json:"membership_active"`
 }

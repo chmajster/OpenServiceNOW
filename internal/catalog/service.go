@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -61,7 +62,7 @@ func nodeTable(kind string) (string, error) {
 	}
 	return "", ErrInvalid
 }
-func (s *Service) SaveNode(ctx context.Context, a Actor, kind string, id uint64, n Node) (Node, error) {
+func (s *Service) SaveNode(ctx context.Context, a Actor, kind string, id uint64, n Node, keys ...string) (Node, error) {
 	table, err := nodeTable(kind)
 	if err != nil {
 		return n, err
@@ -71,6 +72,21 @@ func (s *Service) SaveNode(ctx context.Context, a Actor, kind string, id uint64,
 		return n, ErrInvalid
 	}
 	err = s.AdminTx(ctx, a, func(e database.Executor, a Actor) error {
+		key := ""
+		if len(keys) > 0 {
+			key = keys[0]
+		}
+		if id == 0 && key != "" {
+			raw, _ := json.Marshal(n)
+			existing, err := workrecords.ReserveOperation(ctx, e, a.Actor, key, "catalog_"+kind, sha256.Sum256(raw))
+			if err != nil {
+				return err
+			}
+			if existing > 0 {
+				n, err = GetNode(ctx, e, a.TenantID, kind, existing)
+				return err
+			}
+		}
 		if kind == "categories" {
 			var exists bool
 			if err := e.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM service_catalogs WHERE tenant_id=? AND id=?)", a.TenantID, n.CatalogID).Scan(&exists); err != nil {
@@ -105,6 +121,13 @@ func (s *Service) SaveNode(ctx context.Context, a Actor, kind string, id uint64,
 			if n.Version == 0 {
 				return ErrInvalid
 			}
+			before, err := GetNode(ctx, e, a.TenantID, kind, id)
+			if err != nil {
+				return err
+			}
+			if kind == "categories" && n.CatalogID != before.CatalogID {
+				return invalid("katalog istniejącej kategorii nie może się zmienić")
+			}
 			result, err := e.ExecContext(ctx, "UPDATE "+table+" SET name=?,description=?,version=version+1 WHERE tenant_id=? AND id=? AND version=?", n.Name, n.Description, a.TenantID, id, n.Version)
 			if err != nil {
 				return err
@@ -119,9 +142,29 @@ func (s *Service) SaveNode(ctx context.Context, a Actor, kind string, id uint64,
 			n.ID = id
 			n.Version++
 		}
+		if id == 0 && key != "" {
+			if err := workrecords.CompleteOperation(ctx, e, a.Actor, key, n.ID); err != nil {
+				return err
+			}
+		}
 		return Audit(ctx, e, a, "catalog.node.saved", kind, n.ID, map[string]any{"name": n.Name, "version": fmt.Sprint(n.Version)})
 	})
 	return n, err
+}
+func GetNode(ctx context.Context, e database.Executor, tenant uint64, kind string, id uint64) (Node, error) {
+	table, err := nodeTable(kind)
+	if err != nil {
+		return Node{}, err
+	}
+	columns := "id,name,description,version"
+	var n Node
+	dest := []any{&n.ID, &n.Name, &n.Description, &n.Version}
+	if kind == "categories" {
+		columns += ",catalog_id"
+		dest = append(dest, &n.CatalogID)
+	}
+	err = e.QueryRowContext(ctx, "SELECT "+columns+" FROM "+table+" WHERE tenant_id=? AND id=?", tenant, id).Scan(dest...)
+	return n, Missing(err)
 }
 
 type NodePage struct {
@@ -197,11 +240,39 @@ func GetItem(ctx context.Context, e database.Executor, tenant, id uint64, lock b
 	err = json.Unmarshal(data, &i.Draft)
 	return i, err
 }
-func (s *Service) SaveItem(ctx context.Context, a Actor, id uint64, i Item) (Item, error) {
+func (s *Service) SaveItem(ctx context.Context, a Actor, id uint64, i Item, keys ...string) (Item, error) {
+	i.Draft.Title = strings.TrimSpace(i.Draft.Title)
+	if i.Draft.Fields == nil {
+		i.Draft.Fields = []Field{}
+	}
+	if i.Draft.Steps == nil {
+		i.Draft.Steps = []Step{}
+	}
+	for n := range i.Draft.Fields {
+		i.Draft.Fields[n].Label = strings.TrimSpace(i.Draft.Fields[n].Label)
+	}
+	for n := range i.Draft.Steps {
+		i.Draft.Steps[n].Title = strings.TrimSpace(i.Draft.Steps[n].Title)
+	}
 	if err := ValidateDefinition(i.Draft, false); err != nil {
 		return i, err
 	}
 	err := s.AdminTx(ctx, a, func(e database.Executor, a Actor) error {
+		key := ""
+		if len(keys) > 0 {
+			key = keys[0]
+		}
+		if id == 0 && key != "" {
+			raw, _ := json.Marshal(i)
+			existing, err := workrecords.ReserveOperation(ctx, e, a.Actor, key, "catalog_item", sha256.Sum256(raw))
+			if err != nil {
+				return err
+			}
+			if existing > 0 {
+				i, err = GetItem(ctx, e, a.TenantID, existing, false)
+				return err
+			}
+		}
 		var exists bool
 		if err := e.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM catalog_categories WHERE tenant_id=? AND id=?)", a.TenantID, i.CategoryID).Scan(&exists); err != nil {
 			return err
@@ -238,6 +309,11 @@ func (s *Service) SaveItem(ctx context.Context, a Actor, id uint64, i Item) (Ite
 			i.ID = id
 			i.Version++
 			i.PublishedVersion = before.PublishedVersion
+		}
+		if id == 0 && key != "" {
+			if err := workrecords.CompleteOperation(ctx, e, a.Actor, key, i.ID); err != nil {
+				return err
+			}
 		}
 		return s.changed(ctx, e, a, "catalog.draft.saved", i.ID, fmt.Sprint(i.Version))
 	})
@@ -332,7 +408,7 @@ type PublicationPage struct {
 	Next  uint64        `json:"next_after_id,string,omitempty"`
 }
 
-func (s *Service) Items(ctx context.Context, a Actor, admin bool, q string, category, after uint64, limit int) (any, error) {
+func (s *Service) Items(ctx context.Context, a Actor, admin bool, q string, category, catalogID, after uint64, limit int) (any, error) {
 	if admin && !a.Has("admin.catalog.manage") || !admin && !a.Has("catalog.read") {
 		return nil, workrecords.ErrForbidden
 	}
@@ -345,6 +421,10 @@ func (s *Service) Items(ctx context.Context, a Actor, admin bool, q string, cate
 	}
 	query += " WHERE i.tenant_id=? AND i.id>?"
 	args := []any{a.TenantID, after}
+	if catalogID > 0 {
+		query += " AND EXISTS(SELECT 1 FROM catalog_categories c WHERE c.tenant_id=i.tenant_id AND c.id=i.category_id AND c.catalog_id=?)"
+		args = append(args, catalogID)
+	}
 	if category > 0 {
 		query += " AND i.category_id=?"
 		args = append(args, category)

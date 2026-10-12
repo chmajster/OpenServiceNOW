@@ -71,6 +71,7 @@ func RegisterRoutes(r chi.Router, h *Handler, m *identity.Middleware) {
 			r.With(m.RequireCSRF).Post("/items/{id}/publish", h.Publish)
 			r.With(m.RequireCSRF).Post("/items/{id}/withdraw", h.Publish)
 			r.Get("/{kind:catalogs|categories}", h.Nodes)
+			r.Get("/{kind:catalogs|categories}/{id}", h.NodeGet)
 			r.With(m.RequireCSRF).Post("/{kind:catalogs|categories}", h.SaveNode)
 			r.With(m.RequireCSRF).Put("/{kind:catalogs|categories}/{id}", h.SaveNode)
 		})
@@ -160,6 +161,8 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		status, code, message = 409, "VERSION_CONFLICT", err.Error()
 	case errors.Is(err, ErrIdempotency):
 		status, code, message = 409, "IDEMPOTENCY_CONFLICT", err.Error()
+	case errors.Is(err, workrecords.ErrOperationConflict):
+		status, code, message = 409, "IDEMPOTENCY_CONFLICT", err.Error()
 	case errors.Is(err, ErrTransition):
 		status, code, message = 409, "INVALID_TRANSITION", err.Error()
 	case errors.Is(err, attachments.ErrTooLarge):
@@ -199,7 +202,11 @@ func (h *Handler) SaveNode(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	p, err := h.catalog.SaveNode(r.Context(), actor(r), chi.URLParam(r, "kind"), id, n)
+	if id == 0 && !requestKeyPattern.MatchString(r.Header.Get("Idempotency-Key")) {
+		writeError(w, r, ErrInvalid)
+		return
+	}
+	p, err := h.catalog.SaveNode(r.Context(), actor(r), chi.URLParam(r, "kind"), id, n, r.Header.Get("Idempotency-Key"))
 	respond(w, r, 200, p, err)
 }
 func (h *Handler) CatalogList(w http.ResponseWriter, r *http.Request) {
@@ -213,7 +220,12 @@ func (h *Handler) CatalogList(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	p, err := h.catalog.Items(r.Context(), actor(r), isAdmin(r), r.URL.Query().Get("q"), category, after, limit)
+	catalogID, err := number(r.URL.Query().Get("catalog_id"), true)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	p, err := h.catalog.Items(r.Context(), actor(r), isAdmin(r), r.URL.Query().Get("q"), category, catalogID, after, limit)
 	respond(w, r, 200, p, err)
 }
 func (h *Handler) CatalogGet(w http.ResponseWriter, r *http.Request) {
@@ -245,7 +257,20 @@ func (h *Handler) CatalogSave(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	p, err := h.catalog.SaveItem(r.Context(), actor(r), id, n)
+	if id == 0 && !requestKeyPattern.MatchString(r.Header.Get("Idempotency-Key")) {
+		writeError(w, r, ErrInvalid)
+		return
+	}
+	p, err := h.catalog.SaveItem(r.Context(), actor(r), id, n, r.Header.Get("Idempotency-Key"))
+	respond(w, r, 200, p, err)
+}
+func (h *Handler) NodeGet(w http.ResponseWriter, r *http.Request) {
+	id, err := objectID(r)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	p, err := catalog.GetNode(r.Context(), h.service.db, actor(r).TenantID, chi.URLParam(r, "kind"), id)
 	respond(w, r, 200, p, err)
 }
 func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {

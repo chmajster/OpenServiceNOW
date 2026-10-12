@@ -50,7 +50,15 @@ func TestCatalogRequestFulfillment(t *testing.T) {
 		t.Fatal(err)
 	}
 	userIDs := []uint64{}
+	second, err := identity.NewBootstrapper(identities, tx, audits).Run(ctx, identity.BootstrapInput{TenantSlug: "request-b-" + suffix, TenantName: "Other Requests", AdminEmail: "requests-" + suffix + "@example.test", AdminName: "Root", AdminPassword: "request-test-administrator"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() {
+		_, _ = db.ExecContext(context.Background(), "DELETE FROM audit_events WHERE tenant_id=?", second.TenantID)
+		if _, err := db.ExecContext(context.Background(), "DELETE FROM tenants WHERE id=?", second.TenantID); err != nil {
+			t.Error(err)
+		}
 		_, _ = db.ExecContext(context.Background(), "DELETE FROM audit_events WHERE tenant_id=?", root.TenantID)
 		if _, err := db.ExecContext(context.Background(), "DELETE FROM tenants WHERE id=?", root.TenantID); err != nil {
 			t.Error(err)
@@ -184,9 +192,12 @@ func TestCatalogRequestFulfillment(t *testing.T) {
 		t.Fatal("other requester read", err)
 	}
 	foreign := admin
-	foreign.TenantID++
+	foreign.TenantID = second.TenantID
 	if _, err := service.Get(ctx, foreign, r.ID); !errors.Is(err, requests.ErrNotFound) {
 		t.Fatal("tenant read", err)
+	}
+	if _, _, err := catalog.Published(ctx, db, foreign, item.ID, 0); !errors.Is(err, catalog.ErrNotFound) {
+		t.Fatal("foreign catalog leaked", err)
 	}
 	item.Draft.Title = "Revised access"
 	item.Draft.Fields = []catalog.Field{{Key: "new_field", Label: "New", Type: "text", Required: true}}
@@ -281,6 +292,39 @@ func TestCatalogRequestFulfillment(t *testing.T) {
 	}
 	if _, err := service.Transition(ctx, reporter, r.ID, requests.Change{Version: r.Version, State: "CANCELLED", Reason: "no"}); !errors.Is(err, requests.ErrTransition) {
 		t.Fatal("late cancel allowed", err)
+	}
+	// New requests can be cancelled only before work, including all child tasks.
+	newInput := requests.Submission{Items: []requests.SubmissionItem{{ItemID: item.ID, Version: *item.PublishedVersion, Values: map[string]json.RawMessage{"new_field": json.RawMessage(`"yes"`)}}}}
+	pending, _, err := service.Create(ctx, reporter, newInput, "request-cancellable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cancelled, err := service.Transition(ctx, reporter, pending.ID, requests.Change{Version: pending.Version, State: "CANCELLED", Reason: "No longer needed"})
+	if err != nil || cancelled.State != "CANCELLED" {
+		t.Fatal("own cancellation", cancelled, err)
+	}
+	var remaining int
+	if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM fulfillment_tasks WHERE tenant_id=? AND request_id=? AND state<>'CANCELLED'", root.TenantID, pending.ID).Scan(&remaining); err != nil || remaining != 0 {
+		t.Fatal("uncancelled required child", remaining, err)
+	}
+	// Audience revocation hides both directory branches and direct publication.
+	item.Draft.AudienceGroupID = uint64(gid)
+	item, err = c.SaveItem(ctx, admin, item.ID, item)
+	if err != nil {
+		t.Fatal(err)
+	}
+	item, err = c.Publish(ctx, admin, item.ID, item.Version, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := catalog.Published(ctx, db, reporter, item.ID, 0); !errors.Is(err, catalog.ErrNotFound) {
+		t.Fatal("restricted audience read", err)
+	}
+	if _, _, err := service.Create(ctx, reporter, newInput, "request-restricted"); !errors.Is(err, catalog.ErrNotFound) {
+		t.Fatal("restricted audience submitted", err)
+	}
+	if _, err := c.SaveItem(ctx, reporter, item.ID, item); !errors.Is(err, workrecords.ErrForbidden) {
+		t.Fatal("forged admin rejected", err)
 	}
 	// Actual dispatcher + shared handlers, then replay projections independently.
 	dispatcher, err := events.NewDispatcher(events.NewRepository(db), slog.New(slog.NewTextHandler(io.Discard, nil)), "request-test", 1, 50*time.Millisecond, 5*time.Second, 0)

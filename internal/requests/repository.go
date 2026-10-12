@@ -2,12 +2,13 @@ package requests
 
 import (
 	"context"
-	"crypto/subtle"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/chmajster/OpenServiceNOW/internal/catalog"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
+	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 )
 
 func taskPredicate(a Actor, alias string) (string, []any) {
@@ -104,7 +105,9 @@ func (s *Service) get(ctx context.Context, e database.Executor, a Actor, id uint
 	if operator {
 		if r.State == "SUBMITTED" || r.State == "IN_PROGRESS" {
 			if a.Has("request.manage") {
-				r.Actions = append(r.Actions, "CANCELLED")
+				if !contains(r.Actions, "CANCELLED") {
+					r.Actions = append(r.Actions, "CANCELLED")
+				}
 			}
 			complete := true
 			for _, i := range r.Items {
@@ -121,13 +124,14 @@ func (s *Service) get(ctx context.Context, e database.Executor, a Actor, id uint
 	return r, nil
 }
 
-const taskColumns = `t.id,t.request_id,t.requested_item_id,t.number,r.number,t.title,t.instructions,t.required,t.state,t.result,t.version,t.updated_at,wa.assigned_to,wa.assignment_group_id,wa.version,wa.updated_at,COALESCE(u.display_name,''),g.name`
+const taskColumns = `t.id,t.request_id,t.requested_item_id,t.number,r.number,t.title,t.instructions,t.required,t.state,t.result,t.version,t.updated_at,wa.assigned_to,wa.assignment_group_id,wa.version,wa.updated_at,COALESCE(u.display_name,''),g.name,r.state`
 const taskJoins = " FROM fulfillment_tasks t JOIN service_requests r ON r.tenant_id=t.tenant_id AND r.id=t.request_id JOIN work_assignments wa ON wa.tenant_id=t.tenant_id AND wa.object_type='fulfillment_task' AND wa.object_id=CAST(t.id AS CHAR) LEFT JOIN users u ON u.id=wa.assigned_to JOIN `groups` g ON g.tenant_id=wa.tenant_id AND g.id=wa.assignment_group_id "
 
 func scanTask(row interface{ Scan(...any) error }, tenant uint64) (Task, error) {
 	var t Task
 	var assigned, group sql.Null[uint64]
-	err := row.Scan(&t.ID, &t.RequestID, &t.RequestedItemID, &t.Number, &t.RequestNumber, &t.Title, &t.Instructions, &t.Required, &t.State, &t.Result, &t.Version, &t.UpdatedAt, &assigned, &group, &t.Assignment.Version, &t.Assignment.UpdatedAt, &t.AssignedName, &t.GroupName)
+	var parentState string
+	err := row.Scan(&t.ID, &t.RequestID, &t.RequestedItemID, &t.Number, &t.RequestNumber, &t.Title, &t.Instructions, &t.Required, &t.State, &t.Result, &t.Version, &t.UpdatedAt, &assigned, &group, &t.Assignment.Version, &t.Assignment.UpdatedAt, &t.AssignedName, &t.GroupName, &parentState)
 	if assigned.Valid {
 		t.Assignment.AssignedTo = &assigned.V
 	}
@@ -147,30 +151,28 @@ func scanTask(row interface{ Scan(...any) error }, tenant uint64) (Task, error) 
 	if t.State == "ON_HOLD" {
 		t.Actions = []string{"IN_PROGRESS"}
 	}
+	if !assigned.Valid || parentState == "CLOSED" || parentState == "CANCELLED" || parentState == "FULFILLED" {
+		t.Actions = []string{}
+	}
 	return t, catalog.Missing(err)
 }
 func (s *Service) getTask(ctx context.Context, e database.Executor, a Actor, id uint64) (Task, error) {
 	p, args := taskPredicate(a, "t")
 	params := []any{a.TenantID, id}
 	params = append(params, args...)
-	return scanTask(e.QueryRowContext(ctx, "SELECT "+taskColumns+taskJoins+" WHERE t.tenant_id=? AND t.id=? AND "+p, params...), a.TenantID)
+	t, err := scanTask(e.QueryRowContext(ctx, "SELECT "+taskColumns+taskJoins+" WHERE t.tenant_id=? AND t.id=? AND "+p, params...), a.TenantID)
+	if !a.Has("request.manage") && t.Assignment.AssignedTo != nil && *t.Assignment.AssignedTo != a.UserID {
+		t.Actions = []string{}
+	}
+	return t, err
 }
 func reserve(ctx context.Context, e database.Executor, a Actor, key, kind string, hash [32]byte) (uint64, error) {
-	if _, err := e.ExecContext(ctx, `INSERT INTO service_request_operations(tenant_id,user_id,request_key,kind,request_hash) VALUES(?,?,?,?,?) ON DUPLICATE KEY UPDATE request_key=service_request_operations.request_key`, a.TenantID, a.UserID, key, kind, hash[:]); err != nil {
-		return 0, err
-	}
-	var stored []byte
-	var storedKind string
-	var id sql.Null[uint64]
-	if err := e.QueryRowContext(ctx, "SELECT request_hash,kind,resource_id FROM service_request_operations WHERE tenant_id=? AND user_id=? AND request_key=? FOR UPDATE", a.TenantID, a.UserID, key).Scan(&stored, &storedKind, &id); err != nil {
-		return 0, err
-	}
-	if storedKind != kind || subtle.ConstantTimeCompare(stored, hash[:]) != 1 {
+	id, err := workrecords.ReserveOperation(ctx, e, a.Actor, key, kind, hash)
+	if errors.Is(err, workrecords.ErrOperationConflict) {
 		return 0, ErrIdempotency
 	}
-	return id.V, nil
+	return id, err
 }
 func complete(ctx context.Context, e database.Executor, a Actor, key string, id uint64) error {
-	_, err := e.ExecContext(ctx, "UPDATE service_request_operations SET resource_id=? WHERE tenant_id=? AND user_id=? AND request_key=?", id, a.TenantID, a.UserID, key)
-	return err
+	return workrecords.CompleteOperation(ctx, e, a.Actor, key, id)
 }

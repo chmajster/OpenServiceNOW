@@ -46,7 +46,13 @@ func (s *Service) event(ctx context.Context, e database.Executor, a Actor, r Req
 	data["request_version"] = fmt.Sprint(r.Version)
 	data["visibility"] = visibility
 	// Public events carry only safe metadata, never submitted values/instructions.
-	if err := catalog.Audit(ctx, e, a, kind, "request", r.ID, map[string]any{"state": r.State, "version": fmt.Sprint(r.Version), "visibility": visibility, "resource_id": data["resource_id"]}); err != nil {
+	metadata := map[string]any{"state": r.State, "version": fmt.Sprint(r.Version), "visibility": visibility, "resource_id": data["resource_id"]}
+	for _, key := range []string{"task_number", "assigned_to", "assigned_before", "task_state_before", "task_state_after"} {
+		if value, ok := data[key]; ok {
+			metadata[key] = value
+		}
+	}
+	if err := catalog.Audit(ctx, e, a, kind, "request", r.ID, metadata); err != nil {
 		return err
 	}
 	raw, err := json.Marshal(data)
@@ -208,6 +214,11 @@ func (s *Service) Transition(ctx context.Context, a Actor, id uint64, in Change)
 				return err
 			}
 		}
+		if in.State == "FULFILLED" {
+			if _, err := e.ExecContext(ctx, "UPDATE fulfillment_tasks SET state='CANCELLED',version=version+1,updated_at=? WHERE tenant_id=? AND request_id=? AND required=FALSE AND state NOT IN('COMPLETED','CANCELLED')", time.Now().UTC(), a.TenantID, id); err != nil {
+				return err
+			}
+		}
 		if _, err := e.ExecContext(ctx, "UPDATE service_requests SET state=?,reason=?,version=version+1,updated_at=? WHERE tenant_id=? AND id=?", in.State, in.Reason, time.Now().UTC(), a.TenantID, id); err != nil {
 			return err
 		}
@@ -259,6 +270,7 @@ func (s *Service) ChangeTask(ctx context.Context, a Actor, id uint64, in Change,
 			}
 			visibility = "INTERNAL"
 			data["assigned_to"] = messageIDString(in.AssignedTo)
+			data["assigned_before"] = messageIDString(t.Assignment.AssignedTo)
 			kind = "request.task.assigned"
 		} else {
 			if !contains(t.Actions, in.State) {
@@ -274,7 +286,9 @@ func (s *Service) ChangeTask(ctx context.Context, a Actor, id uint64, in Change,
 			if !catalog.Text(in.Reason, 0, 10000) || (in.State == "ON_HOLD" || in.State == "COMPLETED") && !catalog.Text(in.Reason, 1, 10000) {
 				return ErrInvalid
 			}
+			data["task_state_before"] = t.State
 			t.State = in.State
+			data["task_state_after"] = t.State
 			data["state"] = t.State
 			if _, err := e.ExecContext(ctx, "UPDATE fulfillment_tasks SET state=?,result=? WHERE tenant_id=? AND id=?", t.State, in.Reason, a.TenantID, id); err != nil {
 				return err
