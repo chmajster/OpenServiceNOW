@@ -9,6 +9,7 @@ import { RbacPage } from "./pages/RbacPage";
 import { TenantPage } from "./pages/TenantPage";
 import { UsersPage } from "./pages/UsersPage";
 import { SetupPage } from "./pages/SetupPage";
+import { DiagnosticsPage } from "./pages/DiagnosticsPage";
 
 export function App() {
   return (
@@ -25,6 +26,7 @@ export function App() {
             }
           >
             <Route index element={<OverviewPage />} />
+            <Route path="diagnostics" element={<RequirePermission permission="admin.rbac.manage"><DiagnosticsPage /></RequirePermission>} />
             <Route
               path="tenant"
               element={

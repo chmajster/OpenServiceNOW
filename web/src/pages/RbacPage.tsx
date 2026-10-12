@@ -1,979 +1,727 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { ApiError, api, jsonBody } from "../api/client";
 import type {
-  AssignedRole,
-  AssignedRolePage,
   CreatedID,
   Group,
-  GroupMember,
-  GroupMemberPage,
-  GroupsResponse,
   Permission,
   PermissionsResponse,
   Role,
-  RolesResponse,
-  TenantUser,
-  UsersResponse
 } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
+import { ConflictNotice } from "../components/ConflictNotice";
 import { PageState } from "../components/PageState";
+import { RemoteCombobox, type Choice } from "../components/RemoteCombobox";
+import { useRemotePage } from "../components/useRemotePage";
+import { GroupMembers, RoleAssignments } from "../components/RbacAssignments";
+import { permissionLabel } from "../components/auditPresentation";
 
+const base = "/api/v1/admin/rbac";
 export function RbacPage() {
-  const { hasPermission } = useAuth();
-  const canManageUsers = hasPermission("admin.users.manage");
-
-  const [permissions, setPermissions] = useState<Permission[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [users, setUsers] = useState<TenantUser[]>([]);
-
-  const [nextRoleAfterID, setNextRoleAfterID] = useState<string | undefined>();
-  const [nextGroupAfterID, setNextGroupAfterID] = useState<string | undefined>();
-  const [roleSearch, setRoleSearch] = useState("");
-  const [activeRoleSearch, setActiveRoleSearch] = useState("");
-  const [groupSearch, setGroupSearch] = useState("");
-  const [activeGroupSearch, setActiveGroupSearch] = useState("");
-  const [userSearch, setUserSearch] = useState("");
-
-  const [loading, setLoading] = useState(true);
-  const [loadingMoreRoles, setLoadingMoreRoles] = useState(false);
-  const [loadingMoreGroups, setLoadingMoreGroups] = useState(false);
-  const [searchingUsers, setSearchingUsers] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const [roleName, setRoleName] = useState("");
-  const [roleDescription, setRoleDescription] = useState("");
-  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
-  const [editRoleID, setEditRoleID] = useState("");
-  const [editRolePermissions, setEditRolePermissions] = useState<string[]>([]);
-  const [groupName, setGroupName] = useState("");
-  const [groupDescription, setGroupDescription] = useState("");
-  const [assignmentUser, setAssignmentUser] = useState("");
-  const [assignmentRole, setAssignmentRole] = useState("");
-  const [assignedUserRoles, setAssignedUserRoles] = useState<AssignedRole[]>([]);
-  const [nextUserRoleAfterID, setNextUserRoleAfterID] = useState<string | undefined>();
-  const [loadingUserRoles, setLoadingUserRoles] = useState(false);
-
-  const [assignmentGroup, setAssignmentGroup] = useState("");
-  const [groupMemberUser, setGroupMemberUser] = useState("");
-  const [groupRole, setGroupRole] = useState("");
-  const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
-  const [assignedGroupRoles, setAssignedGroupRoles] = useState<AssignedRole[]>([]);
-  const [nextGroupMemberAfterID, setNextGroupMemberAfterID] = useState<string | undefined>();
-  const [nextGroupRoleAfterID, setNextGroupRoleAfterID] = useState<string | undefined>();
-  const [loadingGroupMembers, setLoadingGroupMembers] = useState(false);
-  const [loadingGroupRoles, setLoadingGroupRoles] = useState(false);
-
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-
-  const activeUsers = useMemo(() => users.filter((user) => user.membership_active), [users]);
-
-  function listParams(afterID: string | undefined, query: string) {
-    const params = new URLSearchParams({ limit: "50" });
-    if (afterID) {
-      params.set("after_id", afterID);
-    }
-    if (query.trim()) {
-      params.set("q", query.trim());
-    }
-    return params;
+  const [params, setParams] = useSearchParams();
+  const kind = params.get("kind") === "groups" ? "groups" : "roles";
+  const id = params.get("id") ?? "";
+  const query = params.get("q") ?? "";
+  const creating = params.get("create") === "1";
+  const [search, setSearch] = useState(query);
+  useEffect(() => setSearch(query), [query]);
+  const page = useRemotePage<Role | Group>(
+    `${base}/${kind}?${new URLSearchParams({ limit: "50", q: query })}`,
+    kind,
+  );
+  function navigate(values: Record<string, string>) {
+    setParams(values);
   }
-
-  async function loadRoles(afterID?: string, append = false, query = activeRoleSearch): Promise<boolean> {
-    append ? setLoadingMoreRoles(true) : setLoading(true);
-    setError(null);
-    try {
-      const response = await api<RolesResponse>(
-        `/api/v1/admin/rbac/roles?${listParams(afterID, query).toString()}`
-      );
-      setRoles((current) => (append ? [...current, ...response.roles] : response.roles));
-      setNextRoleAfterID(response.next_after_id);
-      return true;
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Nie udało się pobrać ról.");
-      return false;
-    } finally {
-      setLoading(false);
-      setLoadingMoreRoles(false);
-    }
-  }
-
-  async function loadGroups(afterID?: string, append = false, query = activeGroupSearch): Promise<boolean> {
-    append ? setLoadingMoreGroups(true) : setLoading(true);
-    setError(null);
-    try {
-      const response = await api<GroupsResponse>(
-        `/api/v1/admin/rbac/groups?${listParams(afterID, query).toString()}`
-      );
-      setGroups((current) => (append ? [...current, ...response.groups] : response.groups));
-      setNextGroupAfterID(response.next_after_id);
-      return true;
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Nie udało się pobrać grup.");
-      return false;
-    } finally {
-      setLoading(false);
-      setLoadingMoreGroups(false);
-    }
-  }
-
-  async function loadPermissionCatalog() {
-    setError(null);
-    try {
-      const response = await api<PermissionsResponse>("/api/v1/admin/rbac/permissions");
-      setPermissions(response.permissions);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Nie udało się pobrać katalogu uprawnień.");
-    }
-  }
-
-  async function loadCore() {
-    setLoading(true);
-    setError(null);
-    await Promise.all([
-      loadPermissionCatalog(),
-      loadRoles(undefined, false, activeRoleSearch),
-      loadGroups(undefined, false, activeGroupSearch)
-    ]);
-    setLoading(false);
-  }
-
-  async function searchUsers(query = userSearch) {
-    if (!canManageUsers) {
-      setUsers([]);
-      return;
-    }
-    setSearchingUsers(true);
-    setError(null);
-    try {
-      const response = await api<UsersResponse>(
-        `/api/v1/admin/users/?${listParams(undefined, query).toString()}`
-      );
-      setUsers(response.users);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Nie udało się wyszukać użytkowników.");
-    } finally {
-      setSearchingUsers(false);
-    }
-  }
-
-  useEffect(() => {
-    void loadCore();
-  }, []);
-
-  useEffect(() => {
-    if (canManageUsers) {
-      void searchUsers("");
-    } else {
-      setUsers([]);
-    }
-  }, [canManageUsers]);
-
-  function togglePermission(key: string) {
-    setSelectedPermissions((current) =>
-      current.includes(key) ? current.filter((value) => value !== key) : [...current, key]
-    );
-  }
-
-  function selectRoleForEdit(roleID: string) {
-    setEditRoleID(roleID);
-    const role = roles.find((item) => item.id === roleID);
-    setEditRolePermissions(role?.permissions.map((permission) => permission.key) ?? []);
-  }
-
-  function toggleEditPermission(key: string) {
-    setEditRolePermissions((current) =>
-      current.includes(key) ? current.filter((value) => value !== key) : [...current, key]
-    );
-  }
-
-  async function createRole(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await api<CreatedID>("/api/v1/admin/rbac/roles", {
-        method: "POST",
-        body: jsonBody({
-          name: roleName,
-          description: roleDescription,
-          permissions: selectedPermissions
-        })
-      });
-      setRoleName("");
-      setRoleDescription("");
-      setSelectedPermissions([]);
-      await loadRoles(undefined, false, activeRoleSearch);
-    } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 409) {
-        setError("Rola o tej nazwie już istnieje.");
-      } else {
-        setError(cause instanceof Error ? cause.message : "Utworzenie roli nie powiodło się.");
-      }
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function saveRolePermissions(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const role = roles.find((item) => item.id === editRoleID);
-    if (!role || role.system_role) {
-      return;
-    }
-
-    setBusy(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await api<void>(`/api/v1/admin/rbac/roles/${role.id}/permissions`, {
-        method: "PUT",
-        body: jsonBody({
-          version: role.version,
-          permissions: editRolePermissions
-        })
-      });
-      setMessage("Uprawnienia roli zostały zaktualizowane.");
-      setEditRoleID("");
-      setEditRolePermissions([]);
-      await loadRoles(undefined, false, activeRoleSearch);
-    } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 409) {
-        setEditRoleID("");
-        setEditRolePermissions([]);
-        const refreshed = await loadRoles(undefined, false, activeRoleSearch);
-        setError(
-          refreshed
-            ? "Rola została zmieniona równolegle. Bieżące dane zostały odświeżone; wybierz rolę i ponów edycję."
-            : "Rola została zmieniona równolegle i nie udało się pobrać bieżącej wersji. Odśwież stronę przed kolejną zmianą."
-        );
-      } else {
-        setError(cause instanceof Error ? cause.message : "Aktualizacja uprawnień roli nie powiodła się.");
-      }
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function createGroup(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await api<CreatedID>("/api/v1/admin/rbac/groups", {
-        method: "POST",
-        body: jsonBody({ name: groupName, description: groupDescription })
-      });
-      setGroupName("");
-      setGroupDescription("");
-      await loadGroups(undefined, false, activeGroupSearch);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Utworzenie grupy nie powiodło się.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleRoleSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const query = roleSearch.trim();
-    setActiveRoleSearch(query);
-    setAssignmentRole("");
-    setGroupRole("");
-    setEditRoleID("");
-    setEditRolePermissions([]);
-    await loadRoles(undefined, false, query);
-  }
-
-  async function clearRoleSearch() {
-    setRoleSearch("");
-    setActiveRoleSearch("");
-    setAssignmentRole("");
-    setGroupRole("");
-    setEditRoleID("");
-    setEditRolePermissions([]);
-    await loadRoles(undefined, false, "");
-  }
-
-  async function handleGroupSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const query = groupSearch.trim();
-    setActiveGroupSearch(query);
-    clearSelectedGroupAssignments();
-    await loadGroups(undefined, false, query);
-  }
-
-  async function clearGroupSearch() {
-    setGroupSearch("");
-    setActiveGroupSearch("");
-    clearSelectedGroupAssignments();
-    await loadGroups(undefined, false, "");
-  }
-
-  function clearSelectedGroupAssignments() {
-    setAssignmentGroup("");
-    setGroupMemberUser("");
-    setGroupRole("");
-    setGroupMembers([]);
-    setAssignedGroupRoles([]);
-    setNextGroupMemberAfterID(undefined);
-    setNextGroupRoleAfterID(undefined);
-  }
-
-  async function handleUserSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setAssignmentUser("");
-    setAssignedUserRoles([]);
-    setNextUserRoleAfterID(undefined);
-    setGroupMemberUser("");
-    await searchUsers();
-  }
-
-  async function loadUserRoles(userID: string, afterID?: string, append = false): Promise<boolean> {
-    if (!userID || !canManageUsers) {
-      setAssignedUserRoles([]);
-      setNextUserRoleAfterID(undefined);
-      return true;
-    }
-    setLoadingUserRoles(true);
-    setError(null);
-    try {
-      const response = await api<AssignedRolePage>(
-        `/api/v1/admin/rbac/users/${userID}/roles?${listParams(afterID, "").toString()}`
-      );
-      setAssignedUserRoles((current) => append ? [...current, ...response.roles] : response.roles);
-      setNextUserRoleAfterID(response.next_after_id);
-      return true;
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Nie udało się pobrać ról użytkownika.");
-      return false;
-    } finally {
-      setLoadingUserRoles(false);
-    }
-  }
-
-  async function selectAssignmentUser(userID: string) {
-    setAssignmentUser(userID);
-    setAssignmentRole("");
-    await loadUserRoles(userID);
-  }
-
-  async function loadGroupMembers(groupID: string, afterID?: string, append = false): Promise<boolean> {
-    if (!groupID || !canManageUsers) {
-      setGroupMembers([]);
-      setNextGroupMemberAfterID(undefined);
-      return true;
-    }
-    setLoadingGroupMembers(true);
-    setError(null);
-    try {
-      const response = await api<GroupMemberPage>(
-        `/api/v1/admin/rbac/groups/${groupID}/members?${listParams(afterID, "").toString()}`
-      );
-      setGroupMembers((current) => append ? [...current, ...response.members] : response.members);
-      setNextGroupMemberAfterID(response.next_after_id);
-      return true;
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Nie udało się pobrać członków grupy.");
-      return false;
-    } finally {
-      setLoadingGroupMembers(false);
-    }
-  }
-
-  async function loadGroupRoles(groupID: string, afterID?: string, append = false): Promise<boolean> {
-    if (!groupID) {
-      setAssignedGroupRoles([]);
-      setNextGroupRoleAfterID(undefined);
-      return true;
-    }
-    setLoadingGroupRoles(true);
-    setError(null);
-    try {
-      const response = await api<AssignedRolePage>(
-        `/api/v1/admin/rbac/groups/${groupID}/roles?${listParams(afterID, "").toString()}`
-      );
-      setAssignedGroupRoles((current) => append ? [...current, ...response.roles] : response.roles);
-      setNextGroupRoleAfterID(response.next_after_id);
-      return true;
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Nie udało się pobrać ról grupy.");
-      return false;
-    } finally {
-      setLoadingGroupRoles(false);
-    }
-  }
-
-  async function selectAssignmentGroup(groupID: string) {
-    setAssignmentGroup(groupID);
-    setGroupMemberUser("");
-    setGroupRole("");
-    setGroupMembers([]);
-    setAssignedGroupRoles([]);
-    setNextGroupMemberAfterID(undefined);
-    setNextGroupRoleAfterID(undefined);
-    if (!groupID) {
-      return;
-    }
-    await Promise.all([
-      loadGroupRoles(groupID),
-      canManageUsers ? loadGroupMembers(groupID) : Promise.resolve()
-    ]);
-  }
-
-  async function assignRole(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const userID = assignmentUser;
-    const roleID = assignmentRole;
-    if (!userID || !roleID) {
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await api<void>(`/api/v1/admin/rbac/users/${userID}/roles/${roleID}`, { method: "POST" });
-      setAssignmentRole("");
-      const refreshed = await loadUserRoles(userID);
-      if (refreshed) {
-        setMessage("Rola została przypisana użytkownikowi.");
-      } else {
-        setError("Rola została przypisana, ale nie udało się potwierdzić bieżącego stanu. Odśwież ekran.");
-      }
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Przypisanie roli nie powiodło się.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function removeUserRole(roleID: string) {
-    if (!assignmentUser) {
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await api<void>(`/api/v1/admin/rbac/users/${assignmentUser}/roles/${roleID}`, { method: "DELETE" });
-      const refreshed = await loadUserRoles(assignmentUser);
-      if (refreshed) {
-        setMessage("Rola została usunięta z użytkownika.");
-      } else {
-        setError("Rola została usunięta, ale nie udało się potwierdzić bieżącego stanu. Odśwież ekran.");
-      }
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Usunięcie roli użytkownika nie powiodło się.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function addGroupMember(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!assignmentGroup || !groupMemberUser) {
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await api<void>(`/api/v1/admin/rbac/groups/${assignmentGroup}/members/${groupMemberUser}`, { method: "POST" });
-      setGroupMemberUser("");
-      const [membersRefreshed, groupsRefreshed] = await Promise.all([
-        loadGroupMembers(assignmentGroup),
-        loadGroups(undefined, false, activeGroupSearch)
-      ]);
-      if (membersRefreshed && groupsRefreshed) {
-        setMessage("Użytkownik został dodany do grupy.");
-      } else {
-        setError("Użytkownik został dodany do grupy, ale nie udało się w pełni odświeżyć stanu. Odśwież ekran.");
-      }
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Dodanie użytkownika do grupy nie powiodło się.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function removeGroupMember(userID: string) {
-    if (!assignmentGroup) {
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await api<void>(`/api/v1/admin/rbac/groups/${assignmentGroup}/members/${userID}`, { method: "DELETE" });
-      const [membersRefreshed, groupsRefreshed] = await Promise.all([
-        loadGroupMembers(assignmentGroup),
-        loadGroups(undefined, false, activeGroupSearch)
-      ]);
-      if (membersRefreshed && groupsRefreshed) {
-        setMessage("Użytkownik został usunięty z grupy.");
-      } else {
-        setError("Użytkownik został usunięty z grupy, ale nie udało się w pełni odświeżyć stanu. Odśwież ekran.");
-      }
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Usunięcie użytkownika z grupy nie powiodło się.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function assignGroupRole(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!assignmentGroup || !groupRole) {
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await api<void>(`/api/v1/admin/rbac/groups/${assignmentGroup}/roles/${groupRole}`, { method: "POST" });
-      setGroupRole("");
-      const refreshed = await loadGroupRoles(assignmentGroup);
-      if (refreshed) {
-        setMessage("Rola została przypisana grupie.");
-      } else {
-        setError("Rola została przypisana grupie, ale nie udało się potwierdzić bieżącego stanu. Odśwież ekran.");
-      }
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Przypisanie roli grupie nie powiodło się.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function removeGroupRole(roleID: string) {
-    if (!assignmentGroup) {
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await api<void>(`/api/v1/admin/rbac/groups/${assignmentGroup}/roles/${roleID}`, { method: "DELETE" });
-      const refreshed = await loadGroupRoles(assignmentGroup);
-      if (refreshed) {
-        setMessage("Rola została usunięta z grupy.");
-      } else {
-        setError("Rola została usunięta z grupy, ale nie udało się potwierdzić bieżącego stanu. Odśwież ekran.");
-      }
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Usunięcie roli z grupy nie powiodło się.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (loading && roles.length === 0 && groups.length === 0) {
-    return <PageState title="Ładowanie RBAC" />;
-  }
-
+  const tabs: [string, string][] =
+    kind === "roles"
+      ? [
+          ["info", "Informacje"],
+          ["permissions", "Uprawnienia"],
+          ["assignments", "Przypisania"],
+        ]
+      : [
+          ["info", "Informacje"],
+          ["members", "Członkowie"],
+          ["assignments", "Przypisania"],
+        ];
+  const tab = tabs.some(([key]) => key === params.get("tab"))
+    ? params.get("tab")!
+    : "info";
   return (
     <section className="page">
       <div className="page-heading">
         <div>
           <p className="eyebrow">Administracja</p>
-          <h1>Role i RBAC</h1>
-          <p className="muted">Uprawnienia są zawsze egzekwowane przez backend.</p>
+          <h1>Role i grupy</h1>
+          <p className="muted">
+            Zarządzaj uprawnieniami i członkostwem w organizacji.
+          </p>
         </div>
-        <button className="button button--secondary" onClick={() => void loadCore()} disabled={loading}>
-          Odśwież
-        </button>
+        {!id && !creating ? (
+          <button
+            className="button button--primary"
+            onClick={() => navigate({ kind, q: query, create: "1" })}
+          >
+            {kind === "roles" ? "Nowa rola" : "Nowa grupa"}
+          </button>
+        ) : null}
       </div>
-
-      {error ? <div className="inline-error" role="alert">{error}</div> : null}
-      {message ? <div className="inline-success" role="status">{message}</div> : null}
-
-      <div className="two-column">
-        <div className="panel">
-          <div className="panel-heading"><h2>Nowa rola</h2></div>
-          <form className="form-stack form-stack--compact" onSubmit={(event) => void createRole(event)}>
-            <label>
-              Nazwa
-              <input value={roleName} onChange={(event) => setRoleName(event.target.value)} maxLength={150} required />
-            </label>
-            <label>
-              Opis
-              <textarea value={roleDescription} onChange={(event) => setRoleDescription(event.target.value)} maxLength={500} rows={3} />
-            </label>
-            <fieldset className="permission-grid">
-              <legend>Uprawnienia</legend>
-              {permissions.map((permission) => (
-                <label className="checkbox-row" key={permission.key}>
-                  <input
-                    type="checkbox"
-                    checked={selectedPermissions.includes(permission.key)}
-                    onChange={() => togglePermission(permission.key)}
-                  />
-                  <span>
-                    <strong>{permission.key}</strong>
-                    <small>{permission.description}</small>
-                  </span>
-                </label>
-              ))}
-            </fieldset>
-            <button className="button button--primary" type="submit" disabled={busy}>Utwórz rolę</button>
-          </form>
-
-          <hr />
-
-          <div className="panel-heading"><h2>Edytuj uprawnienia roli</h2></div>
-          <form className="form-stack form-stack--compact" onSubmit={(event) => void saveRolePermissions(event)}>
-            <label>
-              Rola do edycji
-              <select value={editRoleID} onChange={(event) => selectRoleForEdit(event.target.value)}>
-                <option value="">Wybierz niesystemową rolę z załadowanych wyników</option>
-                {roles.filter((role) => !role.system_role).map((role) => (
-                  <option key={role.id} value={role.id}>{role.name} — v{role.version}</option>
-                ))}
-              </select>
-            </label>
-            {editRoleID ? (
-              <fieldset className="permission-grid">
-                <legend>Uprawnienia po zmianie</legend>
-                {permissions.map((permission) => (
-                  <label className="checkbox-row" key={permission.key}>
-                    <input
-                      type="checkbox"
-                      checked={editRolePermissions.includes(permission.key)}
-                      onChange={() => toggleEditPermission(permission.key)}
-                    />
-                    <span>
-                      <strong>{permission.key}</strong>
-                      <small>{permission.description}</small>
-                    </span>
-                  </label>
-                ))}
-              </fieldset>
-            ) : null}
-            <button className="button button--secondary" type="submit" disabled={busy || !editRoleID}>
-              Zapisz uprawnienia
-            </button>
-          </form>
-        </div>
-
-        <div className="panel">
-          <div className="panel-heading"><h2>Nowa grupa</h2></div>
-          <form className="form-stack form-stack--compact" onSubmit={(event) => void createGroup(event)}>
-            <label>
-              Nazwa
-              <input value={groupName} onChange={(event) => setGroupName(event.target.value)} maxLength={150} required />
-            </label>
-            <label>
-              Opis
-              <textarea value={groupDescription} onChange={(event) => setGroupDescription(event.target.value)} maxLength={500} rows={3} />
-            </label>
-            <button className="button button--primary" type="submit" disabled={busy}>Utwórz grupę</button>
-          </form>
-
-          <hr />
-
-          <div className="panel-heading"><h2>Przypisz rolę użytkownikowi</h2></div>
-          {canManageUsers ? (
-            <>
-              <form className="search-row search-row--compact" onSubmit={(event) => void handleUserSearch(event)}>
-                <label className="search-field">
-                  Wyszukaj użytkownika
-                  <input
-                    value={userSearch}
-                    onChange={(event) => setUserSearch(event.target.value)}
-                    maxLength={200}
-                    placeholder="nazwa lub e-mail"
-                  />
-                </label>
-                <button className="button button--secondary" type="submit" disabled={searchingUsers}>
-                  {searchingUsers ? "Szukanie…" : "Szukaj"}
-                </button>
-              </form>
-              <form className="form-stack form-stack--compact" onSubmit={(event) => void assignRole(event)}>
-                <label>
-                  Użytkownik
-                  <select value={assignmentUser} onChange={(event) => void selectAssignmentUser(event.target.value)} required>
-                    <option value="">Wybierz z maks. 50 wyników</option>
-                    {activeUsers.map((user) => (
-                      <option key={user.id} value={user.id}>{user.display_name} — {user.email}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Rola do przypisania
-                  <select value={assignmentRole} onChange={(event) => setAssignmentRole(event.target.value)} required>
-                    <option value="">Wybierz z załadowanych ról</option>
-                    {roles.map((role) => (
-                      <option key={role.id} value={role.id}>{role.name}</option>
-                    ))}
-                  </select>
-                </label>
-                <button className="button button--secondary" type="submit" disabled={busy}>Przypisz rolę</button>
-              </form>
-              {assignmentUser ? (
-                <div className="assignment-list">
-                  <h3>Role przypisane bezpośrednio</h3>
-                  {assignedUserRoles.map((role) => (
-                    <div className="assignment-row" key={role.id}>
-                      <span>
-                        <strong>{role.name}</strong>
-                        {role.system_role ? <small className="muted">rola systemowa</small> : null}
-                      </span>
-                      <button
-                        className="button button--small button--secondary"
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void removeUserRole(role.id)}
-                      >
-                        Usuń
-                      </button>
-                    </div>
-                  ))}
-                  {assignedUserRoles.length === 0 && !loadingUserRoles ? (
-                    <div className="empty-cell">Brak bezpośrednio przypisanych ról.</div>
-                  ) : null}
-                  {nextUserRoleAfterID ? (
-                    <button
-                      className="button button--secondary"
-                      type="button"
-                      disabled={loadingUserRoles}
-                      onClick={() => void loadUserRoles(assignmentUser, nextUserRoleAfterID, true)}
-                    >
-                      {loadingUserRoles ? "Ładowanie…" : "Załaduj więcej ról użytkownika"}
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
-            </>
-          ) : (
-            <PageState
-              title="Lista użytkowników niedostępna"
-              detail="Przypisywanie roli użytkownikowi z tego widoku wymaga również admin.users.manage."
-            />
-          )}
-        </div>
-      </div>
-
-      <div className="panel">
-        <div className="panel-heading">
-          <div>
-            <h2>Przypisania grupowe</h2>
-            <p className="muted">Po każdej zmianie stan jest ponownie pobierany z backendu.</p>
-          </div>
-        </div>
-        <label className="search-field">
-          Grupa
-          <select value={assignmentGroup} onChange={(event) => void selectAssignmentGroup(event.target.value)}>
-            <option value="">Wybierz grupę z załadowanych wyników</option>
-            {groups.map((group) => (
-              <option key={group.id} value={group.id}>{group.name}</option>
+      <nav className="tabs" aria-label="Listy administracyjne">
+        <Link
+          className={kind === "roles" ? "is-active" : ""}
+          to="/rbac?kind=roles"
+          aria-current={kind === "roles" ? "page" : undefined}
+        >
+          Role
+        </Link>
+        <Link
+          className={kind === "groups" ? "is-active" : ""}
+          to="/rbac?kind=groups"
+          aria-current={kind === "groups" ? "page" : undefined}
+        >
+          Grupy
+        </Link>
+      </nav>
+      {id || creating ? (
+        <Link to={`/rbac?${new URLSearchParams({ kind, q: query })}`}>
+          ← {kind === "roles" ? "Lista ról" : "Lista grup"}
+        </Link>
+      ) : null}
+      {creating ? (
+        <CreateResource
+          key={kind}
+          kind={kind}
+          onCreated={(newID) => {
+            page.reload();
+            navigate({ kind, id: newID, tab: "info", q: query });
+          }}
+        />
+      ) : id ? (
+        <>
+          <nav className="tabs" aria-label="Szczegóły obiektu">
+            {tabs.map(([key, title]) => (
+              <Link
+                key={key}
+                className={tab === key ? "is-active" : ""}
+                aria-current={tab === key ? "page" : undefined}
+                to={`/rbac?${new URLSearchParams({ kind, id, q: query, tab: key })}`}
+              >
+                {title}
+              </Link>
             ))}
-          </select>
-        </label>
-
-        {assignmentGroup ? (
-          <div className="two-column assignment-columns">
-            <section className="assignment-section">
-              <h3>Członkowie grupy</h3>
-              {canManageUsers ? (
-                <>
-                  <form className="form-stack form-stack--compact" onSubmit={(event) => void addGroupMember(event)}>
-                    <label>
-                      Użytkownik
-                      <select value={groupMemberUser} onChange={(event) => setGroupMemberUser(event.target.value)} required>
-                        <option value="">Wybierz aktywnego użytkownika</option>
-                        {activeUsers.map((user) => (
-                          <option key={user.id} value={user.id}>{user.display_name} — {user.email}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <button className="button button--secondary" type="submit" disabled={busy}>Dodaj do grupy</button>
-                  </form>
-                  <div className="assignment-list">
-                    {groupMembers.map((member) => (
-                      <div className="assignment-row" key={member.user_id}>
-                        <span>
-                          <strong>{member.display_name}</strong>
-                          <small className="muted">{member.email}</small>
-                        </span>
-                        <button
-                          className="button button--small button--secondary"
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void removeGroupMember(member.user_id)}
-                        >
-                          Usuń
-                        </button>
-                      </div>
-                    ))}
-                    {groupMembers.length === 0 && !loadingGroupMembers ? (
-                      <div className="empty-cell">Grupa nie ma członków.</div>
-                    ) : null}
-                    {nextGroupMemberAfterID ? (
-                      <button
-                        className="button button--secondary"
-                        type="button"
-                        disabled={loadingGroupMembers}
-                        onClick={() => void loadGroupMembers(assignmentGroup, nextGroupMemberAfterID, true)}
+          </nav>
+          <ResourceDetail
+            key={`${kind}:${id}`}
+            kind={kind}
+            id={id}
+            tab={tab}
+            select={(choice) => {
+              if (choice) navigate({ kind, id: choice.id, tab, q: query });
+            }}
+          />
+        </>
+      ) : (
+        <div className="panel">
+          <div className="panel-heading">
+            <h2>{kind === "roles" ? "Role" : "Grupy"}</h2>
+            <button
+              className="button button--secondary"
+              disabled={page.loading}
+              onClick={page.reload}
+            >
+              Odśwież
+            </button>
+          </div>
+          <form
+            className="search-row"
+            onSubmit={(event) => {
+              event.preventDefault();
+              navigate({ kind, q: search.trim() });
+            }}
+          >
+            <label>
+              Szukaj {kind === "roles" ? "roli" : "grupy"}
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                maxLength={200}
+              />
+            </label>
+            <button className="button button--secondary">Szukaj</button>
+            {query ? (
+              <button
+                type="button"
+                className="button button--secondary"
+                onClick={() => navigate({ kind })}
+              >
+                Wyczyść
+              </button>
+            ) : null}
+          </form>
+          {page.error ? (
+            <div className="inline-error" role="alert">
+              {page.error}
+            </div>
+          ) : null}
+          {page.loading ? <p role="status">Ładowanie…</p> : null}
+          <div
+            className="table-wrap"
+            tabIndex={0}
+            aria-label={kind === "roles" ? "Tabela ról" : "Tabela grup"}
+          >
+            <table>
+              <thead>
+                <tr>
+                  <th>Nazwa</th>
+                  <th>Opis</th>
+                  <th>{kind === "roles" ? "Typ" : "Członkowie"}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {page.items.map((item) => (
+                  <tr key={item.id}>
+                    <td>
+                      <Link
+                        to={`/rbac?${new URLSearchParams({ kind, id: item.id, q: query, tab: "info" })}`}
                       >
-                        {loadingGroupMembers ? "Ładowanie…" : "Załaduj więcej członków"}
-                      </button>
-                    ) : null}
-                  </div>
-                </>
-              ) : (
-                <PageState
-                  title="Członkowie niedostępni"
-                  detail="Odczyt i wybór użytkowników wymaga również admin.users.manage."
-                />
-              )}
-            </section>
-
-            <section className="assignment-section">
-              <h3>Role grupy</h3>
-              <form className="form-stack form-stack--compact" onSubmit={(event) => void assignGroupRole(event)}>
-                <label>
-                  Rola
-                  <select value={groupRole} onChange={(event) => setGroupRole(event.target.value)} required>
-                    <option value="">Wybierz rolę z załadowanych wyników</option>
-                    {roles.map((role) => (
-                      <option key={role.id} value={role.id}>{role.name}</option>
-                    ))}
-                  </select>
-                </label>
-                <button className="button button--secondary" type="submit" disabled={busy}>Przypisz rolę grupie</button>
-              </form>
-              <div className="assignment-list">
-                {assignedGroupRoles.map((role) => (
-                  <div className="assignment-row" key={role.id}>
-                    <span>
-                      <strong>{role.name}</strong>
-                      {role.system_role ? <small className="muted">rola systemowa</small> : null}
-                    </span>
-                    <button
-                      className="button button--small button--secondary"
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void removeGroupRole(role.id)}
-                    >
-                      Usuń
-                    </button>
-                  </div>
+                        {item.name}
+                      </Link>
+                    </td>
+                    <td className="wrap-cell">
+                      {item.description || "Bez opisu"}
+                    </td>
+                    <td>
+                      {"system_role" in item
+                        ? item.system_role
+                          ? "Systemowa"
+                          : "Własna"
+                        : item.member_count}
+                    </td>
+                  </tr>
                 ))}
-                {assignedGroupRoles.length === 0 && !loadingGroupRoles ? (
-                  <div className="empty-cell">Grupa nie ma przypisanych ról.</div>
-                ) : null}
-                {nextGroupRoleAfterID ? (
-                  <button
-                    className="button button--secondary"
-                    type="button"
-                    disabled={loadingGroupRoles}
-                    onClick={() => void loadGroupRoles(assignmentGroup, nextGroupRoleAfterID, true)}
-                  >
-                    {loadingGroupRoles ? "Ładowanie…" : "Załaduj więcej ról grupy"}
-                  </button>
-                ) : null}
-              </div>
-            </section>
+              </tbody>
+            </table>
           </div>
-        ) : (
-          <div className="empty-cell">Wybierz grupę, aby zarządzać członkostwem i rolami.</div>
-        )}
-      </div>
-
-      <div className="panel">
-        <div className="panel-heading">
-          <div>
-            <h2>Role</h2>
-            <p className="muted">{roles.length} załadowanych rekordów{activeRoleSearch ? ` dla „${activeRoleSearch}”` : ""}</p>
-          </div>
-        </div>
-        <form className="search-row" onSubmit={(event) => void handleRoleSearch(event)}>
-          <label className="search-field">
-            Szukaj roli
-            <input value={roleSearch} onChange={(event) => setRoleSearch(event.target.value)} maxLength={200} />
-          </label>
-          <button className="button button--secondary" type="submit" disabled={loading}>Szukaj</button>
-          {activeRoleSearch ? (
-            <button className="button button--secondary" type="button" onClick={() => void clearRoleSearch()} disabled={loading}>
-              Wyczyść
-            </button>
+          {!page.loading && !page.error && !page.items.length ? (
+            <div className="empty-cell">
+              Brak wyników dla podanych kryteriów.
+            </div>
           ) : null}
-        </form>
-        <div className="card-list">
-          {roles.map((role) => (
-            <article className="list-card" key={role.id}>
-              <div>
-                <strong>{role.name}</strong>
-                {role.system_role ? <span className="badge">Systemowa</span> : null}
-                <p>{role.description || "Bez opisu"}</p>
-              </div>
-              <div className="tag-list">
-                {role.permissions.map((permission) => <span className="tag" key={permission.key}>{permission.key}</span>)}
-                {role.permissions.length === 0 ? <span className="muted">Brak uprawnień</span> : null}
-              </div>
-            </article>
-          ))}
-          {roles.length === 0 ? <div className="empty-cell">Brak ról dla bieżącego filtra.</div> : null}
-        </div>
-        {nextRoleAfterID ? (
-          <div className="panel-footer">
-            <button
-              className="button button--secondary"
-              disabled={loadingMoreRoles}
-              onClick={() => void loadRoles(nextRoleAfterID, true, activeRoleSearch)}
-            >
-              {loadingMoreRoles ? "Ładowanie…" : "Załaduj więcej ról"}
-            </button>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="panel">
-        <div className="panel-heading">
-          <div>
-            <h2>Grupy</h2>
-            <p className="muted">{groups.length} załadowanych rekordów{activeGroupSearch ? ` dla „${activeGroupSearch}”` : ""}</p>
-          </div>
-        </div>
-        <form className="search-row" onSubmit={(event) => void handleGroupSearch(event)}>
-          <label className="search-field">
-            Szukaj grupy
-            <input value={groupSearch} onChange={(event) => setGroupSearch(event.target.value)} maxLength={200} />
-          </label>
-          <button className="button button--secondary" type="submit" disabled={loading}>Szukaj</button>
-          {activeGroupSearch ? (
-            <button className="button button--secondary" type="button" onClick={() => void clearGroupSearch()} disabled={loading}>
-              Wyczyść
-            </button>
+          {page.next ? (
+            <div className="panel-footer">
+              <button
+                className="button button--secondary"
+                disabled={page.loading}
+                onClick={() => void page.more()}
+              >
+                Załaduj więcej
+              </button>
+            </div>
           ) : null}
-        </form>
-        <div className="card-list">
-          {groups.map((group) => (
-            <article className="list-card" key={group.id}>
-              <div>
-                <strong>{group.name}</strong>
-                <p>{group.description || "Bez opisu"}</p>
-              </div>
-              <span className="badge">{group.member_count} członków</span>
-            </article>
-          ))}
-          {groups.length === 0 ? <div className="empty-cell">Brak grup dla bieżącego filtra.</div> : null}
         </div>
-        {nextGroupAfterID ? (
-          <div className="panel-footer">
-            <button
-              className="button button--secondary"
-              disabled={loadingMoreGroups}
-              onClick={() => void loadGroups(nextGroupAfterID, true, activeGroupSearch)}
-            >
-              {loadingMoreGroups ? "Ładowanie…" : "Załaduj więcej grup"}
-            </button>
-          </div>
-        ) : null}
-      </div>
+      )}
     </section>
+  );
+}
+
+function PermissionFields({
+  catalog,
+  values,
+  onChange,
+  disabled,
+}: {
+  catalog: Permission[];
+  values: string[];
+  onChange: (values: string[]) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <fieldset className="permission-grid" disabled={disabled}>
+      <legend>Uprawnienia</legend>
+      {catalog.map((permission) => (
+        <label className="checkbox-row" key={permission.key}>
+          <input
+            type="checkbox"
+            checked={values.includes(permission.key)}
+            onChange={() =>
+              onChange(
+                values.includes(permission.key)
+                  ? values.filter((key) => key !== permission.key)
+                  : [...values, permission.key],
+              )
+            }
+          />
+          <span>
+            <strong>{permissionLabel(permission.key)}</strong>
+            <small>{permission.key}</small>
+          </span>
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+function useCatalog() {
+  const [catalog, setCatalog] = useState<Permission[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    void api<PermissionsResponse>(`${base}/permissions`, {
+      signal: controller.signal,
+    })
+      .then((result) => {
+        if (!controller.signal.aborted) setCatalog(result.permissions);
+      })
+      .catch((cause: unknown) => {
+        if (!controller.signal.aborted)
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "Nie udało się pobrać uprawnień.",
+          );
+      });
+    return () => controller.abort();
+  }, []);
+  return { catalog, error };
+}
+function CreateResource({
+  kind,
+  onCreated,
+}: {
+  kind: "roles" | "groups";
+  onCreated: (id: string) => void;
+}) {
+  const { catalog, error: catalogError } = useCatalog();
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await api<CreatedID>(`${base}/${kind}`, {
+        method: "POST",
+        body: jsonBody({
+          name,
+          description,
+          ...(kind === "roles" ? { permissions } : {}),
+        }),
+      });
+      onCreated(result.id);
+    } catch (cause) {
+      setError(
+        cause instanceof ApiError && cause.status === 409
+          ? "Ta nazwa już istnieje. Wybierz inną nazwę; wpisane dane zostały zachowane."
+          : cause instanceof Error
+            ? cause.message
+            : "Utworzenie nie powiodło się.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="panel">
+      <h2>{kind === "roles" ? "Nowa rola" : "Nowa grupa"}</h2>
+      <form
+        className="form-stack form-stack--compact"
+        onSubmit={(event) => void submit(event)}
+      >
+        <fieldset className="form-fields" disabled={busy}>
+          <label>
+            Nazwa
+            <input
+              autoFocus
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              maxLength={150}
+              required
+            />
+          </label>
+          <label>
+            Opis
+            <textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              maxLength={500}
+              rows={3}
+            />
+          </label>
+          {kind === "roles" ? (
+            <PermissionFields
+              catalog={catalog}
+              values={permissions}
+              onChange={setPermissions}
+            />
+          ) : null}
+        </fieldset>
+        {error || catalogError ? (
+          <div role="alert" className="inline-error">
+            {error || catalogError}
+          </div>
+        ) : null}
+        <button
+          className="button button--primary"
+          disabled={
+            busy ||
+            !name.trim() ||
+            (kind === "roles" && (!catalog.length || !!catalogError))
+          }
+        >
+          {busy
+            ? "Tworzenie…"
+            : kind === "roles"
+              ? "Utwórz rolę"
+              : "Utwórz grupę"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function ResourceDetail({
+  kind,
+  id,
+  tab,
+  select,
+}: {
+  kind: "roles" | "groups";
+  id: string;
+  tab: string;
+  select: (choice: Choice | null) => void;
+}) {
+  const [resource, setResource] = useState<Role | Group | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+  const { hasPermission } = useAuth();
+  useEffect(() => {
+    const controller = new AbortController();
+    void api<{ role?: Role; group?: Group }>(
+      `${base}/${kind}/${encodeURIComponent(id)}`,
+      { signal: controller.signal },
+    )
+      .then((result) => {
+        if (!controller.signal.aborted) {
+          setResource(result.role ?? result.group!);
+          setError(null);
+        }
+      })
+      .catch((cause: unknown) => {
+        if (!controller.signal.aborted)
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "Nie udało się pobrać szczegółów.",
+          );
+      });
+    return () => controller.abort();
+  }, [kind, id, retry]);
+  if (!resource)
+    return (
+      <>
+        <PageState
+          title={
+            error ? "Nie można wyświetlić obiektu" : "Ładowanie szczegółów"
+          }
+          detail={error ?? undefined}
+          tone={error ? "error" : undefined}
+        />
+        {error ? (
+          <button
+            className="button button--secondary"
+            onClick={() => setRetry((value) => value + 1)}
+          >
+            Spróbuj ponownie
+          </button>
+        ) : null}
+      </>
+    );
+  return (
+    <>
+      <div className="panel">
+        <h2>{resource.name}</h2>
+        <RemoteCombobox
+          kind={kind}
+          clearable={false}
+          label={kind === "roles" ? "Przejdź do roli" : "Przejdź do grupy"}
+          value={{ id, label: resource.name }}
+          onChange={select}
+        />
+      </div>
+      <div hidden={tab !== "info"} className="panel">
+        <h2>Informacje</h2>
+        <dl className="detail-grid">
+          <div>
+            <dt>Nazwa</dt>
+            <dd>{resource.name}</dd>
+          </div>
+          <div>
+            <dt>Opis</dt>
+            <dd>{resource.description || "Bez opisu"}</dd>
+          </div>
+          <div>
+            <dt>Wersja</dt>
+            <dd>{resource.version}</dd>
+          </div>
+          <div>
+            <dt>{"system_role" in resource ? "Typ" : "Członkowie"}</dt>
+            <dd>
+              {"system_role" in resource
+                ? resource.system_role
+                  ? "Systemowa"
+                  : "Własna"
+                : resource.member_count}
+            </dd>
+          </div>
+        </dl>
+      </div>
+      {"system_role" in resource ? (
+        <>
+          <div hidden={tab !== "permissions"}>
+            <RoleEditor role={resource} onSaved={setResource} />
+          </div>
+          <div hidden={tab !== "assignments"} className="panel">
+            <h2>Przypisania roli</h2>
+            <RoleTargets role={resource} />
+          </div>
+        </>
+      ) : (
+        <>
+          <div hidden={tab !== "members"} className="panel">
+            <h2>Członkowie grupy</h2>
+            {hasPermission("admin.users.manage") ? (
+              <GroupMembers
+                groupID={id}
+                onChanged={() => setRetry((value) => value + 1)}
+              />
+            ) : (
+              <PageState
+                title="Brak uprawnień"
+                detail="Lista członków wymaga zarządzania użytkownikami."
+              />
+            )}
+          </div>
+          <div hidden={tab !== "assignments"} className="panel">
+            <h2>Role grupy</h2>
+            <RoleAssignments kind="groups" targetID={id} />
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+function RoleEditor({
+  role,
+  onSaved,
+}: {
+  role: Role;
+  onSaved: (role: Role) => void;
+}) {
+  const { refresh } = useAuth();
+  const { catalog, error: catalogError } = useCatalog();
+  const [version, setVersion] = useState(role.version);
+  const [values, setValues] = useState(
+    role.permissions.map((permission) => permission.key),
+  );
+  const [conflict, setConflict] = useState<Role | null>(null);
+  const [unresolved, setUnresolved] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  async function readConflict() {
+    setBusy(true);
+    try {
+      const result = await api<{ role: Role }>(`${base}/roles/${role.id}`);
+      setConflict(result.role);
+      setError(null);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Nie udało się pobrać aktualnego stanu.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (busy || unresolved || role.system_role) return;
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await api<void>(`${base}/roles/${role.id}/permissions`, {
+        method: "PUT",
+        body: jsonBody({ version, permissions: values }),
+      });
+      const result = await api<{ role: Role }>(`${base}/roles/${role.id}`);
+      onSaved(result.role);
+      setVersion(result.role.version);
+      setValues(result.role.permissions.map((permission) => permission.key));
+      setMessage("Uprawnienia roli zostały zaktualizowane.");
+      await refresh();
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 409) {
+        setUnresolved(true);
+        await readConflict();
+      } else
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : "Aktualizacja nie powiodła się.",
+        );
+    } finally {
+      setBusy(false);
+    }
+  }
+  function resolve(useCurrent: boolean) {
+    if (!conflict) return;
+    setVersion(conflict.version);
+    onSaved(conflict);
+    if (useCurrent)
+      setValues(conflict.permissions.map((permission) => permission.key));
+    setConflict(null);
+    setUnresolved(false);
+  }
+  return (
+    <div className="panel">
+      <h2>Uprawnienia roli</h2>
+      {role.system_role ? (
+        <p className="muted">
+          Uprawnienia roli systemowej są chronione przed edycją.
+        </p>
+      ) : null}
+      <form className="form-stack" onSubmit={(event) => void submit(event)}>
+        <PermissionFields
+          catalog={catalog}
+          values={values}
+          onChange={setValues}
+          disabled={busy || role.system_role}
+        />
+        {error || catalogError ? (
+          <div role="alert" className="inline-error">
+            {error || catalogError}
+          </div>
+        ) : null}
+        {message ? (
+          <div role="status" className="inline-success">
+            {message}
+          </div>
+        ) : null}
+        {conflict ? (
+          <ConflictNotice
+            current={
+              <PermissionNames
+                values={conflict.permissions.map(
+                  (permission) => permission.key,
+                )}
+              />
+            }
+            proposal={<PermissionNames values={values} />}
+            acceptCurrent={() => resolve(true)}
+            keepProposal={() => resolve(false)}
+          />
+        ) : unresolved ? (
+          <div role="alert">
+            Propozycja została zachowana. Pobierz aktualny stan przed
+            rozstrzygnięciem konfliktu.{" "}
+            <button
+              type="button"
+              className="button button--secondary"
+              disabled={busy}
+              onClick={() => void readConflict()}
+            >
+              Pobierz aktualny stan
+            </button>
+          </div>
+        ) : null}
+        {!role.system_role ? (
+          <button
+            className="button button--primary"
+            disabled={busy || unresolved || !!catalogError || !catalog.length}
+          >
+            {busy ? "Zapisywanie…" : "Zapisz uprawnienia"}
+          </button>
+        ) : null}
+      </form>
+    </div>
+  );
+}
+function PermissionNames({ values }: { values: string[] }) {
+  return (
+    <ul>
+      {values.length ? (
+        values.map((value) => <li key={value}>{value}</li>)
+      ) : (
+        <li>Brak uprawnień</li>
+      )}
+    </ul>
+  );
+}
+
+function RoleTargets({ role }: { role: Role }) {
+  const { hasPermission } = useAuth();
+  const [user, setUser] = useState<Choice | null>(null);
+  const [group, setGroup] = useState<Choice | null>(null);
+  const defaultRole = { id: role.id, label: role.name };
+  return (
+    <div className="two-column">
+      <section>
+        <h3>Role użytkownika</h3>
+        {hasPermission("admin.users.manage") ? (
+          <>
+            <RemoteCombobox
+              kind="users"
+              label="Użytkownik"
+              value={user}
+              onChange={setUser}
+            />
+            {user ? (
+              <RoleAssignments
+                key={user.id}
+                kind="users"
+                targetID={user.id}
+                initialRole={defaultRole}
+              />
+            ) : (
+              <p className="muted">
+                Wybierz użytkownika, aby sprawdzić i zmienić przypisania.
+              </p>
+            )}
+          </>
+        ) : (
+          <PageState
+            title="Brak uprawnień"
+            detail="Przypisania użytkowników wymagają zarządzania użytkownikami."
+          />
+        )}
+      </section>
+      <section>
+        <h3>Role wybranej grupy</h3>
+        <RemoteCombobox
+          kind="groups"
+          label="Grupa"
+          value={group}
+          onChange={setGroup}
+        />
+        {group ? (
+          <RoleAssignments
+            key={group.id}
+            kind="groups"
+            targetID={group.id}
+            initialRole={defaultRole}
+          />
+        ) : (
+          <p className="muted">
+            Wybierz grupę, aby sprawdzić i zmienić przypisania.
+          </p>
+        )}
+      </section>
+    </div>
   );
 }

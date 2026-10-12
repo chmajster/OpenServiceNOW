@@ -1,256 +1,272 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ApiError, api, jsonBody } from "../api/client";
-import type { CreatedID, TenantUser, UsersResponse } from "../api/types";
+import type { CreatedID, TenantUser } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
-import { PageState } from "../components/PageState";
+import { useRemotePage } from "../components/useRemotePage";
 
 export function UsersPage() {
-  const { session } = useAuth();
-  const [users, setUsers] = useState<TenantUser[]>([]);
-  const [nextAfterID, setNextAfterID] = useState<string | undefined>();
-  const [query, setQuery] = useState("");
-  const [appliedQuery, setAppliedQuery] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { session, refresh } = useAuth();
+  const [params, setParams] = useSearchParams();
+  const query = params.get("q") ?? "";
+  const mode = params.get("form") ?? "";
+  const [search, setSearch] = useState(query);
+  useEffect(() => setSearch(query), [query]);
+  const page = useRemotePage<TenantUser>(
+    `/api/v1/admin/users/?${new URLSearchParams({ limit: "50", q: query })}`,
+    "users",
+  );
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
-  const [creating, setCreating] = useState(false);
   const [existingEmail, setExistingEmail] = useState("");
-  const [addingExisting, setAddingExisting] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [changingID, setChangingID] = useState<string | null>(null);
-
-  async function loadUsers(search = appliedQuery, afterID?: string, append = false) {
-    append ? setLoadingMore(true) : setLoading(true);
-    try {
-      const params = new URLSearchParams({ limit: "50" });
-      if (search.trim()) {
-        params.set("q", search.trim());
-      }
-      if (afterID) {
-        params.set("after_id", afterID);
-      }
-      const response = await api<UsersResponse>(`/api/v1/admin/users/?${params.toString()}`);
-      setUsers((current) => (append ? [...current, ...response.users] : response.users));
-      setNextAfterID(response.next_after_id);
-      setError(null);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Nie udało się pobrać użytkowników.");
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
+  function navigate(form: string) {
+    setParams({ q: query, ...(form ? { form } : {}) });
+    setError(null);
+    setMessage(null);
   }
-
-  useEffect(() => {
-    void loadUsers("");
-  }, []);
-
-  async function handleSearch(event: FormEvent<HTMLFormElement>) {
+  async function create(event: FormEvent, existing: boolean) {
     event.preventDefault();
-    const normalized = query.trim();
-    setAppliedQuery(normalized);
-    setUsers([]);
-    setNextAfterID(undefined);
-    await loadUsers(normalized);
-  }
-
-  async function handleCreate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setCreating(true);
+    if (busy) return;
+    setBusy(true);
     setError(null);
     setMessage(null);
     try {
-      await api<CreatedID>("/api/v1/admin/users/", {
-        method: "POST",
-        body: jsonBody({
-          email,
-          display_name: displayName,
-          password
-        })
-      });
-      setEmail("");
-      setDisplayName("");
-      setPassword("");
-      setAppliedQuery("");
-      setQuery("");
-      await loadUsers("");
-      setMessage("Lokalne konto zostało utworzone i dodane do tenanta.");
-    } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 409) {
-        setError("Konto z tym adresem e-mail już istnieje globalnie. Użyj sekcji „Dodaj istniejące konto”, aby dodać membership do tego tenanta.");
-      } else {
-        setError(cause instanceof Error ? cause.message : "Utworzenie użytkownika nie powiodło się.");
+      await api<CreatedID>(
+        existing ? "/api/v1/admin/users/memberships" : "/api/v1/admin/users/",
+        {
+          method: "POST",
+          body: jsonBody(
+            existing
+              ? { email: existingEmail }
+              : { email, display_name: displayName, password },
+          ),
+        },
+      );
+      if (existing) setExistingEmail("");
+      else {
+        setEmail("");
+        setDisplayName("");
+        setPassword("");
       }
+      setParams({ q: existing ? existingEmail : email });
+      page.reload();
+      setMessage(
+        existing
+          ? "Konto zostało dodane do organizacji."
+          : "Użytkownik został utworzony.",
+      );
+    } catch (cause) {
+      setError(
+        cause instanceof ApiError && cause.status === 409
+          ? existing
+            ? "Konto ma już członkostwo w tej organizacji. Użyj akcji Włącz, jeśli jest nieaktywne."
+            : "Konto z tym adresem e-mail już istnieje. Użyj akcji Dodaj istniejące konto."
+          : cause instanceof ApiError && cause.status === 404
+            ? "Nie znaleziono aktywnego konta z tym adresem e-mail."
+            : cause instanceof Error
+              ? cause.message
+              : "Nie udało się zapisać danych.",
+      );
     } finally {
-      setCreating(false);
+      setBusy(false);
     }
   }
-
-  async function handleAddExisting(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setAddingExisting(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await api<CreatedID>("/api/v1/admin/users/memberships", {
-        method: "POST",
-        body: jsonBody({ email: existingEmail })
-      });
-      setExistingEmail("");
-      setAppliedQuery("");
-      setQuery("");
-      await loadUsers("");
-      setMessage("Istniejące konto zostało dodane do bieżącego tenanta.");
-    } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 404) {
-        setError("Nie znaleziono aktywnego globalnego konta z tym adresem e-mail.");
-      } else if (cause instanceof ApiError && cause.status === 409) {
-        setError("To konto ma już membership w tym tenancie. Jeśli membership jest wyłączony, użyj akcji „Włącz”.");
-      } else {
-        setError(cause instanceof Error ? cause.message : "Dodanie istniejącego konta nie powiodło się.");
-      }
-    } finally {
-      setAddingExisting(false);
-    }
-  }
-
-  async function setMembership(user: TenantUser, active: boolean) {
-    setChangingID(user.id);
+  async function membership(user: TenantUser) {
+    if (busy || page.loading || page.error) return;
+    setBusy(true);
     setError(null);
     setMessage(null);
     try {
       await api<void>(`/api/v1/admin/users/${user.id}/membership`, {
         method: "PUT",
-        body: jsonBody({ active })
+        body: jsonBody({ active: !user.membership_active }),
       });
-      await loadUsers(appliedQuery);
-      setMessage(active ? "Membership został włączony." : "Membership został wyłączony.");
+      page.reload();
+      setMessage(
+        user.membership_active
+          ? "Członkostwo zostało wyłączone."
+          : "Członkostwo zostało włączone.",
+      );
+      await refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Zmiana członkostwa nie powiodła się.");
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Zmiana członkostwa nie powiodła się.",
+      );
     } finally {
-      setChangingID(null);
+      setBusy(false);
     }
   }
-
-  if (loading && users.length === 0 && !appliedQuery) {
-    return <PageState title="Ładowanie użytkowników" />;
-  }
-
   return (
     <section className="page">
       <div className="page-heading">
         <div>
           <p className="eyebrow">Administracja</p>
           <h1>Użytkownicy</h1>
-          <p className="muted">Lokalne konta i członkostwo w bieżącym tenancie.</p>
+          <p className="muted">Konta i członkostwo w bieżącej organizacji.</p>
         </div>
-      </div>
-
-      <div className="panel">
-        <div className="panel-heading">
-          <div>
-            <h2>Dodaj konto lokalne</h2>
-            <p className="muted">Hasło jest haszowane Argon2id po stronie backendu.</p>
-          </div>
-        </div>
-        <form className="form-grid" onSubmit={(event) => void handleCreate(event)}>
-          <label>
-            E-mail
-            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
-          </label>
-          <label>
-            Nazwa wyświetlana
-            <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={200} required />
-          </label>
-          <label>
-            Hasło
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              minLength={12}
-              maxLength={1024}
-              required
-            />
-          </label>
-          <div className="form-action">
-            <button className="button button--primary" type="submit" disabled={creating}>
-              {creating ? "Tworzenie…" : "Dodaj użytkownika"}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      <div className="panel">
-        <div className="panel-heading">
-          <div>
-            <h2>Dodaj istniejące konto</h2>
-            <p className="muted">Dodaje członkostwo aktywnego globalnego konta w bieżącym tenancie. Hasło i profil konta nie są zmieniane.</p>
-          </div>
-        </div>
-        <form className="search-row search-row--compact" onSubmit={(event) => void handleAddExisting(event)}>
-          <label className="search-field">
-            E-mail istniejącego konta
-            <input
-              type="email"
-              value={existingEmail}
-              onChange={(event) => setExistingEmail(event.target.value)}
-              maxLength={254}
-              required
-            />
-          </label>
-          <button className="button button--secondary" type="submit" disabled={addingExisting}>
-            {addingExisting ? "Dodawanie…" : "Dodaj członkostwo"}
+        <div className="action-row">
+          <button
+            className="button button--primary"
+            disabled={busy}
+            onClick={() => navigate("create")}
+          >
+            Nowy użytkownik
           </button>
-        </form>
+          <button
+            className="button button--secondary"
+            disabled={busy}
+            onClick={() => navigate("existing")}
+          >
+            Dodaj istniejące konto
+          </button>
+        </div>
       </div>
-
-      {error ? <div className="inline-error" role="alert">{error}</div> : null}
-      {message ? <div className="inline-success" role="status">{message}</div> : null}
-
+      {mode === "create" || mode === "existing" ? (
+        <div className="panel">
+          <h2>
+            {mode === "create"
+              ? "Dodaj konto lokalne"
+              : "Dodaj istniejące konto"}
+          </h2>
+          <form
+            className="form-stack"
+            onSubmit={(event) => void create(event, mode === "existing")}
+          >
+            <fieldset className="form-fields" disabled={busy}>
+              {mode === "create" ? (
+                <>
+                  <label>
+                    E-mail
+                    <input
+                      autoFocus
+                      type="email"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      maxLength={254}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Nazwa wyświetlana
+                    <input
+                      value={displayName}
+                      onChange={(event) => setDisplayName(event.target.value)}
+                      maxLength={200}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Hasło
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      minLength={12}
+                      maxLength={1024}
+                      required
+                    />
+                  </label>
+                </>
+              ) : (
+                <>
+                  <p className="muted">
+                    Dodaje członkostwo bez zmiany profilu i hasła istniejącego
+                    konta.
+                  </p>
+                  <label>
+                    E-mail istniejącego konta
+                    <input
+                      autoFocus
+                      type="email"
+                      value={existingEmail}
+                      onChange={(event) => setExistingEmail(event.target.value)}
+                      maxLength={254}
+                      required
+                    />
+                  </label>
+                </>
+              )}
+            </fieldset>
+            <div className="action-row">
+              <button className="button button--primary" disabled={busy}>
+                {busy
+                  ? "Zapisywanie…"
+                  : mode === "create"
+                    ? "Dodaj użytkownika"
+                    : "Dodaj członkostwo"}
+              </button>
+              <button
+                type="button"
+                className="button button--secondary"
+                disabled={busy}
+                onClick={() => navigate("")}
+              >
+                Zamknij formularz
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+      {error || page.error ? (
+        <div role="alert" className="inline-error">
+          {error || page.error}
+        </div>
+      ) : null}
+      {message ? (
+        <div role="status" className="inline-success">
+          {message}
+        </div>
+      ) : null}
       <div className="panel">
         <div className="panel-heading">
-          <div>
-            <h2>Konta w tenancie</h2>
-            <p className="muted">
-              {users.length} załadowanych rekordów{appliedQuery ? ` dla „${appliedQuery}”` : ""}
-            </p>
-          </div>
-          <button className="button button--secondary" onClick={() => void loadUsers(appliedQuery)} disabled={loading}>
+          <h2>Konta w organizacji</h2>
+          <button
+            className="button button--secondary"
+            disabled={page.loading || busy}
+            onClick={page.reload}
+          >
             Odśwież
           </button>
         </div>
-
-        <form className="search-row" onSubmit={(event) => void handleSearch(event)}>
+        <form
+          className="search-row"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setParams({ q: search.trim(), ...(mode ? { form: mode } : {}) });
+          }}
+        >
           <label>
             Szukaj po nazwie lub e-mailu
             <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
               maxLength={200}
-              placeholder="np. administrator albo @example.test"
             />
           </label>
-          <button className="button button--secondary" type="submit" disabled={loading}>Szukaj</button>
-          {appliedQuery ? (
+          <button className="button button--secondary">Szukaj</button>
+          {query ? (
             <button
-              className="button button--secondary"
               type="button"
-              onClick={() => {
-                setQuery("");
-                setAppliedQuery("");
-                void loadUsers("");
-              }}
+              className="button button--secondary"
+              onClick={() => setParams(mode ? { form: mode } : {})}
             >
               Wyczyść
             </button>
           ) : null}
         </form>
-
-        <div className="table-wrap">
+        {page.loading ? <p role="status">Ładowanie użytkowników…</p> : null}
+        <div
+          className="table-wrap"
+          tabIndex={0}
+          aria-label="Tabela użytkowników"
+        >
           <table>
             <thead>
               <tr>
@@ -262,48 +278,59 @@ export function UsersPage() {
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => {
-                const self = user.id === session?.user.id;
-                return (
-                  <tr key={user.id}>
-                    <td>{user.display_name}</td>
-                    <td>{user.email}</td>
-                    <td>{user.user_active ? "Aktywne" : "Wyłączone"}</td>
-                    <td>
-                      <span className={user.membership_active ? "badge badge--success" : "badge"}>
-                        {user.membership_active ? "Aktywne" : "Wyłączone"}
-                      </span>
-                    </td>
-                    <td>
-                      <button
-                        className="button button--small button--secondary"
-                        disabled={changingID === user.id || (self && user.membership_active)}
-                        title={self && user.membership_active ? "Nie można wyłączyć własnego członkostwa" : undefined}
-                        onClick={() => void setMembership(user, !user.membership_active)}
-                      >
-                        {user.membership_active ? "Wyłącz" : "Włącz"}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {users.length === 0 && !loading ? (
-                <tr>
-                  <td colSpan={5} className="empty-cell">Brak użytkowników dla podanych kryteriów.</td>
+              {page.items.map((user) => (
+                <tr key={user.id}>
+                  <td>{user.display_name}</td>
+                  <td>{user.email}</td>
+                  <td>{user.user_active ? "Aktywne" : "Wyłączone"}</td>
+                  <td>
+                    <span
+                      className={
+                        user.membership_active
+                          ? "badge badge--success"
+                          : "badge"
+                      }
+                    >
+                      {user.membership_active ? "Aktywne" : "Wyłączone"}
+                    </span>
+                  </td>
+                  <td>
+                    <button
+                      className="button button--secondary"
+                      disabled={
+                        busy ||
+                        page.loading ||
+                        !!page.error ||
+                        (user.id === session?.user.id && user.membership_active)
+                      }
+                      title={
+                        user.id === session?.user.id
+                          ? "Nie można wyłączyć własnego członkostwa"
+                          : undefined
+                      }
+                      onClick={() => void membership(user)}
+                    >
+                      {user.membership_active ? "Wyłącz" : "Włącz"}
+                    </button>
+                  </td>
                 </tr>
-              ) : null}
+              ))}
             </tbody>
           </table>
         </div>
-
-        {nextAfterID ? (
+        {!page.loading && !page.error && !page.items.length ? (
+          <p className="empty-cell">
+            Brak użytkowników dla podanych kryteriów.
+          </p>
+        ) : null}
+        {page.next ? (
           <div className="panel-footer">
             <button
               className="button button--secondary"
-              disabled={loadingMore}
-              onClick={() => void loadUsers(appliedQuery, nextAfterID, true)}
+              disabled={page.loading}
+              onClick={() => void page.more()}
             >
-              {loadingMore ? "Ładowanie…" : "Załaduj więcej"}
+              Załaduj więcej
             </button>
           </div>
         ) : null}
