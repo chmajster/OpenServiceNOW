@@ -18,6 +18,8 @@ const (
 )
 
 type Config struct {
+	NotificationKey   []byte
+	SMTPAllowInsecure bool
 	AttachmentRoot    string
 	AppEnv            string
 	HTTPAddr          string
@@ -80,6 +82,14 @@ type AuthConfig struct {
 }
 
 func Load() (Config, error) {
+	notificationKey, err := notificationEncryptionKey()
+	if err != nil {
+		return Config{}, err
+	}
+	smtpAllowInsecure, err := envBool("SMTP_ALLOW_INSECURE", false)
+	if err != nil {
+		return Config{}, err
+	}
 	appEnv := getenv("APP_ENV", "development")
 	mysqlPort, err := envInt("MYSQL_PORT", 3306)
 	if err != nil {
@@ -185,10 +195,12 @@ func Load() (Config, error) {
 	trustedProxyCIDRs := envCSV("TRUSTED_PROXY_CIDRS")
 
 	cfg := Config{
-		AppEnv:          appEnv,
-		AttachmentRoot:  getenv("ATTACHMENT_ROOT", ".opensnow/attachments"),
-		HTTPAddr:        getenv("HTTP_ADDR", "127.0.0.1:8080"),
-		ShutdownTimeout: shutdownTimeout,
+		AppEnv:            appEnv,
+		AttachmentRoot:    getenv("ATTACHMENT_ROOT", ".opensnow/attachments"),
+		NotificationKey:   notificationKey,
+		SMTPAllowInsecure: smtpAllowInsecure,
+		HTTPAddr:          getenv("HTTP_ADDR", "127.0.0.1:8080"),
+		ShutdownTimeout:   shutdownTimeout,
 		MySQL: MySQLConfig{
 			Host:            getenv("MYSQL_HOST", "127.0.0.1"),
 			Port:            mysqlPort,
