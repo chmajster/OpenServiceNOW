@@ -386,19 +386,23 @@ function Editor({
             type="button"
             className="button button--secondary"
             disabled={draft.nodes.length >= 50}
-            onClick={() =>
+            onClick={() => {
+              const id = Array.from(
+                { length: 51 },
+                (_, i) => `step_${i + 1}`,
+              ).find((id) => !draft.nodes.some((n) => n.id === id))!;
               edit({
                 nodes: [
                   ...draft.nodes,
                   {
-                    id: `step_${draft.nodes.length + 1}`,
+                    id,
                     label: "Nowy krok",
                     type: "WAIT_TIMER",
                     seconds: 60,
                   },
                 ],
-              })
-            }
+              });
+            }}
           >
             Dodaj krok
           </button>
@@ -423,9 +427,15 @@ function Editor({
             <button
               type="button"
               className="button button--secondary"
-              onClick={ed.resolve}
+              onClick={() => {
+                if (has("workflow.author")) setDirty(true);
+                else setDraft(ed.conflict!.draft);
+                ed.resolve();
+              }}
             >
-              Porównano — zachowaj propozycję z aktualną wersją
+              {has("workflow.author")
+                ? "Porównano — zachowaj propozycję z aktualną wersją"
+                : "Porównano — wczytaj aktualny szkic"}
             </button>
           </section>
         ) : null}

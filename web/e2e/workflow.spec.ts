@@ -138,7 +138,7 @@ test("workflow approval preserves proposal, pins version and creates exactly one
           "/api/v1/notifications/preferences",
           {
             headers: await csrf(reporter.context.request),
-          data: { ...prefs, smtp_enabled: true, state_changes: true },
+            data: { ...prefs, smtp_enabled: true, state_changes: true },
           },
         )
       ).status(),
@@ -241,6 +241,36 @@ test("workflow approval preserves proposal, pins version and creates exactly one
     expect(BigInt(executionID)).toBeGreaterThan(9007199254740991n);
   // Publish a changed task title while the original request waits.
   await page.goto(`/workflow?id=${definitionID}`);
+  await expect(
+    page.getByRole("button", { name: "Zweryfikuj i opublikuj", exact: true }),
+  ).toBeEnabled();
+  const remoteDraft = await (
+    await request.get(`/api/v1/workflow/definitions/${definitionID}`)
+  ).json();
+  remoteDraft.draft.nodes.find((n: { id: string }) => n.id === "task").title =
+    "Concurrent definition change";
+  expect(
+    (
+      await request.put(`/api/v1/workflow/definitions/${definitionID}`, {
+        headers,
+        data: { version: remoteDraft.version, draft: remoteDraft.draft },
+      })
+    ).status(),
+  ).toBe(200);
+  await page
+    .getByRole("button", { name: "Zweryfikuj i opublikuj", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Konflikt wersji", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: "Porównano — zachowaj propozycję z aktualną wersją",
+    })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Zweryfikuj i opublikuj", exact: true }),
+  ).toBeDisabled();
   await page
     .getByLabel("Tytuł zadania", { exact: true })
     .fill("NEW VERSION MUST NOT APPLY");
@@ -253,7 +283,7 @@ test("workflow approval preserves proposal, pins version and creates exactly one
   await page
     .getByRole("button", { name: "Zweryfikuj i opublikuj", exact: true })
     .click();
-  await expect(page.getByText(/opublikowana wersja 3/)).toBeVisible();
+  await expect(page.getByText(/opublikowana wersja 4/)).toBeVisible();
   await approver.page.goto("/approvals");
   await approver.page
     .getByRole("button", { name: "Odśwież akceptacje" })
