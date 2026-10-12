@@ -967,3 +967,11 @@ tbody tr:last-child td {
 @media (max-width: 650px) {
   .setup-fields { grid-template-columns: 1fr; }
 }
+
+.attachment-form { margin-block: 1.5rem; }
+.attachment-list { list-style: none; padding: 0; }
+.attachment-list > li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; border-bottom: 1px solid var(--border); padding-block: 1rem; overflow-wrap: anywhere; }
+.dialog-backdrop { position: fixed; inset: 0; background: #0b172a99; z-index: 100; display: grid; place-items: center; padding: 1rem; }
+.confirm-dialog { width: min(100%, 34rem); background: white; max-height: 90vh; overflow: auto; }
+.queue-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-block: 1rem; }
+.queue-results { overflow-wrap: anywhere; }

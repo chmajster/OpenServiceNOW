@@ -2492,7 +2492,8 @@
               "type": "string",
               "enum": [
                 "users",
-                "groups"
+                "groups",
+                "incidents"
               ]
             }
           },
@@ -2969,7 +2970,7 @@
           "Incident Management"
         ],
         "operationId": "transitionIncident",
-        "description": "Organization and actor come only from the backend session. incident.read reads records in that organization; incident.read_own reads records reported by or affecting the actor. ACLs apply before results are returned; writes require read access plus the action permission. Temporary-password sessions are denied. NEW \u2192 IN_PROGRESS|ON_HOLD|CANCELLED; IN_PROGRESS \u2192 ON_HOLD|RESOLVED|CANCELLED; ON_HOLD \u2192 IN_PROGRESS|RESOLVED|CANCELLED; RESOLVED \u2192 CLOSED|IN_PROGRESS; CLOSED \u2192 IN_PROGRESS; CANCELLED is terminal. RESOLVED/CLOSED targets require incident.resolve; other targets require incident.update. Reopening clears current resolution/closure fields while preserving their history.",
+        "description": "Organization and actor come only from the backend session. incident.read reads records in that organization; incident.read_own reads records reported by or affecting the actor. ACLs apply before results are returned; writes require read access plus the action permission. Temporary-password sessions are denied. NEW → IN_PROGRESS|ON_HOLD|CANCELLED; IN_PROGRESS → ON_HOLD|RESOLVED|CANCELLED; ON_HOLD → IN_PROGRESS|RESOLVED|CANCELLED; RESOLVED → CLOSED|IN_PROGRESS; CLOSED → IN_PROGRESS; CANCELLED is terminal. RESOLVED/CLOSED targets require incident.resolve; other targets require incident.update. Reopening clears current resolution/closure fields while preserving their history.",
         "security": [
           {
             "sessionCookie": [],
@@ -3085,7 +3086,7 @@
           "Incident Management"
         ],
         "operationId": "incidentHistory",
-        "description": "Organization and actor come only from the backend session. incident.read reads records in that organization; incident.read_own reads records reported by or affecting the actor. ACLs apply before results are returned; writes require read access plus the action permission. Temporary-password sessions are denied. No administrative audit permission is needed for readable incident history. Only incident business metadata is returned.",
+        "description": "Object-authorized source-event timeline. Filters visibility before pagination and pending detection. Read-own users never receive notes or internal attachment/watcher/relation payloads; operators require incident.read and incident.notes.read for internal events. Projection lag does not delay synchronous confirmation. Replayed events deduplicate by source_event_id.",
         "security": [
           {
             "sessionCookie": []
@@ -3161,6 +3162,1624 @@
             }
           }
         ]
+      }
+    },
+    "/api/v1/incidents/{incidentID}/communication-access": {
+      "parameters": [
+        {
+          "name": "incidentID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "incidentCommunicationAccess",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Backend session supplies tenant and actor. Incident object read access is checked before resource reads/writes; CSRF protects mutations. Client object_type/object_id cannot select a different resource. ",
+        "responses": {
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absent/expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absent or unreadable incident/resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting request key or version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "10MiB file / 11MiB multipart limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Uncertain write result; reconcile using same key or current state, never blindly repeat mutations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentCommunicationAccess"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/{incidentID}/messages": {
+      "parameters": [
+        {
+          "name": "incidentID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "incidentMessages",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Backend session supplies tenant and actor. Incident object read access is checked before resource reads/writes; CSRF protects mutations. Client object_type/object_id cannot select a different resource. COMMENT only unless incident.read and incident.notes.read; visibility filtering precedes lookahead.",
+        "responses": {
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absent/expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absent or unreadable incident/resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting request key or version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "10MiB file / 11MiB multipart limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Uncertain write result; reconcile using same key or current state, never blindly repeat mutations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentMessagePage"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "incidentAddMessage",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Backend session supplies tenant and actor. Incident object read access is checked before resource reads/writes; CSRF protects mutations. Client object_type/object_id cannot select a different resource. COMMENT requires incident.communicate; WORK_NOTE requires incident.read + incident.notes.read + incident.notes.write. Immutable append-only messages; successful save can precede timeline projection.",
+        "responses": {
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absent/expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absent or unreadable incident/resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting request key or version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "10MiB file / 11MiB multipart limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Uncertain write result; reconcile using same key or current state, never blindly repeat mutations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentMessage"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+            },
+            "description": "Actor/organization-scoped digest of record/resource and normalized content; different content with same key returns 409. Retry the exact request to reconcile a lost response."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentMessageInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/{incidentID}/files": {
+      "parameters": [
+        {
+          "name": "incidentID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "incidentFiles",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Backend session supplies tenant and actor. Incident object read access is checked before resource reads/writes; CSRF protects mutations. Client object_type/object_id cannot select a different resource. Only ACTIVE accessible files, no storage keys or paths. A message-linked file inherits its visibility.",
+        "responses": {
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absent/expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absent or unreadable incident/resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting request key or version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "10MiB file / 11MiB multipart limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Uncertain write result; reconcile using same key or current state, never blindly repeat mutations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentFilePage"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "incidentUpload",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Backend session supplies tenant and actor. Incident object read access is checked before resource reads/writes; CSRF protects mutations. Client object_type/object_id cannot select a different resource. incident.communicate for PUBLIC; operator read + notes.read + notes.write for INTERNAL. Message linkage is incident-checked and inherits COMMENT/PUBLIC or WORK_NOTE/INTERNAL regardless of requested category. MIME is sniffed from bytes. Files are privately stored on the persistent named volume.",
+        "responses": {
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absent/expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absent or unreadable incident/resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting request key or version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "10MiB file / 11MiB multipart limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Uncertain write result; reconcile using same key or current state, never blindly repeat mutations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentFile"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+            },
+            "description": "Actor/organization-scoped digest of record/resource and normalized content; different content with same key returns 409. Retry the exact request to reconcile a lost response."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Nonempty, maximum 10485760 bytes"
+                  },
+                  "visibility": {
+                    "enum": [
+                      "PUBLIC",
+                      "INTERNAL"
+                    ],
+                    "type": "string"
+                  },
+                  "message_id": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "additionalProperties": false,
+                "anyOf": [
+                  {
+                    "required": [
+                      "visibility"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "message_id"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/{incidentID}/files/{fileID}": {
+      "parameters": [
+        {
+          "name": "incidentID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        {
+          "name": "fileID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "incidentDownload",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Backend session supplies tenant and actor. Incident object read access is checked before resource reads/writes; CSRF protects mutations. Client object_type/object_id cannot select a different resource. Each download checks both the incident and file category. Content-Disposition attachment with safe UTF-8 name, nosniff, private/no-store; no unauthenticated static file URL.",
+        "responses": {
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absent/expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absent or unreadable incident/resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting request key or version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "10MiB file / 11MiB multipart limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Uncertain write result; reconcile using same key or current state, never blindly repeat mutations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Authenticated attachment stream",
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "incidentDeleteFile",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Backend session supplies tenant and actor. Incident object read access is checked before resource reads/writes; CSRF protects mutations. Client object_type/object_id cannot select a different resource. Uploader or incident.attachments.delete plus object/file-category access. Retry is harmless; metadata tombstone and audit/outbox commit together, bytes removed later by cleanup.",
+        "responses": {
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absent/expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absent or unreadable incident/resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting request key or version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "10MiB file / 11MiB multipart limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Uncertain write result; reconcile using same key or current state, never blindly repeat mutations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Saved"
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/{incidentID}/watchers": {
+      "parameters": [
+        {
+          "name": "incidentID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "incidentWatchers",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Backend session supplies tenant and actor. Incident object read access is checked before resource reads/writes; CSRF protects mutations. Client object_type/object_id cannot select a different resource. Read-own returns only self; operators see active organization members. Observing grants no incident access or notification delivery.",
+        "responses": {
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absent/expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absent or unreadable incident/resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting request key or version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "10MiB file / 11MiB multipart limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Uncertain write result; reconcile using same key or current state, never blindly repeat mutations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentWatchers"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "after_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incidentID}/watchers/{userID}": {
+      "parameters": [
+        {
+          "name": "incidentID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        {
+          "name": "userID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      ],
+      "put": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "incidentWatch",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Backend session supplies tenant and actor. Incident object read access is checked before resource reads/writes; CSRF protects mutations. Client object_type/object_id cannot select a different resource. Self subscription, or incident.read + incident.update for another active member who already has incident read access. Maximum 100 per incident, idempotent membership.",
+        "responses": {
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absent/expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absent or unreadable incident/resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting request key or version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "10MiB file / 11MiB multipart limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Uncertain write result; reconcile using same key or current state, never blindly repeat mutations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Saved"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "incidentUnwatch",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Backend session supplies tenant and actor. Incident object read access is checked before resource reads/writes; CSRF protects mutations. Client object_type/object_id cannot select a different resource. Self removal or incident.read + incident.update; idempotent.",
+        "responses": {
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absent/expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absent or unreadable incident/resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting request key or version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "10MiB file / 11MiB multipart limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Uncertain write result; reconcile using same key or current state, never blindly repeat mutations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Saved"
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/{incidentID}/relations": {
+      "parameters": [
+        {
+          "name": "incidentID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "incidentRelations",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Backend session supplies tenant and actor. Incident object read access is checked before resource reads/writes; CSRF protects mutations. Client object_type/object_id cannot select a different resource. Both ends are authorized before pagination; hidden endpoints never reach DTO/cursor.",
+        "responses": {
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absent/expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absent or unreadable incident/resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting request key or version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "10MiB file / 11MiB multipart limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Uncertain write result; reconcile using same key or current state, never blindly repeat mutations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentRelations"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "incidentAddRelation",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Backend session supplies tenant and actor. Incident object read access is checked before resource reads/writes; CSRF protects mutations. Client object_type/object_id cannot select a different resource. incident.read + incident.update and access to both incident ends. RELATED canonicalizes direction; PARENT means current record is parent. One parent per child, no cycles, max 100 links per incident; retry returns same relation.",
+        "responses": {
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absent/expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absent or unreadable incident/resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting request key or version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "10MiB file / 11MiB multipart limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Uncertain write result; reconcile using same key or current state, never blindly repeat mutations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentRawRelation"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentRelationInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/{incidentID}/relations/{relationID}": {
+      "parameters": [
+        {
+          "name": "incidentID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        {
+          "name": "relationID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      ],
+      "delete": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "incidentDeleteRelation",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Backend session supplies tenant and actor. Incident object read access is checked before resource reads/writes; CSRF protects mutations. Client object_type/object_id cannot select a different resource. incident.read + incident.update and authorization of both incident ends.",
+        "responses": {
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absent/expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absent or unreadable incident/resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting request key or version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "10MiB file / 11MiB multipart limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Uncertain write result; reconcile using same key or current state, never blindly repeat mutations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Saved"
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/batch": {
+      "post": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "incidentBatch",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Backend session supplies tenant and actor. Incident object read access is checked before resource reads/writes; CSRF protects mutations. Client object_type/object_id cannot select a different resource. At most 50 unique records. Each item has its own object/action authorization, expected version, independent transaction and status. assign_self retains group and validates membership; start obeys lifecycle/active assignment. Never automatically repeats successful items; unknown transport outcome requires re-reading each record.",
+        "responses": {
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absent/expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absent or unreadable incident/resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting request key or version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "10MiB file / 11MiB multipart limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Uncertain write result; reconcile using same key or current state, never blindly repeat mutations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentBatchResults"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentBatchInput"
+              }
+            }
+          }
+        }
       }
     }
   },
@@ -5019,7 +6638,22 @@
             "format": "date-time"
           },
           "data": {
-            "$ref": "#/components/schemas/IncidentChange"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/IncidentChange"
+              },
+              {
+                "type": "object",
+                "description": "Visible shared work event; decimal-string actor/resource IDs, business occurred_at, incident_version, visibility, body/file_name or watcher/relation metadata as appropriate. INTERNAL events/payloads are excluded before public pagination."
+              }
+            ]
+          },
+          "actor_name": {
+            "type": "string"
+          },
+          "source_event_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
           }
         }
       },
@@ -5214,6 +6848,461 @@
             "pattern": "^[1-9][0-9]*$"
           }
         }
+      },
+      "IncidentMessage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "tenant_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "object_type": {
+            "const": "incident"
+          },
+          "object_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "type": {
+            "enum": [
+              "COMMENT",
+              "WORK_NOTE"
+            ]
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000
+          },
+          "author_user_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "author_name": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "body",
+          "author_user_id",
+          "author_name",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "IncidentMessageInput": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "enum": [
+              "COMMENT",
+              "WORK_NOTE"
+            ]
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000
+          }
+        },
+        "required": [
+          "type",
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "IncidentMessagePage": {
+        "type": "object",
+        "properties": {
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncidentMessage"
+            },
+            "maxItems": 100
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "messages"
+        ],
+        "additionalProperties": false
+      },
+      "IncidentFile": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "file_name": {
+            "type": "string"
+          },
+          "content_type": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "visibility": {
+            "enum": [
+              "PUBLIC",
+              "INTERNAL"
+            ]
+          },
+          "message_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "uploaded_by": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "can_delete": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "file_name",
+          "content_type",
+          "size_bytes",
+          "visibility",
+          "created_at",
+          "can_delete"
+        ],
+        "additionalProperties": false
+      },
+      "IncidentFilePage": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncidentFile"
+            },
+            "maxItems": 100
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "files"
+        ],
+        "additionalProperties": false
+      },
+      "IncidentCommunicationAccess": {
+        "type": "object",
+        "properties": {
+          "reply": {
+            "type": "boolean"
+          },
+          "read_notes": {
+            "type": "boolean"
+          },
+          "write_notes": {
+            "type": "boolean"
+          },
+          "manage": {
+            "type": "boolean"
+          },
+          "max_file_bytes": {
+            "const": 10485760
+          }
+        },
+        "required": [
+          "reply",
+          "read_notes",
+          "write_notes",
+          "manage",
+          "max_file_bytes"
+        ],
+        "additionalProperties": false
+      },
+      "IncidentWatcher": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "user_id",
+          "display_name",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "IncidentWatchers": {
+        "type": "object",
+        "properties": {
+          "watchers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncidentWatcher"
+            },
+            "maxItems": 100
+          },
+          "next_after_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "watching": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "watchers",
+          "watching"
+        ],
+        "additionalProperties": false
+      },
+      "IncidentRelation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "type": {
+            "enum": [
+              "RELATED",
+              "PARENT"
+            ]
+          },
+          "source_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "target_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "other_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "number": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "source_id",
+          "target_id",
+          "other_id",
+          "number",
+          "title"
+        ],
+        "additionalProperties": false
+      },
+      "IncidentRelations": {
+        "type": "object",
+        "properties": {
+          "relations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncidentRelation"
+            },
+            "maxItems": 100
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "relations"
+        ],
+        "additionalProperties": false
+      },
+      "IncidentRelationInput": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "enum": [
+              "RELATED",
+              "PARENT"
+            ]
+          },
+          "target_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "type",
+          "target_id"
+        ],
+        "additionalProperties": false
+      },
+      "IncidentRawRelation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "tenant_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "source_type": {
+            "const": "incident"
+          },
+          "source_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "type": {
+            "enum": [
+              "RELATED",
+              "PARENT"
+            ]
+          },
+          "target_type": {
+            "const": "incident"
+          },
+          "target_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "created_by": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "source_id",
+          "target_id",
+          "type"
+        ],
+        "additionalProperties": false
+      },
+      "IncidentBatchInput": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "assign_self",
+              "start"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
+                },
+                "version": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
+                }
+              },
+              "required": [
+                "id",
+                "version"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "action",
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "IncidentBatchResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "status": {
+            "type": "integer",
+            "enum": [
+              200,
+              400,
+              403,
+              404,
+              409,
+              422,
+              500
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "record": {
+            "$ref": "#/components/schemas/Incident"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "IncidentBatchResults": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/IncidentBatchResult"
+            }
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "additionalProperties": false
       }
     },
     "responses": {

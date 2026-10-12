@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 1000 opensnow \
     && useradd --uid 1000 --gid 1000 --no-create-home --shell /usr/sbin/nologin opensnow
+RUN mkdir -p /var/lib/opensnow/attachments && chown 1000:1000 /var/lib/opensnow/attachments
 WORKDIR /app
 COPY --from=go-build /out/ /usr/local/bin/
 COPY --chmod=0755 docker/entrypoint.sh /usr/local/bin/opensnow-entrypoint

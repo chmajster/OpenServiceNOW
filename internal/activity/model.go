@@ -11,6 +11,7 @@ var (
 )
 
 type Entry struct {
+	ActorName     string          `json:"actor_name"`
 	ID            uint64          `json:"id,string"`
 	TenantID      uint64          `json:"tenant_id,string"`
 	ObjectType    string          `json:"object_type"`
@@ -24,6 +25,7 @@ type Entry struct {
 }
 
 type Input struct {
+	Visibility    string
 	TenantID      uint64
 	ObjectType    string
 	ObjectID      string

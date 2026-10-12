@@ -6,8 +6,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/chmajster/OpenServiceNOW/internal/attachments"
 	"log/slog"
 	"net/http"
+	"regexp"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -164,11 +167,17 @@ func securityHeaders(next http.Handler) http.Handler {
 	})
 }
 
+var incidentUploadPath = regexp.MustCompile(`^/api/v1/incidents/[0-9]+/files$`)
+
 func limitBody(max int64) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Body != nil {
-				r.Body = http.MaxBytesReader(w, r.Body, max)
+				limit := max
+				if r.Method == "POST" && incidentUploadPath.MatchString(strings.TrimSuffix(r.URL.Path, "/")) {
+					limit = attachments.MaxMultipartBytes
+				}
+				r.Body = http.MaxBytesReader(w, r.Body, limit)
 			}
 			next.ServeHTTP(w, r)
 		})

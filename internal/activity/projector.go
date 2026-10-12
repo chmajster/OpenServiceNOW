@@ -28,6 +28,8 @@ func (p *Projector) Handler(entryType, summary string) events.Handler {
 		var actorPayload struct {
 			ActorUserID uint64     `json:"actor_user_id,string"`
 			OccurredAt  *time.Time `json:"occurred_at"`
+			Visibility  string     `json:"visibility"`
+			MessageType string     `json:"message_type"`
 		}
 		if err := json.Unmarshal(event.Payload, &actorPayload); err != nil {
 			return fmt.Errorf("decode activity actor: %w", err)
@@ -36,6 +38,17 @@ func (p *Projector) Handler(entryType, summary string) events.Handler {
 		if actorPayload.ActorUserID > 0 {
 			value := actorPayload.ActorUserID
 			actor = &value
+		}
+		visibility := "INTERNAL"
+		switch event.Type {
+		case "incident.created", "incident.updated", "incident.assigned", "incident.state.changed", "incident.reopened", "incident.resolved", "incident.closed", "incident.cancelled", "incident.priority.changed", "work.comment.added":
+			visibility = "PUBLIC"
+		}
+		if actorPayload.Visibility == "PUBLIC" {
+			visibility = "PUBLIC"
+		}
+		if actorPayload.Visibility == "INTERNAL" || actorPayload.MessageType == "WORK_NOTE" || event.Type == "work.work_note.added" {
+			visibility = "INTERNAL"
 		}
 		eventID := event.ID
 		eventTime := event.CreatedAt
@@ -48,6 +61,7 @@ func (p *Projector) Handler(entryType, summary string) events.Handler {
 		return p.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec database.Executor) error {
 			_, _, err := p.repo.Append(ctx, exec, Input{
 				TenantID:      event.TenantID,
+				Visibility:    visibility,
 				ObjectType:    event.AggregateType,
 				ObjectID:      event.AggregateID,
 				Type:          entryType,

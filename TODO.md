@@ -10,7 +10,7 @@ Legend: `[ ]` not delivered, `[-]` in progress, `[x]` implemented and verified f
 
 [P2] [x] Implement API, migration/bootstrap executables, validated configuration, structured logs, request/security controls and graceful shutdown.
 
-[P2] [x] Implement MySQL/Redis connectivity, transactions and explicit migrations 1-32 with clean-schema readiness. Migration history and verified lifecycle evidence are in STATUS.md.
+[P2] [x] Implement MySQL/Redis connectivity, transactions and explicit migrations 1-37 with clean-schema readiness. Migration history and verified lifecycle evidence are in STATUS.md.
 
 [P2] [x] Implement first-run WebUI setup with durable completion, atomic organization/admin/RBAC/audit creation, concurrency protection and safe upgrades.
 
@@ -46,7 +46,7 @@ Legend: `[ ]` not delivered, `[-]` in progress, `[x]` implemented and verified f
 
 [P1] [x] Consume shared numbering, assignments, outbox and activity through the incident API/UI with object-specific authorization.
 
-[P1] [ ] Add incident comments/work notes/watchers/attachments in the next stage. Generic job-management and attachment APIs/UI are still unavailable.
+[P1] [x] Deliver incident-bound public replies/internal notes, filtered activity/files, persistent attachments, watchers, related/parent-child records and operator queue. MySQL, real worker, BIGINT browser regression and isolated container durability verification are recorded in STATUS.md and PR #18; generic job-management and arbitrary-object attachment APIs/UI remain unavailable.
 
 [P2] [ ] Add durable background health/heartbeat/queue-lag monitoring as operational requirements develop. A verified live process is not proof of active processing.
 
@@ -86,7 +86,7 @@ September runner-allocation failures (including run #523) and early deployment f
 ## Remaining business roadmap
 
 [P2] [x] Deliver core Incident Management: transactional model/INC numbering/assignment/audit/outbox, object RBAC/read-own, priority matrix and audited override, backend lifecycle, idempotency/versioning, server list/search/filters and complete React flow. MySQL and desktop/mobile evidence is recorded in STATUS.md and PR #17.
-[P2] [ ] Extend incidents with communication/files and, when a real source exists, CMDB/service relations; templates, bulk actions and major/parent-child workflows remain later work.
+[P2] [ ] Extend incidents with real CMDB/service sources, templates and major-incident coordination. PR #18 implements bounded related/parent-child relations and only the confirmed assign-to-self/start-work batch actions; broader orchestration remains future work.
 [P2] [ ] SLA engine.
 [P2] [ ] Requests and Service Catalog.
 [P2] [ ] Workflow and Approval engines.

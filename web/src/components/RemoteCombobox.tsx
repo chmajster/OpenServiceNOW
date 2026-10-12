@@ -164,7 +164,9 @@ function Options({
     "email" in item
       ? {
           id: item.id,
-          label: `${item.display_name} — ${item.email}`,
+          label: item.email
+            ? `${item.display_name} — ${item.email}`
+            : item.display_name,
           disabled:
             !allowInactive && (!item.user_active || !item.membership_active),
         }

@@ -18,6 +18,7 @@ const (
 )
 
 type Config struct {
+	AttachmentRoot    string
 	AppEnv            string
 	HTTPAddr          string
 	ShutdownTimeout   time.Duration
@@ -185,6 +186,7 @@ func Load() (Config, error) {
 
 	cfg := Config{
 		AppEnv:          appEnv,
+		AttachmentRoot:  getenv("ATTACHMENT_ROOT", ".opensnow/attachments"),
 		HTTPAddr:        getenv("HTTP_ADDR", "127.0.0.1:8080"),
 		ShutdownTimeout: shutdownTimeout,
 		MySQL: MySQLConfig{
@@ -240,6 +242,9 @@ func Load() (Config, error) {
 }
 
 func (c Config) Validate() error {
+	if strings.TrimSpace(c.AttachmentRoot) == "" {
+		return errors.New("ATTACHMENT_ROOT must not be empty")
+	}
 	var errs []error
 	if strings.TrimSpace(c.HTTPAddr) == "" {
 		errs = append(errs, errors.New("HTTP_ADDR must not be empty"))

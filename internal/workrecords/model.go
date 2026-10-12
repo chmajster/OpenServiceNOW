@@ -41,6 +41,7 @@ type AssignmentChange struct {
 }
 
 type Message struct {
+	AuthorName   string      `json:"author_name"`
 	ID           uint64      `json:"id,string"`
 	TenantID     uint64      `json:"tenant_id,string"`
 	ObjectType   string      `json:"object_type"`
@@ -85,8 +86,8 @@ type RelationPage struct {
 
 type AssignmentEventPayload struct {
 	ActorUserID       uint64  `json:"actor_user_id,string"`
-	AssignedTo        *uint64 `json:"assigned_to,omitempty"`
-	AssignmentGroupID *uint64 `json:"assignment_group_id,omitempty"`
+	AssignedTo        *uint64 `json:"assigned_to,string,omitempty"`
+	AssignmentGroupID *uint64 `json:"assignment_group_id,string,omitempty"`
 	Version           uint64  `json:"version,string"`
 }
 

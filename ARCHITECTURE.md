@@ -2,15 +2,15 @@
 
 ## Status
 
-Phase 0 established the target architecture and module boundaries. The implemented stack contains API, migration/bootstrap, worker and scheduler executables, MySQL schema through migration 32, Redis-backed controls, identity/RBAC/audit services, the first-run installer, React administration and own-account UI.
+Phase 0 established the target architecture and module boundaries. The implemented stack contains API, migration/bootstrap, worker and scheduler executables, MySQL schema through migration 37, Redis-backed controls, identity/RBAC/audit services, the first-run installer, React administration and own-account UI.
 
-Shared work-record, jobs, outbox, activity and attachment libraries are implemented and integration-tested. The scheduler enqueues durable session-cleanup jobs; the worker executes them and dispatches activity events. Incident Management consumes shared numbering, assignments and activity through domain-authorized API/UI. Generic work/job-management and attachment/communication API/UI remain future stages. Existing routes/screens cover setup, authentication, own accounts, tenant/user/RBAC/audit administration and incidents. The remaining sections distinguish implemented foundations from target business capabilities; see STATUS.md and TODO.md for verified progress.
+Shared work-record, jobs, outbox, activity and attachment libraries are implemented and integration-tested. The scheduler enqueues durable session- and attachment-cleanup jobs; the worker executes them and dispatches activity events. Incident Management consumes shared numbering, assignments, messages, watchers, relations, attachments and activity through domain-authorized API/UI. Generic work/job-management and arbitrary-object attachment APIs/UI remain future stages. Existing routes/screens cover setup, authentication, own accounts, tenant/user/RBAC/audit administration and incidents. The remaining sections distinguish implemented foundations from target business capabilities; see STATUS.md and TODO.md for verified progress.
 
 ## Architectural goals
 
 The implemented `internal/incidents` domain owns incident fields, object authorization, lifecycle rules and business versioning. It calls shared `workrecords.Allocator.NextInTx` and `workrecords.Service.SetAssignmentInTx` using the same `database.Executor` as incident persistence, audit and outbox; no nested transaction commits independently. Creation idempotency is scoped to the backend actor and organization, while INC uniqueness is enforced per organization and numbering uses the shared row-locked sequence.
 
-Nine incident event types have production handlers registered by `cmd/worker`. Payloads contain complete business before/after snapshots, decimal incident version and mutation-time `occurred_at`; shared activity uses that timestamp and source-event pagination, so delayed/out-of-order projection cannot redefine business time. History reports pending outbox work independently of durable synchronous writes. Future SLA must consume business occurrence/version, not delivery time. Incident communication/files and CMDB are later domain integrations, not fields or controls backed by absent providers.
+Nine incident event types have production handlers registered by `cmd/worker`. Payloads contain complete business before/after snapshots, decimal incident version and mutation-time `occurred_at`; shared activity uses that timestamp and source-event pagination, so delayed/out-of-order projection cannot redefine business time. History reports pending outbox work independently of durable synchronous writes. Future SLA must consume business occurrence/version, not delivery time. Incident communication/file mutations emit the existing shared work events through the same transaction; production work handlers project them into activity without duplicating replayed events. CMDB remains a later domain integration requiring a real provider.
 
 OpenServiceNOW is an enterprise ITSM / IT Operations platform inspired by the functional class of products such as ServiceNow, while using its own implementation, UX, data model, naming, and architecture.
 
@@ -633,7 +633,13 @@ Audit records are append-only from the normal application path and capture:
 - IP metadata where legally and operationally appropriate,
 - timestamp.
 
-Activity timeline is a user-facing projection that can combine comments, work notes, assignment/status transitions, approvals, SLA events, automation, attachments, and selected audit events.
+Incident activity is a user-facing projection combining incident business changes and shared communication/file/observer/relation events. Visibility is durable and defaults to INTERNAL; only known public business events and explicit public communication are exposed. Repository SQL filters private payloads before pagination/cursor/pending checks. Approvals/SLA/automation are future producers.
+
+Incident-bound routes first resolve the current session actor/organization and readable domain record; clients cannot select an arbitrary object reference. Internal note/file/activity access additionally requires organization-wide incident read and internal-note read. File references inherit linked message visibility and authorize the linked record. Public file DTOs exclude storage keys/paths; download rechecks access and uses safe attachment/MIME headers. Shared mutation methods accept the domain transaction executor, including permission checks with a single SQL connection.
+
+File bytes are written atomically under the configured local storage root; only metadata is stored in MySQL. Docker/DevBox share a persistent attachment volume across API/worker/scheduler, outside writable container layers. Native storage is a persistent configurable directory. Backups and installer-mode migrations must include both SQL and bytes. Prepared files are removed on confirmed rollback; uncertain commits retain bytes. A durable hourly cleanup job deletes managed orphan/temp/tombstoned bytes after 24 hours using bounded reference queries. Removing a file commits its tombstone/audit/outbox first and immediately denies new download requests.
+
+Incident detail tabs and list filters/cursors are URL state. Private draft contents stay in memory, with navigation/refresh guards; HTTP idempotency keys reconcile uncertain replies/uploads. Operator selections capture decimal identifiers and versions, and each bounded batch record is authorized/version-checked in its own transaction with an explicit result.
 
 ## Security baseline
 

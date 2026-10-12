@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -118,13 +119,12 @@ func (s *Service) Upload(
 			return eventErr
 		})
 	}
-	if err != nil {
+	if err != nil && !errors.Is(err, database.ErrCommitUncertain) {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cleanupCancel()
 		_ = s.storage.Delete(cleanupCtx, key)
-		return Attachment{}, err
 	}
-	return attachment, nil
+	return attachment, err
 }
 
 func (s *Service) Open(

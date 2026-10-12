@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/chmajster/OpenServiceNOW/internal/attachments"
 	"github.com/chmajster/OpenServiceNOW/internal/jobs"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
@@ -59,7 +60,8 @@ func main() {
 			"created", created,
 			"idempotency_key", key,
 		)
-		return nil
+		_, _, err = attachments.EnqueueCleanup(ctx, jobRepo, now)
+		return err
 	}
 
 	if *once {

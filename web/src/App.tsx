@@ -1,4 +1,11 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import {
+  createBrowserRouter,
+  createRoutesFromElements,
+  RouterProvider,
+  Outlet,
+  Navigate,
+  Route,
+} from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
 import { RequireAuth, RequirePermission } from "./auth/RouteGuards";
 import { AppShell } from "./layout/AppShell";
@@ -13,68 +20,73 @@ import { DiagnosticsPage } from "./pages/DiagnosticsPage";
 import { AccountPage } from "./pages/AccountPage";
 import { IncidentsPage } from "./pages/IncidentsPage";
 
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <Route
+      element={
+        <AuthProvider>
+          <Outlet />
+        </AuthProvider>
+      }
+    >
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/setup" element={<SetupPage />} />
+      <Route
+        element={
+          <RequireAuth>
+            <AppShell />
+          </RequireAuth>
+        }
+      >
+        <Route index element={<OverviewPage />} />
+        <Route path="account" element={<AccountPage />} />
+        <Route path="incidents" element={<IncidentsPage />} />
+        <Route path="incidents/:incidentID" element={<IncidentsPage />} />
+        <Route
+          path="diagnostics"
+          element={
+            <RequirePermission permission="admin.rbac.manage">
+              <DiagnosticsPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="tenant"
+          element={
+            <RequirePermission permission="tenant.read">
+              <TenantPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="users"
+          element={
+            <RequirePermission permission="admin.users.manage">
+              <UsersPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="rbac"
+          element={
+            <RequirePermission permission="admin.rbac.manage">
+              <RbacPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="audit"
+          element={
+            <RequirePermission permission="admin.audit.read">
+              <AuditPage />
+            </RequirePermission>
+          }
+        />
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Route>,
+  ),
+);
 export function App() {
-  return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/setup" element={<SetupPage />} />
-          <Route
-            element={
-              <RequireAuth>
-                <AppShell />
-              </RequireAuth>
-            }
-          >
-            <Route index element={<OverviewPage />} />
-            <Route path="account" element={<AccountPage />} />
-            <Route path="incidents" element={<IncidentsPage />} />
-            <Route path="incidents/:incidentID" element={<IncidentsPage />} />
-            <Route
-              path="diagnostics"
-              element={
-                <RequirePermission permission="admin.rbac.manage">
-                  <DiagnosticsPage />
-                </RequirePermission>
-              }
-            />
-            <Route
-              path="tenant"
-              element={
-                <RequirePermission permission="tenant.read">
-                  <TenantPage />
-                </RequirePermission>
-              }
-            />
-            <Route
-              path="users"
-              element={
-                <RequirePermission permission="admin.users.manage">
-                  <UsersPage />
-                </RequirePermission>
-              }
-            />
-            <Route
-              path="rbac"
-              element={
-                <RequirePermission permission="admin.rbac.manage">
-                  <RbacPage />
-                </RequirePermission>
-              }
-            />
-            <Route
-              path="audit"
-              element={
-                <RequirePermission permission="admin.audit.read">
-                  <AuditPage />
-                </RequirePermission>
-              }
-            />
-          </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </AuthProvider>
-    </BrowserRouter>
-  );
+  return <RouterProvider router={router} />;
 }

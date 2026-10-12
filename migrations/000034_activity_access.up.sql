@@ -1,0 +1,1 @@
+ALTER TABLE activity_entries ADD COLUMN visibility VARCHAR(20) NOT NULL DEFAULT 'INTERNAL', ADD CONSTRAINT chk_activity_visibility CHECK (visibility IN ('PUBLIC','INTERNAL')), ADD KEY idx_activity_access (tenant_id,object_type,object_id,visibility,source_event_id);

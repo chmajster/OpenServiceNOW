@@ -4,7 +4,7 @@ Last updated: 2026-10-12
 
 ## Current phase
 
-Incident Management core process, following the delivered foundation and shared work platform.
+Incident Management, including incident collaboration and the operator queue, following the delivered foundation and shared work platform.
 
 The repository includes the administration foundation, durable MySQL jobs/worker, scheduler, work-record infrastructure and the core Incident Management API/UI. The full application is deployed through DevBox with real MySQL/Redis readiness. This delivery does not declare every Phase 3 extension or later roadmap phase complete.
 
@@ -16,8 +16,8 @@ Availability boundaries:
 
 - Setup, authentication, own-account profile/password/sessions, tenant/user/RBAC administration and audit have implemented services, OpenAPI routes and React screens.
 - Jobs, attempts/logs, leases, retries/cancellation, session-cleanup scheduling and worker execution are implemented internally. There is no public job-management API or UI.
-- Work records, outbox, attachments and activity have shared libraries, migrations, worker projections and integration tests. Incidents now consume numbering, assignments and activity with domain object authorization; generic work/job administration and attachment/communication routes/screens remain unavailable.
-- Incident Management has persistence, OpenAPI routes and React list/create/detail/lifecycle/history screens. SLA/request and later business capabilities remain roadmap work.
+- Work records, outbox, attachments and activity have shared libraries, migrations, worker projections and integration tests. Incidents now consume numbering, assignments and activity with domain object authorization; generic work/job administration remains unavailable. Incident-bound communication/file/observer/relation APIs and UI are implemented with concrete object authorization.
+- Incident Management has persistence, OpenAPI routes and React list/create/detail/lifecycle/history/communication/participant screens and a versioned operator queue. SLA/request and later business capabilities remain roadmap work.
 
 Implemented foundation capabilities:
 
@@ -92,6 +92,16 @@ Implemented foundation capabilities:
 ## Currently in progress
 
 Further incident communication/files/CMDB integration, other business modules, asynchronous operational monitoring and external identity providers remain roadmap work. Shared libraries are consumed through domain APIs rather than exposed as unfinished screens.
+
+## Incident collaboration result
+
+[PR #18](https://github.com/chmajster/OpenServiceNOW/pull/18) adds separate public replies/internal notes, private filtering in shared message/activity/file repositories before pagination, incident-bound file authorization and safe metadata DTOs. File visibility is inherited from a linked message or explicit; note bodies and private file names are excluded from requester lists, history payloads and pending indicators. Optional assignment, actor and source-event BIGINT identifiers remain decimal strings.
+
+API/file metadata/audit/outbox writes share a transaction. Message/upload keys reconcile lost responses without duplicates; different content conflicts. Existing work-event production handlers project author/business-time/version metadata idempotently. History can be pending after a confirmed durable write. Observers do not grant access; related/parent-child records authorize both ends, cap lists at 100 and reject cycles/multiple parents. Operator batches cap at 50 and provide per-record permission/version/results for assign-to-self and start-work actions.
+
+Native storage uses `ATTACHMENT_ROOT`; Docker/DevBox services share an external persistent named attachment volume. Uploads enforce 10 MiB per file and 11 MiB multipart in API/proxy, sniff MIME, validate names and require authorized download. Deletion blocks download immediately; hourly durable worker cleanup sweeps managed orphan/temp/deleted files after a 24-hour grace period. Ordinary uninstall preserves storage; native/Docker locations need explicit file migration when switching modes. The Docker lifecycle suite verifies real authenticated bytes after API replacement, image rebuild and uninstall/reinstall, plus both upload size limits.
+
+Local verification passed Go unit/race/vet/build, OpenAPI, ShellCheck/installer checks, 17 frontend unit tests/typecheck/build and disposable MySQL with all 37 migrations and rollback/re-upgrade. MySQL verifies cross-organization/private resource isolation, atomic SQL-failure rollback, one-connection transaction reuse, idempotency, worker replay, absent activity authors, removal of inactive observers, storage reconciliation and per-record batch outcomes. A full 26/26 desktop/mobile browser regression used actual SQL identifiers above 2^53−1 across users/groups/sessions/incidents/files/events and preserved records/history/login after restarting real API/worker processes. Additional 8/8 scoped desktop/mobile scenarios verified independent reply/note drafts and private file defaults. The isolated Docker lifecycle passed authenticated 3.25 MB upload/download, 10/11 MiB rejection, API replacement, image rebuild and ordinary uninstall/reinstall with unchanged file bytes and saved session. Final six-job CI, review and merge evidence are tracked in PR #18. No external notification provider, object-store adapter, SLA/CMDB source or message editing is claimed; communication is append-only and drafts are memory-only.
 
 ## Incident Management result
 
@@ -247,9 +257,14 @@ Implemented migration versions:
 - `000029_incidents`,
 - `000030_incident_requests`,
 - `000031_incident_permissions`,
-- `000032_activity_event_order`.
+- `000032_activity_event_order`,
+- `000033_attachment_access`,
+- `000034_activity_access`,
+- `000035_activity_access_backfill`,
+- `000036_incident_collaboration_requests`,
+- `000037_incident_collaboration_permissions`.
 
-Each up/down migration contains one SQL statement. Runtime readiness requires migration version 32, `dirty=false`, and the foundation metadata singleton. The real MySQL lifecycle test passed latest → one-step rollback → latest → legacy schema 24 → latest → full rollback → latest → readiness. Migration 25 permanently closes first-run setup for existing accounts/organizations without changing credentials; migration 26 preserves existing hashes and defaults the required-change flag to false. The reserved `groups` identifier is quoted in schema and repository SQL.
+Each up/down migration contains one SQL statement. Runtime readiness requires migration version 37, `dirty=false`, and the foundation metadata singleton. The real MySQL lifecycle test passed latest → one-step rollback → latest → legacy schema 24 → latest → full rollback → latest → readiness. Migration 25 permanently closes first-run setup for existing accounts/organizations without changing credentials; migration 26 preserves existing hashes and defaults the required-change flag to false. The reserved `groups` identifier is quoted in schema and repository SQL.
 
 ## Technical debt
 

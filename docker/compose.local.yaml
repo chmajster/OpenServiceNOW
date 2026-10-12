@@ -12,6 +12,7 @@ x-local-backend: &backend
     MYSQL_PORT: "3306"
     REDIS_ADDR: redis:6379
     HTTP_ADDR: 0.0.0.0:8080
+    ATTACHMENT_ROOT: /var/lib/opensnow/attachments
     BOOTSTRAP_ON_START: "false"
     DB_HOST: ""
     DB_PORT: ""
@@ -20,6 +21,7 @@ x-local-backend: &backend
     DB_PASSWORD: ""
   restart: unless-stopped
   stop_grace_period: 30s
+  volumes: ["attachment-data:/var/lib/opensnow/attachments"]
   security_opt: ["no-new-privileges:true"]
   cap_drop: ["ALL"]
 
@@ -88,3 +90,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 12
+
+volumes:
+  attachment-data:

@@ -1,0 +1,1 @@
+UPDATE activity_entries SET visibility='PUBLIC' WHERE entry_type IN ('incident.created','incident.updated','incident.assigned','incident.state.changed','incident.reopened','incident.resolved','incident.closed','incident.cancelled','incident.priority.changed','comment') AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(data,'$.message_type')),'') <> 'WORK_NOTE';
