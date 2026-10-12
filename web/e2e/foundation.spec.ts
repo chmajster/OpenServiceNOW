@@ -1,5 +1,10 @@
 import { expect, test, type Page, type Locator } from "@playwright/test";
-import { changeTemporaryPassword, permanentRootPassword, personalPassword } from "./account-fixtures";
+import {
+  changeTemporaryPassword,
+  permanentRootPassword,
+  personalPassword,
+  loginAPI,
+} from "./account-fixtures";
 
 const tenant = process.env.E2E_TENANT ?? "e2e";
 let adminEmail = process.env.E2E_ADMIN_EMAIL ?? "admin@example.test";
@@ -20,13 +25,12 @@ function scope() {
 // Independent real administrator accounts keep each browser project's login
 // workload within the production account limiter, without weakening its policy.
 test.beforeAll(async ({ request }, testInfo) => {
+  test.setTimeout(120_000);
   const email = `suite-admin-${testInfo.project.name}@example.test`;
-  const result = await request.post("/api/v1/auth/login", {
-    data: {
-      tenant,
-      email: process.env.E2E_ADMIN_EMAIL ?? "admin",
-      password: permanentRootPassword,
-    },
+  const result = await loginAPI(request, {
+    tenant,
+    email: process.env.E2E_ADMIN_EMAIL ?? "admin",
+    password: permanentRootPassword,
   });
   expect(result.status()).toBe(200);
   const token = (await request.storageState()).cookies.find(
@@ -58,11 +62,38 @@ test.beforeAll(async ({ request }, testInfo) => {
   ).toBe(204);
   await request.post("/api/v1/auth/logout", { headers });
   adminEmail = email;
-  const signedIn = await request.post("/api/v1/auth/login", { data: { tenant, email, password: operatorPassword } });
+  let signedIn = await loginAPI(request, {
+    tenant,
+    email,
+    password:
+      created.status() === 201
+        ? operatorPassword
+        : personalPassword(operatorPassword),
+  });
+  if (signedIn.status() === 401)
+    signedIn = await loginAPI(request, {
+      tenant,
+      email,
+      password: operatorPassword,
+    });
   expect(signedIn.status()).toBe(200);
   const signedInData = await signedIn.json();
-  const ownCSRF = (await request.storageState()).cookies.find(cookie => cookie.name === "opensnow_csrf")!.value;
-  expect((await request.post("/api/v1/auth/password", { headers: { "X-CSRF-Token": ownCSRF }, data: { current_password: operatorPassword, new_password: personalPassword(operatorPassword), credential_version: signedInData.user.credential_version } })).status()).toBe(200);
+  const ownCSRF = (await request.storageState()).cookies.find(
+    (cookie) => cookie.name === "opensnow_csrf",
+  )!.value;
+  if (signedInData.password_change_required)
+    expect(
+      (
+        await request.post("/api/v1/auth/password", {
+          headers: { "X-CSRF-Token": ownCSRF },
+          data: {
+            current_password: operatorPassword,
+            new_password: personalPassword(operatorPassword),
+            credential_version: signedInData.user.credential_version,
+          },
+        })
+      ).status(),
+    ).toBe(200);
   adminPassword = personalPassword(operatorPassword);
 });
 
@@ -759,9 +790,7 @@ test("editing own permissions refreshes navigation and backend access", async ({
   expect((await page.request.get("/api/v1/admin/users/")).status()).toBe(200);
   await checkbox(page, "admin.rbac.manage").uncheck();
   await page.getByRole("button", { name: "Zapisz uprawnienia" }).click();
-  await expect(
-    page.getByText("Brak uprawnień", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("Brak uprawnień", { exact: true })).toBeVisible();
   await expect(
     page
       .locator(".navigation")

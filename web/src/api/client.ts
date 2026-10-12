@@ -2,6 +2,11 @@ import type { ApiErrorBody } from "./types";
 
 const CSRF_COOKIE_NAME = "opensnow_csrf";
 const errorMessages: Record<string, string> = {
+  ACCOUNT_RESULT_UNKNOWN: "Nie potwierdzono wyniku zmiany hasła. Odśwież stan konta lub zaloguj się nowym hasłem. Nie ponawiaj automatycznie.",
+  AUTH_BUSY: "Weryfikacja haseł jest chwilowo zajęta. Spróbuj ponownie za chwilę.",
+  AUTH_RATE_LIMITED: "Zbyt wiele prób. Odczekaj przed kolejną próbą.",
+  AUTH_RATE_LIMIT_UNAVAILABLE: "Weryfikacja haseł jest chwilowo niedostępna.",
+  ACCOUNT_FAILED: "Nie udało się wykonać operacji konta.",
   PASSWORD_CHANGE_REQUIRED: "Zmień hasło tymczasowe, aby kontynuować.",
   CURRENT_PASSWORD_INVALID: "Dotychczasowe hasło jest nieprawidłowe.",
   ACCOUNT_CONFLICT: "Konto zmieniło się w trakcie edycji. Sprawdź aktualny stan przed ponowieniem.",

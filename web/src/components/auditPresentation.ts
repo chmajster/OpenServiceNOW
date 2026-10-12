@@ -1,4 +1,8 @@
 const labels: Record<string, string> = {
+  credential_version: "Wersja poświadczeń",
+  other_sessions_revoked: "Unieważniono pozostałe sesje",
+  revoked_count: "Liczba unieważnionych sesji",
+  all_other_sessions: "Wszystkie pozostałe sesje",
   name: "Nazwa",
   description: "Opis",
   permissions: "Uprawnienia",
@@ -16,6 +20,9 @@ const labels: Record<string, string> = {
   membership_active: "Aktywne członkostwo",
 };
 const actions: Record<string, string> = {
+  "account.profile.update": "Zmiana własnego profilu",
+  "account.password.change": "Zmiana własnego hasła",
+  "account.sessions.revoke": "Unieważnienie własnych sesji",
   "tenant.name.update": "Zmiana nazwy organizacji",
   "rbac.role.create": "Utworzenie roli",
   "rbac.role.permissions.set": "Zmiana uprawnień roli",

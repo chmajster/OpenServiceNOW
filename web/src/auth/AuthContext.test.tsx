@@ -92,3 +92,69 @@ it("refresh supersedes older reads, logout stays cleared and login reads fresh c
     await act(async () => root.unmount());
   }
 });
+it("reports a confirmed password change when the following session read fails", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  let auth!: ReturnType<typeof useAuth>;
+  let changed = false;
+  const json = (value: unknown, status = 200) =>
+    new Response(JSON.stringify(value), {
+      status,
+      headers: { "Content-Type": "application/json" },
+    });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string) => {
+      if (path === "/api/v1/setup") return json({ required: false });
+      if (path === "/api/v1/auth/password") {
+        changed = true;
+        return json({ password_change_required: false });
+      }
+      if (changed)
+        return json(
+          { error: { code: "ACCOUNT_FAILED", message: "Read failed" } },
+          500,
+        );
+      return json({
+        user: {
+          id: "1",
+          email: "user@example.test",
+          display_name: "User",
+          version: "1",
+          credential_version: "1",
+        },
+        tenant: { id: "2", name: "Tenant", slug: "test" },
+        permissions: [],
+        password_change_required: false,
+        expires_at: new Date(Date.now() + 600_000).toISOString(),
+      });
+    }),
+  );
+  function Screen() {
+    auth = useAuth();
+    return <span>{auth.error}</span>;
+  }
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  try {
+    await act(async () =>
+      root.render(
+        <AuthProvider>
+          <Screen />
+        </AuthProvider>,
+      ),
+    );
+    await act(async () => {
+      await expect(
+        auth.changePassword({
+          current_password: "old-password",
+          new_password: "new-password-long",
+          credential_version: "1",
+        }),
+      ).rejects.toBeInstanceOf(Error);
+    });
+    expect(auth.status).toBe("error");
+    expect(container.textContent).toContain("Hasło zostało zmienione");
+  } finally {
+    await act(async () => root.unmount());
+  }
+});

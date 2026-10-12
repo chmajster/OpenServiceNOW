@@ -31,7 +31,11 @@ type AuthContextValue = {
   login: (input: LoginRequest) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
-  changePassword: (input: { current_password: string; new_password: string; credential_version: string }) => Promise<void>;
+  changePassword: (input: {
+    current_password: string;
+    new_password: string;
+    credential_version: string;
+  }) => Promise<void>;
   hasPermission: (permission: string) => boolean;
 };
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -173,15 +177,32 @@ export function AuthProvider({ children }: PropsWithChildren) {
     advanceSessionRevision();
     clear();
   }, [clear]);
-  const changePassword = useCallback(async (input: { current_password: string; new_password: string; credential_version: string }) => {
-    advanceSessionRevision();
-    epoch.current += 1;
-    inFlight.current?.controller.abort();
-    inFlight.current = null;
-    await api("/api/v1/auth/password", { method: "POST", body: jsonBody(input) });
-    advanceSessionRevision();
-    await refresh();
-  }, [refresh]);
+  const changePassword = useCallback(
+    async (input: {
+      current_password: string;
+      new_password: string;
+      credential_version: string;
+    }) => {
+      advanceSessionRevision();
+      epoch.current += 1;
+      inFlight.current?.controller.abort();
+      inFlight.current = null;
+      await api("/api/v1/auth/password", {
+        method: "POST",
+        body: jsonBody(input),
+      });
+      advanceSessionRevision();
+      try {
+        await refresh();
+      } catch (cause) {
+        setError(
+          "Hasło zostało zmienione, ale nie udało się odczytać odnowionej sesji. Spróbuj odświeżyć stan; przy ponownym logowaniu użyj nowego hasła.",
+        );
+        throw cause;
+      }
+    },
+    [refresh],
+  );
   const hasPermission = useCallback(
     (permission: string) => session?.permissions.includes(permission) ?? false,
     [session],
@@ -198,7 +219,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
       changePassword,
       hasPermission,
     }),
-    [status, session, setup, error, login, logout, refresh, changePassword, hasPermission],
+    [
+      status,
+      session,
+      setup,
+      error,
+      login,
+      logout,
+      refresh,
+      changePassword,
+      hasPermission,
+    ],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

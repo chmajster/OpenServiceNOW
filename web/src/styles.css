@@ -933,6 +933,9 @@ tbody tr:last-child td {
 .notice--error { border-color: #c65757; background: #fff4f4; }
 .table-scroll { width: 100%; overflow-x: auto; }
 .table-scroll td details { max-width: 18rem; overflow-wrap: anywhere; }
+.account-page { min-width: 0; grid-template-columns: minmax(0, 1fr); }
+.account-page > * { min-width: 0; }
+.account-page .action-row .button { min-width: 0; overflow-wrap: anywhere; text-align: center; }
 .remote-combobox { position: relative; min-width: 0; }
 .combobox-input { display: flex; gap: 0.4rem; }
 .combobox-popup { position: relative; margin-top: 0.3rem; border: 1px solid var(--border); border-radius: 0.65rem; background: #fff; box-shadow: var(--shadow); padding: 0.5rem; }
