@@ -643,8 +643,11 @@ test("catalog retry and duplicate creation preserve the role draft", async ({
   await page.getByRole("button", { name: "Nowa rola" }).click();
   const name = `draft-${scope()}`;
   await page.getByLabel("Nazwa", { exact: true }).fill(name);
-  await page.getByLabel("Opis", { exact: true }).fill("Zachowaj tę pracę");
-  await expect(page.getByRole("button", { name: "Pobierz katalog uprawnień" })).toBeVisible();
+  const description = page.getByRole("textbox", { name: "Opis", exact: true });
+  await description.fill("Zachowaj tę pracę");
+  await expect(
+    page.getByRole("button", { name: "Pobierz katalog uprawnień" }),
+  ).toBeVisible();
   await page.unroute("**/api/v1/admin/rbac/permissions");
   await page.getByRole("button", { name: "Pobierz katalog uprawnień" }).click();
   await expect(page.getByLabel("Nazwa", { exact: true })).toHaveValue(name);
@@ -653,9 +656,7 @@ test("catalog retry and duplicate creation preserve the role draft", async ({
   await page.getByRole("button", { name: "Utwórz rolę" }).click();
   await expect(page.getByRole("alert")).toContainText("Ta nazwa już istnieje");
   await expect(checkbox(page, "tenant.read")).toBeChecked();
-  await expect(page.getByLabel("Opis", { exact: true })).toHaveValue(
-    "Zachowaj tę pracę",
-  );
+  await expect(description).toHaveValue("Zachowaj tę pracę");
   await page.getByLabel("Nazwa", { exact: true }).fill(`${name}-resolved`);
   await page.getByRole("button", { name: "Utwórz rolę" }).click();
   await expect(
@@ -745,6 +746,19 @@ test("editing own permissions refreshes navigation and backend access", async ({
       .getByRole("link", { name: "Użytkownicy", exact: true }),
   ).toBeVisible();
   expect((await page.request.get("/api/v1/admin/users/")).status()).toBe(200);
+  await checkbox(page, "admin.rbac.manage").uncheck();
+  await page.getByRole("button", { name: "Zapisz uprawnienia" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Brak uprawnień" }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator(".navigation")
+      .getByRole("link", { name: "Role", exact: true }),
+  ).toHaveCount(0);
+  expect(
+    (await page.request.get(`/api/v1/admin/rbac/roles/${roleID}`)).status(),
+  ).toBe(403);
 });
 
 test("a transport error preserves organization edits and the retry updates context", async ({

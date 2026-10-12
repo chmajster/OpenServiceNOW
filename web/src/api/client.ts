@@ -90,7 +90,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     credentials: "include",
   });
 
-  if (revision !== sessionRevision)
+  if (init.signal?.aborted || revision !== sessionRevision)
     throw new DOMException("Nieaktualna sesja", "AbortError");
   if (
     response.status === 401 &&
@@ -110,7 +110,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const payload = contentType.includes("application/json")
     ? await response.json()
     : undefined;
-  if (responseRevision !== sessionRevision)
+  if (init.signal?.aborted || responseRevision !== sessionRevision)
     throw new DOMException("Nieaktualna sesja", "AbortError");
 
   if (!response.ok) {

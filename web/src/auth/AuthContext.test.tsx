@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
 import { AuthProvider, useAuth } from "./AuthContext";
 afterEach(() => vi.unstubAllGlobals());
-it("a pending refresh cannot resurrect a logged-out session and login reads fresh context", async () => {
+it("refresh supersedes older reads, logout stays cleared and login reads fresh context", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   let meCount = 0;
   let finish!: (value: Response) => void;
@@ -28,7 +28,7 @@ it("a pending refresh cannot resurrect a logged-out session and login reads fres
       if (path === "/api/v1/setup") return json({ required: false });
       if (path === "/api/v1/auth/me") {
         meCount++;
-        if (meCount === 2)
+        if (meCount === 2 || meCount === 4)
           return new Promise<Response>((resolve) => {
             finish = resolve;
           });
@@ -58,6 +58,20 @@ it("a pending refresh cannot resurrect a logged-out session and login reads fres
     );
     expect(container.textContent).toContain("authenticated:Old");
     let pending!: Promise<void>;
+    await act(async () => {
+      pending = auth.refresh();
+    });
+    // A mutation refresh must read after the write, even if a focus refresh is pending.
+    await act(async () => {
+      void auth.refresh();
+    });
+    expect(meCount).toBe(3);
+    expect(container.textContent).toContain("authenticated:New");
+    await act(async () => {
+      finish(json(session("Old")));
+      await pending;
+    });
+    expect(container.textContent).toContain("authenticated:New");
     await act(async () => {
       pending = auth.refresh();
     });

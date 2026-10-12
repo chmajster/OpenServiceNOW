@@ -565,12 +565,16 @@ function RoleEditor({
         method: "PUT",
         body: jsonBody({ version, permissions: values }),
       });
-      const result = await api<{ role: Role }>(`${base}/roles/${role.id}`);
-      onSaved(result.role);
-      setVersion(result.role.version);
-      setValues(result.role.permissions.map((permission) => permission.key));
-      setMessage("Uprawnienia roli zostały zaktualizowane.");
-      await refresh();
+      try {
+        const result = await api<{ role: Role }>(`${base}/roles/${role.id}`);
+        onSaved(result.role);
+        setVersion(result.role.version);
+        setValues(result.role.permissions.map((permission) => permission.key));
+        setMessage("Uprawnienia roli zostały zaktualizowane.");
+      } finally {
+        // The successful write may have removed this user's permission to read it.
+        await refresh();
+      }
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 409) {
         setUnresolved(true);

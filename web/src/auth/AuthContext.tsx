@@ -45,7 +45,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const epoch = useRef(0);
   const inFlight = useRef<{
     controller: AbortController;
-    promise: Promise<void>;
   } | null>(null);
   const clear = useCallback(() => {
     epoch.current += 1;
@@ -69,7 +68,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   );
 
   const refresh = useCallback(() => {
-    if (inFlight.current) return inFlight.current.promise;
+    // A refresh after a write must never reuse a read started before that write.
+    inFlight.current?.controller.abort();
     const currentEpoch = epoch.current;
     const controller = new AbortController();
     const pending = (async () => {
@@ -111,7 +111,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           inFlight.current = null;
       }
     })();
-    inFlight.current = { controller, promise: pending };
+    inFlight.current = { controller };
     return pending;
   }, [clear]);
   useEffect(() => {

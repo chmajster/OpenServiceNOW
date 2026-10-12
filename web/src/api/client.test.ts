@@ -43,29 +43,36 @@ describe("api client", () => {
       unsubscribe();
     }
   });
-  it("ignores a late 401 from the previous login", async () => {
-    let finish!: (response: Response) => void;
-    const expired = vi.fn();
-    const unsubscribe = onSessionExpired(expired);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(
-        () =>
-          new Promise<Response>((resolve) => {
-            finish = resolve;
-          }),
-      ),
-    );
-    try {
-      const pending = api("/api/v1/admin/users/");
-      advanceSessionRevision();
-      finish(new Response(null, { status: 401 }));
-      await expect(pending).rejects.toMatchObject({ name: "AbortError" });
-      expect(expired).not.toHaveBeenCalled();
-    } finally {
-      unsubscribe();
-    }
-  });
+  it.each(["previous login", "cancelled request"])(
+    "ignores a late 401 from a %s",
+    async (reason) => {
+      let finish!: (response: Response) => void;
+      const expired = vi.fn();
+      const unsubscribe = onSessionExpired(expired);
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(
+          () =>
+            new Promise<Response>((resolve) => {
+              finish = resolve;
+            }),
+        ),
+      );
+      try {
+        const controller = new AbortController();
+        const pending = api("/api/v1/admin/users/", {
+          signal: controller.signal,
+        });
+        if (reason === "previous login") advanceSessionRevision();
+        else controller.abort();
+        finish(new Response(null, { status: 401 }));
+        await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+        expect(expired).not.toHaveBeenCalled();
+      } finally {
+        unsubscribe();
+      }
+    },
+  );
   it("reads encoded cookies", () => {
     document.cookie = "opensnow_csrf=abc%20123; Path=/";
     expect(readCookie("opensnow_csrf")).toBe("abc 123");
