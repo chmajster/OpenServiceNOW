@@ -322,9 +322,13 @@ func TestDurableRequestWorkflow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// A late worker must use the persisted business completion, not receipt time.
+	beforeDelay := now
+	now = step(x, "wait").Deadline.Add(30 * time.Second)
 	for i := 0; i < 5 && x.State != "COMPLETED"; i++ {
 		x = advance(x.ID)
 	}
+	now = beforeDelay
 	if x.State != "COMPLETED" {
 		t.Fatal(x)
 	}

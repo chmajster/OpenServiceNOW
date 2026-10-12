@@ -12882,6 +12882,7 @@
       },
       "RequestSubmission": {
         "type": "object",
+        "description": "One workflow catalog item per request; 1–10 items remain supported for manual fulfillment. Workflow submission atomically creates its pinned execution and initial durable job, without direct tasks.",
         "properties": {
           "items": {
             "type": "array",
