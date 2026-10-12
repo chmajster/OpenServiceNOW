@@ -13,6 +13,7 @@ cleanup() {
   local service
   if [[ -n "$listener_pid" ]]; then kill "$listener_pid" 2>/dev/null || true; fi
   docker rm -f "${project}-api-address-holder" >/dev/null 2>&1 || true
+  docker network rm "${project}-subnet-probe" >/dev/null 2>&1 || true
   mkdir -p "$repo_dir/.opensnow/docker-runtime-verification"
   for service in mysql redis api frontend worker scheduler; do
     compose logs --no-color --tail 100 "$service" >"$repo_dir/.opensnow/docker-runtime-verification/$service.log" 2>&1 || true
@@ -30,6 +31,19 @@ REDIS_ADDR=127.0.0.1:26379
 REDIS_PASSWORD=docker-test-redis
 MYSQL_PASSWORD=docker-test-mysql
 COMPOSE_PROJECT_NAME=$project
+EOF
+# Older engines require explicit IPAM before a fixture can reserve an old API IP.
+# Reuse a free subnet chosen by Docker rather than hard-coding a host network.
+docker network create "${project}-subnet-probe" >/dev/null
+test_subnet=$(docker network inspect --format '{{(index .IPAM.Config 0).Subnet}}' "${project}-subnet-probe")
+docker network rm "${project}-subnet-probe" >/dev/null
+cat >>"$checkout/docker/compose.local.yaml" <<EOF
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: $test_subnet
 EOF
 installer() {
   case "${1:-install}" in
