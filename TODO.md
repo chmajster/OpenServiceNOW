@@ -1,6 +1,6 @@
 # OpenServiceNOW TODO
 
-Last reconciled: 2026-10-12
+Last reconciled: 2026-10-13
 
 Legend: `[ ]` not delivered, `[-]` in progress, `[x]` implemented and verified for the stated scope. Completion of a shared library does not imply a public API or UI. Detailed business scope and exit criteria remain in ROADMAP.md; verification evidence is in STATUS.md.
 
@@ -88,8 +88,9 @@ September runner-allocation failures (including run #523) and early deployment f
 [P2] [x] Deliver core Incident Management: transactional model/INC numbering/assignment/audit/outbox, object RBAC/read-own, priority matrix and audited override, backend lifecycle, idempotency/versioning, server list/search/filters and complete React flow. MySQL and desktop/mobile evidence is recorded in STATUS.md and PR #17.
 [P2] [ ] Extend incidents with real CMDB/service sources, templates and major-incident coordination. PR #18 implements bounded related/parent-child relations and only the confirmed assign-to-self/start-work batch actions; broader orchestration remains future work.
 [P2] [x] Implement asynchronous incident SLA with immutable policy/calendar versions, business-time response/resolution cycles, exact-reason pauses, durable ordered replay, bounded scheduler/jobs, idempotent warning/breach notifications and working administration/incident API/UI. Verification and final CI evidence are tracked in PR #20 and STATUS.md; no retroactive enrollment or policy rebinding is claimed.
-[P2] [x] Deliver catalog/category/item versions, declarative server-validated forms, atomic Request/Requested Item/Task fulfillment, actor-scoped idempotency, historical snapshots, object-authorized portal/operator queues and private communication/files/history. Manual tasks are independent; approval/dependency automation and request SLA/notification channels remain later stages. Current verification/review evidence is maintained in PR #21 and STATUS.md.
-[P2] [ ] Workflow and Approval engines.
+[P2] [x] Deliver catalog/category/item versions, declarative server-validated forms, atomic Request/Requested Item/Task fulfillment, actor-scoped idempotency, historical snapshots, object-authorized portal/operator queues and private communication/files/history. Manual tasks remain independent. PR #22 adds the separate workflow approval/process notification mode; request SLA and broader request communication notifications remain later stages. Current verification/review evidence is maintained in PR #21 and STATUS.md.
+[P2] [-] Durable catalog workflow and user/group ANY/ALL approval: nine steps, immutable versions, current authorization, transactional commands, inbox/editor/diagnostics and real notifications. Final verification tracked in PR #22.
+[P2] [ ] Extended workflow: parallel/join, subprocesses, scripts, delegation, reminders/escalation and multi-item process coordination.
 [P2] [ ] Change and Problem Management.
 [P2] [ ] CMDB and Asset Management.
 [P2] [ ] Knowledge Base.

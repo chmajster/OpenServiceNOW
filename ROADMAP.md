@@ -263,6 +263,8 @@ Exit criteria:
 
 ## Phase 6 — Workflow and Approval
 
+PR #22 implements the bounded first delivery: immutable process versions, durable executions/steps/decisions, DAG publication checks, START/CONDITION/APPROVAL/CREATE_TASK/WAIT_TASK/WAIT_TIMER/UPDATE_RECORD/NOTIFY/END, user/group ANY/ALL with explicit self/membership policy, real jobs, request-domain commands, inbox/form editor/diagnostics and repair. Catalog workflow submissions create executions atomically and tasks only after approval; versions remain pinned. Parallel/join, subprocesses, scripts, external automation, delegation, reminders/escalation and multi-item workflow coordination below are future scope. Evidence is maintained in STATUS.md.
+
 Goal: durable execution engine.
 
 Workflow:

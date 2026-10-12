@@ -2,15 +2,15 @@
 
 ## Status
 
-Phase 0 established the target architecture and module boundaries. The implemented stack contains API, migration/bootstrap, worker and scheduler executables, MySQL schema through migration 63, Redis-backed controls, identity/RBAC/audit services, the first-run installer, React administration and own-account UI.
+Phase 0 established the target architecture and module boundaries. The implemented stack contains API, migration/bootstrap, worker and scheduler executables, MySQL schema through migration 71, Redis-backed controls, identity/RBAC/audit services, the first-run installer, React administration and own-account UI.
 
-Shared work-record, jobs, outbox, activity and attachment libraries are implemented and integration-tested. The scheduler enqueues durable session- and attachment-cleanup jobs; the worker executes them and dispatches activity events. Incident Management consumes shared numbering, assignments, messages, watchers, relations, attachments and activity through domain-authorized API/UI. Generic work/job-management and arbitrary-object attachment APIs/UI remain future stages. Existing routes/screens cover setup, authentication, own accounts, tenant/user/RBAC/audit administration, incidents and notifications/delivery administration. The remaining sections distinguish implemented foundations from target business capabilities; see STATUS.md and TODO.md for verified progress.
+Shared work-record, jobs, outbox, activity and attachment libraries are implemented and integration-tested. The scheduler enqueues durable session- and attachment-cleanup jobs; the worker executes them and dispatches activity events. Incident Management consumes shared numbering, assignments, messages, watchers, relations, attachments and activity through domain-authorized API/UI. Generic work/job-management and arbitrary-object attachment APIs/UI remain future stages. Existing routes/screens cover setup, authentication, own accounts, tenant/user/RBAC/audit administration, incidents, catalog/requests/fulfillment, workflow/approvals and notifications/delivery administration. The remaining sections distinguish implemented foundations from target business capabilities; see STATUS.md and TODO.md for verified progress.
 
 ## Architectural goals
 
 The implemented `internal/catalog` owns catalogs/categories/items, draft CAS and immutable publications with declarative forms and explicit manual fulfillment. `internal/requests` owns Request/Requested Item/Task state, object access, request snapshots and closure rules. Both use backend session principals; mutations revalidate active membership/permissions under the organization lock in their domain transaction. Public DTOs exclude private catalog/task data. Group operators only read assigned-group records; organization-wide management is a separate permission. Catalog/request create retries use shared `workrecords.ReserveOperation`/`CompleteOperation` with actor/organization keys and body digests.
 
-Submission creates the Request, snapshot items, numbered tasks, shared assignments, audit/outbox and retry receipt in one executor transaction. `workrecords` supplies numbering, assignments and append-only messages; `attachments` supplies persistent storage, visibility filtering and orphan cleanup; `activity` projects source events idempotently. Request comment/note events have actual request-specific worker handlers, avoiding the incident-only notification/SLA consumer contract. Public history contains only safe state metadata/public communication; internal notes/file events remain INTERNAL. Finalization requires all required tasks COMPLETED and cancels remaining optional tasks; closed/cancelled requests are terminal. Approval/dependency automation remains future work.
+Manual submission creates the Request, snapshot items, numbered tasks, shared assignments, audit/outbox and retry receipt in one executor transaction. Workflow submission instead atomically creates a pinned execution and first durable job; its task steps use the same transactional task/assignment service after approval. `workrecords` supplies numbering, assignments and append-only messages; `attachments` supplies persistent storage, visibility filtering and orphan cleanup; `activity` projects source events idempotently. Request comment/note events have actual request-specific worker handlers, avoiding the incident-only notification/SLA consumer contract. Public history contains only safe state metadata/public communication; internal notes/file events remain INTERNAL. Finalization requires all required tasks COMPLETED and cancels remaining optional tasks; closed/cancelled requests are terminal. The limited workflow approval engine is delivered below; broader dependency automation remains future work.
 
 The implemented `internal/incidents` domain owns incident fields, object authorization, lifecycle rules and business versioning. It calls shared `workrecords.Allocator.NextInTx` and `workrecords.Service.SetAssignmentInTx` using the same `database.Executor` as incident persistence, audit and outbox; no nested transaction commits independently. Creation idempotency is scoped to the backend actor and organization, while INC uniqueness is enforced per organization and numbering uses the shared row-locked sequence.
 
@@ -568,31 +568,19 @@ Current session-cleanup scheduling uses a UTC time bucket and a unique MySQL job
 
 ## Workflow and approvals
 
-Workflow is versioned and node-based.
+`internal/workflow` implements the bounded catalog process engine through MySQL, authenticated OpenAPI and React UI. Definitions use draft CAS; published versions are immutable and executions reference the exact tenant/definition/version. Submission atomically persists the Request/Requested Item, execution, job, audit and outbox. Workflow mode creates no direct tasks; the owning `internal/requests` adapter creates real shared assignments/tasks in the step transaction. A workflow submission contains one item; manual submissions retain their multi-item support. Coordinating multiple process instances requires the future join policy.
 
-Initial target nodes:
+The nine delivered nodes are START, CONDITION, APPROVAL, CREATE_TASK, WAIT_TASK, WAIT_TIMER, UPDATE_RECORD, NOTIFY and END. Publication validates all references/configuration, DAG reachability, approval on every task/fulfillment path, task dominance/completion, closure after fulfillment and no further approval/task creation after fulfillment. Conditions compare immutable submitted scalar values; no scripts execute. Definitions are bounded to 100 per tenant, nodes to 50 and path variants to 10,000.
 
-```text
-Start
-End
-Condition
-Approval
-CreateTask
-UpdateRecord
-Notification
-Wait
-Timer
-Webhook
-HTTPRequest
-Automation
-Parallel
-Join
-Subworkflow
-```
+Authors (`workflow.author`) and publishers (`workflow.publish`) do not grant execution privileges. The pinned execution identity must currently hold `workflow.execute`, `request.fulfill`, active organization membership and membership in the configured fulfillment group. The request adapter verifies durable tenant/request/item/executor scope and calls shared domain commands with their state/version/required-work rules. HTTP transitions cannot bypass a pending/error/cancelled process. No synthetic administrator permission is introduced.
 
-Definitions and published versions are immutable relative to active executions. Running instances reference a specific version.
+Worker jobs advance one step in a transaction under organization/request/execution locks. Step result, task/domain mutation, audit/outbox and next job commit together. Stable job keys and persisted step results prevent duplicate task creation after retry. Waiting deadlines/participants live in MySQL; no long-lived sleeping goroutine exists. Scheduler selects at most 100 due rows at most every 30 seconds; waiting polls update only next-check time, without decision-version churn. Timely task completion uses its persisted business timestamp even when the worker is late. Reads do not advance execution.
 
-Approvals are generic and support user/group targets, sequential/parallel policies, delegation, timeout, reminder, and escalation.
+Approvals target a user or bounded group, with ANY or ALL. At step entry, eligible participants are frozen; later members do not join. Every decision rechecks active identity, organization, workflow.approve, current group membership and explicit self-approval DENY/ALLOW. Rejection or deadline follows the configured branch. ALL rechecks prior signers; lost membership does not shrink quorum. Decision CAS and the same locks serialize concurrent decisions/timeout, and an identical committed retry is harmless. Reasons are audited without exposing other participants' private reasons to the portal.
+
+Object-filtered inbox/state/notifications enforce current access before pagination/counts. Execution UI presents step labels, state and deadlines without private task instructions. `workflow.manage` exposes safe error codes, last 100 business attempts and reason/version-protected RESUME after error or CANCEL. Cancellation stops execution; the separate domain cancellation command controls request/tasks. Resume uses the same immutable version and current identity, without granting privileges. Activity and notification consumers independently handle workflow.changed, workflow.approval.requested and workflow.notification; the latter two have real in-app and optional SMTP effects with fresh read/delivery access checks.
+
+Parallel/join, subprocesses, delegation, arbitrary scripts, external automation and reminders/escalation are future work. Migration 71 downgrade to incident-only notifications refuses incompatible persisted workflow notifications until deliberately exported/removed. Normal upgrade/restart preserves workflow state and credentials.
 
 ## SLA subsystem
 

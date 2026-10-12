@@ -4,11 +4,17 @@ Last updated: 2026-10-13
 
 ## Current phase
 
-Service catalog and request fulfillment, following asynchronous incident SLA, independent outbox consumers and Incident Management.
+Durable workflow and approvals for catalog requests, following service catalog fulfillment and incident SLA.
 
 The repository includes the administration foundation, durable MySQL jobs/worker, scheduler, work-record infrastructure and the core Incident Management API/UI. The full application is deployed through DevBox with real MySQL/Redis readiness. This delivery does not declare every Phase 3 extension or later roadmap phase complete.
 
-## Service catalog and request fulfillment delivery
+## Workflow and approvals delivery (PR #22)
+
+Schema 64–71 implements immutable published definitions, nine validated steps, MySQL executions/decisions/attempts, user/group ANY/ALL approval with explicit self policy and frozen/current membership checks, real scheduler/worker jobs, transactional request commands and idempotent task creation. Workflow catalog submission creates an execution without direct tasks and pins its version. Direct state changes cannot bypass approval. The form editor, inbox, visual state, diagnostics/resume/cancel and authorized in-app/SMTP integration are implemented. Parallel/join, subprocesses, scripts, delegation and multi-item workflow submissions remain outside this scope; manual multi-item requests remain supported.
+
+Verification in progress: Go/OpenAPI, disposable MySQL integration with concurrency, rollback/reupgrade through 71, TypeScript/build and 23 existing frontend tests passed locally. Final browser regression, actual runtime restart and current CI evidence will be recorded before completion. No historical requests are enrolled; upgrades/restarts preserve credentials. Migration 71 downgrade requires explicit export/removal of incompatible workflow notifications.
+
+## Historical service catalog and request fulfillment delivery
 
 [PR #21](https://github.com/chmajster/OpenServiceNOW/pull/21) adds `internal/catalog` and `internal/requests`, schema 55–63, separate catalog/category/item/publication and Request/Requested Item/Task models, immutable declarative forms and snapshots, explicit active-group manual fulfillment, server visibility/required validation, atomic shared numbering/assignment/audit/outbox/idempotency and CAS transitions. Requesters can browse authorized publications, submit and track their own requests, communicate, attach files and cancel before work starts. Scoped group operators assign/start/hold/resume/complete tasks and finalize/close requests only after required work. The portal does not expose drafts, internal instructions/results or private communication/files/history. Templates require explicit administrative creation/configuration/publication; migrations seed no services or requests.
 
@@ -33,7 +39,7 @@ Availability boundaries:
 - Setup, authentication, own-account profile/password/sessions, tenant/user/RBAC administration and audit have implemented services, OpenAPI routes and React screens.
 - Jobs, attempts/logs, leases, retries/cancellation, session-cleanup scheduling and worker execution are implemented internally. There is no public job-management API or UI.
 - Work records, outbox, attachments and activity have shared libraries, migrations, worker projections and integration tests. Incidents now consume numbering, assignments and activity with domain object authorization; generic work/job administration remains unavailable. Incident-bound communication/file/observer/relation APIs and UI are implemented with concrete object authorization.
-- Incident Management and incident SLA have persistence, production workers, OpenAPI and functioning React screens. Catalog/request fulfillment now has domain persistence, actual task/assignment/activity processing, authenticated OpenAPI routes and administration/portal/operator UI. Workflow approvals and later business capabilities remain roadmap work.
+- Incident Management and incident SLA have persistence, production workers, OpenAPI and functioning React screens. Catalog/request fulfillment now has domain persistence, actual task/assignment/activity processing, authenticated OpenAPI routes and administration/portal/operator UI. Limited workflow approvals now have persistence, production jobs, authenticated OpenAPI and functioning React screens; broader business capabilities remain roadmap work.
 
 Implemented foundation capabilities:
 
@@ -310,9 +316,17 @@ Implemented migration versions:
 - `000060_requested_items`,
 - `000061_fulfillment_tasks`,
 - `000062_work_operation_keys`,
-- `000063_request_permissions`.
+- `000063_request_permissions`,
+- `000064_workflow_definitions`,
+- `000065_workflow_versions`,
+- `000066_workflow_executions`,
+- `000067_workflow_steps`,
+- `000068_workflow_decisions`,
+- `000069_workflow_attempts`,
+- `000070_workflow_permissions`,
+- `000071_workflow_notifications`.
 
-Each up/down migration contains one SQL statement. Runtime readiness requires migration version 63, `dirty=false`, and the foundation metadata singleton. The real MySQL lifecycle test passed latest → one-step rollback → latest → legacy schema 24 → latest → full rollback → latest → readiness. Migration 25 permanently closes first-run setup for existing accounts/organizations without changing credentials; migration 26 preserves existing hashes and defaults the required-change flag to false. The reserved `groups` identifier is quoted in schema and repository SQL.
+Each up/down migration contains one SQL statement. Runtime readiness requires migration version 71, `dirty=false`, and the foundation metadata singleton. The real MySQL lifecycle test passed latest → one-step rollback → latest → legacy schema 24 → latest → full rollback → latest → readiness. Migration 25 permanently closes first-run setup for existing accounts/organizations without changing credentials; migration 26 preserves existing hashes and defaults the required-change flag to false. The reserved `groups` identifier is quoted in schema and repository SQL.
 
 ## Technical debt
 
