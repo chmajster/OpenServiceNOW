@@ -6,9 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
 	"strings"
 	"time"
+
+	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
 )
 
 type Repository struct {
