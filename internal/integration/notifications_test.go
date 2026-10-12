@@ -4,6 +4,7 @@ package integration
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -275,8 +276,14 @@ func TestIndependentNotifications(t *testing.T) {
 	_, portText, _ := net.SplitHostPort(listener.Addr().String())
 	port, _ := strconv.Atoi(portText)
 	smtpConfig := notifications.ConfigInput{ProviderID: "local-test-provider", Enabled: true, Host: "127.0.0.1", Port: port, TLSMode: "NONE", From: "sender@example.test", Version: 0}
+	secret := "notification-private-SMTP-credential"
+	smtpConfig.Password = &secret
 	if err = service.SaveConfig(ctx, root.TenantID, root.UserID, smtpConfig); err != nil {
 		t.Fatal(err)
+	}
+	var cipher []byte
+	if err = db.QueryRowContext(ctx, `SELECT password_cipher FROM notification_smtp_config WHERE tenant_id=?`, root.TenantID).Scan(&cipher); err != nil || len(cipher) == 0 || bytes.Contains(cipher, []byte(secret)) {
+		t.Fatal("SMTP secret not encrypted in MySQL", err)
 	}
 	existing := mailPage.Deliveries[0]
 	if err = service.RetryMail(ctx, root.TenantID, root.UserID, existing.ID, existing.Version); err != nil {
@@ -342,6 +349,27 @@ func TestIndependentNotifications(t *testing.T) {
 	if err != nil || history.Pending || len(history.Entries) != 4 {
 		t.Fatal("SMTP blocked timeline", history, err)
 	}
+	item, err = incidentService.Assign(ctx, rootActor, item.ID, incidents.AssignmentInput{Version: item.Version, AssignedTo: &operator})
+	if err != nil {
+		t.Fatal(err)
+	}
+	item, err = incidentService.Transition(ctx, operatorActor, item.ID, incidents.TransitionInput{Version: item.Version, State: "IN_PROGRESS"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	item, err = incidentService.Transition(ctx, operatorActor, item.ID, incidents.TransitionInput{Version: item.Version, State: "RESOLVED", ResolutionCode: "FIXED", ResolutionDescription: "Restored functionality"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	drain(dispatcher())
+	operatorPage, err := service.List(ctx, root.TenantID, operator, 0, 25)
+	if err != nil || len(operatorPage.Notifications) != 1 || operatorPage.Notifications[0].Kind != "assignment" {
+		t.Fatal("assignment notification", operatorPage, err)
+	}
+	page, err = service.List(ctx, root.TenantID, reporter, 0, 25)
+	if err != nil || len(page.Notifications) != 5 || page.Notifications[0].Kind != "resolution" || page.Notifications[1].Kind != "state" {
+		t.Fatal("lifecycle notifications", page, err)
+	}
 	// Persisted deliveries recheck current access before sending; late reads and
 	// counters also hide records after role revocation.
 	if _, err = incidentService.AddMessage(ctx, operatorActor, item.ID, incidents.CommunicationInput{Type: workrecords.MessageComment, Body: "revoked later"}, "notify-revoked-key"); err != nil {
@@ -351,8 +379,14 @@ func TestIndependentNotifications(t *testing.T) {
 	if _, err = db.ExecContext(ctx, `DELETE FROM user_role_assignments WHERE tenant_id=? AND user_id=? AND role_id=?`, root.TenantID, reporter, reporterRole); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = w.RunOnce(ctx); err != nil {
-		t.Fatal(err)
+	for i := 0; i < 10; i++ {
+		processed, err := w.RunOnce(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !processed {
+			break
+		}
 	}
 	page, err = service.List(ctx, root.TenantID, reporter, 0, 25)
 	if err != nil || len(page.Notifications) != 0 || page.Unread != 0 {
@@ -393,9 +427,38 @@ func TestIndependentNotifications(t *testing.T) {
 	}
 	for _, path := range []string{"/api/v1/admin/notifications/mail", "/api/v1/admin/notifications/deliveries", "/api/v1/admin/notifications/smtp"} {
 		response := request(rootLogin, "GET", path, "")
-		if response.Code != 200 || strings.Contains(response.Body.String(), "PRIVATE") || strings.Contains(response.Body.String(), "password_cipher") {
+		if response.Code != 200 || strings.Contains(response.Body.String(), "PRIVATE") || strings.Contains(response.Body.String(), secret) || strings.Contains(response.Body.String(), "password_cipher") {
 			t.Fatal("unsafe admin DTO", path, response.Code, response.Body.String())
 		}
+	}
+	other, err := bootstrap.Run(ctx, identity.BootstrapInput{TenantSlug: "notify-other-" + suffix, TenantName: "Other notification tenant", AdminEmail: "other-" + suffix + "@example.test", AdminName: "Other", AdminPassword: password})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_, _ = db.ExecContext(context.Background(), `DELETE FROM audit_events WHERE tenant_id=?`, other.TenantID)
+		_, _ = db.ExecContext(context.Background(), `DELETE FROM tenants WHERE id=?`, other.TenantID)
+		_, _ = db.ExecContext(context.Background(), `DELETE FROM users WHERE id=?`, other.UserID)
+	}()
+	otherLogin, err := auth.Login(ctx, identity.LoginInput{Tenant: "notify-other-" + suffix, Email: "other-" + suffix + "@example.test", Password: password}, identity.RequestMeta{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"/api/v1/notifications/", "/api/v1/admin/notifications/mail", "/api/v1/admin/notifications/deliveries"} {
+		response := request(otherLogin, "GET", path, "")
+		if response.Code != 200 || strings.Contains(response.Body.String(), fmt.Sprintf(`"id":"%d"`, delivered.ID)) {
+			t.Fatal("organization isolation", path, response.Code, response.Body.String())
+		}
+	}
+	if response := request(otherLogin, "GET", fmt.Sprintf("/api/v1/admin/notifications/mail/%d/attempts", delivered.ID), ""); response.Code != 404 {
+		t.Fatal("cross-tenant mail IDOR", response.Code)
+	}
+	noCSRF := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/notifications/%d/read", notification.ID), nil)
+	noCSRF.AddCookie(&http.Cookie{Name: cfg.Session.CookieName, Value: reporterLogin.SessionToken})
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, noCSRF)
+	if response.Code != 403 {
+		t.Fatal("notification write without CSRF", response.Code)
 	}
 	// New registration never sends history: explicit eligibility survives replay.
 	result, err := db.ExecContext(ctx, `INSERT INTO outbox_events(tenant_id,scope_key,event_type,event_version,aggregate_type,aggregate_id,payload,notification_eligible) SELECT tenant_id,scope_key,event_type,event_version,aggregate_type,aggregate_id,payload,FALSE FROM outbox_events WHERE tenant_id=? AND event_type='work.comment.added' LIMIT 1`, root.TenantID)
@@ -408,8 +471,6 @@ func TestIndependentNotifications(t *testing.T) {
 	if err = db.QueryRowContext(ctx, `SELECT status FROM event_deliveries WHERE event_id=? AND consumer_id='notifications.v1'`, legacyID).Scan(&skipped); err != nil || skipped != "SKIPPED" {
 		t.Fatal("history replay sent notifications", skipped, err)
 	}
-	_ = operator
-	_ = rootActor
 }
 
 // SQL rollback and lease fencing are tested against actual MySQL rather than a

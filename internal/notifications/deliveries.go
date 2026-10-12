@@ -100,15 +100,43 @@ func (s *Service) Attempts(ctx context.Context, tenant, user, id uint64) ([]Atte
 }
 func (s *Service) RetryMail(ctx context.Context, tenant, user, id, version uint64) error {
 	return s.tx.WithTx(ctx, nil, func(e database.Executor) error {
-		var current uint64
-		var status string
-		var attempts uint32
-		err := e.QueryRowContext(ctx, `SELECT d.version,`+mailStatusSQL+`,d.attempt_count FROM notification_mail_deliveries d LEFT JOIN jobs j ON j.id=d.job_id WHERE d.tenant_id=? AND d.id=? FOR UPDATE`, tenant, id).Scan(&current, &status, &attempts)
+		// Match the worker's job -> delivery lock order. Verify that the job
+		// generation did not change while acquiring locks; never lock a new job
+		// after its delivery, which could deadlock with a running worker.
+		var expectedJob sql.Null[uint64]
+		err := e.QueryRowContext(ctx, `SELECT job_id FROM notification_mail_deliveries WHERE tenant_id=? AND id=?`, tenant, id).Scan(&expectedJob)
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFound
 		}
 		if err != nil {
 			return err
+		}
+		jobStatus := ""
+		if expectedJob.Valid {
+			if err = e.QueryRowContext(ctx, `SELECT status FROM jobs WHERE id=? FOR UPDATE`, expectedJob.V).Scan(&jobStatus); err != nil {
+				return err
+			}
+		}
+		var current uint64
+		var status string
+		var attempts uint32
+		var storedJob sql.Null[uint64]
+		err = e.QueryRowContext(ctx, `SELECT version,status,attempt_count,job_id FROM notification_mail_deliveries WHERE tenant_id=? AND id=? FOR UPDATE`, tenant, id).Scan(&current, &status, &attempts, &storedJob)
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if storedJob != expectedJob {
+			return ErrConflict
+		}
+		if status == "SENDING" || status == "QUEUED" {
+			if jobStatus == "FAILED" {
+				status = "FAILED"
+			} else if jobStatus == "CANCELLED" {
+				status = "SKIPPED"
+			}
 		}
 		if current != version || status != "FAILED" && status != "NOT_CONFIGURED" || attempts >= 100 {
 			return ErrConflict

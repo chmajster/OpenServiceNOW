@@ -164,12 +164,15 @@ func (s *Service) HandleEvent(ctx context.Context, event events.Event) error {
 			// Templates intentionally contain no body, title, attachment name or note
 			// payload. Even a later access revocation cannot reveal them in email.
 			label := map[string]string{"assignment": "Przypisano Ci incydent", "reply": "Nowa odpowiedź w incydencie", "state": "Zmieniono stan incydentu", "resolution": "Rozwiązano incydent"}[kind]
+			if kind == "assignment" && (payload.After.AssignedTo == nil || *payload.After.AssignedTo != user) {
+				label = "Zmieniono przypisanie incydentu"
+			}
 			visibility := "PUBLIC"
 			if internal {
 				label = "Nowa notatka wewnętrzna w incydencie"
 				visibility = "INTERNAL"
 			}
-			result, err := e.ExecContext(ctx, `INSERT IGNORE INTO notifications(tenant_id,user_id,source_event_id,incident_id,kind,visibility,summary,in_app_enabled,occurred_at) VALUES(?,?,?,?,?,?,?,?,?)`, event.TenantID, user, event.ID, id, kind, visibility, label, p.InApp, payload.OccurredAt.UTC())
+			result, err := e.ExecContext(ctx, `INSERT INTO notifications(tenant_id,user_id,source_event_id,incident_id,kind,visibility,summary,in_app_enabled,occurred_at) VALUES(?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE id=id`, event.TenantID, user, event.ID, id, kind, visibility, label, p.InApp, payload.OccurredAt.UTC())
 			if err != nil {
 				return err
 			}

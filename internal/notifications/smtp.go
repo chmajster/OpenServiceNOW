@@ -176,6 +176,10 @@ func (s *Service) TestSMTP(ctx context.Context, tenant, user uint64, key string)
 	}
 	var id uint64
 	err := s.tx.WithTx(ctx, nil, func(e database.Executor) error {
+		var tenantState string
+		if err := e.QueryRowContext(ctx, `SELECT status FROM tenants WHERE id=? FOR UPDATE`, tenant).Scan(&tenantState); err != nil {
+			return err
+		}
 		var found uint64
 		err := e.QueryRowContext(ctx, `SELECT d.id FROM notification_mail_deliveries d JOIN jobs j ON j.id=d.job_id WHERE d.tenant_id=? AND d.user_id=? AND j.idempotency_key=?`, tenant, user, "smtp-test:"+fmt.Sprint(user)+":"+key).Scan(&found)
 		if err == nil {
@@ -286,11 +290,16 @@ func (s *Service) MailHandler(ctx context.Context, job jobs.Job) (json.RawMessag
 		if err != nil {
 			return err
 		}
-		if !c.Enabled || c.Version == 0 {
+		if skip == "" && (!c.Enabled || c.Version == 0) {
 			skip = "NOT_CONFIGURED"
 		}
 		if skip != "" {
 			_, err = e.ExecContext(ctx, `UPDATE notification_mail_deliveries SET status=?,error_code=?,finished_at=UTC_TIMESTAMP(6) WHERE id=?`, skip, skip, input.ID)
+			return err
+		}
+		if d.Attempts >= 100 {
+			_, err = e.ExecContext(ctx, `UPDATE notification_mail_deliveries SET status='FAILED',error_code='SMTP_ATTEMPT_LIMIT',finished_at=UTC_TIMESTAMP(6) WHERE id=?`, input.ID)
+			already = true
 			return err
 		}
 		sequence = d.Attempts + 1

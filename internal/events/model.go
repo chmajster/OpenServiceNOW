@@ -19,6 +19,7 @@ var (
 	ErrInvalid   = errors.New("invalid event input")
 	ErrNotFound  = errors.New("event not found")
 	ErrLeaseLost = errors.New("event lease lost")
+	ErrConflict  = errors.New("event delivery changed")
 )
 
 type Event struct {

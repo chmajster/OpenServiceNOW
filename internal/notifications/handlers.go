@@ -102,7 +102,7 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		status = 400
 		code = "INVALID_REQUEST"
 		message = ErrInvalid.Error()
-	case errors.Is(err, ErrConflict):
+	case errors.Is(err, ErrConflict), errors.Is(err, events.ErrConflict):
 		status = 409
 		code = "VERSION_CONFLICT"
 		message = ErrConflict.Error()

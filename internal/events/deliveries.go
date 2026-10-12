@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"regexp"
 	"time"
 )
@@ -155,7 +154,7 @@ func (r *Repository) RetryDelivery(ctx context.Context, tenant, id uint64, attem
 	}
 	n, err := result.RowsAffected()
 	if err == nil && n != 1 {
-		return fmt.Errorf("%w: delivery changed or is not failed", ErrInvalid)
+		return ErrConflict
 	}
 	return err
 }
