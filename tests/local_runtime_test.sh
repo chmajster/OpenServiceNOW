@@ -201,6 +201,7 @@ grep -q 'mysql: unavailable' "$test_dir/docker-status.log"
 [[ "$(sql "SELECT COUNT(*) FROM jobs WHERE status IN ('QUEUED','RUNNING','RETRYING')")" == 0 ]]
 expired_id=$(sql "INSERT INTO sessions(tenant_id,user_id,token_hash,csrf_hash,expires_at) SELECT tm.tenant_id,tm.user_id,UNHEX(SHA2('local-expired-token',256)),UNHEX(SHA2('local-expired-csrf',256)),UTC_TIMESTAMP()-INTERVAL 1 HOUR FROM tenant_memberships tm JOIN users u ON u.id=tm.user_id WHERE u.email='admin@example.test'; SELECT LAST_INSERT_ID()")
 sleep 6 # A fresh idempotency bucket, beyond the stopped scheduler's final tick.
+# shellcheck source=/dev/null # Configuration generated in the disposable checkout.
 (cd "$checkout"; set -a; source .env; set +a; ./bin/opensnow-scheduler --once) >"$test_dir/scheduler-once.log" 2>&1
 cleanup_id=$(scheduled_id "$test_dir/scheduler-once.log")
 [[ "$(sql "SELECT status FROM jobs WHERE id=$cleanup_id")" == QUEUED ]]
