@@ -10,7 +10,7 @@ Legend: `[ ]` not delivered, `[-]` in progress, `[x]` implemented and verified f
 
 [P2] [x] Implement API, migration/bootstrap executables, validated configuration, structured logs, request/security controls and graceful shutdown.
 
-[P2] [x] Implement MySQL/Redis connectivity, transactions and explicit migrations 1-48 with clean-schema readiness. Migration history and verified lifecycle evidence are in STATUS.md.
+[P2] [x] Implement MySQL/Redis connectivity, transactions and explicit migrations 1-54 with clean-schema readiness. Migration history and verified lifecycle evidence are in STATUS.md.
 
 [P2] [x] Implement first-run WebUI setup with durable completion, atomic organization/admin/RBAC/audit creation, concurrency protection and safe upgrades.
 
@@ -87,7 +87,7 @@ September runner-allocation failures (including run #523) and early deployment f
 
 [P2] [x] Deliver core Incident Management: transactional model/INC numbering/assignment/audit/outbox, object RBAC/read-own, priority matrix and audited override, backend lifecycle, idempotency/versioning, server list/search/filters and complete React flow. MySQL and desktop/mobile evidence is recorded in STATUS.md and PR #17.
 [P2] [ ] Extend incidents with real CMDB/service sources, templates and major-incident coordination. PR #18 implements bounded related/parent-child relations and only the confirmed assign-to-self/start-work batch actions; broader orchestration remains future work.
-[P2] [ ] SLA engine.
+[P2] [x] Implement asynchronous incident SLA with immutable policy/calendar versions, business-time response/resolution cycles, exact-reason pauses, durable ordered replay, bounded scheduler/jobs, idempotent warning/breach notifications and working administration/incident API/UI. Verification and final CI evidence are tracked in PR #20 and STATUS.md; no retroactive enrollment or policy rebinding is claimed.
 [P2] [ ] Requests and Service Catalog.
 [P2] [ ] Workflow and Approval engines.
 [P2] [ ] Change and Problem Management.

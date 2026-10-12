@@ -213,6 +213,8 @@ Exit criteria:
 
 ## Phase 4 — SLA
 
+Incident response/resolution SLA is implemented in PR #20 through domain persistence, versioned calendar/policy administration, scheduler/worker jobs, independent durable consumers, thresholds/notifications and incident API/UI. Verification evidence is recorded in STATUS.md. Policy rebinding, retroactive enrollment, configurable escalation chains and other business domains remain separate enhancements.
+
 Goal: asynchronous SLA engine.
 
 Deliverables:

@@ -4,11 +4,19 @@ Last updated: 2026-10-12
 
 ## Current phase
 
-Independent outbox consumers and incident notifications, following the delivered foundation, Incident Management and collaboration/operator queue.
+Asynchronous incident SLA, following independent outbox consumers, notifications and the delivered Incident Management process.
 
 The repository includes the administration foundation, durable MySQL jobs/worker, scheduler, work-record infrastructure and the core Incident Management API/UI. The full application is deployed through DevBox with real MySQL/Redis readiness. This delivery does not declare every Phase 3 extension or later roadmap phase complete.
 
-## Last completed
+## Incident SLA delivery
+
+[PR #20](https://github.com/chmajster/OpenServiceNOW/pull/20) implements `internal/sla`, migrations 49–54, immutable audited policy/calendar versions, deterministic organization/priority/category selection, first-response events, durable current and historical resolution cycles, exact-reason pauses, microsecond accrual and business-time deadlines. Worker jobs consume bounded source batches in incident-version/time order and the scheduler autonomously checks due work. Warning/breach events have actual activity/notification consumers with atomic per-threshold idempotency. Authenticated administration, filtered incident batch summaries/history and React policy/calendar/list/detail views are implemented together.
+
+Local verification passed calendar weekend/holiday/night, Warsaw spring/autumn DST, repeated pauses, delayed resolution, precision/restart and deterministic selection tests; Go unit/race/vet/build; disposable MySQL integration and complete migration rollback/reupgrade through 54; frontend TypeScript/build and 22 unit tests. The real MySQL test covers reversed source IDs/versions and handler arrival, retained policy history, idempotent thresholds plus four actual in-app effects, definition/request conflicts, object RBAC/tenant isolation, a fresh service checkpoint and authenticated read-only SLA routes. Four scoped desktop/mobile setup/SLA scenarios passed with real API/frontend/worker/scheduler, policy conflict resolution, private/reporter exclusion from first response, exact-reason pause/resume, pinned calendar versions, BIGINT IDs, and a real autonomous deadline crossing while both incident browsers were closed. Actual API/worker restart preserved instance IDs/deadlines/thresholds, definitions/calendar versions, SLA history and the saved session. The full 30-scenario regression, current six-job CI, final review and merge evidence are recorded in PR #20; earlier CI results below describe their historical revisions.
+
+Boundaries: no historical enrollment, no rebinding active policy/calendar, no generic escalation workflow. Policy priority/category freeze at creation; reopening resets only resolution with the original versions. Response without a qualifying public operator message is UNANSWERED. The scheduler checks at most 100 candidates every at most 30 seconds; a job applies 200 transitions and durably continues. Definitions are limited to 100 per kind and calendar search to ten years. Snapshots expose last calculation time; reads never execute timers. Warning/breach notifications follow state-change preferences and current incident permissions; SMTP retains its existing ambiguity. The schema upgrade requires stopped old runtimes, and does not alter credentials.
+
+## Earlier deliveries
 
 Phase 0, the administration foundation, shared work-platform libraries and both local installer modes are delivered through PR #14. DevBox deployment was delivered in PR #7. PR #15 delivered the administration UX rebuild; all six jobs in [foundation-ci #616](https://github.com/chmajster/OpenServiceNOW/actions/runs/38246614044) passed. Own-account implementation and local verification are recorded in [PR #16](https://github.com/chmajster/OpenServiceNOW/pull/16), which also tracks final CI and merge evidence.
 
@@ -17,7 +25,7 @@ Availability boundaries:
 - Setup, authentication, own-account profile/password/sessions, tenant/user/RBAC administration and audit have implemented services, OpenAPI routes and React screens.
 - Jobs, attempts/logs, leases, retries/cancellation, session-cleanup scheduling and worker execution are implemented internally. There is no public job-management API or UI.
 - Work records, outbox, attachments and activity have shared libraries, migrations, worker projections and integration tests. Incidents now consume numbering, assignments and activity with domain object authorization; generic work/job administration remains unavailable. Incident-bound communication/file/observer/relation APIs and UI are implemented with concrete object authorization.
-- Incident Management has persistence, OpenAPI routes and React list/create/detail/lifecycle/history/communication/participant screens and a versioned operator queue. SLA/request and later business capabilities remain roadmap work.
+- Incident Management has persistence, OpenAPI routes and React list/create/detail/lifecycle/history/communication/participant screens and a versioned operator queue. Incident SLA now has persistence, scheduler/worker processing, OpenAPI routes and administration/list/detail UI; requests and later business capabilities remain roadmap work.
 
 Implemented foundation capabilities:
 
@@ -123,7 +131,7 @@ Final UI review also retains dirty forms when concurrent closure removes write e
 
 Go unit/race/vet/build, disposable MySQL integration and migrations 1–32, 15 frontend unit tests and typecheck/build passed. Full browser regression passed 24/24 desktop/mobile scenarios, including lost response after a real committed incident write, agent beyond the first directory page, keyboard actions, own-record restrictions, rejected API transition, retained conflict draft, reopen, real worker history and refresh persistence. MySQL tests verify all nine event types, source-order pagination after out-of-order delivery and retry deduplication. The native lifecycle CI suite checks incident/number/assignment/history persistence across restarts, port changes and ordinary uninstall/reinstall. Final CI, review and merge evidence are tracked in PR #17.
 
-At PR #17 completion, collaboration was a subsequent stage; PR #18 delivered replies/notes/files, related/parent-child records and two operator batch actions. SLA, CMDB/service relations, configurable catalogs, major workflows and broader automation remain subsequent stages.
+At PR #17 completion, collaboration was a subsequent stage; PR #18 delivered replies/notes/files, related/parent-child records and two operator batch actions. At that revision SLA was future work; PR #20 implements incident SLA. CMDB/service relations, configurable catalogs, major workflows and broader automation remain subsequent stages.
 
 ## Administration usability result
 
@@ -279,9 +287,15 @@ Implemented migration versions:
 - `000045_notifications`,
 - `000046_notification_mail_deliveries`,
 - `000047_notification_mail_attempts`,
-- `000048_notification_permission`.
+- `000048_notification_permission`,
+- `000049_sla_definitions`,
+- `000050_sla_definition_versions`,
+- `000051_sla_instances`,
+- `000052_sla_work`,
+- `000053_sla_history`,
+- `000054_sla_permission`.
 
-Each up/down migration contains one SQL statement. Runtime readiness requires migration version 48, `dirty=false`, and the foundation metadata singleton. The real MySQL lifecycle test passed latest → one-step rollback → latest → legacy schema 24 → latest → full rollback → latest → readiness. Migration 25 permanently closes first-run setup for existing accounts/organizations without changing credentials; migration 26 preserves existing hashes and defaults the required-change flag to false. The reserved `groups` identifier is quoted in schema and repository SQL.
+Each up/down migration contains one SQL statement. Runtime readiness requires migration version 54, `dirty=false`, and the foundation metadata singleton. The real MySQL lifecycle test passed latest → one-step rollback → latest → legacy schema 24 → latest → full rollback → latest → readiness. Migration 25 permanently closes first-run setup for existing accounts/organizations without changing credentials; migration 26 preserves existing hashes and defaults the required-change flag to false. The reserved `groups` identifier is quoted in schema and repository SQL.
 
 ## Technical debt
 

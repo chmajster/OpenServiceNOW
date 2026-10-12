@@ -2,7 +2,7 @@
 
 ## Status
 
-Phase 0 established the target architecture and module boundaries. The implemented stack contains API, migration/bootstrap, worker and scheduler executables, MySQL schema through migration 48, Redis-backed controls, identity/RBAC/audit services, the first-run installer, React administration and own-account UI.
+Phase 0 established the target architecture and module boundaries. The implemented stack contains API, migration/bootstrap, worker and scheduler executables, MySQL schema through migration 54, Redis-backed controls, identity/RBAC/audit services, the first-run installer, React administration and own-account UI.
 
 Shared work-record, jobs, outbox, activity and attachment libraries are implemented and integration-tested. The scheduler enqueues durable session- and attachment-cleanup jobs; the worker executes them and dispatches activity events. Incident Management consumes shared numbering, assignments, messages, watchers, relations, attachments and activity through domain-authorized API/UI. Generic work/job-management and arbitrary-object attachment APIs/UI remain future stages. Existing routes/screens cover setup, authentication, own accounts, tenant/user/RBAC/audit administration, incidents and notifications/delivery administration. The remaining sections distinguish implemented foundations from target business capabilities; see STATUS.md and TODO.md for verified progress.
 
@@ -10,7 +10,7 @@ Shared work-record, jobs, outbox, activity and attachment libraries are implemen
 
 The implemented `internal/incidents` domain owns incident fields, object authorization, lifecycle rules and business versioning. It calls shared `workrecords.Allocator.NextInTx` and `workrecords.Service.SetAssignmentInTx` using the same `database.Executor` as incident persistence, audit and outbox; no nested transaction commits independently. Creation idempotency is scoped to the backend actor and organization, while INC uniqueness is enforced per organization and numbering uses the shared row-locked sequence.
 
-Nine incident event types have production handlers registered by `cmd/worker`. Payloads contain complete business before/after snapshots, decimal incident version and mutation-time `occurred_at`; shared activity uses that timestamp and source-event pagination, so delayed/out-of-order projection cannot redefine business time. History reports pending outbox work independently of durable synchronous writes. Future SLA must consume business occurrence/version, not delivery time. Incident communication/file mutations emit the existing shared work events through the same transaction; production work handlers project them into activity without duplicating replayed events. CMDB remains a later domain integration requiring a real provider.
+Nine incident event types have production handlers registered by `cmd/worker`. Payloads contain complete business before/after snapshots, decimal incident version and mutation-time `occurred_at`; shared activity uses that timestamp and source-event pagination, so delayed/out-of-order projection cannot redefine business time. History reports pending outbox work independently of durable synchronous writes. The implemented SLA consumer reads business occurrence/version, not delivery time. Incident communication/file mutations emit the existing shared work events through the same transaction; production work handlers project them into activity without duplicating replayed events. CMDB remains a later domain integration requiring a real provider.
 
 OpenServiceNOW is an enterprise ITSM / IT Operations platform inspired by the functional class of products such as ServiceNow, while using its own implementation, UX, data model, naming, and architecture.
 
@@ -591,20 +591,15 @@ Approvals are generic and support user/group targets, sequential/parallel polici
 
 ## SLA subsystem
 
-SLA processing is asynchronous and business-calendar aware.
+`internal/sla` implements incident response/resolution policies and organization calendars through persistence, API and React administration. Definition roots use optimistic locking; published JSON versions are immutable and audited. The selected policy is the latest version effective at incident creation, with lower administrative order, greater priority/category specificity and lower stable ID breaking ties. A policy always references an explicit immutable calendar version. New definitions do not enroll historical incidents; disabling a policy affects future selection only.
 
-The subsystem requires:
+Weekly windows use local IANA time; holidays/exceptions use local ISO dates. Exceptions override holidays and weekday hours. Business/event/deadline timestamps are UTC. Calendar calculations intersect windows with the real timeline: spring missing minutes do not count and autumn repeated minutes count twice. Intervals do not cross local midnight; overnight schedules use two days. The calculation horizon is bounded to ten years. Definitions are bounded to 100 of each kind per organization, 1000 holidays/exceptions and eight windows per day. Timers preserve microseconds internally and expose decimal-string microsecond values alongside second summaries.
 
-- definitions,
-- start/pause/stop conditions,
-- calendars,
-- business hours,
-- holidays,
-- warnings,
-- breaches,
-- escalation.
+The independent `sla.v1` consumer enqueues durable incident reconciliation, while a scheduler sweep every at most 30 seconds selects at most 100 due/new incidents. Jobs fetch at most 200 source transitions, persist their checkpoint and enqueue continuation when required. They read committed outbox events in incident-version/business-time/source-ID order under the same organization/incident lock used by domain writes, rather than relying on delivery order. The replay cursor, policy/calendar snapshot, current cycles, every finished prior cycle, transitions, accrued time, pauses, deadlines and thresholds survive restart in MySQL. Timer advancement occurs only after the committed transition backlog is exhausted; delayed resolution cannot become a false breach at worker receipt time.
 
-SLA values cannot be calculated only when a record is opened. Scheduler/worker execution is part of the design.
+Creation starts both metrics. `incident.first_response` is emitted atomically with the first appended public reply from an operator with organization-wide incident read who is not the reporter; private notes and reporter replies cannot stop response SLA. Only exact configured ON_HOLD reasons pause. Resolution/closure stops both metrics; a missing public response is explicitly UNANSWERED, never treated as answered. Cancellation cancels. Priority/category changes preserve the initial choice and record that decision; reopening starts a new resolution cycle with the original definition/calendar and leaves the response metric unchanged. Calendar edits require a new policy version to affect future incidents; no silent historical rebinding exists.
+
+Warning and breach outbox events, history and audit commit with the instance, keyed by instance/provided threshold. `activity.v1` and `notifications.v1` have real handlers; the latter reuses current object authorization, in-app/SMTP delivery and state-change preferences. Retry does not duplicate MySQL escalation effects; external SMTP retains its documented ambiguity. SLA GET routes only read authorized snapshots/history, never run timers. A stopped worker delays displayed calculations and notifications, while synchronous incident operations remain available. Queue delivery administration exposes failed SLA consumers. Scheduler backlog and work duration can extend processing beyond the 30-second cadence; this is not a delivery-time guarantee.
 
 ## CMDB and assets
 
@@ -645,7 +640,7 @@ Audit records are append-only from the normal application path and capture:
 - IP metadata where legally and operationally appropriate,
 - timestamp.
 
-Incident activity is a user-facing projection combining incident business changes and shared communication/file/observer/relation events. Visibility is durable and defaults to INTERNAL; only known public business events and explicit public communication are exposed. Repository SQL filters private payloads before pagination/cursor/pending checks. Approvals/SLA/automation are future producers.
+Incident activity is a user-facing projection combining incident business changes and shared communication/file/observer/relation events. Visibility is durable and defaults to INTERNAL; only known public business events and explicit public communication are exposed. Repository SQL filters private payloads before pagination/cursor/pending checks. SLA warning/breach producers are implemented; approvals and automation remain future producers.
 
 Incident-bound routes first resolve the current session actor/organization and readable domain record; clients cannot select an arbitrary object reference. Internal note/file/activity access additionally requires organization-wide incident read and internal-note read. File references inherit linked message visibility and authorize the linked record. Public file DTOs exclude storage keys/paths; download rechecks access and uses safe attachment/MIME headers. Shared mutation methods accept the domain transaction executor, including permission checks with a single SQL connection.
 
