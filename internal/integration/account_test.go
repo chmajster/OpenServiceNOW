@@ -185,6 +185,9 @@ func TestOwnAccountGlobalCredentialsAndSessions(t *testing.T) {
 	if err := s.RevokeOwnSessions(ctx, foreign.Identity, rotated.Identity.SessionID, identity.RequestMeta{}); !errors.Is(err, identity.ErrNotFound) {
 		t.Fatal("organization admin can revoke another global identity")
 	}
+	if w := call("DELETE", fmt.Sprintf("/api/v1/auth/sessions/%d", rotated.Identity.SessionID), foreign, ""); w.Code != 404 {
+		t.Fatalf("foreign session API ownership: %d", w.Code)
+	}
 	if w := call("PUT", "/api/v1/auth/profile", rotated, fmt.Sprintf(`{"display_name":"Renamed 😀","version":"%d"}`, rotated.Identity.Version)); w.Code != 204 {
 		t.Fatalf("profile: %d %s", w.Code, w.Body.String())
 	}

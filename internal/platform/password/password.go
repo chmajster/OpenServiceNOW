@@ -51,11 +51,11 @@ func HashWithParams(plain string, p Params) (string, error) {
 
 // HashWithMinimumLength applies a caller-specific password policy while retaining
 // the standard Argon2id parameters and maximum input size.
-func HashWithMinimumLength(plain string, minimumBytes int) (string, error) {
-	if minimumBytes < 1 || minimumBytes > MaxPasswordBytes {
+func HashWithMinimumLength(plain string, minimumCharacters int) (string, error) {
+	if minimumCharacters < 1 || minimumCharacters > MaxPasswordBytes {
 		return "", errors.New("password minimum length is outside the allowed range")
 	}
-	return hashWithParams(plain, DefaultParams, minimumBytes)
+	return hashWithParams(plain, DefaultParams, minimumCharacters)
 }
 
 func Validate(plain string) error {
@@ -72,8 +72,8 @@ func validateLength(plain string, minimum int) error {
 	return nil
 }
 
-func hashWithParams(plain string, p Params, minimumBytes int) (string, error) {
-	if err := validateLength(plain, minimumBytes); err != nil {
+func hashWithParams(plain string, p Params, minimumCharacters int) (string, error) {
+	if err := validateLength(plain, minimumCharacters); err != nil {
 		return "", err
 	}
 	if err := validateParams(p); err != nil {

@@ -16,6 +16,7 @@ var (
 	ErrSetupInvalid          = errors.New("invalid installation settings")
 	ErrAccountInvalid        = errors.New("invalid account settings")
 	ErrAccountConflict       = errors.New("account version conflict")
+	ErrAccountResultUnknown  = errors.New("account transaction result is unknown")
 )
 
 type User struct {

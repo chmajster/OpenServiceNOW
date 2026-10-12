@@ -154,6 +154,8 @@ func writeAccountError(w http.ResponseWriter, r *http.Request, err error) {
 		return
 	}
 	switch {
+	case errors.Is(err, ErrAccountResultUnknown):
+		httpapi.WriteError(w, r, http.StatusInternalServerError, "ACCOUNT_RESULT_UNKNOWN", "Password change outcome is unconfirmed. Reload /me or sign in with the new password; do not retry automatically")
 	case errors.Is(err, ErrAccountInvalid):
 		httpapi.WriteError(w, r, http.StatusBadRequest, "ACCOUNT_INVALID", err.Error())
 	case errors.Is(err, ErrAccountConflict):

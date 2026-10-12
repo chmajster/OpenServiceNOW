@@ -1683,10 +1683,23 @@
             "$ref": "#/components/responses/Forbidden"
           },
           "500": {
-            "$ref": "#/components/responses/BadRequest"
+            "description": "Operation failed; transaction errors before commit leave credentials and sessions unchanged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           },
           "409": {
             "description": "Version conflict. Reload /me and explicitly decide before retrying. Local input must be retained."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
           }
         },
         "parameters": [
@@ -1755,7 +1768,14 @@
             "$ref": "#/components/responses/Forbidden"
           },
           "500": {
-            "$ref": "#/components/responses/BadRequest"
+            "description": "Operation failed; transaction errors before commit leave credentials and sessions unchanged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           },
           "409": {
             "description": "Version conflict. Reload /me and explicitly decide before retrying. Local input must be retained."
@@ -1772,6 +1792,12 @@
           },
           "503": {
             "description": "Argon2 concurrency limit or limiter unavailable. Retry-After is supplied for AUTH_BUSY."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
           }
         },
         "parameters": [
@@ -1832,7 +1858,17 @@
             "$ref": "#/components/responses/Forbidden"
           },
           "500": {
-            "$ref": "#/components/responses/BadRequest"
+            "description": "Operation failed; transaction errors before commit leave credentials and sessions unchanged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
           }
         },
         "parameters": [
@@ -1884,7 +1920,17 @@
             "$ref": "#/components/responses/Forbidden"
           },
           "500": {
-            "$ref": "#/components/responses/BadRequest"
+            "description": "Operation failed; transaction errors before commit leave credentials and sessions unchanged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
           }
         },
         "parameters": [
@@ -1928,10 +1974,20 @@
             "$ref": "#/components/responses/Forbidden"
           },
           "500": {
-            "$ref": "#/components/responses/BadRequest"
+            "description": "Operation failed; transaction errors before commit leave credentials and sessions unchanged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           },
           "404": {
             "description": "Session does not belong to this identity or was removed by retention cleanup."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
           }
         },
         "parameters": [
@@ -2792,7 +2848,7 @@
             "writeOnly": true,
             "minLength": 1,
             "maxLength": 1024,
-            "description": "12–1024 UTF-8 bytes. Only admin/admin@example.test may use the default password admin."
+            "description": "A custom password requires at least 12 Unicode code points and at most 1024 UTF-8 bytes. The default administrator password admin is temporary and requires a change on first login."
           }
         }
       },

@@ -82,6 +82,9 @@ func TestRunTransactionReportsCommitFailure(t *testing.T) {
 	if !errors.Is(err, expected) {
 		t.Fatalf("runTransaction() error = %v", err)
 	}
+	if !errors.Is(err, ErrCommitUncertain) {
+		t.Fatal("commit failure was presented as a confirmed rollback")
+	}
 	if tx.commits != 1 {
 		t.Fatalf("commits=%d", tx.commits)
 	}

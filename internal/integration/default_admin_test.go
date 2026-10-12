@@ -127,4 +127,12 @@ func TestDefaultAdministratorAuthenticationAndPersistence(t *testing.T) {
 	if _, err := service.Login(ctx, identity.LoginInput{Tenant: input.TenantSlug, Email: "admin", Password: "admin"}, identity.RequestMeta{}); !errors.Is(err, identity.ErrInvalidCredentials) {
 		t.Fatalf("default password bypasses changed credentials: %v", err)
 	}
+	input.AdminPassword = "changed-administrator-password"
+	input.RequirePasswordChange = true
+	if _, err := bootstrap.Run(ctx, input); err != nil {
+		t.Fatal(err)
+	}
+	if restored, err := service.Authenticate(ctx, changed.SessionToken); err != nil || restored.PasswordChangeRequired {
+		t.Fatal("re-bootstrap imposed a temporary-password flag on an existing account")
+	}
 }
