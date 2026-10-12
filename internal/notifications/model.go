@@ -31,6 +31,7 @@ type Notification struct {
 	ID            uint64     `json:"id,string"`
 	SourceEventID uint64     `json:"source_event_id,string"`
 	IncidentID    uint64     `json:"incident_id,string"`
+	ExecutionID   uint64     `json:"execution_id,string,omitempty"`
 	Kind          string     `json:"kind"`
 	Summary       string     `json:"summary"`
 	OccurredAt    time.Time  `json:"occurred_at"`

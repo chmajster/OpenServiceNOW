@@ -25,6 +25,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/requests"
 	"github.com/chmajster/OpenServiceNOW/internal/sla"
 	"github.com/chmajster/OpenServiceNOW/internal/systemjobs"
+	"github.com/chmajster/OpenServiceNOW/internal/workflow"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 )
 
@@ -87,6 +88,17 @@ func main() {
 		os.Exit(1)
 	}
 	projector := activity.NewProjector(database.NewTxManager(db), activity.NewRepository(db))
+	workflowService := workflow.NewService(db, requests.NewService(db, nil))
+	if err := jobWorker.Register(workflow.JobType, workflowService.JobHandler); err != nil {
+		logger.Error("register workflow worker failed")
+		os.Exit(1)
+	}
+	for kind, label := range map[string]string{"workflow.changed": "Zmieniono stan procesu", "workflow.approval.requested": "Proces oczekuje na akceptację", "workflow.notification": "Powiadomienie procesu"} {
+		if err := dispatcher.Register(kind, projector.Handler(kind, label)); err != nil {
+			logger.Error("register workflow projection failed")
+			os.Exit(1)
+		}
+	}
 	slaService := sla.NewService(db)
 	if err := slaService.Register(dispatcher, projector); err != nil {
 		logger.Error("register SLA consumer failed")

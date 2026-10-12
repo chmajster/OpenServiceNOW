@@ -12,6 +12,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/catalog"
 	"github.com/chmajster/OpenServiceNOW/internal/events"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
+	"github.com/chmajster/OpenServiceNOW/internal/workflow"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 	"regexp"
 	"strings"
@@ -131,21 +132,15 @@ func (s *Service) Create(ctx context.Context, a Actor, in Submission, key string
 			if err != nil {
 				return err
 			}
-			for _, step := range d.Steps {
-				num, err := s.allocator.NextInTx(ctx, e, a.TenantID, "fulfillment_task", "SCTASK", 7)
-				if err != nil {
+			if d.Method == "WORKFLOW" {
+				if _, err = workflow.StartInTx(ctx, e, a, d.WorkflowID, d.WorkflowVersion, r.ID, uint64(requested), d.GroupID, now); err != nil {
 					return err
 				}
-				result, err := e.ExecContext(ctx, "INSERT INTO fulfillment_tasks(tenant_id,request_id,requested_item_id,number,title,instructions,required,result,updated_at) VALUES(?,?,?,?,?,?,?,'',?)", a.TenantID, r.ID, requested, num, step.Title, step.Instructions, step.Required, now)
-				if err != nil {
-					return err
-				}
-				task, err := result.LastInsertId()
-				if err != nil {
-					return err
-				}
-				if _, err = s.work.SetAssignmentInTx(ctx, e, a.Actor, "fulfillment_task", fmt.Sprint(task), 0, nil, &d.GroupID); err != nil {
-					return err
+			} else {
+				for _, step := range d.Steps {
+					if _, err = s.createTask(ctx, e, a, r.ID, uint64(requested), d.GroupID, step, now); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -197,35 +192,7 @@ func (s *Service) Transition(ctx context.Context, a Actor, id uint64, in Change)
 		if !contains(r.Actions, in.State) {
 			return ErrTransition
 		}
-		in.Reason = strings.TrimSpace(in.Reason)
-		if !catalog.Text(in.Reason, 0, 10000) || in.State == "CANCELLED" && !catalog.Text(in.Reason, 1, 10000) {
-			return ErrInvalid
-		}
-		if in.State == "CLOSED" || in.State == "FULFILLED" {
-			var incomplete bool
-			if err := e.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM fulfillment_tasks WHERE tenant_id=? AND request_id=? AND required=TRUE AND state<>'COMPLETED')", a.TenantID, id).Scan(&incomplete); err != nil {
-				return err
-			}
-			if incomplete {
-				return ErrTransition
-			}
-		}
-		if in.State == "CANCELLED" {
-			if _, err := e.ExecContext(ctx, "UPDATE fulfillment_tasks SET state='CANCELLED',version=version+1,updated_at=? WHERE tenant_id=? AND request_id=? AND state NOT IN('COMPLETED','CANCELLED')", time.Now().UTC(), a.TenantID, id); err != nil {
-				return err
-			}
-		}
-		if in.State == "FULFILLED" {
-			if _, err := e.ExecContext(ctx, "UPDATE fulfillment_tasks SET state='CANCELLED',version=version+1,updated_at=? WHERE tenant_id=? AND request_id=? AND required=FALSE AND state NOT IN('COMPLETED','CANCELLED')", time.Now().UTC(), a.TenantID, id); err != nil {
-				return err
-			}
-		}
-		if _, err := e.ExecContext(ctx, "UPDATE service_requests SET state=?,reason=?,version=version+1,updated_at=? WHERE tenant_id=? AND id=?", in.State, in.Reason, time.Now().UTC(), a.TenantID, id); err != nil {
-			return err
-		}
-		r.Version++
-		r.State = in.State
-		if err := s.event(ctx, e, a, r, "request.state.changed", "PUBLIC", fmt.Sprintf("request:%d:%d", id, r.Version), map[string]any{"state": r.State, "reason": in.Reason}); err != nil {
+		if err := s.applyStateInTx(ctx, e, a, &r, in, 0); err != nil {
 			return err
 		}
 		var err error

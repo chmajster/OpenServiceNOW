@@ -23,7 +23,7 @@ func (s *Service) MailList(ctx context.Context, tenant, user, before uint64, lim
 	query := `SELECT d.id,d.user_id,d.notification_id,d.provider_id,` + mailStatusSQL + `,d.attempt_count,d.version,CASE WHEN d.status IN ('SENDING','QUEUED') AND j.status='FAILED' THEN 'JOB_EXHAUSTED' ELSE d.error_code END,d.created_at,COALESCE(d.finished_at,j.finished_at) FROM notification_mail_deliveries d LEFT JOIN jobs j ON j.id=d.job_id WHERE d.tenant_id=?`
 	args := []any{tenant}
 	if user > 0 {
-		query += ` AND d.user_id=? AND (d.notification_id IS NULL OR EXISTS(SELECT 1 FROM notifications n JOIN incidents i ON i.id=n.incident_id WHERE n.id=d.notification_id AND `
+		query += ` AND d.user_id=? AND (d.notification_id IS NULL OR EXISTS(SELECT 1` + notificationJoins + ` WHERE n.id=d.notification_id AND `
 		a, err := s.currentActor(ctx, s.db, tenant, user)
 		if err != nil {
 			return MailPage{}, err

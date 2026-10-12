@@ -19,7 +19,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chmajster/OpenServiceNOW/internal/incidents"
 	"github.com/chmajster/OpenServiceNOW/internal/jobs"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
 )
@@ -260,18 +259,21 @@ func (s *Service) MailHandler(ctx context.Context, job jobs.Job) (json.RawMessag
 		}
 		if notification.Valid {
 			var kind, visibility string
-			if err = e.QueryRowContext(ctx, `SELECT incident_id,summary,kind,visibility FROM notifications WHERE tenant_id=? AND user_id=? AND id=?`, job.TenantID, d.UserID, notification.V).Scan(&incident, &summary, &kind, &visibility); err != nil {
+			if err = e.QueryRowContext(ctx, `SELECT COALESCE(incident_id,0),summary,kind,visibility FROM notifications WHERE tenant_id=? AND user_id=? AND id=?`, job.TenantID, d.UserID, notification.V).Scan(&incident, &summary, &kind, &visibility); err != nil {
 				return err
 			}
-			r, err := incidents.NewRepository(s.db).Get(ctx, e, job.TenantID, incident, false)
-			if err != nil {
+			clause, args := notificationAccess(a)
+			clause = replaceInAppFilter(clause)
+			args = append(args, notification.V)
+			var accessible bool
+			if err = e.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1`+notificationJoins+` WHERE `+clause+` AND n.id=?)`, args...).Scan(&accessible); err != nil {
 				return err
 			}
 			p, err := s.preference(ctx, e, job.TenantID, d.UserID)
 			if err != nil {
 				return err
 			}
-			if !incidents.CanRead(a, r) || visibility == "INTERNAL" && !incidents.CanReadNotes(a) || !p.SMTP || !kindEnabled(p, kind) {
+			if !accessible || !p.SMTP || !kindEnabled(p, kind) {
 				skip = "SKIPPED"
 			}
 		} else {
