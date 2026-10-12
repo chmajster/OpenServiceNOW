@@ -9,6 +9,7 @@ import { UnsavedGuard } from "../incidents/UnsavedGuard";
 import { LoadState } from "../requests/LoadState";
 import { useEditor } from "../requests/useEditor";
 import { states, type Request, type Task } from "../requests/contracts";
+import { RequestProcesses } from "../workflow/ProcessView";
 export function RequestsPage({ tasks = false }: { tasks?: boolean }) {
   const { recordID } = useParams();
   return recordID ? (
@@ -276,6 +277,7 @@ function Workspace({
         {states[r.state]} · Wersja {r.version}
       </p>
       <Link to={`/${tasks ? "fulfillment" : "requests"}`}>Wróć do kolejki</Link>
+      {!tasks ? <RequestProcesses requestID={requestID} /> : null}
       {tasks ? (
         <p>
           <Link to={`/requests/${requestID}`}>
@@ -445,6 +447,7 @@ function Workspace({
               <label>
                 Nowy stan
                 <select
+                  aria-label="Nowy stan"
                   required
                   value={state}
                   disabled={editor.busy || !!editor.conflict}

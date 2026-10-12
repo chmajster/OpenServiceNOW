@@ -17,6 +17,16 @@ type NavItem = {
 };
 
 const navigation: NavItem[] = [
+  {
+    to: "/approvals",
+    label: "Moje akceptacje",
+    permission: "workflow.approve",
+  },
+  {
+    to: "/workflow",
+    label: "Procesy i akceptacje",
+    anyPermissions: ["workflow.author", "workflow.publish", "workflow.manage"],
+  },
   { to: "/catalog", label: "Katalog usług", permission: "catalog.read" },
   {
     to: "/requests",
@@ -72,9 +82,13 @@ export function AppShell() {
   const current = navigation.find(
     (item) =>
       (item.to.split("?")[0] === location.pathname ||
-        (["/incidents", "/catalog", "/requests", "/fulfillment"].includes(
-          item.to,
-        ) &&
+        ([
+          "/incidents",
+          "/catalog",
+          "/requests",
+          "/fulfillment",
+          "/approvals",
+        ].includes(item.to) &&
           location.pathname.startsWith(`${item.to}/`))) &&
       (!item.to.includes("kind=") || item.to.endsWith(kind)),
   );

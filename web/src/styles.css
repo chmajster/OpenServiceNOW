@@ -993,3 +993,36 @@ tbody tr:last-child td {
 .catalog-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); gap:1rem; }
 .preserve-lines { white-space:pre-wrap; overflow-wrap:anywhere; }
 .conflict-panel pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:24rem; overflow:auto; }
+
+/* Durable process steps keep their reading order on narrow screens. */
+.workflow-steps {
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.75rem;
+}
+.workflow-step {
+  border: 1px solid var(--border, #d9e1eb);
+  border-left: 5px solid #8b9bb0;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  overflow-wrap: anywhere;
+}
+.workflow-step h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+.workflow-step[aria-current="step"] {
+  border-left-color: #2769b9;
+  background: #f0f6ff;
+}
+.workflow-step--completed {
+  border-left-color: #267845;
+}
+.workflow-step--cancelled {
+  border-left-color: #a13d3d;
+}
+.workflow-node-editor {
+  margin-block: 1rem;
+  min-width: 0;
+}

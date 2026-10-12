@@ -35,6 +35,12 @@ const CatalogAdminPage = lazy(() =>
 const RequestsPage = lazy(() =>
   import("./pages/RequestsPage").then((m) => ({ default: m.RequestsPage })),
 );
+const WorkflowPage = lazy(() =>
+  import("./pages/WorkflowPage").then((m) => ({ default: m.WorkflowPage })),
+);
+const ApprovalsPage = lazy(() =>
+  import("./pages/ApprovalsPage").then((m) => ({ default: m.ApprovalsPage })),
+);
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -62,6 +68,9 @@ const router = createBrowserRouter(
         <Route path="catalog/:itemID" element={<CatalogPage />} />
         <Route path="requests" element={<RequestsPage />} />
         <Route path="requests/:recordID" element={<RequestsPage />} />
+        <Route path="approvals" element={<ApprovalsPage />} />
+        <Route path="approvals/:executionID" element={<ApprovalsPage />} />
+        <Route path="workflow" element={<WorkflowPage />} />
         <Route path="fulfillment" element={<RequestsPage tasks />} />
         <Route path="fulfillment/:recordID" element={<RequestsPage tasks />} />
         <Route

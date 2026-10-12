@@ -1,6 +1,7 @@
 export type Notification = {
   id: string;
   incident_id: string;
+  execution_id?: string;
   source_event_id: string;
   kind: string;
   summary: string;

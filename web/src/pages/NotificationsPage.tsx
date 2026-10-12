@@ -146,12 +146,18 @@ function NotificationWorkspace() {
                             </time>
                           </p>
                           <Link
-                            to={`/incidents/${n.incident_id}`}
+                            to={
+                              n.execution_id
+                                ? `/approvals/${n.execution_id}`
+                                : `/incidents/${n.incident_id}`
+                            }
                             onClick={() => {
                               if (!n.read_at) void read(n.id);
                             }}
                           >
-                            Otwórz incydent #{n.incident_id}
+                            {n.execution_id
+                              ? `Otwórz proces #${n.execution_id}`
+                              : `Otwórz incydent #${n.incident_id}`}
                           </Link>
                         </div>
                         <button
