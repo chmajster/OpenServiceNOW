@@ -392,6 +392,37 @@ test("workflow approval preserves proposal, pins version and creates exactly one
       { timeout: 30000 },
     )
     .toBe("WAITING");
+  const secondWaiting = await (
+    await request.get(`/api/v1/workflow/executions/${secondExecution}`)
+  ).json();
+  expect(
+    (
+      await request.post(
+        `/api/v1/workflow/executions/${secondExecution}/decisions/approval`,
+        {
+          headers,
+          data: {
+            version: secondWaiting.steps.find(
+              (s: { node_id: string }) => s.node_id === "approval",
+            ).version,
+            decision: "APPROVED",
+            reason: "Prepare durable task wait for repair",
+          },
+        },
+      )
+    ).status(),
+  ).toBe(200);
+  await expect
+    .poll(
+      async () => {
+        const x = await (
+          await request.get(`/api/v1/workflow/executions/${secondExecution}`)
+        ).json();
+        return `${x.state}:${x.current_node}`;
+      },
+      { timeout: 30000 },
+    )
+    .toBe("WAITING:wait");
   expect(
     (
       await request.delete(
