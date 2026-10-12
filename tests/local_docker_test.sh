@@ -12,6 +12,7 @@ mkdir -p "$checkout"
 cleanup() {
   local service
   if [[ -n "$listener_pid" ]]; then kill "$listener_pid" 2>/dev/null || true; fi
+  docker rm -f "${project}-api-address-holder" >/dev/null 2>&1 || true
   mkdir -p "$repo_dir/.opensnow/docker-runtime-verification"
   for service in mysql redis api frontend worker scheduler; do
     compose logs --no-color --tail 100 "$service" >"$repo_dir/.opensnow/docker-runtime-verification/$service.log" 2>&1 || true
@@ -123,9 +124,11 @@ stop_listener
 # Replacing the API also refreshes an already-running Nginx upstream.
 api_before=$(compose ps -aq api)
 compose rm -sf api
+docker run -d --name "${project}-api-address-holder" --network "${project}_default" alpine:3.22 sleep 300 >/dev/null
 installer --start
 [[ "$(compose ps -aq api)" != "$api_before" ]]
 assert_healthy
+docker rm -f "${project}-api-address-holder" >/dev/null
 ids_before=$(compose ps -aq | sort)
 
 # A failed build must leave the previous containers and real database operational.

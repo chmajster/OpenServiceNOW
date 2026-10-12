@@ -146,11 +146,12 @@ verify_docker_runtime() {
 }
 
 docker_start_runtime() {
-  local previous_api current_api
+  local previous_api current_api frontend
   previous_api=$(docker_compose ps -aq api)
   docker_start_services api
   current_api=$(docker_compose ps -aq api)
-  if [[ "$previous_api" != "$current_api" && "$(container_health frontend || true)" == healthy ]]; then
+  frontend=$(docker_compose ps -aq frontend)
+  if [[ "$previous_api" != "$current_api" && -n "$frontend" && "$(docker inspect --format '{{.State.Running}}' "$frontend")" == true ]]; then
     # Nginx resolves its upstream at startup; refresh it after API replacement.
     docker_compose restart frontend
   fi
