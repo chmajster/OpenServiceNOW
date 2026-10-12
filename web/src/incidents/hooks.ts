@@ -11,7 +11,7 @@ export function useIncidentTitleFocus(key?: string) {
   return heading;
 }
 
-export function useIncidentQuery<T>(path: string, scope = "") {
+export function useIncidentQuery<T>(path: string | null, scope = "") {
   const { session } = useAuth();
   const [revision, setRevision] = useState(0);
   const key = `${session?.tenant.id}:${session?.user.id}:${session?.expires_at}:${session?.permissions?.join(",")}:${path}:${scope}:${revision}`;
@@ -24,6 +24,10 @@ export function useIncidentQuery<T>(path: string, scope = "") {
     loading: boolean;
   }>({ key: "", loading: true });
   useEffect(() => {
+    if (!path) {
+      setState({ key, loading: false });
+      return;
+    }
     const controller = new AbortController();
     setState({ key, loading: true });
     void api<T>(path, { signal: controller.signal })

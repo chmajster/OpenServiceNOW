@@ -112,7 +112,7 @@ test("independent incident notifications, preferences, current access and real S
     const preference = await (
       await reporter.request.get("/api/v1/notifications/preferences")
     ).json();
-    await reporter.getByLabel("Zmiany stanu", { exact: true }).uncheck();
+    await reporter.getByLabel("Zmiany stanu i SLA", { exact: true }).uncheck();
     expect(
       (
         await reporter.request.put("/api/v1/notifications/preferences", {
@@ -128,7 +128,7 @@ test("independent incident notifications, preferences, current access and real S
       reporter.getByRole("heading", { name: "Konflikt wersji", exact: true }),
     ).toBeVisible();
     await expect(
-      reporter.getByLabel("Zmiany stanu", { exact: true }),
+      reporter.getByLabel("Zmiany stanu i SLA", { exact: true }),
     ).not.toBeChecked();
     await reporter
       .getByRole("button", {

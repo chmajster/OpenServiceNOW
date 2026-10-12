@@ -21,6 +21,8 @@ import {
   type Selection,
 } from "../incidents/QueueActions";
 import { IncidentWorkspace } from "../incidents/IncidentWorkspace";
+import { SLASummary } from "../sla/IncidentSLA";
+import type { InstancePage } from "../sla/contracts";
 
 export function IncidentsPage() {
   const { session, hasPermission } = useAuth();
@@ -74,6 +76,11 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
   const result = useIncidentQuery<IncidentPage>(
     `/api/v1/incidents/?${requestParams}`,
   );
+  const slaIDs = result.data?.incidents.map((r) => r.id).join(",") ?? "";
+  const sla = useIncidentQuery<InstancePage>(
+    slaIDs ? `/api/v1/sla/incidents?ids=${slaIDs}` : null,
+    result.data?.incidents.map((r) => `${r.id}:${r.version}`).join(",") ?? "",
+  );
   const view = params.get("view") ?? "all";
   const operator =
     hasPermission("incident.read") &&
@@ -122,6 +129,21 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
           </Link>
         )}
       </div>
+      {slaIDs && (
+        <div className="action-row">
+          <button
+            className="button button--secondary"
+            disabled={sla.loading}
+            onClick={sla.reload}
+          >
+            Odśwież SLA listy
+          </button>
+          {sla.data?.pending && (
+            <p role="status">SLA oczekuje na obliczenie przez worker.</p>
+          )}
+          {sla.error && <p role="alert">{sla.error}</p>}
+        </div>
+      )}
       <nav className="tabs" aria-label="Widoki incydentów">
         {[
           ["all", "Wszystkie dostępne"],
@@ -395,6 +417,7 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
                   <th scope="col">Przypisanie</th>
                   <th scope="col">Zgłaszający</th>
                   <th scope="col">Utworzono</th>
+                  <th scope="col">SLA</th>
                 </tr>
               </thead>
               <tbody>
@@ -440,6 +463,21 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
                     </td>
                     <td className="wrap-cell">{r.reporter_name}</td>
                     <td>{dateLabel(r.created_at)}</td>
+                    <td className="wrap-cell">
+                      {sla.loading ? (
+                        "Ładowanie SLA…"
+                      ) : sla.error ? (
+                        "SLA chwilowo niedostępne"
+                      ) : (
+                        <SLASummary
+                          items={
+                            sla.data?.items.filter(
+                              (i) => i.incident_id === r.id,
+                            ) ?? []
+                          }
+                        />
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

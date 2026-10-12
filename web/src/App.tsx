@@ -21,6 +21,7 @@ import { AccountPage } from "./pages/AccountPage";
 import { IncidentsPage } from "./pages/IncidentsPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { NotificationAdminPage } from "./pages/NotificationAdminPage";
+import { SlaAdminPage } from "./pages/SlaAdminPage";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -43,6 +44,14 @@ const router = createBrowserRouter(
         <Route index element={<OverviewPage />} />
         <Route path="account" element={<AccountPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
+        <Route
+          path="sla"
+          element={
+            <RequirePermission permission="admin.sla.manage">
+              <SlaAdminPage />
+            </RequirePermission>
+          }
+        />
         <Route
           path="notification-admin"
           element={

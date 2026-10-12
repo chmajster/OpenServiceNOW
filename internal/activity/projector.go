@@ -41,7 +41,7 @@ func (p *Projector) Handler(entryType, summary string) events.Handler {
 		}
 		visibility := "INTERNAL"
 		switch event.Type {
-		case "incident.created", "incident.updated", "incident.assigned", "incident.state.changed", "incident.reopened", "incident.resolved", "incident.closed", "incident.cancelled", "incident.priority.changed", "work.comment.added":
+		case "incident.created", "incident.updated", "incident.assigned", "incident.state.changed", "incident.reopened", "incident.resolved", "incident.closed", "incident.cancelled", "incident.priority.changed", "incident.first_response", "work.comment.added":
 			visibility = "PUBLIC"
 		}
 		if actorPayload.Visibility == "PUBLIC" {

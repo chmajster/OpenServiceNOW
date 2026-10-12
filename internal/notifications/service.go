@@ -42,7 +42,7 @@ func (s *Service) currentActor(ctx context.Context, e database.Executor, tenant,
 	return a, err
 }
 func (s *Service) Register(d *events.Dispatcher) error {
-	for _, kind := range []string{"incident.assigned", "work.comment.added", "work.work_note.added", "incident.state.changed", "incident.reopened", "incident.resolved", "incident.closed", "incident.cancelled"} {
+	for _, kind := range []string{"incident.assigned", "work.comment.added", "work.work_note.added", "incident.state.changed", "incident.reopened", "incident.resolved", "incident.closed", "incident.cancelled", "sla.warning", "sla.breached"} {
 		if err := d.RegisterConsumer(ConsumerID, kind, s.HandleEvent); err != nil {
 			return err
 		}
@@ -92,7 +92,7 @@ func (s *Service) HandleEvent(ctx context.Context, event events.Event) error {
 	if err = json.Unmarshal(event.Payload, &payload); err != nil {
 		return events.ErrInvalid
 	}
-	if payload.Actor == 0 || payload.OccurredAt.IsZero() {
+	if payload.Actor == 0 && event.Type != "sla.warning" && event.Type != "sla.breached" || payload.OccurredAt.IsZero() {
 		return events.ErrInvalid
 	}
 	internal := payload.Visibility == "INTERNAL" || payload.MessageType == "WORK_NOTE" || event.Type == "work.work_note.added"
@@ -164,6 +164,12 @@ func (s *Service) HandleEvent(ctx context.Context, event events.Event) error {
 			// Templates intentionally contain no body, title, attachment name or note
 			// payload. Even a later access revocation cannot reveal them in email.
 			label := map[string]string{"assignment": "Przypisano Ci incydent", "reply": "Nowa odpowiedź w incydencie", "state": "Zmieniono stan incydentu", "resolution": "Rozwiązano incydent"}[kind]
+			if event.Type == "sla.warning" {
+				label = "Zbliża się termin SLA incydentu"
+			}
+			if event.Type == "sla.breached" {
+				label = "Przekroczono termin SLA incydentu"
+			}
 			if kind == "assignment" && (payload.After.AssignedTo == nil || *payload.After.AssignedTo != user) {
 				label = "Zmieniono przypisanie incydentu"
 			}

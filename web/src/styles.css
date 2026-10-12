@@ -983,3 +983,9 @@ tbody tr:last-child td {
 .notification-page { min-width: 0; grid-template-columns: minmax(0, 1fr); }
 .notification-page > *, .notification-page .panel { min-width: 0; }
 .notification-page h1, .notification-page h2, .notification-page p { overflow-wrap: anywhere; }
+.sla-page, .sla-panel { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: 1rem; }
+.sla-page .panel, .sla-page fieldset, .sla-panel article { min-width: 0; }
+.sla-page pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.sla-hours { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+.sla-card { border-top: 1px solid var(--border); padding-top: 1rem; }
+.sla-summary { display: grid; gap: .7rem; font-size: .85rem; }

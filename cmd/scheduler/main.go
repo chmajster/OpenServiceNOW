@@ -14,6 +14,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/jobs"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
+	"github.com/chmajster/OpenServiceNOW/internal/sla"
 	"github.com/chmajster/OpenServiceNOW/internal/systemjobs"
 )
 
@@ -39,6 +40,7 @@ func main() {
 	defer db.Close()
 
 	jobRepo := jobs.NewRepository(db)
+	slaService := sla.NewService(db)
 	run := func(ctx context.Context, now time.Time) error {
 		bucket := now.UTC().Truncate(cfg.Session.CleanupInterval)
 		key := "session-cleanup:" + bucket.Format("20060102T150405.000000000Z")
@@ -60,7 +62,10 @@ func main() {
 			"created", created,
 			"idempotency_key", key,
 		)
-		_, _, err = attachments.EnqueueCleanup(ctx, jobRepo, now)
+		if _, _, err = attachments.EnqueueCleanup(ctx, jobRepo, now); err != nil {
+			return err
+		}
+		_, err = slaService.Schedule(ctx, now)
 		return err
 	}
 
@@ -76,10 +81,13 @@ func main() {
 		logger.Error("initial scheduler iteration failed", "error", err)
 	}
 
-	ticker := time.NewTicker(cfg.Session.CleanupInterval)
+	// SLA deadlines are checked without a browser; cleanup keeps its own
+	// idempotency bucket even when the scheduler wakes more frequently.
+	interval := min(cfg.Session.CleanupInterval, 30*time.Second)
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	logger.Info("scheduler started", "interval", cfg.Session.CleanupInterval.String())
+	logger.Info("scheduler started", "interval", interval.String())
 	for {
 		select {
 		case <-rootCtx.Done():
