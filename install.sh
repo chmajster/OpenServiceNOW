@@ -174,7 +174,8 @@ load_instance() {
 save_instance() {
   printf '%s\n' "$ROOT_DIR" >"${RUN_DIR}/instance-root"
   printf '%s\n' "$COMPOSE_PROJECT_NAME" >"$PROJECT_FILE"
-  printf '%s\n' "$MODE" >"$MODE_FILE"
+  printf '%s\n' "$MODE" >"${MODE_FILE}.tmp"
+  mv -- "${MODE_FILE}.tmp" "$MODE_FILE"
   printf '%s\n' "$WEB_PORT" >"${WEB_PORT_FILE}.tmp"
   mv -- "${WEB_PORT_FILE}.tmp" "$WEB_PORT_FILE"
   printf '%s\n' "$API_PORT" >"${API_PORT_FILE}.tmp"
@@ -205,8 +206,10 @@ prepare_env() {
 
 compose() {
   local -a files=(-f "$ROOT_DIR/docker-compose.yml")
-  if [[ "$MODE" == local-docker ]]; then files+=(-f "$ROOT_DIR/docker/compose.local.yaml"); fi
-  (cd "$ROOT_DIR" && docker compose --project-directory "$ROOT_DIR" -p "$COMPOSE_PROJECT_NAME" "${files[@]}" "$@")
+  local ignore_orphans=false
+  if [[ "$MODE" == local-docker ]]; then files+=(-f "$ROOT_DIR/docker/compose.local.yaml"); else ignore_orphans=true; fi
+  # The native profile intentionally leaves verified Docker app containers stopped.
+  (cd "$ROOT_DIR" && COMPOSE_IGNORE_ORPHANS="$ignore_orphans" docker compose --project-directory "$ROOT_DIR" -p "$COMPOSE_PROJECT_NAME" "${files[@]}" "$@")
 }
 
 check_dependency_ownership() {

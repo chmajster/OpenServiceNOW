@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
+trap 'printf "[FAIL] Docker lifecycle verification failed at line %s.\n" "$LINENO" >&2' ERR
 
 # This suite owns only its disposable checkout, Compose project and SQL volume.
 repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -74,7 +75,7 @@ assert_healthy() {
   for service in api worker scheduler; do
     [[ "$(docker inspect --format '{{.Config.User}}' "$(compose ps -aq "$service")")" == 1000:1000 ]]
   done
-  [[ -z "$(compose port api 8080 2>/dev/null || true)" ]]
+  docker inspect --format '{{json .NetworkSettings.Ports}}' "$(compose ps -aq api)" | python3 -c 'import json, sys; assert not any(json.load(sys.stdin).values()), "API has a public port mapping"'
 }
 
 cd /tmp
