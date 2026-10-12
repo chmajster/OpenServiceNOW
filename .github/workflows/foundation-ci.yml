@@ -390,7 +390,8 @@ jobs:
 
           docker exec -i -e MYSQL_PWD="$MYSQL_PASSWORD" ${{ job.services.mysql.id }} mysql -u "$MYSQL_USER" "$MYSQL_DATABASE" < tests/e2e_bigint.sql
 
-          go run ./cmd/api >api-e2e.log 2>&1 &
+          go build -o /tmp/opensnow-e2e-api ./cmd/api
+          /tmp/opensnow-e2e-api >api-e2e.log 2>&1 &
           api_pid=$!
 
           go build -o /tmp/opensnow-e2e-worker ./cmd/worker
@@ -443,6 +444,24 @@ jobs:
 
           cd web
           npm run e2e
+          cd ..
+
+          export WORKFLOW_PROOF_PASSWORD=e2e-personal-administrator-password
+          python3 tests/workflow_runtime_proof.py create http://127.0.0.1:8100 /tmp/opensnow-workflow-proof
+          kill "$api_pid" "$worker_pid" "$scheduler_pid"
+          wait "$api_pid" || true
+          wait "$worker_pid" || true
+          wait "$scheduler_pid" || true
+          /tmp/opensnow-e2e-api >>api-e2e.log 2>&1 & api_pid=$!
+          /tmp/opensnow-e2e-worker >>worker-e2e.log 2>&1 & worker_pid=$!
+          /tmp/opensnow-e2e-scheduler >>scheduler-e2e.log 2>&1 & scheduler_pid=$!
+          api_ready=0
+          for _ in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8100/health/ready >/dev/null; then api_ready=1; break; fi
+            sleep 1
+          done
+          test "$api_ready" = 1
+          python3 tests/workflow_runtime_proof.py verify http://127.0.0.1:8100 /tmp/opensnow-workflow-proof
 
       - name: Upload Playwright failure artifacts
         if: failure()
