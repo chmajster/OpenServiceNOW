@@ -42,6 +42,13 @@ func TestMigrationLifecycle(t *testing.T) {
 		t.Fatalf("rollback one migration: %v", err)
 	}
 	assertMigrationVersion(t, m, database.RequiredSchemaVersion-1)
+	if err := m.Up(); err != nil {
+		t.Fatal(err)
+	}
+	// Exercise an actual upgrade from the pre-installation-state schema too.
+	if err := m.Steps(24 - int(database.RequiredSchemaVersion)); err != nil {
+		t.Fatal(err)
+	}
 	legacyHash, err := password.Hash("legacy-administrator-password")
 	if err != nil {
 		t.Fatal(err)
@@ -61,6 +68,11 @@ func TestMigrationLifecycle(t *testing.T) {
 	var preservedHash string
 	if err := db.QueryRowContext(ctx, "SELECT password_hash FROM users WHERE email='legacy-upgrade@example.test'").Scan(&preservedHash); err != nil || preservedHash != legacyHash {
 		t.Fatal("upgrade altered existing credentials")
+	}
+	var required bool
+	var credentialVersion uint64
+	if err := db.QueryRowContext(ctx, "SELECT password_change_required,credential_version FROM users WHERE email='legacy-upgrade@example.test'").Scan(&required, &credentialVersion); err != nil || required || credentialVersion != 1 {
+		t.Fatal("upgrade imposed a password change on an existing account")
 	}
 
 	if err := m.Down(); err != nil && !errors.Is(err, migrate.ErrNoChange) {

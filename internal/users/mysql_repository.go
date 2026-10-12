@@ -78,8 +78,8 @@ func (r *MySQLRepository) CreateLocal(
 	email, displayName, passwordHash string,
 ) (uint64, error) {
 	result, err := exec.ExecContext(ctx, `
-		INSERT INTO users (email, display_name, password_hash, active)
-		VALUES (?, ?, ?, TRUE)
+		INSERT INTO users (email, display_name, password_hash, active, password_change_required)
+		VALUES (?, ?, ?, TRUE, TRUE)
 	`, email, displayName, passwordHash)
 	if err != nil {
 		if isDuplicate(err) {

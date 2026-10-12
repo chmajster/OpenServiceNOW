@@ -8,19 +8,21 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"golang.org/x/crypto/argon2"
 )
 
 const (
-	MaxPasswordBytes    = 1024
-	MaxEncodedHashBytes = 512
-	MinArgonMemoryKiB   = 8 * 1024
-	MaxArgonMemoryKiB   = 256 * 1024
-	MaxArgonIterations  = 10
-	MaxArgonParallelism = 16
-	MaxArgonSaltBytes   = 64
-	MaxArgonKeyBytes    = 64
+	MinPasswordCharacters = 12
+	MaxPasswordBytes      = 1024
+	MaxEncodedHashBytes   = 512
+	MinArgonMemoryKiB     = 8 * 1024
+	MaxArgonMemoryKiB     = 256 * 1024
+	MaxArgonIterations    = 10
+	MaxArgonParallelism   = 16
+	MaxArgonSaltBytes     = 64
+	MaxArgonKeyBytes      = 64
 )
 
 type Params struct {
@@ -44,7 +46,7 @@ func Hash(plain string) (string, error) {
 }
 
 func HashWithParams(plain string, p Params) (string, error) {
-	return hashWithParams(plain, p, 12)
+	return hashWithParams(plain, p, MinPasswordCharacters)
 }
 
 // HashWithMinimumLength applies a caller-specific password policy while retaining
@@ -56,12 +58,23 @@ func HashWithMinimumLength(plain string, minimumBytes int) (string, error) {
 	return hashWithParams(plain, DefaultParams, minimumBytes)
 }
 
-func hashWithParams(plain string, p Params, minimumBytes int) (string, error) {
-	if len(plain) < minimumBytes {
-		return "", fmt.Errorf("password must contain at least %d bytes", minimumBytes)
+func Validate(plain string) error {
+	return validateLength(plain, MinPasswordCharacters)
+}
+
+func validateLength(plain string, minimum int) error {
+	if !utf8.ValidString(plain) || utf8.RuneCountInString(plain) < minimum {
+		return fmt.Errorf("password must contain at least %d Unicode characters", minimum)
 	}
 	if len(plain) > MaxPasswordBytes {
-		return "", fmt.Errorf("password exceeds %d bytes", MaxPasswordBytes)
+		return fmt.Errorf("password exceeds %d bytes", MaxPasswordBytes)
+	}
+	return nil
+}
+
+func hashWithParams(plain string, p Params, minimumBytes int) (string, error) {
+	if err := validateLength(plain, minimumBytes); err != nil {
+		return "", err
 	}
 	if err := validateParams(p); err != nil {
 		return "", err

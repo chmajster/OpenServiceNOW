@@ -21,6 +21,13 @@ func main() {
 	}
 
 	input := bootstrapInput()
+	if value := os.Getenv("BOOTSTRAP_REQUIRE_PASSWORD_CHANGE"); value != "" {
+		input.RequirePasswordChange, err = strconv.ParseBool(value)
+		if err != nil {
+			logger.Error("BOOTSTRAP_REQUIRE_PASSWORD_CHANGE must be a boolean")
+			os.Exit(1)
+		}
+	}
 
 	db, err := database.OpenMySQL(context.Background(), cfg.MySQL)
 	if err != nil {

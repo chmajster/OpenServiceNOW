@@ -89,11 +89,8 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	h.setSessionCookies(w, result)
 	httpapi.WriteJSON(w, http.StatusOK, map[string]any{
-		"user": map[string]any{
-			"id":           strconv.FormatUint(result.Identity.UserID, 10),
-			"email":        result.Identity.Email,
-			"display_name": result.Identity.DisplayName,
-		},
+		"user":                     accountUser(result.Identity),
+		"password_change_required": result.Identity.PasswordChangeRequired,
 		"tenant": map[string]any{
 			"id":   strconv.FormatUint(result.Identity.TenantID, 10),
 			"slug": result.Identity.TenantSlug,
@@ -122,11 +119,8 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 		permissions = []string{}
 	}
 	httpapi.WriteJSON(w, http.StatusOK, map[string]any{
-		"user": map[string]any{
-			"id":           strconv.FormatUint(identity.UserID, 10),
-			"email":        identity.Email,
-			"display_name": identity.DisplayName,
-		},
+		"user":                     accountUser(identity),
+		"password_change_required": identity.PasswordChangeRequired,
 		"tenant": map[string]any{
 			"id":   strconv.FormatUint(identity.TenantID, 10),
 			"slug": identity.TenantSlug,

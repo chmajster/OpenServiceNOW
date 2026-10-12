@@ -15,6 +15,7 @@ import (
 )
 
 type Service struct {
+	hasher       interface{ HashPassword(string) (string, error) }
 	repo         *MySQLRepository
 	tx           *platformdb.TxManager
 	audit        *audit.MySQLRepository
@@ -28,8 +29,10 @@ func NewService(
 	auditRepo *audit.MySQLRepository,
 	adminSafety *identity.AdminSafetyRepository,
 	identityRepo *identity.MySQLRepository,
+	hasher interface{ HashPassword(string) (string, error) },
 ) *Service {
 	return &Service{
+		hasher:       hasher,
 		repo:         repo,
 		tx:           tx,
 		audit:        auditRepo,
@@ -67,9 +70,12 @@ func (s *Service) Create(ctx context.Context, actor Actor, input CreateInput) (u
 		return 0, fmt.Errorf("%w: display name must contain between 1 and 200 characters", ErrInvalid)
 	}
 
-	passwordHash, err := password.Hash(input.Password)
-	if err != nil {
+	if err := password.Validate(input.Password); err != nil {
 		return 0, fmt.Errorf("%w: %v", ErrInvalid, err)
+	}
+	passwordHash, err := s.hasher.HashPassword(input.Password)
+	if err != nil {
+		return 0, err
 	}
 
 	var userID uint64
@@ -115,6 +121,9 @@ func (s *Service) AddExistingMembership(
 
 	var userID uint64
 	err = s.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec platformdb.Executor) error {
+		if err := s.adminSafety.LockTenant(ctx, exec, actor.TenantID); err != nil {
+			return err
+		}
 		var addErr error
 		userID, addErr = s.repo.AddExistingMembership(ctx, exec, actor.TenantID, email)
 		if addErr != nil {
@@ -144,6 +153,9 @@ func (s *Service) SetMembershipActive(ctx context.Context, actor Actor, userID u
 	}
 	return s.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec platformdb.Executor) error {
 		if err := s.adminSafety.LockTenant(ctx, exec, actor.TenantID); err != nil {
+			return err
+		}
+		if _, err := s.identityRepo.UserForUpdate(ctx, exec, userID); err != nil {
 			return err
 		}
 		current, err := s.repo.MembershipActiveForUpdate(ctx, exec, actor.TenantID, userID)

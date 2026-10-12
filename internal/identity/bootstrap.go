@@ -30,11 +30,12 @@ var platformAdminPermissions = []struct {
 }
 
 type BootstrapInput struct {
-	TenantSlug    string
-	TenantName    string
-	AdminEmail    string
-	AdminName     string
-	AdminPassword string
+	TenantSlug            string
+	TenantName            string
+	AdminEmail            string
+	AdminName             string
+	AdminPassword         string
+	RequirePasswordChange bool
 }
 
 type BootstrapResult struct {
@@ -99,6 +100,7 @@ func (b *Bootstrapper) run(ctx context.Context, input BootstrapInput, initialSet
 			input.AdminEmail,
 			input.AdminName,
 			passwordHash,
+			input.RequirePasswordChange || (input.AdminEmail == DefaultAdminEmail && input.AdminPassword == DefaultAdminPassword),
 		)
 		if err != nil {
 			return err
@@ -198,9 +200,10 @@ func validateBootstrapInput(input BootstrapInput) error {
 	if len(input.AdminPassword) > password.MaxPasswordBytes {
 		return fmt.Errorf("administrator password exceeds %d bytes", password.MaxPasswordBytes)
 	}
-	if len(input.AdminPassword) < 12 &&
-		!(input.AdminEmail == DefaultAdminEmail && input.AdminPassword == DefaultAdminPassword) {
-		return errors.New("administrator password must contain at least 12 bytes; only the default admin account accepts admin")
+	if !(input.AdminEmail == DefaultAdminEmail && input.AdminPassword == DefaultAdminPassword) {
+		if err := password.Validate(input.AdminPassword); err != nil {
+			return err
+		}
 	}
 	return nil
 }

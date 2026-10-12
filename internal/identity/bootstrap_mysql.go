@@ -29,6 +29,7 @@ func (r *MySQLRepository) EnsureUser(
 	ctx context.Context,
 	exec platformdb.Executor,
 	email, name, passwordHash string,
+	requirePasswordChange bool,
 ) (uint64, bool, string, error) {
 	var existingID uint64
 	var existingPasswordHash string
@@ -45,9 +46,9 @@ func (r *MySQLRepository) EnsureUser(
 	}
 
 	result, err := exec.ExecContext(ctx, `
-		INSERT INTO users (email, display_name, password_hash)
-		VALUES (?, ?, ?)
-	`, email, name, passwordHash)
+		INSERT INTO users (email, display_name, password_hash, password_change_required)
+		VALUES (?, ?, ?, ?)
+	`, email, name, passwordHash, requirePasswordChange)
 	if err != nil {
 		return 0, false, "", fmt.Errorf("create user: %w", err)
 	}
