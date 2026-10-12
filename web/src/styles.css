@@ -980,3 +980,6 @@ tbody tr:last-child td {
 .queue-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-block: 1rem; }
 .queue-results { overflow-wrap: anywhere; }
 .notification-form { width: 100%; max-width: 52rem; box-sizing: border-box; }
+.notification-page { min-width: 0; grid-template-columns: minmax(0, 1fr); }
+.notification-page > *, .notification-page .panel { min-width: 0; }
+.notification-page h1, .notification-page h2, .notification-page p { overflow-wrap: anywhere; }

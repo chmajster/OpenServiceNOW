@@ -282,6 +282,11 @@ test("independent incident notifications, preferences, current access and real S
       page.getByRole("heading", { name: /Historia prób dostawy/ }),
     ).toBeVisible();
     await expect(page.getByText(/Próba 1:/)).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
     await page.screenshot({
       path: info.outputPath("notification-deliveries.png"),
       fullPage: true,

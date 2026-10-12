@@ -29,7 +29,7 @@ function AdminWorkspace() {
   const tab = params.get("tab") ?? "smtp",
     before = params.get("before_id") ?? "";
   return (
-    <section className="page">
+    <section className="page notification-page">
       <div className="page-heading">
         <div>
           <p className="eyebrow">Administracja</p>

@@ -54,7 +54,7 @@ function NotificationWorkspace() {
     setParams({ tab: next });
   }
   return (
-    <section className="page">
+    <section className="page notification-page">
       <div className="page-heading">
         <div>
           <p className="eyebrow">Moje konto</p>
