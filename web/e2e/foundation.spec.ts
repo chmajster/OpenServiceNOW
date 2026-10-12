@@ -749,7 +749,7 @@ test("editing own permissions refreshes navigation and backend access", async ({
   await checkbox(page, "admin.rbac.manage").uncheck();
   await page.getByRole("button", { name: "Zapisz uprawnienia" }).click();
   await expect(
-    page.getByRole("heading", { name: "Brak uprawnień" }),
+    page.getByText("Brak uprawnień", { exact: true }),
   ).toBeVisible();
   await expect(
     page
