@@ -124,6 +124,33 @@ Opening a new WSL terminal also reloads group membership. Keep the installer and
 
 If another MySQL service owns port 3306, choose a free port in this checkout's `.env`, for example `MYSQL_PORT=3307`; the installer uses that value for both the container mapping and the Go database connection. For a Redis conflict, set e.g. `REDIS_ADDR=127.0.0.1:6380`. Before editing, check that the proposed ports are free with `ss -ltn '( sport = :3307 or sport = :6380 )'`. Preserve the existing database credentials and run the installer again. A port change does not require stopping another application's database or deleting volumes. Local API conflicts are handled automatically within 8080–8100.
 
+## Local Docker installation and updates
+
+Build and run the entire application in containers:
+
+```bash
+bash ./install.sh --local-docker
+```
+
+This mode first installs or updates the local Docker Engine, Compose and Buildx packages on Ubuntu/Debian. It uses `sudo` only for package/service management, adds the ordinary user to the Docker group and refreshes group access when necessary. Existing apt installations keep their package family (`docker.io` or `docker-ce`); a fresh system uses available distribution Compose v2 packages or Docker's signed stable apt repository. It installs the newest versions available in the configured repositories and refuses package removal. Package upgrades can restart the Engine. Engine data, images, volumes and configuration are preserved. See the [Ubuntu packages documentation](https://ubuntu.com/server/docs/how-to/containers/docker-for-system-admins/) and official [Docker Ubuntu](https://docs.docker.com/engine/install/ubuntu/) / [Debian](https://docs.docker.com/engine/install/debian/) installation instructions.
+
+Engine service startup requires systemd or a supported existing service manager. In WSL, enable systemd for a new native Engine installation and keep the distribution running while using the application; [systemd services alone do not keep WSL alive](https://learn.microsoft.com/en-us/windows/wsl/systemd). For Docker Desktop, a remote engine or another OS/package manager, manage the Engine there and run `bash ./install.sh --local-docker --skip-docker-update`. Other lifecycle commands reuse the installed Engine without updating system packages.
+
+The installer pulls MySQL/Redis images and builds the backend/frontend images from this exact checkout with refreshed base images. Go and Node/npm run inside image builds; they are not required on the host. A build failure leaves the running application available. After successful builds it stops this checkout's previous application, starts infrastructure, applies migrations, optionally performs explicit `--bootstrap`, and starts API, Nginx frontend, worker and scheduler with readiness checks. Fresh databases show the account creation wizard; updates preserve users, passwords, organizations and SQL data.
+
+The WebUI automatically selects an available loopback port in **8080–8100**, saves it in `.opensnow/run/docker-port`, and displays its address. `OPENSNOW_DOCKER_PORT=8090` selects a specific port on installation/restart; an occupied explicit port reports an error. The API is available only through the frontend's `/api` and `/health` proxy. MySQL/Redis retain the loopback mappings configured in `.env`, allowing the same named SQL volume and credentials to be reused when switching between `--local` and `--local-docker`. Each mode's application processes are stopped before the other mode starts, avoiding duplicate workers. Switch modes by installing or restarting with the desired flag; start/status/stop/uninstall require the recorded mode.
+
+```bash
+bash ./install.sh --local-docker --status
+bash ./install.sh --local-docker --restart
+bash ./install.sh --local-docker --stop
+bash ./install.sh --local-docker --start
+bash ./install.sh --local-docker --no-start
+bash ./install.sh --local-docker --uninstall
+```
+
+Re-run `--local-docker` after source changes to rebuild and update the application. `--no-start` prepares images and schema while leaving application containers stopped. Restart reuses existing images. Logs are saved as `.opensnow/logs/docker-*.log`. Failed startup stops only components started by that invocation. Uninstall removes this checkout's containers/network and preserves `.env`, SQL volume, Engine and image cache; adding `--purge-data` explicitly removes its SQL volume and `.env`. DevBox's `compose.yaml` remains independent; the local Docker installer explicitly combines `docker-compose.yml` with `docker/compose.local.yaml`.
+
 ## DevBox deployment
 
 The root `compose.yaml` packages the complete application: React assets served by a non-root Nginx reverse proxy, Go API, worker, scheduler and a private Redis cache. It uses a shared DevBox MySQL server with an application-specific database/account. The existing `docker-compose.yml` remains the infrastructure-only development stack selected explicitly by `make dev` and `install.sh`.

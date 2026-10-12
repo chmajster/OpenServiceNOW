@@ -18,6 +18,9 @@ PURGE_DATA=0
 NO_START=0
 BOOTSTRAP=0
 ACTION=install
+MODE=local
+SKIP_DOCKER_UPDATE=0
+MODE_FILE="${RUN_DIR}/runtime-mode"
 declare -a STARTED_COMPONENTS=() STARTED_SERVICES=()
 
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
@@ -37,6 +40,9 @@ OpenServiceNOW local installer (Linux / WSL)
 
 Usage:
   bash ./install.sh --local               Prepare, build and run this checkout
+  bash ./install.sh --local-docker        Install/update Docker Engine and the containerized app
+  bash ./install.sh --local-docker --skip-docker-update
+                                         Build/update the app using an already managed engine
   bash ./install.sh --local --no-start    Prepare/build without running application processes
   bash ./install.sh --local --bootstrap   Create the administrator from .env instead of the WebUI
   bash ./install.sh --local --start       Start the previously built local runtime
@@ -52,14 +58,21 @@ Without --local, existing commands use the same local mode for compatibility.
 OPENSNOW_WEB_PORT selects the frontend port (default 5173); it is saved for later commands.
 API tries ports 8080 through 8100, saving the selected port and updating Vite's proxy.
 Runtime state/logs are under this checkout's .opensnow/.
+All lifecycle options also work with --local-docker. Go/Node are built inside images.
+Docker mode publishes the WebUI on the first available port from 8080 through 8100.
+Engine installation/upgrades support apt-managed Ubuntu/Debian engines and require sudo.
 EOF
 }
 
 parse_args() {
-  local selected='' argument
+  local selected='' selected_mode='' argument
   for argument in "$@"; do
     case "$argument" in
-      --local) ;;
+      --local|--local-docker)
+        [[ -z "$selected_mode" || "$selected_mode" == "$argument" ]] || fail "Conflicting modes: ${selected_mode} and ${argument}."
+        selected_mode=$argument
+        MODE=${argument#--}
+        ;;
       --start|--stop|--restart|--status|--uninstall|--help|-h)
         [[ -z "$selected" ]] || fail "Conflicting actions: ${selected} and ${argument}. Select exactly one action."
         selected=$argument
@@ -69,6 +82,7 @@ parse_args() {
       --no-start) NO_START=1 ;;
       --bootstrap) BOOTSTRAP=1 ;;
       --purge-data) PURGE_DATA=1 ;;
+      --skip-docker-update) SKIP_DOCKER_UPDATE=1 ;;
       *) fail "Unknown argument: ${argument}. Run bash ./install.sh --help." ;;
     esac
   done
@@ -76,6 +90,7 @@ parse_args() {
     fail "--no-start and --bootstrap apply only to installation; they cannot be combined with --${ACTION}."
   fi
   if (( PURGE_DATA )) && [[ "$ACTION" != uninstall ]]; then fail "--purge-data requires --uninstall."; fi
+  if (( SKIP_DOCKER_UPDATE )) && [[ "$MODE" != local-docker || "$ACTION" != install ]]; then fail "--skip-docker-update requires --local-docker installation."; fi
 }
 
 require_command() { command -v "$1" >/dev/null 2>&1 || fail "Missing required command: $1. $2"; }
@@ -159,6 +174,8 @@ load_instance() {
 save_instance() {
   printf '%s\n' "$ROOT_DIR" >"${RUN_DIR}/instance-root"
   printf '%s\n' "$COMPOSE_PROJECT_NAME" >"$PROJECT_FILE"
+  printf '%s\n' "$MODE" >"${MODE_FILE}.tmp"
+  mv -- "${MODE_FILE}.tmp" "$MODE_FILE"
   printf '%s\n' "$WEB_PORT" >"${WEB_PORT_FILE}.tmp"
   mv -- "${WEB_PORT_FILE}.tmp" "$WEB_PORT_FILE"
   printf '%s\n' "$API_PORT" >"${API_PORT_FILE}.tmp"
@@ -170,10 +187,10 @@ prepare_env() {
   if [[ ! -f "$ENV_FILE" ]]; then cp -- "$ENV_EXAMPLE" "$ENV_FILE"; ok "Created .env from .env.example."; else info "Using existing .env."; fi
   chmod 600 "$ENV_FILE"
   load_env
-  case "${HTTP_ADDR:-127.0.0.1:8080}" in
+  if [[ "$MODE" == local ]]; then case "${HTTP_ADDR:-127.0.0.1:8080}" in
     127.0.0.1:8080|localhost:8080|0.0.0.0:8080|:8080|'[::]:8080') ;;
     *) fail "HTTP_ADDR must use a local bind address and base port 8080; the installer selects an available port up to 8100." ;;
-  esac
+  esac; fi
   [[ "${MYSQL_HOST:-127.0.0.1}" == 127.0.0.1 || "${MYSQL_HOST:-}" == localhost ]] || fail "Local mode requires MYSQL_HOST=127.0.0.1 or localhost."
   valid_port "${MYSQL_PORT:-3306}" || fail "MYSQL_PORT must be an integer from 1 to 65535."
   [[ "${REDIS_ADDR:-127.0.0.1:6379}" =~ ^(127\.0\.0\.1|localhost):([1-9][0-9]{0,4})$ ]] || fail "Local mode requires REDIS_ADDR=127.0.0.1:port or localhost:port."
@@ -181,23 +198,34 @@ prepare_env() {
   valid_port "$REDIS_PORT" || fail "Redis port must be from 1 to 65535."
   export REDIS_PORT
   local mysql_port=${MYSQL_PORT:-3306}
-  [[ "$mysql_port" != "$REDIS_PORT" && "$mysql_port" != "$WEB_PORT" && "$REDIS_PORT" != "$WEB_PORT" ]] || fail "MySQL, Redis and frontend must use separate ports."
+  [[ "$mysql_port" != "$REDIS_PORT" ]] || fail "MySQL and Redis must use separate ports."
+  if [[ "$MODE" == local ]]; then [[ "$mysql_port" != "$WEB_PORT" && "$REDIS_PORT" != "$WEB_PORT" ]] || fail "MySQL, Redis and frontend must use separate ports."; fi
   [[ "${BOOTSTRAP_ON_START:-false}" == true || "${BOOTSTRAP_ON_START:-false}" == false ]] || fail "BOOTSTRAP_ON_START must be true or false."
   load_instance
 }
 
-compose() { (cd "$ROOT_DIR" && docker compose --project-directory "$ROOT_DIR" -p "$COMPOSE_PROJECT_NAME" -f "$ROOT_DIR/docker-compose.yml" "$@"); }
+compose() {
+  local -a files=(-f "$ROOT_DIR/docker-compose.yml")
+  local ignore_orphans=false
+  local docker_env_file=/dev/null
+  if [[ -f "$ENV_FILE" ]]; then docker_env_file=$ENV_FILE; fi
+  if [[ "$MODE" == local-docker ]]; then files+=(-f "$ROOT_DIR/docker/compose.local.yaml"); else ignore_orphans=true; fi
+  # The native profile intentionally leaves verified Docker app containers stopped.
+  (cd "$ROOT_DIR" && OPENSNOW_DOCKER_ENV_FILE="$docker_env_file" COMPOSE_IGNORE_ORPHANS="$ignore_orphans" docker compose --project-directory "$ROOT_DIR" -p "$COMPOSE_PROJECT_NAME" "${files[@]}" "$@")
+}
 
 check_dependency_ownership() {
-  local service id working_dir config_file
-  for service in mysql redis; do
-    id="$(compose ps -aq "$service")"
+  local service id working_dir config_file ids
+  ids=$(docker ps -aq --filter "label=com.docker.compose.project=$COMPOSE_PROJECT_NAME")
+  while IFS= read -r id; do
     [[ -n "$id" ]] || continue
     working_dir="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' "$id")"
     config_file="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' "$id")"
-    [[ "$working_dir" == "$ROOT_DIR" && "$config_file" == "$ROOT_DIR/docker-compose.yml" ]] ||
+    service="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.service"}}' "$id")"
+    [[ "$working_dir" == "$ROOT_DIR" && ( "$config_file" == "$ROOT_DIR/docker-compose.yml" || "$config_file" == "$ROOT_DIR/docker-compose.yml,$ROOT_DIR/docker/compose.local.yaml" ) ]] ||
       fail "Compose project ${COMPOSE_PROJECT_NAME} belongs to another checkout/configuration (${working_dir}); choose a separate COMPOSE_PROJECT_NAME in .env."
-  done
+    case "$service" in mysql|redis|api|frontend|worker|scheduler) ;; *) fail "Unexpected service ${service} in Compose project ${COMPOSE_PROJECT_NAME}; refusing to manage it." ;; esac
+  done <<<"$ids"
 }
 
 container_health() {
@@ -334,6 +362,12 @@ check_ports() {
   fi
   if [[ "$ACTION" == start ]] && pid_running web && ! port_owned web "$WEB_PORT"; then fail "This checkout's frontend is already running on another port. Use --local --restart to change its port."; fi
   check_dependency_ownership
+  check_dependency_ports
+  select_api_port
+}
+
+check_dependency_ports() {
+  local port
   local service container_port mapped_port state
   for service in mysql redis; do
     port=${MYSQL_PORT:-3306}; container_port=3306
@@ -344,7 +378,6 @@ check_ports() {
       [[ ( "$state" == healthy || "$state" == starting || "$state" == running ) && "$mapped_port" == "127.0.0.1:$port" ]] || fail "Port ${port} is occupied outside this instance's ${service} container. Choose another port in .env or stop the conflicting service."
     fi
   done
-  select_api_port
 }
 
 start_component() {
@@ -433,7 +466,7 @@ stop_all() {
   stop_runtime
   check_docker
   check_dependency_ownership
-  compose stop redis mysql
+  docker_compose stop frontend scheduler worker api redis mysql
   ok "Local processes and dependencies stopped; SQL data and .env preserved."
 }
 
@@ -468,7 +501,7 @@ show_status() {
 
 uninstall() {
   stop_all
-  if (( PURGE_DATA )); then compose down -v; rm -f -- "$ENV_FILE"; ok "This instance's SQL volume and .env removed."; else compose down; info "SQL volume and .env preserved."; fi
+  if (( PURGE_DATA )); then docker_compose down -v; rm -f -- "$ENV_FILE"; ok "This instance's SQL volume and .env removed."; else docker_compose down; info "SQL volume and .env preserved."; fi
   rm -f -- "$BIN_DIR/opensnow-api" "$BIN_DIR/opensnow-worker" "$BIN_DIR/opensnow-scheduler"
   rm -rf -- "$RUN_DIR" "$ROOT_DIR/web/dist" "$ROOT_DIR/web/node_modules"
   ok "Generated local runtime files removed; sources and logs preserved."
@@ -494,6 +527,7 @@ install() {
   check_ports
   check_dependency_ownership
   stop_runtime
+  stop_docker_application
   stage 3 "MySQL and Redis"
   start_dependencies
   stage 4 "Dependencies"
@@ -514,6 +548,7 @@ on_exit() {
   trap - ERR EXIT INT TERM
   if (( result != 0 )); then
     warn "Command failed. Runtime logs: ${LOG_DIR}"
+    if [[ "$MODE" == local-docker ]]; then capture_docker_logs; fi
     for component in "${STARTED_COMPONENTS[@]}"; do stop_pid "$component" || true; done
     if (( ${#STARTED_SERVICES[@]} > 0 )); then compose stop "${STARTED_SERVICES[@]}" >/dev/null 2>&1 || true; fi
   fi
@@ -521,11 +556,15 @@ on_exit() {
 }
 
 main() {
+  declare -ga INSTALLER_ARGS=("$@")
   parse_args "$@"
   if [[ "$ACTION" == help ]]; then usage; return; fi
   [[ "$(uname -s)" == Linux && -d /proc/self ]] || fail "Local runtime supports Linux and WSL. Run this script in your Linux/WSL shell."
   local command_name
-  for command_name in flock ss curl nohup setsid env stat readlink awk sed sort; do require_command "$command_name" "Install standard Linux utilities (util-linux, iproute2, coreutils and curl)."; done
+  for command_name in flock env stat readlink awk sed sort; do require_command "$command_name" "Install standard Linux utilities (util-linux and coreutils)."; done
+  if [[ "$MODE" == local ]]; then
+    for command_name in ss curl nohup setsid; do require_command "$command_name" "Install util-linux, iproute2, coreutils and curl."; done
+  fi
   ensure_state_dirs
   exec 9>"$RUN_DIR/installer.lock"
   flock -n 9 || fail "Another installer command is running for this checkout. Wait for it to finish."
@@ -535,14 +574,19 @@ main() {
   trap 'exit 143' TERM
   load_env
   load_instance
+  check_runtime_mode
+  if [[ "$MODE" == local-docker ]]; then docker_main; return; fi
   case "$ACTION" in
     install) install ;;
     start) start_all ;;
     stop) stop_all ;;
-    restart) check_toolchains; prepare_env; check_built_runtime; check_ports; check_dependency_ownership; stop_runtime; start_dependencies; start_runtime ;;
+    restart) check_toolchains; prepare_env; check_built_runtime; check_ports; check_dependency_ownership; stop_runtime; stop_docker_application; start_dependencies; start_runtime ;;
     status) show_status ;;
     uninstall) uninstall ;;
   esac
 }
+
+# shellcheck source=docker/local-runtime.sh
+source "$ROOT_DIR/docker/local-runtime.sh"
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then main "$@"; fi

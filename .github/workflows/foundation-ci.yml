@@ -62,9 +62,9 @@ jobs:
 
       - name: Validate installer
         run: |
-          bash -n ./install.sh
+          for script in install.sh docker/*.sh tests/*.sh; do bash -n "$script"; done
           ./install.sh --help >/dev/null
-          shellcheck -x -P SCRIPTDIR install.sh tests/installer_test.sh tests/local_runtime_test.sh
+          shellcheck -x -P SCRIPTDIR install.sh docker/*.sh tests/*.sh
           bash tests/installer_test.sh
 
       - uses: actions/setup-go@v6
@@ -214,6 +214,42 @@ jobs:
         with:
           name: local-runtime-verification
           path: .opensnow/local-runtime-verification
+          if-no-files-found: ignore
+          retention-days: 7
+
+  docker-engine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify fresh Engine installation and updates on Ubuntu/Debian
+        run: bash tests/docker_engine_test.sh
+
+  local-docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - name: Install browser test dependencies
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Verify Docker installer, browser workflow and updates on isolated data
+        env:
+          LOCAL_DOCKER_BROWSER: "1"
+        run: bash tests/local_docker_test.sh
+      - name: Upload Docker verification failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-runtime-verification
+          path: |
+            .opensnow/docker-runtime-verification
+            web/test-results
           if-no-files-found: ignore
           retention-days: 7
 

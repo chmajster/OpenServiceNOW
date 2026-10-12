@@ -22,11 +22,12 @@ BIN_DIR="$ROOT_DIR/bin"
 WEB_PORT_FILE="$RUN_DIR/web-port"
 API_PORT_FILE="$RUN_DIR/api-port"
 PROJECT_FILE="$RUN_DIR/compose-project"
+MODE_FILE="$RUN_DIR/runtime-mode"
 ensure_state_dirs
 
-for args in '--start --stop' '--status --no-start' '--restart --bootstrap' '--purge-data' '--help --start' '--uninstall --no-start'; do
+for args in '--start --stop' '--status --no-start' '--restart --bootstrap' '--purge-data' '--help --start' '--uninstall --no-start' '--local --local-docker' '--skip-docker-update' '--local-docker --status --skip-docker-update'; do
   read -r -a values <<<"$args"
-  if bash "$repo_dir/install.sh" --local "${values[@]}" >"$fixture/error" 2>&1; then echo "Accepted conflicting arguments: $args" >&2; exit 1; fi
+  if bash "$repo_dir/install.sh" "${values[@]}" >"$fixture/error" 2>&1; then echo "Accepted conflicting arguments: $args" >&2; exit 1; fi
   grep -Eq 'Conflicting|cannot be combined|requires' "$fixture/error"
 done
 for port in 0 65536 -1 bad '8090;echo injected' 08090; do
@@ -96,6 +97,8 @@ web_pid=''
 exec 8>"$RUN_DIR/installer.lock"
 flock -n 8
 cp "$repo_dir/install.sh" "$ROOT_DIR/install.sh"
+mkdir -p "$ROOT_DIR/docker"
+cp "$repo_dir/docker/local-runtime.sh" "$ROOT_DIR/docker/local-runtime.sh"
 if bash "$ROOT_DIR/install.sh" --local --status >"$fixture/error" 2>&1; then echo 'Accepted concurrent lifecycle action' >&2; exit 1; fi
 grep -q 'Another installer command' "$fixture/error"
 exec 8>&-
