@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
 	"github.com/chmajster/OpenServiceNOW/internal/incidents"
@@ -200,19 +201,21 @@ func (s *Service) Instances(ctx context.Context, a incidents.Actor, ids []uint64
 		scope += ` AND (reporter_id=? OR affected_user_id=?)`
 		args = append(args, a.UserID, a.UserID)
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT i.id,i.version,COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(w.checkpoint,'$.incident_version')) AS UNSIGNED),0) FROM (SELECT id,tenant_id,version FROM incidents WHERE `+scope+`) i LEFT JOIN sla_work w ON w.tenant_id=i.tenant_id AND w.incident_id=i.id`, args...)
+	queryArgs := append([]any{s.now().UTC().Add(-30 * time.Second)}, args...)
+	rows, err := s.db.QueryContext(ctx, `SELECT i.id,i.version,COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(w.checkpoint,'$.incident_version')) AS UNSIGNED),0),COALESCE(w.next_check_at<?,FALSE) FROM (SELECT id,tenant_id,version FROM incidents WHERE `+scope+`) i LEFT JOIN sla_work w ON w.tenant_id=i.tenant_id AND w.incident_id=i.id`, queryArgs...)
 	if err != nil {
 		return result, err
 	}
 	versions := map[uint64]uint64{}
 	for rows.Next() {
 		var id, v, projected uint64
-		if err = rows.Scan(&id, &v, &projected); err != nil {
+		var overdue bool
+		if err = rows.Scan(&id, &v, &projected, &overdue); err != nil {
 			rows.Close()
 			return result, err
 		}
 		versions[id] = v
-		if projected < v {
+		if projected < v || overdue {
 			result.Pending = true
 		}
 	}

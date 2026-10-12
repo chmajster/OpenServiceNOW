@@ -217,6 +217,9 @@ func (s *Service) Reconcile(ctx context.Context, tenant, id uint64) error {
 			if err = json.Unmarshal(event.raw, &change); err != nil {
 				return err
 			}
+			if event.version == 0 || change.After.ID != id || change.After.Version != event.version || event.version > record.Version {
+				return events.ErrInvalid
+			}
 			if event.kind == "incident.created" {
 				c.Policy, c.Calendar, err = s.policyAt(ctx, e, tenant, change.After)
 				if err != nil {
@@ -287,7 +290,7 @@ func (s *Service) Reconcile(ctx context.Context, tenant, id uint64) error {
 					return err
 				}
 				if i.Status == "ACTIVE" || i.Status == "PAUSED" {
-					next = now.Add(30 * time.Second)
+					next = now.Truncate(30 * time.Second).Add(30 * time.Second)
 				}
 			}
 		}
@@ -333,7 +336,7 @@ func (s *Service) saveInstance(ctx context.Context, e database.Executor, tenant 
 	return err
 }
 func (s *Service) history(ctx context.Context, e database.Executor, tenant uint64, i *Instance, eventID uint64, kind string, at time.Time, reason string) error {
-	entry := History{InstanceID: i.ID, IncidentVersion: i.IncidentVersion, SourceEventID: eventID, Type: kind, OccurredAt: at.UTC(), AccruedSeconds: i.AccruedSeconds, Reason: reason, DueAt: i.DueAt}
+	entry := History{Kind: i.Kind, Cycle: i.Cycle, PolicyVersion: i.PolicyVersion, CalendarVersion: i.CalendarVersion, TargetSeconds: i.TargetSeconds, InstanceID: i.ID, IncidentVersion: i.IncidentVersion, SourceEventID: eventID, Type: kind, OccurredAt: at.UTC(), AccruedSeconds: i.AccruedSeconds, Reason: reason, DueAt: i.DueAt}
 	raw, _ := json.Marshal(entry)
 	_, err := e.ExecContext(ctx, `INSERT INTO sla_history(tenant_id,instance_id,source_key,entry) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE id=id`, tenant, i.ID, fmt.Sprintf("%s:%d", kind, eventID), raw)
 	return err

@@ -6223,6 +6223,546 @@
       }
     },
     "schemas": {
+      "SLAWindow": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "start": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+          },
+          "end": {
+            "type": "string",
+            "pattern": "^(([01][0-9]|2[0-3]):[0-5][0-9]|24:00)$"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ]
+      },
+      "SLACalendar": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA timezone; UTC instants, local weekly windows and date holidays. Local is rejected."
+          },
+          "week": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "weekday": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 6
+                },
+                "windows": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SLAWindow"
+                  },
+                  "maxItems": 8
+                }
+              },
+              "required": [
+                "weekday",
+                "windows"
+              ]
+            },
+            "maxItems": 7
+          },
+          "holidays": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            },
+            "maxItems": 1000
+          },
+          "exceptions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "windows": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SLAWindow"
+                  },
+                  "maxItems": 8
+                }
+              },
+              "required": [
+                "date",
+                "windows"
+              ]
+            },
+            "maxItems": 1000
+          }
+        },
+        "required": [
+          "name",
+          "timezone",
+          "week",
+          "holidays",
+          "exceptions"
+        ]
+      },
+      "SLAPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "order": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "",
+              "hardware",
+              "software",
+              "network",
+              "access",
+              "other"
+            ]
+          },
+          "calendar_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "calendar_version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "response_seconds": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 2592000
+          },
+          "resolution_seconds": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 2592000
+          },
+          "warning_percent": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 99
+          },
+          "pause_reasons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "maxItems": 20
+          },
+          "effective_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "name",
+          "enabled",
+          "order",
+          "priority",
+          "category",
+          "calendar_id",
+          "calendar_version",
+          "response_seconds",
+          "resolution_seconds",
+          "warning_percent",
+          "pause_reasons"
+        ]
+      },
+      "SLADefinition": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "policy",
+              "calendar"
+            ]
+          },
+          "effective_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "config": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SLACalendar"
+              },
+              {
+                "$ref": "#/components/schemas/SLAPolicy"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "kind",
+          "effective_at",
+          "config"
+        ]
+      },
+      "SLADefinitionPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SLADefinition"
+            },
+            "maxItems": 100
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "rules": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "rules"
+        ]
+      },
+      "SLAInstance": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "incident_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "policy_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "policy_version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "calendar_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "calendar_version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "cycle": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "incident_version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "accrued_microseconds": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "policy_name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "response",
+              "resolution"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "PAUSED",
+              "COMPLETED",
+              "CANCELLED",
+              "UNANSWERED"
+            ]
+          },
+          "pause_reason": {
+            "type": "string"
+          },
+          "accrued_seconds": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "target_seconds": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "remaining_seconds": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "calculated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "due_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "paused_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "warned_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "breached_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "incident_id",
+          "policy_id",
+          "policy_version",
+          "calendar_id",
+          "calendar_version",
+          "cycle",
+          "incident_version",
+          "version",
+          "accrued_microseconds",
+          "policy_name",
+          "kind",
+          "status",
+          "pause_reason",
+          "accrued_seconds",
+          "target_seconds",
+          "remaining_seconds",
+          "started_at",
+          "calculated_at",
+          "due_at",
+          "finished_at",
+          "paused_at",
+          "warned_at",
+          "breached_at"
+        ]
+      },
+      "SLAInstancePage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SLAInstance"
+            },
+            "maxItems": 200
+          },
+          "pending": {
+            "type": "boolean"
+          },
+          "rules": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "pending",
+          "rules"
+        ]
+      },
+      "SLAHistoryEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "instance_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "incident_version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "source_event_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "type": {
+            "type": "string"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "accrued_seconds": {
+            "type": "integer"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "due_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "response",
+              "resolution"
+            ]
+          },
+          "cycle": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "policy_version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "calendar_version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "target_seconds": {
+            "type": "integer",
+            "minimum": 60
+          }
+        },
+        "required": [
+          "id",
+          "instance_id",
+          "incident_version",
+          "source_event_id",
+          "type",
+          "occurred_at",
+          "accrued_seconds",
+          "reason",
+          "due_at",
+          "kind",
+          "cycle",
+          "policy_version",
+          "calendar_version",
+          "target_seconds"
+        ]
+      },
+      "SLAHistoryPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SLAHistoryEntry"
+            },
+            "maxItems": 100
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
       "ErrorEnvelope": {
         "type": "object",
         "required": [
@@ -9161,518 +9701,6 @@
           "delivery_id"
         ],
         "additionalProperties": false
-      },
-      "SLAWindow": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "start": {
-            "type": "string",
-            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
-          },
-          "end": {
-            "type": "string",
-            "pattern": "^(([01][0-9]|2[0-3]):[0-5][0-9]|24:00)$"
-          }
-        },
-        "required": [
-          "start",
-          "end"
-        ]
-      },
-      "SLACalendar": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          },
-          "version": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 120
-          },
-          "timezone": {
-            "type": "string",
-            "description": "IANA timezone; UTC instants, local weekly windows and date holidays. Local is rejected."
-          },
-          "week": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "weekday": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 6
-                },
-                "windows": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/SLAWindow"
-                  },
-                  "maxItems": 8
-                }
-              },
-              "required": [
-                "weekday",
-                "windows"
-              ]
-            },
-            "maxItems": 7
-          },
-          "holidays": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "date"
-            },
-            "maxItems": 1000
-          },
-          "exceptions": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "date": {
-                  "type": "string",
-                  "format": "date"
-                },
-                "windows": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/SLAWindow"
-                  },
-                  "maxItems": 8
-                }
-              },
-              "required": [
-                "date",
-                "windows"
-              ]
-            },
-            "maxItems": 1000
-          }
-        },
-        "required": [
-          "name",
-          "timezone",
-          "week",
-          "holidays",
-          "exceptions"
-        ]
-      },
-      "SLAPolicy": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          },
-          "version": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 120
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "order": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 100000
-          },
-          "priority": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 5
-          },
-          "category": {
-            "type": "string",
-            "enum": [
-              "",
-              "hardware",
-              "software",
-              "network",
-              "access",
-              "other"
-            ]
-          },
-          "calendar_id": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          },
-          "calendar_version": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          },
-          "response_seconds": {
-            "type": "integer",
-            "minimum": 60,
-            "maximum": 2592000
-          },
-          "resolution_seconds": {
-            "type": "integer",
-            "minimum": 60,
-            "maximum": 2592000
-          },
-          "warning_percent": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 99
-          },
-          "pause_reasons": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 120
-            },
-            "maxItems": 20
-          },
-          "effective_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "name",
-          "enabled",
-          "order",
-          "priority",
-          "category",
-          "calendar_id",
-          "calendar_version",
-          "response_seconds",
-          "resolution_seconds",
-          "warning_percent",
-          "pause_reasons"
-        ]
-      },
-      "SLADefinition": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          },
-          "version": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "policy",
-              "calendar"
-            ]
-          },
-          "effective_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "config": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/SLACalendar"
-              },
-              {
-                "$ref": "#/components/schemas/SLAPolicy"
-              }
-            ]
-          }
-        },
-        "required": [
-          "id",
-          "version",
-          "kind",
-          "effective_at",
-          "config"
-        ]
-      },
-      "SLADefinitionPage": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SLADefinition"
-            },
-            "maxItems": 100
-          },
-          "next_before_id": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          },
-          "rules": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "items",
-          "rules"
-        ]
-      },
-      "SLAInstance": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          },
-          "incident_id": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          },
-          "policy_id": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          },
-          "policy_version": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          },
-          "calendar_id": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          },
-          "calendar_version": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          },
-          "cycle": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          },
-          "incident_version": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          },
-          "version": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          },
-          "accrued_microseconds": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          },
-          "policy_name": {
-            "type": "string"
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "response",
-              "resolution"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "ACTIVE",
-              "PAUSED",
-              "COMPLETED",
-              "CANCELLED",
-              "UNANSWERED"
-            ]
-          },
-          "pause_reason": {
-            "type": "string"
-          },
-          "accrued_seconds": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "target_seconds": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "remaining_seconds": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "started_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "calculated_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "due_at": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "finished_at": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "paused_at": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "warned_at": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "breached_at": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "id",
-          "incident_id",
-          "policy_id",
-          "policy_version",
-          "calendar_id",
-          "calendar_version",
-          "cycle",
-          "incident_version",
-          "version",
-          "accrued_microseconds",
-          "policy_name",
-          "kind",
-          "status",
-          "pause_reason",
-          "accrued_seconds",
-          "target_seconds",
-          "remaining_seconds",
-          "started_at",
-          "calculated_at",
-          "due_at",
-          "finished_at",
-          "paused_at",
-          "warned_at",
-          "breached_at"
-        ]
-      },
-      "SLAInstancePage": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SLAInstance"
-            },
-            "maxItems": 200
-          },
-          "pending": {
-            "type": "boolean"
-          },
-          "rules": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "items",
-          "pending",
-          "rules"
-        ]
-      },
-      "SLAHistoryEntry": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          },
-          "instance_id": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          },
-          "incident_version": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          },
-          "source_event_id": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          },
-          "type": {
-            "type": "string"
-          },
-          "occurred_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "accrued_seconds": {
-            "type": "integer"
-          },
-          "reason": {
-            "type": "string"
-          },
-          "due_at": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "id",
-          "instance_id",
-          "incident_version",
-          "source_event_id",
-          "type",
-          "occurred_at",
-          "accrued_seconds",
-          "reason",
-          "due_at"
-        ]
-      },
-      "SLAHistoryPage": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SLAHistoryEntry"
-            },
-            "maxItems": 100
-          },
-          "next_before_id": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
-          }
-        },
-        "required": [
-          "items"
-        ]
       }
     },
     "responses": {

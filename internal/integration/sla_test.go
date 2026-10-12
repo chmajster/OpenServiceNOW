@@ -189,6 +189,35 @@ func TestDurableSLA(t *testing.T) {
 	if err = restarted.Reconcile(ctx, root.TenantID, record.ID); err != nil {
 		t.Fatal(err)
 	}
+	// Scheduler selects the durable due row and the real worker completes its
+	// known-ID job, independently from event-handler delivery or browser reads.
+	clock = clock.Add(time.Minute)
+	scheduled, err := service.Schedule(ctx, clock)
+	if err != nil || scheduled < 1 {
+		t.Fatal("scheduler did not enqueue due SLA", scheduled, err)
+	}
+	var scheduledID uint64
+	if err = db.QueryRowContext(ctx, `SELECT id FROM jobs WHERE tenant_id=? AND job_type='sla.reconcile' AND idempotency_key LIKE 'sla:tick:%' ORDER BY id DESC LIMIT 1`, root.TenantID).Scan(&scheduledID); err != nil {
+		t.Fatal(err)
+	}
+	// Controlled business time can be ahead of the database clock; making this
+	// fixture job available does not replace the real claim/attempt/handler path.
+	if _, err = db.ExecContext(ctx, `UPDATE jobs SET available_at=UTC_TIMESTAMP(6) WHERE id=?`, scheduledID); err != nil {
+		t.Fatal(err)
+	}
+	for n := 0; n < 8; n++ {
+		processed, e := worker.RunOnce(ctx)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if !processed {
+			break
+		}
+	}
+	var completed int
+	if err = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM job_attempts a JOIN jobs j ON j.id=a.job_id WHERE j.id=? AND j.status='COMPLETED' AND a.status='COMPLETED'`, scheduledID).Scan(&completed); err != nil || completed != 1 {
+		t.Fatal("scheduler PID is not processing proof", completed, err)
+	}
 	var thresholdCount int
 	if err = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM outbox_events WHERE tenant_id=? AND aggregate_id=? AND event_type IN ('sla.warning','sla.breached')`, root.TenantID, create.AggregateID).Scan(&thresholdCount); err != nil || thresholdCount != 4 {
 		t.Fatal("duplicated escalation", thresholdCount, err)
@@ -261,5 +290,39 @@ func TestDurableSLA(t *testing.T) {
 	router.ServeHTTP(w, req)
 	if w.Code != 200 || !strings.Contains(w.Body.String(), `"policy_version":"1"`) {
 		t.Fatalf("SLA API %d %s", w.Code, w.Body.String())
+	}
+	var jobsBefore, jobsAfter int
+	if err = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM jobs WHERE tenant_id=?`, root.TenantID).Scan(&jobsBefore); err != nil {
+		t.Fatal(err)
+	}
+	router.ServeHTTP(httptest.NewRecorder(), req.Clone(ctx))
+	if err = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM jobs WHERE tenant_id=?`, root.TenantID).Scan(&jobsAfter); err != nil || jobsAfter != jobsBefore {
+		t.Fatal("SLA GET scheduled work", jobsBefore, jobsAfter, err)
+	}
+	// A backlog larger than one batch needs durable continuation, and timer
+	// advancement must wait until every committed transition has been applied.
+	for v := uint64(4); v <= 208; v++ {
+		appendState(v, base.Add(42*time.Minute+time.Duration(v)*time.Second), "IN_PROGRESS", "")
+	}
+	if _, err = db.ExecContext(ctx, `UPDATE incidents SET version=208 WHERE tenant_id=? AND id=?`, root.TenantID, record.ID); err != nil {
+		t.Fatal(err)
+	}
+	clock = base.Add(100 * time.Minute)
+	if err = service.Reconcile(ctx, root.TenantID, record.ID); err != nil {
+		t.Fatal(err)
+	}
+	partial, err := service.Instances(ctx, actor, []uint64{record.ID})
+	if err != nil || !partial.Pending || partial.Items[0].IncidentVersion >= 208 {
+		t.Fatal("unbounded or prematurely advanced source batch", partial, err)
+	}
+	if err = restarted.Reconcile(ctx, root.TenantID, record.ID); err != nil {
+		t.Fatal(err)
+	}
+	final, err := service.Instances(ctx, actor, []uint64{record.ID})
+	if err != nil || final.Pending || final.Items[0].IncidentVersion != 208 {
+		t.Fatal("continuation did not recover checkpoint", final, err)
+	}
+	if err = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM outbox_events WHERE tenant_id=? AND aggregate_id=? AND event_type IN ('sla.warning','sla.breached')`, root.TenantID, create.AggregateID).Scan(&thresholdCount); err != nil || thresholdCount != 4 {
+		t.Fatal("batch restart duplicated escalation", thresholdCount, err)
 	}
 }

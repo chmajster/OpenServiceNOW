@@ -87,7 +87,7 @@ func main() {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	logger.Info("scheduler started", "interval", cfg.Session.CleanupInterval.String())
+	logger.Info("scheduler started", "interval", interval.String())
 	for {
 		select {
 		case <-rootCtx.Done():

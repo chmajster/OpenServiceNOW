@@ -126,8 +126,11 @@ func (s *Service) SaveDefinition(ctx context.Context, a incidents.Actor, kind st
 	var c Calendar
 	var p Policy
 	if kind == "calendar" {
-		if decodeConfig(raw, &c) != nil || ValidateCalendar(c) != nil {
+		if decodeConfig(raw, &c) != nil {
 			return out, ErrInvalid
+		}
+		if err := ValidateCalendar(c); err != nil {
+			return out, err
 		}
 		c.ID = 0
 		c.Version = 0
@@ -149,8 +152,11 @@ func (s *Service) SaveDefinition(ctx context.Context, a incidents.Actor, kind st
 		}
 		raw, _ = json.Marshal(c)
 	} else {
-		if decodeConfig(raw, &p) != nil || ValidatePolicy(p) != nil {
+		if decodeConfig(raw, &p) != nil {
 			return out, ErrInvalid
+		}
+		if err := ValidatePolicy(p); err != nil {
+			return out, err
 		}
 		p.ID = 0
 		p.Version = 0

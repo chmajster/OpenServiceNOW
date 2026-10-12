@@ -79,6 +79,11 @@ type Instance struct {
 	Version          uint64     `json:"version,string"`
 }
 type History struct {
+	Kind            string     `json:"kind"`
+	Cycle           uint64     `json:"cycle,string"`
+	PolicyVersion   uint64     `json:"policy_version,string"`
+	CalendarVersion uint64     `json:"calendar_version,string"`
+	TargetSeconds   int64      `json:"target_seconds"`
 	ID              uint64     `json:"id,string"`
 	InstanceID      uint64     `json:"instance_id,string"`
 	IncidentVersion uint64     `json:"incident_version,string"`
