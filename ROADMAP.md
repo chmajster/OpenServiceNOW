@@ -238,6 +238,8 @@ Exit criteria:
 
 ## Phase 5 — Requests and Service Catalog
 
+Implemented core delivery in PR #21: explicit catalog/category/item hierarchy, immutable published forms, separate Request/Requested Item/Task snapshots, server required/visibility rules, shared transactional numbering/assignment/audit/outbox, idempotent submission, portal and scoped fulfillment with private communication/files/history. Templates are consciously created/configured by administrators. This stage provides independent manual tasks; Phase 6 approval/dependency engines and external provisioning are not implied. Verification is recorded in STATUS.md and PR #21.
+
 Goal: request fulfillment lifecycle with metadata-driven catalog forms.
 
 Deliverables:

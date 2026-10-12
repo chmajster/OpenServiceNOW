@@ -4,9 +4,17 @@ Last updated: 2026-10-12
 
 ## Current phase
 
-Asynchronous incident SLA, following independent outbox consumers, notifications and the delivered Incident Management process.
+Service catalog and request fulfillment, following asynchronous incident SLA, independent outbox consumers and Incident Management.
 
 The repository includes the administration foundation, durable MySQL jobs/worker, scheduler, work-record infrastructure and the core Incident Management API/UI. The full application is deployed through DevBox with real MySQL/Redis readiness. This delivery does not declare every Phase 3 extension or later roadmap phase complete.
+
+## Service catalog and request fulfillment delivery
+
+[PR #21](https://github.com/chmajster/OpenServiceNOW/pull/21) adds `internal/catalog` and `internal/requests`, schema 55–63, separate catalog/category/item/publication and Request/Requested Item/Task models, immutable declarative forms and snapshots, explicit active-group manual fulfillment, server visibility/required validation, atomic shared numbering/assignment/audit/outbox/idempotency and CAS transitions. Requesters can browse authorized publications, submit and track their own requests, communicate, attach files and cancel before work starts. Scoped group operators assign/start/hold/resume/complete tasks and finalize/close requests only after required work. The portal does not expose drafts, internal instructions/results or private communication/files/history. Templates require explicit administrative creation/configuration/publication; migrations seed no services or requests.
+
+Local Go/OpenAPI tests, TypeScript/build and 23 frontend unit tests passed. Disposable MySQL integration and migration rollback/reupgrade through 63 passed; coverage includes controlled outbox failure rollback, concurrent replay/digest conflicts, historical schema retention, required-task closure, version conflicts, organization/object isolation, active group access, shared messages/files and real worker projections. Four scoped desktop/mobile setup/catalog/request scenarios passed with real MySQL/API/frontend/worker/scheduler, IDs above 2^53−1, lost committed response/retry, changed publication/history, scoped assignment/fulfillment and private note exclusion. Extended browser tests, actual process restart, full regression and final CI/review results are tracked in PR #21 while work is in progress.
+
+Boundaries: API submission has 1–10 items; portal submits one service per request. Definitions have at most 50 fields/20 independent manual tasks. There are no approval/dependency engines, external provisioning actions, request SLA or request notification channels in this stage. Closed/cancelled requests are terminal. Publication/fulfillment data remain immutable; optional unfinished tasks are explicitly cancelled on finalization. Prior stage CI evidence below describes its historical revision.
 
 ## Incident SLA delivery
 
@@ -25,7 +33,7 @@ Availability boundaries:
 - Setup, authentication, own-account profile/password/sessions, tenant/user/RBAC administration and audit have implemented services, OpenAPI routes and React screens.
 - Jobs, attempts/logs, leases, retries/cancellation, session-cleanup scheduling and worker execution are implemented internally. There is no public job-management API or UI.
 - Work records, outbox, attachments and activity have shared libraries, migrations, worker projections and integration tests. Incidents now consume numbering, assignments and activity with domain object authorization; generic work/job administration remains unavailable. Incident-bound communication/file/observer/relation APIs and UI are implemented with concrete object authorization.
-- Incident Management has persistence, OpenAPI routes and React list/create/detail/lifecycle/history/communication/participant screens and a versioned operator queue. Incident SLA now has persistence, scheduler/worker processing, OpenAPI routes and administration/list/detail UI; requests and later business capabilities remain roadmap work.
+- Incident Management and incident SLA have persistence, production workers, OpenAPI and functioning React screens. Catalog/request fulfillment now has domain persistence, actual task/assignment/activity processing, authenticated OpenAPI routes and administration/portal/operator UI. Workflow approvals and later business capabilities remain roadmap work.
 
 Implemented foundation capabilities:
 
@@ -293,9 +301,18 @@ Implemented migration versions:
 - `000051_sla_instances`,
 - `000052_sla_work`,
 - `000053_sla_history`,
-- `000054_sla_permission`.
+- `000054_sla_permission`,
+- `000055_service_catalogs`,
+- `000056_catalog_categories`,
+- `000057_catalog_items`,
+- `000058_catalog_item_versions`,
+- `000059_service_requests`,
+- `000060_requested_items`,
+- `000061_fulfillment_tasks`,
+- `000062_work_operation_keys`,
+- `000063_request_permissions`.
 
-Each up/down migration contains one SQL statement. Runtime readiness requires migration version 54, `dirty=false`, and the foundation metadata singleton. The real MySQL lifecycle test passed latest → one-step rollback → latest → legacy schema 24 → latest → full rollback → latest → readiness. Migration 25 permanently closes first-run setup for existing accounts/organizations without changing credentials; migration 26 preserves existing hashes and defaults the required-change flag to false. The reserved `groups` identifier is quoted in schema and repository SQL.
+Each up/down migration contains one SQL statement. Runtime readiness requires migration version 63, `dirty=false`, and the foundation metadata singleton. The real MySQL lifecycle test passed latest → one-step rollback → latest → legacy schema 24 → latest → full rollback → latest → readiness. Migration 25 permanently closes first-run setup for existing accounts/organizations without changing credentials; migration 26 preserves existing hashes and defaults the required-change flag to false. The reserved `groups` identifier is quoted in schema and repository SQL.
 
 ## Technical debt
 

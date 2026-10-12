@@ -2,11 +2,15 @@
 
 ## Status
 
-Phase 0 established the target architecture and module boundaries. The implemented stack contains API, migration/bootstrap, worker and scheduler executables, MySQL schema through migration 54, Redis-backed controls, identity/RBAC/audit services, the first-run installer, React administration and own-account UI.
+Phase 0 established the target architecture and module boundaries. The implemented stack contains API, migration/bootstrap, worker and scheduler executables, MySQL schema through migration 63, Redis-backed controls, identity/RBAC/audit services, the first-run installer, React administration and own-account UI.
 
 Shared work-record, jobs, outbox, activity and attachment libraries are implemented and integration-tested. The scheduler enqueues durable session- and attachment-cleanup jobs; the worker executes them and dispatches activity events. Incident Management consumes shared numbering, assignments, messages, watchers, relations, attachments and activity through domain-authorized API/UI. Generic work/job-management and arbitrary-object attachment APIs/UI remain future stages. Existing routes/screens cover setup, authentication, own accounts, tenant/user/RBAC/audit administration, incidents and notifications/delivery administration. The remaining sections distinguish implemented foundations from target business capabilities; see STATUS.md and TODO.md for verified progress.
 
 ## Architectural goals
+
+The implemented `internal/catalog` owns catalogs/categories/items, draft CAS and immutable publications with declarative forms and explicit manual fulfillment. `internal/requests` owns Request/Requested Item/Task state, object access, request snapshots and closure rules. Both use backend session principals; mutations revalidate active membership/permissions under the organization lock in their domain transaction. Public DTOs exclude private catalog/task data. Group operators only read assigned-group records; organization-wide management is a separate permission. Catalog/request create retries use shared `workrecords.ReserveOperation`/`CompleteOperation` with actor/organization keys and body digests.
+
+Submission creates the Request, snapshot items, numbered tasks, shared assignments, audit/outbox and retry receipt in one executor transaction. `workrecords` supplies numbering, assignments and append-only messages; `attachments` supplies persistent storage, visibility filtering and orphan cleanup; `activity` projects source events idempotently. Request comment/note events have actual request-specific worker handlers, avoiding the incident-only notification/SLA consumer contract. Public history contains only safe state metadata/public communication; internal notes/file events remain INTERNAL. Finalization requires all required tasks COMPLETED and cancels remaining optional tasks; closed/cancelled requests are terminal. Approval/dependency automation remains future work.
 
 The implemented `internal/incidents` domain owns incident fields, object authorization, lifecycle rules and business versioning. It calls shared `workrecords.Allocator.NextInTx` and `workrecords.Service.SetAssignmentInTx` using the same `database.Executor` as incident persistence, audit and outbox; no nested transaction commits independently. Creation idempotency is scoped to the backend actor and organization, while INC uniqueness is enforced per organization and numbering uses the shared row-locked sequence.
 
@@ -326,8 +330,9 @@ Example atomic operation:
 ```text
 create request
   + create requested items
-  + create approvals
-  + append audit records
+  + create fulfillment tasks and shared assignments
+  + append audit and outbox records
+  + complete idempotency receipt
 ```
 
 The transaction manager should expose an executor that repositories can use with either the base DB handle or a transaction.
