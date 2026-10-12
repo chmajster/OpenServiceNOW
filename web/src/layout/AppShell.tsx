@@ -1,6 +1,5 @@
 import {
   Link,
-  NavLink,
   Outlet,
   useLocation,
   useNavigate,
@@ -84,10 +83,9 @@ export function AppShell() {
 
         <nav className="navigation" aria-label="Główna nawigacja">
           {visibleNavigation.map((item) => (
-            <NavLink
+            <Link
               key={item.to}
               to={item.to}
-              end={item.to === "/"}
               aria-current={current?.to === item.to ? "page" : undefined}
               className={
                 current?.to === item.to
@@ -96,7 +94,7 @@ export function AppShell() {
               }
             >
               {item.label}
-            </NavLink>
+            </Link>
           ))}
         </nav>
 

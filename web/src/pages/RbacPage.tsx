@@ -1,13 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ApiError, api, jsonBody } from "../api/client";
-import type {
-  CreatedID,
-  Group,
-  Permission,
-  PermissionsResponse,
-  Role,
-} from "../api/types";
+import type { CreatedID, Group, Permission, Role } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { ConflictNotice } from "../components/ConflictNotice";
 import { PageState } from "../components/PageState";
@@ -28,6 +22,8 @@ export function RbacPage() {
   const page = useRemotePage<Role | Group>(
     `${base}/${kind}?${new URLSearchParams({ limit: "50", q: query })}`,
     kind,
+    "after_id",
+    !id && !creating,
   );
   function navigate(values: Record<string, string>) {
     setParams(values);
@@ -260,28 +256,14 @@ function PermissionFields({
     </fieldset>
   );
 }
-function useCatalog() {
-  const [catalog, setCatalog] = useState<Permission[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    const controller = new AbortController();
-    void api<PermissionsResponse>(`${base}/permissions`, {
-      signal: controller.signal,
-    })
-      .then((result) => {
-        if (!controller.signal.aborted) setCatalog(result.permissions);
-      })
-      .catch((cause: unknown) => {
-        if (!controller.signal.aborted)
-          setError(
-            cause instanceof Error
-              ? cause.message
-              : "Nie udało się pobrać uprawnień.",
-          );
-      });
-    return () => controller.abort();
-  }, []);
-  return { catalog, error };
+function useCatalog(enabled = true) {
+  const page = useRemotePage<Permission>(
+    `${base}/permissions`,
+    "permissions",
+    "after_id",
+    enabled,
+  );
+  return { catalog: page.items, error: page.error, retry: page.retry };
 }
 function CreateResource({
   kind,
@@ -290,7 +272,11 @@ function CreateResource({
   kind: "roles" | "groups";
   onCreated: (id: string) => void;
 }) {
-  const { catalog, error: catalogError } = useCatalog();
+  const {
+    catalog,
+    error: catalogError,
+    retry: retryCatalog,
+  } = useCatalog(kind === "roles");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [permissions, setPermissions] = useState<string[]>([]);
@@ -361,6 +347,15 @@ function CreateResource({
         {error || catalogError ? (
           <div role="alert" className="inline-error">
             {error || catalogError}
+            {catalogError ? (
+              <button
+                type="button"
+                className="button button--secondary"
+                onClick={() => void retryCatalog()}
+              >
+                Pobierz katalog uprawnień
+              </button>
+            ) : null}
           </div>
         ) : null}
         <button
@@ -443,6 +438,17 @@ function ResourceDetail({
     <>
       <div className="panel">
         <h2>{resource.name}</h2>
+        {error ? (
+          <div role="alert" className="inline-error">
+            {error}{" "}
+            <button
+              className="button button--secondary"
+              onClick={() => setRetry((value) => value + 1)}
+            >
+              Odśwież informacje
+            </button>
+          </div>
+        ) : null}
         <RemoteCombobox
           kind={kind}
           clearable={false}
@@ -522,7 +528,7 @@ function RoleEditor({
   onSaved: (role: Role) => void;
 }) {
   const { refresh } = useAuth();
-  const { catalog, error: catalogError } = useCatalog();
+  const { catalog, error: catalogError, retry: retryCatalog } = useCatalog();
   const [version, setVersion] = useState(role.version);
   const [values, setValues] = useState(
     role.permissions.map((permission) => permission.key),
@@ -606,6 +612,15 @@ function RoleEditor({
         {error || catalogError ? (
           <div role="alert" className="inline-error">
             {error || catalogError}
+            {catalogError ? (
+              <button
+                type="button"
+                className="button button--secondary"
+                onClick={() => void retryCatalog()}
+              >
+                Pobierz katalog uprawnień
+              </button>
+            ) : null}
           </div>
         ) : null}
         {message ? (

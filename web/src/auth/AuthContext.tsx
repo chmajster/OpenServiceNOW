@@ -77,7 +77,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         const installation = await api<SetupStatus>("/api/v1/setup", {
           signal: controller.signal,
         });
-        if (currentEpoch !== epoch.current) return;
+        if (currentEpoch !== epoch.current || controller.signal.aborted) return;
         setSetup(installation);
         if (installation.required) {
           setSession(null);
@@ -88,7 +88,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         const current = await api<AuthMe>("/api/v1/auth/me", {
           signal: controller.signal,
         });
-        if (currentEpoch !== epoch.current) return;
+        if (currentEpoch !== epoch.current || controller.signal.aborted) return;
         setSession(current);
         setStatus("authenticated");
         setError(null);

@@ -134,6 +134,8 @@ async function select(
     container.getByRole("option", { name: option, exact: true }),
   ).toBeVisible();
   await input.press("ArrowDown");
+  await input.press("End");
+  await input.press("Home");
   await input.press("Enter");
   await expect(input).toHaveValue(option);
 }
@@ -252,8 +254,10 @@ test("admin manages a least-privilege user, role, group and audit with the keybo
   await expect(
     page.getByRole("button", { name: "Usuń członka Operator E2E" }),
   ).toBeEnabled();
+  const memberImage = testInfo.outputPath("group-members.png");
+  await page.screenshot({ path: memberImage, fullPage: true });
   await testInfo.attach("group-members", {
-    body: await page.screenshot({ fullPage: true }),
+    path: memberImage,
     contentType: "image/png",
   });
   await page.getByRole("button", { name: "Usuń członka Operator E2E" }).click();
@@ -333,8 +337,10 @@ test("admin manages a least-privilege user, role, group and audit with the keybo
   await expect(
     page.getByRole("navigation", { name: "Ścieżka nawigacji" }),
   ).toBeVisible();
+  const auditImage = testInfo.outputPath("audit-details.png");
+  await page.screenshot({ path: auditImage, fullPage: true });
   await testInfo.attach("audit-details", {
-    body: await page.screenshot({ fullPage: true }),
+    path: auditImage,
     contentType: "image/png",
   });
   expect(
@@ -562,10 +568,105 @@ test("remote user pagination reaches beyond the first 50 and late A cannot chang
   await expect(
     section.getByRole("button", { name: `Usuń rolę ${roleName}` }),
   ).toHaveCount(0);
+  const groups: { id: string; name: string }[] = [];
+  for (const name of [`late-group-A-${suffix}`, `late-group-B-${suffix}`]) {
+    const response = await page.request.post("/api/v1/admin/rbac/groups", {
+      headers: await csrf(page),
+      data: { name },
+    });
+    expect(response.status()).toBe(201);
+    groups.push({ id: (await response.json()).id, name });
+  }
+  const groupA = groups[0]!;
+  const groupB = groups[1]!;
+  expect(
+    (
+      await page.request.post(
+        `/api/v1/admin/rbac/groups/${groupA.id}/roles/${roleID}`,
+        { headers: await csrf(page) },
+      )
+    ).status(),
+  ).toBe(204);
+  let releaseGroup!: () => void;
+  const groupGate = new Promise<void>((resolve) => {
+    releaseGroup = resolve;
+  });
+  let sawGroup!: () => void;
+  const groupSeen = new Promise<void>((resolve) => {
+    sawGroup = resolve;
+  });
+  await page.route(
+    `**/api/v1/admin/rbac/groups/${groupA.id}/roles?*`,
+    async (route) => {
+      const response = await route.fetch();
+      sawGroup();
+      await groupGate;
+      await route.fulfill({ response }).catch(() => undefined);
+    },
+  );
+  const groupSection = page
+    .locator("section")
+    .filter({
+      has: page.getByRole("heading", {
+        name: "Role wybranej grupy",
+        exact: true,
+      }),
+    })
+    .last();
+  await select(groupSection, "Grupa", groupA.name, groupA.name);
+  await groupSeen;
+  await expect(
+    groupSection.getByRole("button", { name: "Przypisz rolę", exact: true }),
+  ).toBeDisabled();
+  await select(groupSection, "Grupa", groupB.name, groupB.name);
+  await expect(
+    groupSection.getByText("Brak bezpośrednio przypisanych ról."),
+  ).toBeVisible();
+  releaseGroup();
+  await expect(
+    groupSection.getByRole("button", { name: `Usuń rolę ${roleName}` }),
+  ).toHaveCount(0);
   await page.reload();
   await expect(
     page.getByRole("link", { name: "Przypisania", exact: true }),
   ).toHaveAttribute("aria-current", "page");
+});
+
+test("catalog retry and duplicate creation preserve the role draft", async ({
+  page,
+}) => {
+  await login(page);
+  await page.goto("/rbac?kind=roles");
+  let first = true;
+  await page.route("**/api/v1/admin/rbac/permissions", (route) => {
+    if (first) {
+      first = false;
+      return route.abort("failed");
+    }
+    return route.continue();
+  });
+  await page.getByRole("button", { name: "Nowa rola" }).click();
+  const name = `draft-${scope()}`;
+  await page.getByLabel("Nazwa", { exact: true }).fill(name);
+  await page.getByLabel("Opis", { exact: true }).fill("Zachowaj tę pracę");
+  await page.getByRole("button", { name: "Pobierz katalog uprawnień" }).click();
+  await expect(page.getByLabel("Nazwa", { exact: true })).toHaveValue(name);
+  await checkbox(page, "tenant.read").check();
+  await createRole(page, name, []);
+  await page.getByRole("button", { name: "Utwórz rolę" }).click();
+  await expect(page.getByRole("alert")).toContainText("Ta nazwa już istnieje");
+  await expect(checkbox(page, "tenant.read")).toBeChecked();
+  await expect(page.getByLabel("Opis", { exact: true })).toHaveValue(
+    "Zachowaj tę pracę",
+  );
+  await page.getByLabel("Nazwa", { exact: true }).fill(`${name}-resolved`);
+  await page.getByRole("button", { name: "Utwórz rolę" }).click();
+  await expect(
+    page.getByRole("heading", { name: `${name}-resolved`, exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".navigation a[aria-current='page']")).toHaveCount(
+    1,
+  );
 });
 
 test("backend logout invalidates every screen and a fresh login restores context", async ({

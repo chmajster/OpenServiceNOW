@@ -58,6 +58,7 @@ export function RemoteCombobox({
           disabled={disabled}
           value={open ? query : (value?.label ?? "")}
           onFocus={() => {
+            if (open) return;
             setOpen(true);
             setQuery("");
             setSearch("");
@@ -168,6 +169,7 @@ function Options({
       "aria-activedescendant",
       active >= 0 ? `${id}-option-${active}` : "",
     );
+    if (active < 0 || pending) input?.removeAttribute("aria-activedescendant");
     const handler = (event: KeyboardEvent) => {
       if (event.key === "Enter") event.preventDefault();
       if (event.key === "ArrowDown")
@@ -245,7 +247,9 @@ function Options({
           type="button"
           className="button button--secondary"
           disabled={page.loading || pending}
-          onClick={() => void page.more()}
+          onClick={() =>
+            void page.more().then(() => document.getElementById(id)?.focus())
+          }
         >
           Załaduj więcej wyników
         </button>

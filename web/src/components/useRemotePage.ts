@@ -14,9 +14,10 @@ export function useRemotePage<T>(
   path: string,
   collection: string,
   cursor = "after_id",
+  enabled = true,
 ) {
   const [revision, setRevision] = useState(0);
-  const key = `${path}|${revision}`;
+  const key = `${enabled}:${path}|${revision}`;
   const active = useRef(key);
   active.current = key;
   const sequence = useRef(0);
@@ -29,6 +30,7 @@ export function useRemotePage<T>(
   });
   const load = useCallback(
     async (after?: string) => {
+      if (!enabled) return;
       request.current?.abort();
       const controller = new AbortController();
       request.current = controller;
@@ -78,7 +80,7 @@ export function useRemotePage<T>(
         }));
       }
     },
-    [path, collection, cursor, key],
+    [path, collection, cursor, key, enabled],
   );
   useEffect(() => {
     void load();
@@ -87,8 +89,9 @@ export function useRemotePage<T>(
       sequence.current += 1;
     };
   }, [load]);
-  const current =
-    state.key === key
+  const current = !enabled
+    ? { items: [] as T[], loading: false, error: null, next: undefined }
+    : state.key === key
       ? state
       : { items: [] as T[], loading: true, error: null, next: undefined };
   return {
