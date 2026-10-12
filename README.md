@@ -4,7 +4,7 @@ OpenServiceNOW is an enterprise ITSM / IT Operations platform implemented indepe
 
 ## Current state
 
-Phase 1 — Foundation is in progress.
+The administration foundation and shared work-platform infrastructure are implemented in `main`. Business modules continue according to the roadmap; an internal library does not imply an available HTTP endpoint or UI screen.
 
 Implemented foundation capabilities:
 
@@ -33,13 +33,20 @@ Implemented foundation capabilities:
 - optional MySQL/Redis TLS and forced UTC MySQL sessions,
 - bounded Argon2 password verification concurrency,
 - panic-safe transactions and JSON panic recovery,
-- bounded session-cleanup scheduler,
+- bounded session cleanup scheduled as durable MySQL jobs and executed by the worker,
 - OpenAPI 3.1 contract,
 - React + TypeScript administration frontend,
 - Docker Compose development services,
 - unit/integration/race/build/migration/authentication/RBAC/frontend CI definitions.
 
-Durable MySQL-backed jobs, worker/scheduler execution and shared work-record infrastructure are implemented. The root Compose stack runs the complete current application through DevBox. Further business capabilities and external identity providers continue according to the roadmap.
+Durable MySQL-backed jobs, worker/scheduler execution and shared work-record infrastructure are implemented. Both the native local installer and the root DevBox Compose stack run API, frontend, worker and scheduler.
+
+| Capability | Existing implementation | HTTP API | UI |
+| --- | --- | --- | --- |
+| First-run setup, authentication, tenants, users, RBAC and audit | Services, repositories and migrations | Documented in OpenAPI | Setup, login and administration screens |
+| Jobs and scheduler | Durable jobs/attempts/logs, leases, retry/cancellation primitives; scheduler → worker session cleanup | No public job-management endpoints | No job-management screen |
+| Work records, outbox, activity and attachments | Shared libraries, SQL persistence, worker projections and integration tests | No public business-record/attachment endpoints | No business-record/attachment screens |
+| Incident, SLA and other roadmap business modules | Remaining roadmap work | Not available | Not available |
 
 ## Stack
 
@@ -108,6 +115,10 @@ The effective frontend port is stored in `.opensnow/run/web-port`, so later comm
 Frontend/database/cache conflicts still report an error. The installer never stops foreign listeners. Set `MYSQL_PORT` and `REDIS_ADDR` in `.env` if the infrastructure's default loopback ports 3306/6379 are occupied. Configure matching database credentials there before first provisioning; changing a password in `.env` does not reset accounts in an existing MySQL volume. For checkouts with the same directory name, use a distinct `COMPOSE_PROJECT_NAME` in `.env`; existing Compose project names/volumes remain compatible and container ownership is checked against the checkout path.
 
 The script also accepts an absolute path from another directory, including paths with spaces, e.g. `bash "/mnt/c/Projects/OpenServiceNOW local/install.sh" --local`. Logs are `.opensnow/logs/api.log`, `web.log`, `worker.log` and `scheduler.log`; separate PID/start-time records live in `.opensnow/run/`. Start is idempotent; stop preserves data and affects only this checkout's verified processes and infrastructure. Failed startup removes only processes/dependencies started by that invocation and reports log locations. Status returns a nonzero exit code for an incomplete/unready runtime. Ordinary uninstall preserves `.env`, SQL volume, source files, logs and unrelated `bin/` files; `--purge-data` explicitly removes this instance's database volume and `.env`. Previous commands without `--local` remain aliases for the same local mode. Conflicting lifecycle actions/options are rejected.
+
+`--status` only reads saved configuration, process identity and readiness; it creates no runtime directories, changes no accounts and enqueues no jobs. It reports every local process with its PID and log even if Docker is unavailable. API/frontend `ready` means the synchronous API, schema and Redis checks passed; worker/scheduler `running` means the verified process is alive. It does not prove processing or measure queue lag. A stopped worker makes overall status fail while synchronous API requests and login can remain available. Failed startup prints process state before and after rollback, including components preserved from an earlier start.
+
+Run the real lifecycle verification with `make local-test` (Linux/WSL, Docker, Go, Node.js, Python 3 and build utilities). It copies tracked working-tree files into a temporary checkout with spaces and uses a separate Compose project and disposable MySQL volume. It correlates scheduler JSON job IDs with worker attempts/results/logs, proves expired-session deletion, read-only status, duplicate prevention, API/proxy port changes, restart/session persistence, partial-start rollback, bootstrap password protection and ordinary uninstall/reinstall preservation. The `local-runtime` CI job runs this suite; failure artifacts include lifecycle and per-process logs.
 
 ### Local startup troubleshooting
 
@@ -204,6 +215,8 @@ cd web
 npm ci
 npm run dev
 ```
+
+For the complete stack, run `make worker` and `make scheduler` in separate shells too, loading `.env` in each shell. Alternatively, `make local-install` builds and starts all four processes; `make local-start`, `make local-stop`, `make local-restart` and `make local-status` manage the installed native runtime.
 
 The Vite development server listens on `127.0.0.1:5173` and proxies `/api` and `/health` to `127.0.0.1:8080` by default. `OPENSNOW_API_PORT` changes the proxy's loopback target port; the local installer sets it automatically from the selected/saved API port.
 
@@ -303,6 +316,9 @@ make migrate-down
 make migrate-down-all
 make migrate-version
 make bootstrap
+make worker
+make worker-once
+make scheduler
 make scheduler-once
 make frontend
 make frontend-test
@@ -327,9 +343,11 @@ CI performs infrastructure/migration/startup steps automatically in its dedicate
 
 ## Verification status
 
-On 2026-10-11, local Go formatting/vet/unit/race/build, real MySQL 8.4 integration and all 24 migrations (including full rollback/reapply), frontend typecheck/unit/build/audit and installer/Compose checks passed. A real DevBox rebuild preserved the administrator account and MySQL data; login/logout, CSRF rejection, MySQL/Redis readiness, RW source mounts and SELECT 1 from API/worker/scheduler passed.
+The preceding installer revision passed all six jobs in [foundation-ci #600](https://github.com/chmajster/OpenServiceNOW/actions/runs/38189545233): backend/migrations/integration, frontend, desktop/mobile E2E, native local lifecycle, Docker lifecycle and Docker Engine tests. September runner-allocation failures are historical and do not describe the current CI state.
 
 The first-run installer was additionally verified against an isolated MySQL/Redis/API/Nginx stack: all 25 migrations, preservation of existing credentials on upgrade, transactional rollback, concurrent setup and permanent closure after restart/account removal passed. Desktop/mobile browser coverage includes setup validation, expired installer session, network retry, stale-window conflict, account creation, login, RBAC and audit. The implementation and final checks are recorded in [PR #9](https://github.com/chmajster/OpenServiceNOW/pull/9).
+
+The native lifecycle fixes and expanded known-ID scheduler/worker verification in [PR #14](https://github.com/chmajster/OpenServiceNOW/pull/14) passed all six jobs in [foundation-ci #606](https://github.com/chmajster/OpenServiceNOW/actions/runs/38237188306). The complete native lifecycle also passed locally in an isolated environment, including actual expired-session deletion and ordinary uninstall/reinstall preservation. See [STATUS.md](STATUS.md) for the checked executable revision, results and capability limits.
 
 ## Architecture and project state
 

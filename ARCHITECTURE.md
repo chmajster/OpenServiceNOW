@@ -2,9 +2,9 @@
 
 ## Status
 
-Phase 0 established the target architecture and module boundaries. Phase 1 runtime implementation now exists on the active foundation branch: API, migration/bootstrap/scheduler executables, MySQL schema, Redis-backed controls, identity/RBAC/audit services, React frontend, tests and CI definitions.
+Phase 0 established the target architecture and module boundaries. Current `main` contains API, migration/bootstrap, worker and scheduler executables, MySQL schema through migration 25, Redis-backed controls, identity/RBAC/audit services, the first-run installer and React administration UI.
 
-Phase 1 is not considered complete until dependency lock files are generated from real resolution and the required backend, migration, frontend and Playwright suites execute successfully. A durable `cmd/worker` is intentionally deferred to Phase 2B, when the first persistent job workload exists; no empty worker executable is used as a placeholder.
+Shared work-record, jobs, outbox, activity and attachment libraries are implemented and integration-tested. The scheduler enqueues durable session-cleanup jobs; the worker executes them and dispatches activity events. These libraries have no public business-record/job-management API or UI yet. Existing HTTP routes and screens cover setup, authentication and tenant/user/RBAC/audit administration. The remaining sections distinguish implemented foundations from target business capabilities; see STATUS.md and TODO.md for verified progress.
 
 ## Architectural goals
 
@@ -517,11 +517,12 @@ Persistent job metadata should include:
 - retry count,
 - timestamps.
 
-Expected states:
+Implemented job states:
 
 ```text
 QUEUED
 RUNNING
+RETRYING
 COMPLETED
 FAILED
 CANCELLED
@@ -542,7 +543,7 @@ Scheduled responsibilities may include:
 - maintenance jobs,
 - cleanup.
 
-Distributed execution requires locking or leader coordination before multiple scheduler replicas are supported.
+Current session-cleanup scheduling uses a UTC time bucket and a unique MySQL job idempotency key, so multiple scheduler iterations/replicas share one durable job per bucket. Workers claim jobs with transactional `FOR UPDATE SKIP LOCKED`, leases and attempt history. Additional scheduler workloads must define their own deduplication/coordination policy.
 
 ## Workflow and approvals
 
@@ -813,6 +814,10 @@ Development:
 - the non-root frontend serves built React assets and proxies API/health on the same origin; DevBox publishes its selected port and mounts original sources RW,
 - application SQL state and durable jobs remain in the shared MySQL volume; Redis cache is disposable.
 
+The native `install.sh --local` path builds API/worker/scheduler and React from the current checkout, provisions only MySQL/Redis through `docker-compose.yml`, and runs the four application processes in detached sessions. Each process has its own log and PID record bound to user, checkout, executable, kernel boot ID and process start time. Lifecycle commands serialize through a checkout lock; repeated start reuses verified processes. Startup rollback removes only processes/dependencies started by that attempt and reports the remaining process state.
+
+The native API selects/saves an available loopback port in 8080–8100; Vite proxies both `/api` and `/health` to that port through `OPENSNOW_API_PORT`. API readiness checks MySQL, migrated schema and Redis independently of background process liveness. Read-only installer status reports background exits separately, including when Docker is unavailable. Processing is proven in an isolated lifecycle test by correlating known scheduler job IDs with durable worker attempts/results and the session-cleanup side effect. Status never creates a probe job. Continuous background heartbeats/queue-lag monitoring are not currently exposed by API or UI.
+
 Production direction:
 
 - stateless API replicas,
@@ -858,4 +863,4 @@ The following rules should be treated as non-negotiable unless replaced by an AD
 
 ## Phase 0 result
 
-This document defines the target architecture only. Runtime implementation begins in Phase 1. Phase 0 is complete only when the roadmap, status, TODO register, and architecture ADRs are also present and mutually consistent.
+Phase 0 supplied the architectural direction and ADRs. Runtime foundations and the shared work platform have since been implemented; the target business modules above remain roadmap work. A library, HTTP route and UI capability are separate delivery milestones and must not be marked complete interchangeably.

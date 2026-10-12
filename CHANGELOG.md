@@ -4,6 +4,14 @@ All notable repository changes are documented here.
 
 The project is pre-release and currently in architecture/foundation development.
 
+## 2026-10-12 — Native lifecycle diagnostics and execution verification
+
+- Made native status read-only, report each process/PID/log during Docker outages, and distinguish API readiness from background process liveness.
+- Report process state before/after startup rollback and safely handle a process exiting during PID identity reads.
+- Correlate known scheduler job IDs with worker attempts/results/logs and prove actual expired-session deletion in isolated lifecycle CI. Preserve test failures while capturing lifecycle output.
+- Verify duplicate prevention, background exits with working synchronous authentication, port/proxy changes, safe bootstrap and configuration/account/session preservation through restart and ordinary uninstall/reinstall.
+- Added Makefile lifecycle/scheduler commands and reconciled documentation with implemented libraries, public API/UI boundaries and successful CI; historical runner failures are no longer active blockers.
+
 ## 2026-10-12 — Local Docker installer and updates
 
 - Added `--local-docker` to install/update apt-managed Docker Engine/Compose/Buildx, build current sources with refreshed image bases, migrate and run the full application in containers without host Go/Node.
