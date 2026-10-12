@@ -823,7 +823,7 @@ function HistoryPanel({
           {!history.data?.entries.length && (
             <PageState title="Historia nie zawiera jeszcze zdarzeń" />
           )}
-          <ol className="incident-timeline">
+          <ol className="incident-timeline" aria-label="Historia zdarzeń">
             {history.data?.entries.map((entry) => (
               <li key={entry.id}>
                 <h3>{entry.summary}</h3>

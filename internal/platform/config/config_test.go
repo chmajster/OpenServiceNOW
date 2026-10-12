@@ -38,6 +38,7 @@ func TestLoadRejectsMalformedDuration(t *testing.T) {
 
 func TestValidateRejectsInvalidPool(t *testing.T) {
 	cfg := Config{
+		AttachmentRoot:  ".opensnow/attachments",
 		HTTPAddr:        ":8080",
 		ShutdownTimeout: 1,
 		MySQL: MySQLConfig{

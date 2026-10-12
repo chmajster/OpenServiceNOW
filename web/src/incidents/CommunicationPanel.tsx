@@ -335,7 +335,7 @@ export function CommunicationPanel({
       ) : !messages.data?.messages.length ? (
         <PageState title="Brak dostępnych wiadomości" />
       ) : (
-        <ol className="incident-timeline">
+        <ol className="incident-timeline" aria-label="Wiadomości incydentu">
           {messages.data.messages.map((m) => (
             <li key={m.id}>
               <h4>

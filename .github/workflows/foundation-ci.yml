@@ -345,6 +345,7 @@ jobs:
       E2E_OPERATOR_EMAIL: e2e-operator@example.test
       E2E_OPERATOR_PASSWORD: phase1-operator-${{ github.run_id }}-Password
       E2E_BASE_URL: http://127.0.0.1:5173
+      E2E_BIGINT: "1"
 
     steps:
       - uses: actions/checkout@v4
@@ -373,9 +374,12 @@ jobs:
         run: go run ./cmd/migrate up
 
       - name: Run browser E2E
+        # This job owns its disposable MySQL service; no production data is seeded.
         shell: bash
         run: |
           set -euo pipefail
+
+          docker exec -i -e MYSQL_PWD="$MYSQL_PASSWORD" ${{ job.services.mysql.id }} mysql -u "$MYSQL_USER" "$MYSQL_DATABASE" < tests/e2e_bigint.sql
 
           go run ./cmd/api >api-e2e.log 2>&1 &
           api_pid=$!

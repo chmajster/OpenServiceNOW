@@ -78,6 +78,9 @@ test("incident communication protects notes/files and supports watchers, relatio
   });
   expect(created.status()).toBe(201);
   const userID = (await created.json()).id;
+  expect(typeof userID).toBe("string");
+  if (process.env.E2E_BIGINT === "1")
+    expect(BigInt(userID)).toBeGreaterThan(9007199254740991n);
   const role = await request.post("/api/v1/admin/rbac/roles", {
     headers,
     data: {
@@ -371,12 +374,12 @@ test("incident communication protects notes/files and supports watchers, relatio
     await page.getByRole("button", { name: "Odśwież historię" }).click();
     await expect(
       page
-        .locator(".incident-timeline")
+        .getByRole("list", { name: "Historia zdarzeń" })
         .getByText(`TAJNA-NOTATKA-${scope}`, { exact: true }),
     ).toBeVisible();
     await expect(
       page
-        .locator(".incident-timeline")
+        .getByRole("list", { name: "Historia zdarzeń" })
         .getByText(`PUBLICZNA-ODPOWIEDZ-${scope}`, { exact: true }),
     ).toBeVisible();
     expect(

@@ -100,8 +100,9 @@ installer
 [[ ! -f "$checkout/bin/opensnow-api" && ! -d "$checkout/web/node_modules" ]]
 assert_healthy
 curl --fail --silent http://127.0.0.1:8082/health/ready | grep -q '"status":"ok"'
+compose exec -T -e MYSQL_PWD=docker-test-mysql mysql mysql -u opensnow opensnow < "$checkout/tests/e2e_bigint.sql"
 if [[ "${LOCAL_DOCKER_BROWSER:-0}" == 1 ]]; then
-  (cd "$repo_dir/web" && E2E_BASE_URL=http://127.0.0.1:8082 E2E_TENANT=e2e E2E_ADMIN_EMAIL=admin E2E_ADMIN_PASSWORD=admin E2E_OPERATOR_PASSWORD=docker-test-operator-password npm run e2e)
+  (cd "$repo_dir/web" && E2E_BIGINT=1 E2E_BASE_URL=http://127.0.0.1:8082 E2E_TENANT=e2e E2E_ADMIN_EMAIL=admin E2E_ADMIN_PASSWORD=admin E2E_OPERATOR_PASSWORD=docker-test-operator-password npm run e2e)
 else
   python3 - <<'PY'
 import http.cookiejar, json, urllib.error, urllib.request
