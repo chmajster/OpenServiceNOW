@@ -268,6 +268,27 @@ func (r *MySQLRepository) SetRolePermissions(
 	return nil
 }
 
+// Snapshot is read under the same role lock and transaction as the replacement,
+// so the audit diff describes the committed transition, including concurrent edits.
+func (r *MySQLRepository) RolePermissionSnapshot(ctx context.Context, exec platformdb.Executor, tenantID, roleID uint64) (map[string]any, error) {
+	var version uint64
+	err := exec.QueryRowContext(ctx, `SELECT version FROM roles WHERE tenant_id = ? AND id = ? FOR UPDATE`, tenantID, roleID).Scan(&version)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read role audit snapshot: %w", err)
+	}
+	keys, err := r.currentRolePermissionKeys(ctx, exec, roleID)
+	if err != nil {
+		return nil, err
+	}
+	if keys == nil {
+		keys = []string{}
+	}
+	return map[string]any{"permissions": keys, "version": fmt.Sprint(version)}, nil
+}
+
 func (r *MySQLRepository) ListGroups(
 	ctx context.Context,
 	tenantID, afterID uint64,

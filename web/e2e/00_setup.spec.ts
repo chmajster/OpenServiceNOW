@@ -98,20 +98,21 @@ test("first-run installer creates the administrator and permanently closes setup
     expect((await submitInstaller(stale)).status()).toBe(409);
     await expect(stale.getByRole("heading", { name: "Instalacja zakończona" })).toBeVisible();
     await page.getByRole("button", { name: "Przejdź do logowania" }).click();
-    await expect(page.getByLabel("Tenant")).toHaveValue(tenant);
+    await expect(page.getByLabel("Organizacja", { exact: true })).toHaveValue(tenant);
     await expect(page.getByLabel("Login lub e-mail")).toHaveValue(email);
     await page.getByLabel("Hasło").fill(password!);
     await page.getByRole("button", { name: "Zaloguj" }).click();
-    await expect(page.getByRole("heading", { name: "Fundament platformy" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Przegląd", exact: true })).toBeVisible();
     const me = await page.request.get("/api/v1/auth/me");
     expect(me.status()).toBe(200);
     expect((await me.json()).permissions).toContain("admin.users.manage");
     await page.reload();
-    await expect(page.getByRole("heading", { name: "Fundament platformy" })).toBeVisible();
-    await page.getByRole("link", { name: "Audyt" }).click();
+    await expect(page.getByRole("heading", { name: "Przegląd", exact: true })).toBeVisible();
+    await page.getByRole("navigation", { name: "Główna nawigacja" }).getByRole("link", { name: "Audyt" }).click();
+    await page.locator(".audit-entry").filter({ hasText: "setup.platform_admin" }).getByText("Szczegóły techniczne").click();
     await expect(page.getByText("setup.platform_admin", { exact: true })).toBeVisible();
     await page.goto("/setup");
-    await expect(page.getByRole("heading", { name: "Fundament platformy" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Przegląd", exact: true })).toBeVisible();
   } finally {
     await oppositeContext.close();
   }

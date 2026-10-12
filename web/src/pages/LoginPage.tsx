@@ -87,13 +87,14 @@ export function LoginPage() {
         <div>
           <p className="eyebrow">Dostęp do platformy</p>
           <h1>Zaloguj się</h1>
-          <p className="muted">Podaj tenant oraz dane lokalnego konta.</p>
+          <p className="muted">Podaj identyfikator organizacji oraz dane lokalnego konta.</p>
         </div>
 
         {typeof initial?.notice === "string" ? <PageState title={initial.notice} tone="success" /> : null}
+        {sessionError ? <PageState title="Zaloguj się ponownie" detail={sessionError} /> : null}
         <form className="form-stack" onSubmit={(event) => void handleSubmit(event)}>
           <label>
-            Tenant
+            Organizacja
             <input
               value={tenant}
               onChange={(event) => setTenant(event.target.value)}

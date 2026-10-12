@@ -64,6 +64,42 @@ func (h *Handler) ListRoles(w http.ResponseWriter, r *http.Request) {
 	httpapi.WriteJSON(w, http.StatusOK, page)
 }
 
+func (h *Handler) GetRole(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r, "roleID")
+	if !ok {
+		return
+	}
+	session, ok := identity.FromContext(r.Context())
+	if !ok {
+		httpapi.WriteError(w, r, http.StatusUnauthorized, "UNAUTHENTICATED", "Authentication required")
+		return
+	}
+	role, err := h.service.GetRole(r.Context(), session.TenantID, id)
+	if err != nil {
+		writeServiceError(w, r, err)
+		return
+	}
+	httpapi.WriteJSON(w, http.StatusOK, map[string]any{"role": role})
+}
+
+func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r, "groupID")
+	if !ok {
+		return
+	}
+	session, ok := identity.FromContext(r.Context())
+	if !ok {
+		httpapi.WriteError(w, r, http.StatusUnauthorized, "UNAUTHENTICATED", "Authentication required")
+		return
+	}
+	group, err := h.service.GetGroup(r.Context(), session.TenantID, id)
+	if err != nil {
+		writeServiceError(w, r, err)
+		return
+	}
+	httpapi.WriteJSON(w, http.StatusOK, map[string]any{"group": group})
+}
+
 func (h *Handler) CreateRole(w http.ResponseWriter, r *http.Request) {
 	var request createRoleRequest
 	if err := httpapi.DecodeJSON(r, &request); err != nil {

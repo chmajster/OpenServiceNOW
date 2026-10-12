@@ -48,21 +48,70 @@ func (f fakeAuth) HasPermission(_ context.Context, _ identity.SessionIdentity, p
 }
 
 type fakeRBAC struct {
-	createRoleCalls       int
-	listRoleCalls         int
-	listRoleAfterID       uint64
-	listRoleLimit         int
-	listRoleQuery         string
-	setRoleVersion        uint64
-	listGroupMemberCalls  int
-	listGroupMemberTenant uint64
-	listGroupMemberGroup  uint64
-	listGroupMemberAfter  uint64
-	listGroupMemberLimit  int
-	addGroupMemberCalls   int
-	removeGroupCalls      int
-	assignUserRoleCalls   int
-	removeUserRoleCalls   int
+	detailRole             *Role
+	detailGroup            *Group
+	detailTenant, detailID uint64
+	createRoleCalls        int
+	listRoleCalls          int
+	listRoleAfterID        uint64
+	listRoleLimit          int
+	listRoleQuery          string
+	setRoleVersion         uint64
+	listGroupMemberCalls   int
+	listGroupMemberTenant  uint64
+	listGroupMemberGroup   uint64
+	listGroupMemberAfter   uint64
+	listGroupMemberLimit   int
+	addGroupMemberCalls    int
+	removeGroupCalls       int
+	assignUserRoleCalls    int
+	removeUserRoleCalls    int
+}
+
+func (f *fakeRBAC) GetRole(_ context.Context, tenantID, roleID uint64) (Role, error) {
+	f.detailTenant, f.detailID = tenantID, roleID
+	if f.detailRole != nil {
+		return *f.detailRole, nil
+	}
+	return Role{}, ErrNotFound
+}
+func (f *fakeRBAC) GetGroup(_ context.Context, tenantID, groupID uint64) (Group, error) {
+	f.detailTenant, f.detailID = tenantID, groupID
+	if f.detailGroup != nil {
+		return *f.detailGroup, nil
+	}
+	return Group{}, ErrNotFound
+}
+
+func TestObjectDetailsScopeAuthorizationAndDecimalStrings(t *testing.T) {
+	for _, kind := range []string{"roles", "groups"} {
+		for _, tc := range []struct {
+			pathID                  string
+			allowed, cookie, exists bool
+			status                  int
+		}{
+			{"9007199254740993", true, true, true, 200}, {"9", false, true, true, 403}, {"9", true, false, true, 401}, {"invalid", true, true, true, 400}, {"9", true, true, false, 404},
+		} {
+			service := &fakeRBAC{}
+			if tc.exists {
+				service.detailRole = &Role{ID: 9007199254740993, Version: 9007199254740993, Permissions: []Permission{}}
+				service.detailGroup = &Group{ID: 9007199254740993, Version: 9007199254740993}
+			}
+			router := newRouter(fakeAuth{identity: identity.SessionIdentity{TenantID: 7, UserID: 9}, permission: tc.allowed}, service)
+			request := httptest.NewRequest("GET", "/api/v1/admin/rbac/"+kind+"/"+tc.pathID+"?tenant_id=999", nil)
+			if tc.cookie {
+				request.AddCookie(&http.Cookie{Name: "session", Value: "opaque"})
+			}
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, request)
+			if recorder.Code != tc.status {
+				t.Fatalf("%s %+v status=%d body=%s", kind, tc, recorder.Code, recorder.Body.String())
+			}
+			if tc.status == 200 && (service.detailTenant != 7 || service.detailID != 9007199254740993 || !strings.Contains(recorder.Body.String(), `"id":"9007199254740993"`) || !strings.Contains(recorder.Body.String(), `"version":"9007199254740993"`)) {
+				t.Fatalf("unscoped or imprecise detail: service=%+v body=%s", service, recorder.Body.String())
+			}
+		}
+	}
 }
 
 func (f *fakeRBAC) ListPermissions(context.Context) ([]Permission, error) {

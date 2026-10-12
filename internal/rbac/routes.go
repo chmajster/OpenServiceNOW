@@ -12,7 +12,9 @@ func RegisterRoutes(r chi.Router, handler *Handler, auth *identity.Middleware) {
 
 		r.Get("/permissions", handler.ListPermissions)
 		r.Get("/roles", handler.ListRoles)
+		r.Get("/roles/{roleID}", handler.GetRole)
 		r.Get("/groups", handler.ListGroups)
+		r.Get("/groups/{groupID}", handler.GetGroup)
 		r.With(auth.RequirePermission("admin.users.manage")).Get("/groups/{groupID}/members", handler.ListGroupMembers)
 		r.With(auth.RequirePermission("admin.users.manage")).Get("/users/{userID}/roles", handler.ListUserRoles)
 		r.Get("/groups/{groupID}/roles", handler.ListGroupRoles)

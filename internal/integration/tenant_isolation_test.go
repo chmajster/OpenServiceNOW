@@ -669,6 +669,15 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 	}
 
 	auditReader := audit.NewReader(db)
+	permissionAudit, err := auditReader.ListFiltered(ctx, adminA.TenantID, 0, 10, audit.Filter{Action: "rbac.role.permissions.set", ObjectID: fmt.Sprint(versionedRoleID)})
+	if err != nil || len(permissionAudit.Events) == 0 {
+		t.Fatalf("permission audit=%+v err=%v", permissionAudit, err)
+	}
+	for _, event := range permissionAudit.Events {
+		if len(event.OldValues) == 0 || len(event.NewValues) == 0 {
+			t.Fatalf("permission replacement audit lacks before/after values: %+v", event)
+		}
+	}
 	auditPageOne, err := auditReader.List(ctx, adminA.TenantID, 0, 2)
 	if err != nil {
 		t.Fatalf("list first audit page: %v", err)
@@ -702,6 +711,40 @@ func TestTenantIsolationAndOptimisticLocking(t *testing.T) {
 		if event.ObjectID == fmt.Sprint(adminA.TenantID) && event.Action == "tenant.name.update" {
 			t.Fatal("tenant A audit event leaked into tenant B audit page")
 		}
+	}
+
+	filter := audit.Filter{Action: "tenant.name.update", ObjectType: "tenant", ObjectID: fmt.Sprint(adminA.TenantID), ActorUserID: secondAdminID, RequestID: "integration", From: time.Now().Add(-time.Hour), To: time.Now().Add(time.Hour)}
+	filtered, err := auditReader.ListFiltered(ctx, adminA.TenantID, 0, 1, filter)
+	if err != nil || len(filtered.Events) != 1 {
+		t.Fatalf("filtered audit=%+v err=%v", filtered, err)
+	}
+	if page, err := auditReader.ListFiltered(ctx, adminB.TenantID, 0, 1, filter); err != nil || len(page.Events) != 0 {
+		t.Fatalf("filtered audit leaked tenant: %+v %v", page, err)
+	}
+	for _, change := range []func(*audit.Filter){
+		func(f *audit.Filter) { f.Action = "missing" }, func(f *audit.Filter) { f.ObjectType = "missing" }, func(f *audit.Filter) { f.ObjectID = "missing" }, func(f *audit.Filter) { f.ActorUserID = adminB.UserID }, func(f *audit.Filter) { f.RequestID = "missing" }, func(f *audit.Filter) { f.From = time.Now().Add(time.Hour) }, func(f *audit.Filter) { f.To = time.Now().Add(-time.Hour) },
+	} {
+		wrong := filter
+		change(&wrong)
+		page, err := auditReader.ListFiltered(ctx, adminA.TenantID, 0, 1, wrong)
+		if err != nil || len(page.Events) != 0 {
+			t.Fatalf("incorrect filter=%+v returned=%+v err=%v", wrong, page, err)
+		}
+	}
+	if page, err := auditReader.ListFiltered(ctx, adminA.TenantID, filtered.Events[0].ID, 1, filter); err != nil || len(page.Events) != 0 {
+		t.Fatalf("filtered cursor=%+v %v", page, err)
+	}
+	if role, err := rbacService.GetRole(ctx, adminA.TenantID, versionedRoleID); err != nil || role.ID != versionedRoleID {
+		t.Fatalf("role detail=%+v %v", role, err)
+	}
+	if _, err := rbacService.GetRole(ctx, adminB.TenantID, versionedRoleID); !errors.Is(err, rbac.ErrNotFound) {
+		t.Fatalf("cross-tenant role detail err=%v", err)
+	}
+	if group, err := rbacService.GetGroup(ctx, adminA.TenantID, groupID); err != nil || group.ID != groupID {
+		t.Fatalf("group detail=%+v %v", group, err)
+	}
+	if _, err := rbacService.GetGroup(ctx, adminB.TenantID, groupID); !errors.Is(err, rbac.ErrNotFound) {
+		t.Fatalf("cross-tenant group detail err=%v", err)
 	}
 
 	if _, err := db.ExecContext(ctx, "UPDATE tenants SET status = 'DISABLED' WHERE id = ?", adminB.TenantID); err != nil {

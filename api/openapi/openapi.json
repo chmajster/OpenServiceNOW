@@ -1101,6 +1101,70 @@
               "type": "string",
               "pattern": "^[1-9][0-9]*$"
             }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Inclusive RFC3339 timestamp",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Inclusive RFC3339 timestamp",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "actor_user_id",
+            "in": "query",
+            "description": "Exact match within the session tenant",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "maxLength": 20
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "description": "Exact match within the session tenant",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "object_type",
+            "in": "query",
+            "description": "Exact match within the session tenant",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "object_id",
+            "in": "query",
+            "description": "Exact match within the session tenant",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "request_id",
+            "in": "query",
+            "description": "Exact match within the session tenant",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
           }
         ],
         "responses": {
@@ -1484,6 +1548,108 @@
           },
           "503": {
             "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/rbac/roles/{roleID}": {
+      "get": {
+        "tags": [
+          "RBAC administration"
+        ],
+        "operationId": "getRole",
+        "summary": "Read one tenant-scoped role",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RoleID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "role"
+                  ],
+                  "properties": {
+                    "role": {
+                      "$ref": "#/components/schemas/Role"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/rbac/groups/{groupID}": {
+      "get": {
+        "tags": [
+          "RBAC administration"
+        ],
+        "operationId": "getGroup",
+        "summary": "Read one tenant-scoped group",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-permissions": [
+          "admin.rbac.manage"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "group"
+                  ],
+                  "properties": {
+                    "group": {
+                      "$ref": "#/components/schemas/Group"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
           }
         }
       }

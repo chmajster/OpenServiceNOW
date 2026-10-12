@@ -916,6 +916,31 @@ tbody tr:last-child td {
 .setup-section legend { padding: 0 0.4rem; font-weight: 800; }
 .setup-section:disabled { opacity: 0.65; }
 
+:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+[hidden] { display: none !important; }
+.action-row, .tabs, .breadcrumbs { display: flex; flex-wrap: wrap; gap: 0.65rem; align-items: center; }
+.breadcrumbs { margin-bottom: 1.25rem; color: var(--muted); font-size: 0.85rem; }
+.tabs { border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+.tabs a { padding: 0.6rem 1rem; border-radius: 0.5rem; text-decoration: none; }
+.tabs .is-active { color: var(--primary); background: #edf2ff; font-weight: 800; }
+.form-fields { display: grid; gap: 1rem; border: 0; margin: 0; padding: 0; min-width: 0; }
+.filter-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.wrap-cell { white-space: normal; overflow-wrap: anywhere; min-width: 8rem; max-width: 28rem; }
+.detail-grid dd { overflow-wrap: anywhere; }
+.conflict-notice { border: 2px solid #d89125; border-radius: 0.7rem; padding: 1rem; background: #fffbef; }
+.conflict-notice p { overflow-wrap: anywhere; }
+.remote-combobox { position: relative; min-width: 0; }
+.combobox-input { display: flex; gap: 0.4rem; }
+.combobox-popup { position: relative; margin-top: 0.3rem; border: 1px solid var(--border); border-radius: 0.65rem; background: #fff; box-shadow: var(--shadow); padding: 0.5rem; }
+.combobox-popup ul { max-height: 15rem; overflow: auto; list-style: none; padding: 0; margin: 0; }
+.combobox-popup p { padding: 0.5rem; margin: 0; }
+.combobox-option { padding: 0.65rem; cursor: pointer; border-radius: 0.4rem; overflow-wrap: anywhere; }
+.combobox-option:hover, .combobox-option.is-active { background: #edf2ff; }
+.combobox-option[aria-disabled="true"] { color: var(--muted); cursor: not-allowed; }
+.skip-link { position: fixed; top: -5rem; left: 1rem; z-index: 20; padding: 1rem; background: white; }
+.skip-link:focus { top: 1rem; }
+@media (max-width: 760px) { .filter-grid { grid-template-columns: 1fr; } .topbar { flex-wrap: wrap; gap: 0.5rem; padding-block: 0.65rem; } .action-row .button { flex: 1; } .tabs a { padding: 0.6rem; } }
+
 @media (max-width: 650px) {
   .setup-fields { grid-template-columns: 1fr; }
 }

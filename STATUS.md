@@ -10,7 +10,7 @@ The repository includes the administration foundation, durable MySQL jobs/worker
 
 ## Last completed
 
-Phase 0, the administration foundation, shared work-platform libraries and both local installer modes are present in `main` through PR #13. DevBox deployment was delivered in PR #7; it is preserved by the native installer work in PR #14.
+Phase 0, the administration foundation, shared work-platform libraries and both local installer modes are delivered through PR #14. DevBox deployment was delivered in PR #7. PR #15 rebuilds the existing administration UX while preserving the same backend permissions and architecture.
 
 Availability boundaries:
 
@@ -53,7 +53,7 @@ Implemented foundation capabilities:
 - RBAC assignment UI for add/remove membership and user/group roles with server refetch after every mutation,
 - optimistic locking for role permission replacement,
 - append-oriented audit persistence,
-- tenant-scoped lookahead cursor audit API,
+- tenant-scoped lookahead cursor audit API with validated date/actor/action/object/request filters,
 - audit HTTP transport separated into auditapi to preserve acyclic package dependencies,
 - OpenAPI 3.1 document for implemented endpoints,
 - explicit OpenAPI permission metadata for every administrative operation, including dual permission requirements on user-bearing RBAC reads and writes,
@@ -74,22 +74,34 @@ Implemented foundation capabilities:
 - tenant-row serialization across privilege-sensitive RBAC and membership mutations,
 - dynamic platform_admin inheritance of the live permission catalog,
 - React + TypeScript frontend with login, overview, tenant, users, RBAC and audit screens,
-- frontend API client with automatic CSRF handling,
+- frontend API client with automatic CSRF handling, shared session expiry and rejection of responses from earlier logins,
 - frontend permission-aware navigation and route guards,
 - frontend responsive/loading/error/empty states,
 - frontend API-client unit tests,
 - Playwright browser E2E for the critical admin-to-least-privilege-user journey,
 - E2E coverage for security-group membership, group-role assignment, audit visibility and real HTTP 403 enforcement,
-- two-session E2E coverage for stale optimistic-lock conflicts and UI refetch,
+- two-session E2E coverage for optimistic-lock conflicts, retained local proposals and explicit resolution,
 - desktop Chromium and Pixel 7 Chromium projects with isolated test data,
 - mobile-safe logout and permission-aware read-only tenant UI,
-- server-side bounded search/pagination controls in user/RBAC screens,
+- URL-backed filters/tabs and bounded server search/pagination in user/RBAC/audit screens,
+- separate role/group lists and details with paginated remote comboboxes, keyboard controls, response identity/cancellation and disabled stale assignment actions,
+- administration diagnostics, Polish navigation/breadcrumbs and visible focus/mobile layouts,
 - role permission editor using optimistic locking,
 - CI workflow covering dependency manifest stability, backend format/vet/unit/race/build/migrations/integration/smoke/durable scheduler-worker/rollback, frontend typecheck/test/build/browser E2E, native lifecycle, Docker lifecycle and Engine installation/update tests.
 
 ## Currently in progress
 
 Business-module APIs/UI, broader asynchronous operational monitoring and external identity providers remain roadmap work. Implemented shared libraries are available to domain consumers, rather than exposed as unfinished screens.
+
+## Administration usability result
+
+[PR #15](https://github.com/chmajster/OpenServiceNOW/pull/15) preserves the existing user creation/linking, membership enable/disable, role/group creation, permission editing and all assignment add/remove operations. Roles expose information, permissions and assignments; groups expose information, members and role assignments. Creation forms are explicit actions. Remote choices are independent of the current list page and retain their selection through searches/pagination.
+
+Organization/role conflicts preserve the draft, retrieve the current version by object identity and require explicit resolution before saving. Failure to refetch a conflict or permission catalog is retryable without discarding the form. Mutations refetch durable assignments and refresh session context; protected 401 clears the whole application and older session responses cannot restore it. Readiness diagnostics are under administration.
+
+Audit uses session tenant scope with parameterized inclusive date/exact actor/action/object/request filters and bounded cursors. New permission changes store before/after snapshots under the same transaction/role lock. Historical audit rows without old values display only the data they originally recorded. No migration was added; schema version remains 25.
+
+Local Go unit/HTTP/OpenAPI tests, nine frontend unit tests, TypeScript/build and the disposable MySQL integration/migration lifecycle passed. Browser verification passed 20/20 scenarios on desktop Chromium and Pixel 7, including real users beyond the first 50 results, delayed user/group responses, conflict-refetch failure, catalog retry, duplicate-name draft preservation, keyboard navigation, backend logout and context changes. Regression coverage also verifies that a post-write session refresh supersedes a pending earlier read and that removing one's RBAC-management permission refreshes navigation even when object refetch is forbidden. The final revision, all six CI job results and the end-to-end evidence are recorded in [PR #15](https://github.com/chmajster/OpenServiceNOW/pull/15).
 
 ## Native local installer result
 
@@ -133,9 +145,9 @@ Test code exists for:
 - password input bounds,
 - frontend API client CSRF behavior and error mapping,
 - OpenAPI route inventory, local $ref resolution, unique operation IDs and decimal-string BIGINT contract,
-- role permission optimistic-lock conflicts and no-op version stability,
+- role permission optimistic-lock conflicts, no-op version stability and transactional before/after audit snapshots,
 - explicit linking of an existing global account to a second tenant without password mutation,
-- audit cursor pagination and tenant isolation,
+- audit cursor pagination, combined date/actor/action/object/request filters, invalid-filter rejection and tenant isolation,
 - safe bootstrap re-entry for existing users,
 - bounded password-verifier saturation behavior,
 - panic-safe transaction behavior,
@@ -145,6 +157,8 @@ Test code exists for:
 - RBAC assignment reads and user-bearing writes requiring the additional user-management permission where user identities are exposed or changed,
 - negative privilege-escalation coverage for direct system-role assignment, system-role group assignment, privileged-group membership changes and dormant administrator reactivation,
 - group membership and user/group role mutation → repository readback cycles with cross-tenant rejection,
+- single-role/group HTTP reads with authentication, permissions, not-found/invalid-ID handling, session tenant scope and decimal-string serialization,
+- late object/session response rejection, backend logout, relogin and current-organization/own-permission context updates,
 - OpenAPI permission metadata on every administrative operation.
 
 CI is configured to run:
@@ -170,7 +184,7 @@ CI is configured to run:
 - frontend production build,
 - full-stack Playwright Chromium E2E through UI → API → MySQL.
 
-[foundation-ci #606](https://github.com/chmajster/OpenServiceNOW/actions/runs/38237188306) passed all six jobs on executable revision `0a49ac574a749a1584fb51cf9324310340aa05b2`: backend format/vet/unit/race/build, all 25 migrations/integration/rollback and auth/RBAC smoke flow; frontend typecheck/unit/build; desktop/mobile E2E; expanded native lifecycle with known-ID scheduler/worker proof; Docker lifecycle/browser workflow; and Engine installation/update. Local shell syntax, ShellCheck, installer help/unit tests and both Compose configurations also passed. No migration or API/UI change was needed for this stage.
+[foundation-ci #606](https://github.com/chmajster/OpenServiceNOW/actions/runs/38237188306) passed all six jobs on executable revision `0a49ac574a749a1584fb51cf9324310340aa05b2`: backend format/vet/unit/race/build, all 25 migrations/integration/rollback and auth/RBAC smoke flow; frontend typecheck/unit/build; desktop/mobile E2E; expanded native lifecycle with known-ID scheduler/worker proof; Docker lifecycle/browser workflow; and Engine installation/update. Local shell syntax, ShellCheck, installer help/unit tests and both Compose configurations also passed. That native-installer stage required no migration or API/UI change; the administration changes and their separate verification are described above.
 
 ## Database migrations
 

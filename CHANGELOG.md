@@ -4,6 +4,15 @@ All notable repository changes are documented here.
 
 The project is pre-release and currently in architecture/foundation development.
 
+## 2026-10-12 — Administration usability
+
+- Split roles/groups into searchable tables and deep-linked details/tabs with explicit creation actions; moved readiness diagnostics into administration and added Polish navigation, breadcrumbs, focus states and responsive layouts.
+- Added API-backed user/group/role comboboxes with independent pagination, retained selection and keyboard controls; bound reads/mutations to the current object and rejected late responses.
+- Preserve local organization/permission proposals after errors and version conflicts, showing current server values and requiring explicit resolution before another save.
+- Centralized session expiry and refresh after login/organization/RBAC changes; prevent responses from a previous session restoring logged-out context.
+- Added tenant-scoped single-role/group reads, validated server audit filters, readable field differences and transactional before/after permission snapshots. Existing system-role and last-administrator protection remains enforced.
+- Expanded unit, HTTP/MySQL and desktop/mobile browser coverage, including users beyond the first 50 results, delayed responses, retry, conflicts, backend logout and own-permission changes.
+
 ## 2026-10-12 — Native lifecycle diagnostics and execution verification
 
 - Made native status read-only, report each process/PID/log during Docker outages, and distinguish API readiness from background process liveness.

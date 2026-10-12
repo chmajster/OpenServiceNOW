@@ -4,6 +4,8 @@ import "context"
 
 type APIService interface {
 	ListPermissions(context.Context) ([]Permission, error)
+	GetRole(context.Context, uint64, uint64) (Role, error)
+	GetGroup(context.Context, uint64, uint64) (Group, error)
 	ListRoles(context.Context, uint64, uint64, int, string) (RolePage, error)
 	CreateRole(context.Context, Actor, CreateRoleInput) (uint64, error)
 	SetRolePermissions(context.Context, Actor, uint64, uint64, []string) error

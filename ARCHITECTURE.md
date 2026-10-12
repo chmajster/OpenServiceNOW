@@ -754,16 +754,19 @@ Shutdown sequence:
 
 The frontend is API-driven and organized by product capability rather than direct database concepts.
 
-Expected UI primitives:
+Implemented administration primitives include Polish permission-aware navigation and breadcrumbs, bounded server-side list/search contracts, paginated remote user/group/role comboboxes, role/group detail tabs and explicit creation forms. Query filters and tabs are URL state. Each response is guarded by its object/query identity and cancellation; assignment editors cannot mutate an old page while another object is loading.
 
-- sidebar navigation,
-- breadcrumbs,
+Organization and role-permission editors retain local proposals after transport errors and HTTP 409. Conflict resolution compares a fresh tenant-scoped server object with the draft, then explicitly selects either current values or a proposal for a subsequent version-checked save. Failure to read the current version keeps saving disabled.
+
+The shared API client sends CSRF cookies/headers and invalidates the AuthProvider on protected 401 responses. Session generations and aborted-request guards reject stale responses; refresh cancellation prevents a late `auth/me` from resurrecting logout. Each context refresh supersedes an earlier pending read, so a post-write refresh cannot reuse pre-write permissions. Context refresh follows login, current-organization changes and RBAC/membership mutations, including successful writes that remove permission to refetch the object, plus window return and server expiry. Backend object scope, dual permissions, system-role protections and last-administrator checks remain authoritative.
+
+Audit reads combine parameterized equality/date filters with tenant scope from the session and descending BIGINT cursor pagination. The React view presents field differences plus optional raw JSON and request metadata. Role-permission audit snapshots share the write transaction and role lock. Existing audit indexes support tenant, date, actor and object reads; this stage adds no schema migration or separate audit store.
+
+Future general UI primitives (beyond implemented administration):
+
 - global search,
-- data tables,
 - filter builder,
 - saved views,
-- forms,
-- tabs,
 - activity timeline,
 - bulk actions,
 - dashboards.
