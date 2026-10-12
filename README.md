@@ -365,7 +365,7 @@ When testing a fresh default `admin` password, the setup scenario completes its 
 
 ## Verification status
 
-Own-account implementation in [PR #16](https://github.com/chmajster/OpenServiceNOW/pull/16) passed local Go unit/race/vet/build, disposable MySQL integration and migration lifecycle 1–27, 12 frontend unit tests and 22/22 desktop/mobile browser scenarios. Tests cover credential-version fencing, global session rotation/revocation, restricted temporary accounts, profile conflicts, rollback on audit failure, restart persistence and legacy Unicode credentials. The PR records final CI and merge evidence; [STATUS.md](STATUS.md) distinguishes these delivered APIs/screens from internal shared libraries and future providers.
+Own-account implementation in [PR #16](https://github.com/chmajster/OpenServiceNOW/pull/16) passed local Go unit/race/vet/build, disposable MySQL integration and migration lifecycle 1–27, 13 frontend unit tests and 22/22 desktop/mobile browser scenarios. Tests cover credential-version fencing, global session rotation/revocation, restricted temporary accounts, profile conflicts, rollback on audit failure, restart persistence and legacy Unicode credentials. The PR records final CI and merge evidence; [STATUS.md](STATUS.md) distinguishes these delivered APIs/screens from internal shared libraries and future providers.
 
 The preceding installer revision passed all six jobs in [foundation-ci #600](https://github.com/chmajster/OpenServiceNOW/actions/runs/38189545233): backend/migrations/integration, frontend, desktop/mobile E2E, native local lifecycle, Docker lifecycle and Docker Engine tests. September runner-allocation failures are historical and do not describe the current CI state.
 

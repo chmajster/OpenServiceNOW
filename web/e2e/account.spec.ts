@@ -185,9 +185,7 @@ test("own account enforces temporary passwords, keeps conflicts and revokes sess
     expect((await other.request.get("/api/v1/auth/me")).status()).toBe(401);
     await other.reload();
     await expect(other).toHaveURL(/\/login$/);
-    const fresh = await other.request.post("/api/v1/auth/login", {
-      data: { tenant, email, password: next },
-    });
+    const fresh = await loginAPI(other.request, { tenant, email, password: next });
     expect(fresh.status()).toBe(200);
     await page
       .getByRole("button", { name: "Odśwież sesje", exact: true })
@@ -206,9 +204,7 @@ test("own account enforces temporary passwords, keeps conflicts and revokes sess
     expect((await other.request.get("/api/v1/auth/me")).status()).toBe(401);
     expect(
       (
-        await other.request.post("/api/v1/auth/login", {
-          data: { tenant, email, password: temporary },
-        })
+        await loginAPI(other.request, { tenant, email, password: temporary })
       ).status(),
     ).toBe(401);
     await page.getByLabel("Nazwa wyświetlana", { exact: true }).focus();

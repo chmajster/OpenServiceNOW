@@ -19,6 +19,11 @@ type Session = {
 type SessionPage = { sessions: Session[]; next_after_id?: string };
 
 export function AccountPage() {
+  const { session } = useAuth();
+  return session ? <AccountEditor key={session.user.id} /> : null;
+}
+
+function AccountEditor() {
   const { session, refresh, changePassword, logout } = useAuth();
   const [name, setName] = useState(session?.user.display_name ?? "");
   const [version, setVersion] = useState(session?.user.version ?? "");
@@ -72,7 +77,7 @@ export function AccountPage() {
   useEffect(() => {
     if (!required) void loadSessions();
     return () => request.current?.abort();
-  }, [userID, required]);
+  }, [userID, required, session?.tenant.id, session?.expires_at]);
 
   async function saveProfile(event: FormEvent) {
     event.preventDefault();
