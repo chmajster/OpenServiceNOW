@@ -168,7 +168,7 @@ func (s *Service) enqueueMail(ctx context.Context, e database.Executor, tenant, 
 	return err
 }
 
-// Test deliveries always target the authenticated administrator's own verified
+// Test deliveries always target the authenticated administrator's own configured
 // login address. A repeated request key reuses the job and cannot send again.
 func (s *Service) TestSMTP(ctx context.Context, tenant, user uint64, key string) (uint64, error) {
 	if !regexp.MustCompile(`^[A-Za-z0-9._:-]{8,128}$`).MatchString(key) {
