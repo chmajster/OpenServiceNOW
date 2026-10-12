@@ -485,7 +485,7 @@ func validateTargets(
 	if groupID != nil {
 		var found int
 		if err := exec.QueryRowContext(ctx, `
-			SELECT 1 FROM `+"`groups`"+` WHERE tenant_id = ? AND id = ?
+			SELECT 1 FROM `+"`groups`"+` WHERE tenant_id = ? AND id = ? AND active = TRUE
 		`, tenantID, *groupID).Scan(&found); errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFound
 		} else if err != nil {
@@ -514,6 +514,11 @@ func validateActiveUser(
 		return fmt.Errorf("validate tenant user: %w", err)
 	}
 	return nil
+}
+
+// ValidateActiveUser lets domains reuse the tenant membership invariant in their transaction.
+func ValidateActiveUser(ctx context.Context, exec database.Executor, tenantID, userID uint64) error {
+	return validateActiveUser(ctx, exec, tenantID, userID)
 }
 
 func validObjectRef(tenantID uint64, objectType, objectID string) bool {

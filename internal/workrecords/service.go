@@ -40,9 +40,7 @@ func (s *Service) SetAssignment(
 	}
 	var updated Assignment
 	err := s.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec database.Executor) error {
-		change, err := s.repo.SetAssignment(
-			ctx, exec, actor.TenantID, objectType, objectID, expectedVersion, assignedTo, groupID,
-		)
+		change, err := s.SetAssignmentInTx(ctx, exec, actor, objectType, objectID, expectedVersion, assignedTo, groupID)
 		if err != nil {
 			return err
 		}
@@ -70,6 +68,16 @@ func (s *Service) SetAssignment(
 		return err
 	})
 	return updated, err
+}
+
+// SetAssignmentInTx performs the shared assignment mutation under the caller's
+// transaction. The domain owns its audit/event with the domain version and time.
+func (s *Service) SetAssignmentInTx(ctx context.Context, exec database.Executor, actor Actor, objectType, objectID string, expectedVersion uint64, assignedTo, groupID *uint64) (AssignmentChange, error) {
+	objectType, objectID = normalizeObjectRef(objectType, objectID)
+	if exec == nil || !validActor(actor) || !validObjectRef(actor.TenantID, objectType, objectID) {
+		return AssignmentChange{}, ErrInvalid
+	}
+	return s.repo.SetAssignment(ctx, exec, actor.TenantID, objectType, objectID, expectedVersion, assignedTo, groupID)
 }
 
 func (s *Service) AppendMessage(

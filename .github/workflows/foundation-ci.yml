@@ -380,6 +380,10 @@ jobs:
           go run ./cmd/api >api-e2e.log 2>&1 &
           api_pid=$!
 
+          go build -o /tmp/opensnow-e2e-worker ./cmd/worker
+          /tmp/opensnow-e2e-worker >worker-e2e.log 2>&1 &
+          worker_pid=$!
+
           (
             cd web
             npm run dev -- --host 127.0.0.1 --port 5173
@@ -389,10 +393,12 @@ jobs:
           cleanup() {
             kill "$web_pid" 2>/dev/null || true
             kill "$api_pid" 2>/dev/null || true
+            kill "$worker_pid" 2>/dev/null || true
             echo "===== api-e2e.log ====="
             cat api-e2e.log || true
             echo "===== web-e2e.log ====="
             cat web-e2e.log || true
+            cat worker-e2e.log || true
           }
           trap cleanup EXIT
 
@@ -428,5 +434,6 @@ jobs:
             web/test-results
             api-e2e.log
             web-e2e.log
+            worker-e2e.log
           if-no-files-found: ignore
           retention-days: 7

@@ -36,6 +36,24 @@ export function OverviewPage() {
         </dl>
       </div>
       <div className="panel">
+        <h2>Obsługa zgłoszeń</h2>
+        {hasPermission("incident.read") ||
+        hasPermission("incident.read_own") ? (
+          <div className="action-row">
+            <Link className="button button--primary" to="/incidents">
+              Incydenty
+            </Link>
+            {hasPermission("incident.create") && (
+              <Link className="button button--secondary" to="/incidents/new">
+                Zgłoś incydent
+              </Link>
+            )}
+          </div>
+        ) : (
+          <p className="muted">Nie masz dostępu do incydentów.</p>
+        )}
+      </div>
+      <div className="panel">
         <h2>Administracja</h2>
         <div className="action-row">
           {links

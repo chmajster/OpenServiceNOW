@@ -34,53 +34,58 @@ func (a *Allocator) Next(
 	prefix string,
 	width int,
 ) (string, error) {
+	var number string
+	err := a.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec database.Executor) error {
+		var err error
+		number, err = a.NextInTx(ctx, exec, tenantID, recordType, prefix, width)
+		return err
+	})
+	return number, err
+}
+
+// NextInTx participates in a domain transaction without committing independently.
+func (a *Allocator) NextInTx(ctx context.Context, exec database.Executor, tenantID uint64, recordType, prefix string, width int) (string, error) {
 	recordType = strings.TrimSpace(recordType)
 	prefix = strings.TrimSpace(prefix)
 	if err := validateSequenceInput(tenantID, recordType, prefix, width); err != nil {
 		return "", err
 	}
-
-	var number string
-	err := a.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec database.Executor) error {
-		if _, err := exec.ExecContext(ctx, `
-			INSERT INTO record_sequences (tenant_id, record_type, prefix, width, next_value)
-			VALUES (?, ?, ?, ?, 1)
-			ON DUPLICATE KEY UPDATE tenant_id = record_sequences.tenant_id
-		`, tenantID, recordType, prefix, width); err != nil {
-			return fmt.Errorf("ensure record sequence: %w", err)
-		}
-
-		var storedPrefix string
-		var storedWidth int
-		var nextValue uint64
-		if err := exec.QueryRowContext(ctx, `
-			SELECT prefix, width, next_value
-			FROM record_sequences
-			WHERE tenant_id = ? AND record_type = ?
-			FOR UPDATE
-		`, tenantID, recordType).Scan(&storedPrefix, &storedWidth, &nextValue); err != nil {
-			return fmt.Errorf("lock record sequence: %w", err)
-		}
-		if storedPrefix != prefix || storedWidth != width {
-			return ErrSequenceConfigurationConflict
-		}
-		if nextValue == math.MaxUint64 {
-			return fmt.Errorf("record sequence exhausted")
-		}
-		if _, err := exec.ExecContext(ctx, `
-			UPDATE record_sequences
-			SET next_value = ?
-			WHERE tenant_id = ? AND record_type = ?
-		`, nextValue+1, tenantID, recordType); err != nil {
-			return fmt.Errorf("advance record sequence: %w", err)
-		}
-		number = formatNumber(prefix, width, nextValue)
-		return nil
-	})
-	if err != nil {
-		return "", err
+	if exec == nil {
+		return "", ErrInvalidSequenceConfiguration
 	}
-	return number, nil
+	if _, err := exec.ExecContext(ctx, `
+		INSERT INTO record_sequences (tenant_id, record_type, prefix, width, next_value)
+		VALUES (?, ?, ?, ?, 1)
+		ON DUPLICATE KEY UPDATE tenant_id = record_sequences.tenant_id
+	`, tenantID, recordType, prefix, width); err != nil {
+		return "", fmt.Errorf("ensure record sequence: %w", err)
+	}
+
+	var storedPrefix string
+	var storedWidth int
+	var nextValue uint64
+	if err := exec.QueryRowContext(ctx, `
+		SELECT prefix, width, next_value
+		FROM record_sequences
+		WHERE tenant_id = ? AND record_type = ?
+		FOR UPDATE
+	`, tenantID, recordType).Scan(&storedPrefix, &storedWidth, &nextValue); err != nil {
+		return "", fmt.Errorf("lock record sequence: %w", err)
+	}
+	if storedPrefix != prefix || storedWidth != width {
+		return "", ErrSequenceConfigurationConflict
+	}
+	if nextValue == math.MaxUint64 {
+		return "", fmt.Errorf("record sequence exhausted")
+	}
+	if _, err := exec.ExecContext(ctx, `
+		UPDATE record_sequences
+		SET next_value = ?
+		WHERE tenant_id = ? AND record_type = ?
+	`, nextValue+1, tenantID, recordType); err != nil {
+		return "", fmt.Errorf("advance record sequence: %w", err)
+	}
+	return formatNumber(prefix, width, nextValue), nil
 }
 
 func validateSequenceInput(tenantID uint64, recordType, prefix string, width int) error {

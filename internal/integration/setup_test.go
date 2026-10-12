@@ -58,16 +58,24 @@ func TestWebInstallerAtomicCreationAndPermanentClosure(t *testing.T) {
 	}
 	assertRequired(true)
 	input := identity.BootstrapInput{TenantSlug: "web-installer", TenantName: "Web installer", AdminEmail: "owner@example.test", AdminName: "Owner", AdminPassword: "installer-owner-password"}
+	tables := []string{"users", "tenants", "roles", "permissions", "user_role_assignments", "tenant_memberships", "role_permissions", "audit_events"}
+	baseline := make(map[string]int)
+	for _, table := range tables {
+		if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		baseline[table] = count
+	}
 	// A real SQL failure in the final audit insert must roll back every earlier write.
 	if _, err := installer.Create(ctx, input, identity.RequestMeta{RequestID: strings.Repeat("x", 129)}); err == nil {
 		t.Fatal("expected audit SQL failure")
 	}
-	for _, table := range []string{"users", "tenants", "roles", "permissions", "user_role_assignments", "tenant_memberships", "role_permissions", "audit_events"} {
+	for _, table := range tables {
 		if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&count); err != nil {
 			t.Fatal(err)
 		}
-		if count != 0 {
-			t.Fatalf("partial installation left %d rows in %s", count, table)
+		if count != baseline[table] {
+			t.Fatalf("partial installation changed %s from %d to %d rows", table, baseline[table], count)
 		}
 	}
 	assertRequired(true)

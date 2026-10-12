@@ -2,11 +2,15 @@
 
 ## Status
 
-Phase 0 established the target architecture and module boundaries. The implemented stack contains API, migration/bootstrap, worker and scheduler executables, MySQL schema through migration 27, Redis-backed controls, identity/RBAC/audit services, the first-run installer, React administration and own-account UI.
+Phase 0 established the target architecture and module boundaries. The implemented stack contains API, migration/bootstrap, worker and scheduler executables, MySQL schema through migration 32, Redis-backed controls, identity/RBAC/audit services, the first-run installer, React administration and own-account UI.
 
-Shared work-record, jobs, outbox, activity and attachment libraries are implemented and integration-tested. The scheduler enqueues durable session-cleanup jobs; the worker executes them and dispatches activity events. These libraries have no public business-record/job-management API or UI yet. Existing HTTP routes and screens cover setup, authentication and tenant/user/RBAC/audit administration. The remaining sections distinguish implemented foundations from target business capabilities; see STATUS.md and TODO.md for verified progress.
+Shared work-record, jobs, outbox, activity and attachment libraries are implemented and integration-tested. The scheduler enqueues durable session-cleanup jobs; the worker executes them and dispatches activity events. Incident Management consumes shared numbering, assignments and activity through domain-authorized API/UI. Generic work/job-management and attachment/communication API/UI remain future stages. Existing routes/screens cover setup, authentication, own accounts, tenant/user/RBAC/audit administration and incidents. The remaining sections distinguish implemented foundations from target business capabilities; see STATUS.md and TODO.md for verified progress.
 
 ## Architectural goals
+
+The implemented `internal/incidents` domain owns incident fields, object authorization, lifecycle rules and business versioning. It calls shared `workrecords.Allocator.NextInTx` and `workrecords.Service.SetAssignmentInTx` using the same `database.Executor` as incident persistence, audit and outbox; no nested transaction commits independently. Creation idempotency is scoped to the backend actor and organization, while INC uniqueness is enforced per organization and numbering uses the shared row-locked sequence.
+
+Nine incident event types have production handlers registered by `cmd/worker`. Payloads contain complete business before/after snapshots, decimal incident version and mutation-time `occurred_at`; shared activity uses that timestamp and source-event pagination, so delayed/out-of-order projection cannot redefine business time. History reports pending outbox work independently of durable synchronous writes. Future SLA must consume business occurrence/version, not delivery time. Incident communication/files and CMDB are later domain integrations, not fields or controls backed by absent providers.
 
 OpenServiceNOW is an enterprise ITSM / IT Operations platform inspired by the functional class of products such as ServiceNow, while using its own implementation, UX, data model, naming, and architecture.
 

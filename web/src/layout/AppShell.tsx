@@ -12,9 +12,15 @@ type NavItem = {
   to: string;
   label: string;
   permission?: string;
+  anyPermissions?: string[];
 };
 
 const navigation: NavItem[] = [
+  {
+    to: "/incidents",
+    label: "Incydenty",
+    anyPermissions: ["incident.read", "incident.read_own"],
+  },
   { to: "/account", label: "Moje konto" },
   { to: "/", label: "Przegląd" },
   { to: "/tenant", label: "Organizacja", permission: "tenant.read" },
@@ -41,14 +47,19 @@ export function AppShell() {
   }, [location.pathname, objectID, kind]);
   const current = navigation.find(
     (item) =>
-      item.to.split("?")[0] === location.pathname &&
+      (item.to.split("?")[0] === location.pathname ||
+        (item.to === "/incidents" &&
+          location.pathname.startsWith("/incidents/"))) &&
       (!item.to.includes("kind=") || item.to.endsWith(kind)),
   );
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
 
-  const visibleNavigation = navigation.filter(
-    (item) => session?.password_change_required ? item.to === "/account" : !item.permission || hasPermission(item.permission),
+  const visibleNavigation = navigation.filter((item) =>
+    session?.password_change_required
+      ? item.to === "/account"
+      : (!item.permission || hasPermission(item.permission)) &&
+        (!item.anyPermissions || item.anyPermissions.some(hasPermission)),
   );
 
   async function handleLogout() {
@@ -144,26 +155,51 @@ export function AppShell() {
         </header>
         <div className="workspace-content">
           <nav className="breadcrumbs" aria-label="Ścieżka nawigacji">
-            <Link to={session?.password_change_required ? "/account" : "/"}>{session?.password_change_required ? "Moje konto" : "Przegląd"}</Link>
+            <Link to={session?.password_change_required ? "/account" : "/"}>
+              {session?.password_change_required ? "Moje konto" : "Przegląd"}
+            </Link>
             {location.pathname !== "/" ? (
-              <>
-                <span aria-hidden="true">/</span>
-                <span>{location.pathname === "/account" ? "Konto" : "Administracja"}</span>
-                <span aria-hidden="true">/</span>
-                {objectID ? (
-                  <>
-                    <Link to={`/rbac?kind=${kind}`}>{current?.label}</Link>
-                    <span aria-hidden="true">/</span>
-                    <span aria-current="page">
-                      {params.get("create") === "1"
-                        ? "Tworzenie"
-                        : `#${objectID}`}
-                    </span>
-                  </>
-                ) : (
-                  <span aria-current="page">{current?.label}</span>
-                )}
-              </>
+              location.pathname.startsWith("/incidents") ? (
+                <>
+                  <span aria-hidden="true">/</span>
+                  {location.pathname === "/incidents" ? (
+                    <span aria-current="page">Incydenty</span>
+                  ) : (
+                    <>
+                      <Link to="/incidents">Incydenty</Link>
+                      <span aria-hidden="true">/</span>
+                      <span aria-current="page">
+                        {location.pathname.endsWith("/new")
+                          ? "Nowy incydent"
+                          : `#${location.pathname.split("/")[2]}`}
+                      </span>
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  <span aria-hidden="true">/</span>
+                  <span>
+                    {location.pathname === "/account"
+                      ? "Konto"
+                      : "Administracja"}
+                  </span>
+                  <span aria-hidden="true">/</span>
+                  {objectID ? (
+                    <>
+                      <Link to={`/rbac?kind=${kind}`}>{current?.label}</Link>
+                      <span aria-hidden="true">/</span>
+                      <span aria-current="page">
+                        {params.get("create") === "1"
+                          ? "Tworzenie"
+                          : `#${objectID}`}
+                      </span>
+                    </>
+                  ) : (
+                    <span aria-current="page">{current?.label}</span>
+                  )}
+                </>
+              )
             ) : null}
           </nav>
           <Outlet />

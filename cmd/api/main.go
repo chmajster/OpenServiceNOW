@@ -10,9 +10,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/chmajster/OpenServiceNOW/internal/activity"
 	"github.com/chmajster/OpenServiceNOW/internal/audit"
 	"github.com/chmajster/OpenServiceNOW/internal/auditapi"
+	"github.com/chmajster/OpenServiceNOW/internal/events"
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
+	"github.com/chmajster/OpenServiceNOW/internal/incidents"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/cache"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
@@ -23,6 +26,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/rbac"
 	"github.com/chmajster/OpenServiceNOW/internal/tenants"
 	"github.com/chmajster/OpenServiceNOW/internal/users"
+	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -87,6 +91,12 @@ func main() {
 	tenantsService := tenants.NewService(tenantsRepo, txManager, auditRepo)
 	tenantsHandler := tenants.NewHandler(tenantsService)
 
+	outboxRepo := events.NewRepository(db)
+	incidentService := incidents.NewService(incidents.NewRepository(db), txManager,
+		workrecords.NewAllocator(txManager), workrecords.NewService(workrecords.NewRepository(db), txManager, outboxRepo),
+		auditRepo, outboxRepo, activity.NewRepository(db))
+	incidentHandler := incidents.NewHandler(incidentService, identityService)
+
 	healthHandler := health.New(
 		func(ctx context.Context) error {
 			if err := database.Ping(ctx, db, cfg.MySQL.PingTimeout); err != nil {
@@ -117,6 +127,9 @@ func main() {
 			},
 			func(r chi.Router) {
 				auditapi.RegisterRoutes(r, auditHandler, identityMiddleware)
+			},
+			func(r chi.Router) {
+				incidents.RegisterRoutes(r, incidentHandler, identityMiddleware)
 			},
 		),
 		ReadHeaderTimeout: 5 * time.Second,

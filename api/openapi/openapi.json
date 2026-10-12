@@ -31,6 +31,10 @@
     },
     {
       "name": "Installation"
+    },
+    {
+      "name": "Incident Management",
+      "description": "First complete business process; communication, attachments and CMDB integrations are separate stages."
     }
   ],
   "paths": {
@@ -2010,6 +2014,1154 @@
           }
         ]
       }
+    },
+    "/api/v1/incidents/": {
+      "get": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "listIncidents",
+        "description": "Organization and actor come only from the backend session. incident.read reads records in that organization; incident.read_own reads records reported by or affecting the actor. ACLs apply before results are returned; writes require read access plus the action permission. Temporary-password sessions are denied.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current tenant-scoped result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "x-any-read-permissions": [
+          "incident.read",
+          "incident.read_own"
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "after_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "after_priority",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-5]$"
+            },
+            "description": "Required with after_id when sort=priority."
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "description": "Literal substring in title or number, not SQL wildcard syntax."
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "mine",
+                "my_group",
+                "unassigned"
+              ],
+              "default": "all"
+            },
+            "description": "mine: reporter, affected user or assignee; my_group: active assigned group with actor membership; unassigned: no assigned user. Each view also applies the object ACL."
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "newest",
+                "oldest",
+                "priority"
+              ],
+              "default": "newest"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "NEW",
+                "IN_PROGRESS",
+                "ON_HOLD",
+                "RESOLVED",
+                "CLOSED",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "hardware",
+                "software",
+                "network",
+                "access",
+                "other"
+              ]
+            }
+          },
+          {
+            "name": "assigned_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "group_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "reporter_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Inclusive created_at lower bound."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Inclusive created_at upper bound."
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "createIncident",
+        "description": "Organization and actor come only from the backend session. incident.read reads records in that organization; incident.read_own reads records reported by or affecting the actor. ACLs apply before results are returned; writes require read access plus the action permission. Temporary-password sessions are denied. Creation atomically records INC number, incident, assignment row, request digest, audit and outbox event. Keys are scoped to organization and actor; same normalized body returns the same incident (current state) with 200; different body returns 409. Numbers are unique per organization and may have gaps after failed attempts.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current tenant-scoped result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Incident"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "201": {
+            "description": "New incident created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Incident"
+                }
+              }
+            }
+          }
+        },
+        "x-any-read-permissions": [
+          "incident.read",
+          "incident.read_own"
+        ],
+        "x-required-permissions": [
+          "incident.create"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentFields"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/metadata": {
+      "get": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "incidentMetadata",
+        "description": "Organization and actor come only from the backend session. incident.read reads records in that organization; incident.read_own reads records reported by or affecting the actor. ACLs apply before results are returned; writes require read access plus the action permission. Temporary-password sessions are denied. Matrix row=impact 1..3, column=urgency 1..3; P1 is highest priority.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current tenant-scoped result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentMetadata"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "x-any-read-permissions": [
+          "incident.read",
+          "incident.read_own"
+        ]
+      }
+    },
+    "/api/v1/incidents/lookups/{kind}": {
+      "get": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "incidentChoices",
+        "description": "Organization and actor come only from the backend session. incident.read reads records in that organization; incident.read_own reads records reported by or affecting the actor. ACLs apply before results are returned; writes require read access plus the action permission. Temporary-password sessions are denied. Active organization members/groups only. Affected-user lookup is self-only with read_own. Assignment purpose additionally requires incident.assign; group_id limits users to members of the active group. Read-own group lookup without assign exposes only actor groups.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current tenant-scoped result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentChoices"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "x-any-read-permissions": [
+          "incident.read",
+          "incident.read_own"
+        ],
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "users",
+                "groups"
+              ]
+            }
+          },
+          {
+            "name": "purpose",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "affected",
+                "assignment"
+              ]
+            },
+            "description": "Required for users."
+          },
+          {
+            "name": "group_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "after_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incidentID}": {
+      "parameters": [
+        {
+          "name": "incidentID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "getIncident",
+        "description": "Organization and actor come only from the backend session. incident.read reads records in that organization; incident.read_own reads records reported by or affecting the actor. ACLs apply before results are returned; writes require read access plus the action permission. Temporary-password sessions are denied.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current tenant-scoped result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Incident"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "x-any-read-permissions": [
+          "incident.read",
+          "incident.read_own"
+        ]
+      },
+      "put": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "updateIncident",
+        "description": "Organization and actor come only from the backend session. incident.read reads records in that organization; incident.read_own reads records reported by or affecting the actor. ACLs apply before results are returned; writes require read access plus the action permission. Temporary-password sessions are denied. Full field replacement with incident version. Reporter is immutable. Changing impact/urgency clears any priority override. No-op does not increment version.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current tenant-scoped result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Incident"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          }
+        },
+        "x-any-read-permissions": [
+          "incident.read",
+          "incident.read_own"
+        ],
+        "x-required-permissions": [
+          "incident.update"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentUpdate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/{incidentID}/assignment": {
+      "parameters": [
+        {
+          "name": "incidentID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      ],
+      "put": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "assignIncident",
+        "description": "Organization and actor come only from the backend session. incident.read reads records in that organization; incident.read_own reads records reported by or affecting the actor. ACLs apply before results are returned; writes require read access plus the action permission. Temporary-password sessions are denied.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current tenant-scoped result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Incident"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          }
+        },
+        "x-any-read-permissions": [
+          "incident.read",
+          "incident.read_own"
+        ],
+        "x-required-permissions": [
+          "incident.assign"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentAssign"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/{incidentID}/priority": {
+      "parameters": [
+        {
+          "name": "incidentID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      ],
+      "put": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "overrideIncidentPriority",
+        "description": "Organization and actor come only from the backend session. incident.read reads records in that organization; incident.read_own reads records reported by or affecting the actor. ACLs apply before results are returned; writes require read access plus the action permission. Temporary-password sessions are denied.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current tenant-scoped result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Incident"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          }
+        },
+        "x-any-read-permissions": [
+          "incident.read",
+          "incident.read_own"
+        ],
+        "x-required-permissions": [
+          "incident.priority.override"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentPriority"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/{incidentID}/transition": {
+      "parameters": [
+        {
+          "name": "incidentID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "transitionIncident",
+        "description": "Organization and actor come only from the backend session. incident.read reads records in that organization; incident.read_own reads records reported by or affecting the actor. ACLs apply before results are returned; writes require read access plus the action permission. Temporary-password sessions are denied. NEW \u2192 IN_PROGRESS|ON_HOLD|CANCELLED; IN_PROGRESS \u2192 ON_HOLD|RESOLVED|CANCELLED; ON_HOLD \u2192 IN_PROGRESS|RESOLVED|CANCELLED; RESOLVED \u2192 CLOSED|IN_PROGRESS; CLOSED \u2192 IN_PROGRESS; CANCELLED is terminal. RESOLVED/CLOSED targets require incident.resolve; other targets require incident.update. Reopening clears current resolution/closure fields while preserving their history.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current tenant-scoped result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Incident"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          }
+        },
+        "x-any-read-permissions": [
+          "incident.read",
+          "incident.read_own"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentTransition"
+              }
+            }
+          }
+        },
+        "x-state-permissions": {
+          "RESOLVED": "incident.resolve",
+          "CLOSED": "incident.resolve",
+          "other": "incident.update"
+        }
+      }
+    },
+    "/api/v1/incidents/{incidentID}/history": {
+      "parameters": [
+        {
+          "name": "incidentID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "incidentHistory",
+        "description": "Organization and actor come only from the backend session. incident.read reads records in that organization; incident.read_own reads records reported by or affecting the actor. ACLs apply before results are returned; writes require read access plus the action permission. Temporary-password sessions are denied. No administrative audit permission is needed for readable incident history. Only incident business metadata is returned.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current tenant-scoped result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentHistory"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "x-any-read-permissions": [
+          "incident.read",
+          "incident.read_own"
+        ],
+        "parameters": [
+          {
+            "name": "before_event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -3001,6 +4153,1065 @@
           "expires_at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "IncidentFields": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title",
+          "description",
+          "category",
+          "subcategory",
+          "impact",
+          "urgency"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000
+          },
+          "affected_user_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "hardware",
+              "software",
+              "network",
+              "access",
+              "other"
+            ]
+          },
+          "subcategory": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "impact": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "urgency": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          }
+        },
+        "description": "Trimmed Unicode code-point limits. Omitted affected_user_id defaults to the session actor. Category/subcategory pairs come from metadata. Read-own callers can select only themselves."
+      },
+      "IncidentUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title",
+          "description",
+          "affected_user_id",
+          "category",
+          "subcategory",
+          "impact",
+          "urgency",
+          "version"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000
+          },
+          "affected_user_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "hardware",
+              "software",
+              "network",
+              "access",
+              "other"
+            ]
+          },
+          "subcategory": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "impact": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "urgency": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      },
+      "IncidentAssign": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "assigned_to",
+          "assignment_group_id"
+        ],
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "assigned_to": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "assignment_group_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "description": "Null clears a selection. Selected user and group must be active members of the current organization; if both are given, the user must belong to that group. Update concurrency uses the incident version."
+      },
+      "IncidentTransition": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "state"
+        ],
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "NEW",
+              "IN_PROGRESS",
+              "ON_HOLD",
+              "RESOLVED",
+              "CLOSED",
+              "CANCELLED"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "resolution_code": {
+            "type": "string",
+            "enum": [
+              "FIXED",
+              "WORKAROUND",
+              "DUPLICATE",
+              "NOT_REPRODUCIBLE",
+              ""
+            ]
+          },
+          "resolution_description": {
+            "type": "string",
+            "maxLength": 20000
+          }
+        },
+        "description": "ON_HOLD and CANCELLED require reason. RESOLVED requires resolution_code and resolution_description. Reopening RESOLVED/CLOSED to IN_PROGRESS requires reason and emits incident.reopened. Irrelevant reason/resolution fields must be omitted or empty. IN_PROGRESS and RESOLVED require an active assigned user."
+      },
+      "IncidentPriority": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "priority"
+        ],
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "priority": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 5
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "description": "Null or calculated priority clears override; otherwise requires nonempty reason and incident.priority.override. Changing impact or urgency restores the calculated priority."
+      },
+      "IncidentAssignment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tenant_id",
+          "object_type",
+          "object_id",
+          "version",
+          "updated_at"
+        ],
+        "properties": {
+          "tenant_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "object_type": {
+            "const": "incident"
+          },
+          "object_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "assigned_to": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "assignment_group_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "IncidentSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "number",
+          "title",
+          "state",
+          "priority",
+          "reporter_id",
+          "reporter_name",
+          "affected_user_id",
+          "affected_user_name",
+          "category",
+          "assignment",
+          "assigned_name",
+          "group_name",
+          "version",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "number": {
+            "type": "string",
+            "pattern": "^INC[0-9]+$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "NEW",
+              "IN_PROGRESS",
+              "ON_HOLD",
+              "RESOLVED",
+              "CLOSED",
+              "CANCELLED"
+            ]
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "reporter_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "reporter_name": {
+            "type": "string"
+          },
+          "affected_user_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "affected_user_name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "hardware",
+              "software",
+              "network",
+              "access",
+              "other"
+            ]
+          },
+          "assignment": {
+            "$ref": "#/components/schemas/IncidentAssignment"
+          },
+          "assigned_name": {
+            "type": "string"
+          },
+          "group_name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Incident": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "number",
+          "title",
+          "state",
+          "priority",
+          "reporter_id",
+          "reporter_name",
+          "affected_user_id",
+          "affected_user_name",
+          "category",
+          "assignment",
+          "assigned_name",
+          "group_name",
+          "version",
+          "created_at",
+          "updated_at",
+          "tenant_id",
+          "description",
+          "subcategory",
+          "impact",
+          "urgency",
+          "calculated_priority",
+          "priority_override",
+          "priority_reason",
+          "hold_reason",
+          "resolution_code",
+          "resolution_description",
+          "cancellation_reason",
+          "started_at",
+          "resolved_at",
+          "closed_at",
+          "cancelled_at",
+          "actions"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "number": {
+            "type": "string",
+            "pattern": "^INC[0-9]+$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "NEW",
+              "IN_PROGRESS",
+              "ON_HOLD",
+              "RESOLVED",
+              "CLOSED",
+              "CANCELLED"
+            ]
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "reporter_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "reporter_name": {
+            "type": "string"
+          },
+          "affected_user_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "affected_user_name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "hardware",
+              "software",
+              "network",
+              "access",
+              "other"
+            ]
+          },
+          "assignment": {
+            "$ref": "#/components/schemas/IncidentAssignment"
+          },
+          "assigned_name": {
+            "type": "string"
+          },
+          "group_name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "tenant_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000
+          },
+          "subcategory": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "impact": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "urgency": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "calculated_priority": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "priority_override": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 5
+          },
+          "priority_reason": {
+            "type": "string"
+          },
+          "hold_reason": {
+            "type": "string"
+          },
+          "resolution_code": {
+            "type": "string"
+          },
+          "resolution_description": {
+            "type": "string"
+          },
+          "cancellation_reason": {
+            "type": "string"
+          },
+          "started_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "resolved_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "closed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "cancelled_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "actions": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "edit",
+              "assign",
+              "override_priority",
+              "transitions"
+            ],
+            "properties": {
+              "edit": {
+                "type": "boolean"
+              },
+              "assign": {
+                "type": "boolean"
+              },
+              "override_priority": {
+                "type": "boolean"
+              },
+              "transitions": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "NEW",
+                    "IN_PROGRESS",
+                    "ON_HOLD",
+                    "RESOLVED",
+                    "CLOSED",
+                    "CANCELLED"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "IncidentPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "incidents"
+        ],
+        "properties": {
+          "incidents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncidentSummary"
+            }
+          },
+          "next_after_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "next_after_priority": {
+            "type": "string",
+            "pattern": "^[1-5]$"
+          }
+        },
+        "description": "Bounded summaries, excluding large descriptions. Stable keyset order: newest=id DESC; oldest=id ASC; priority=priority ASC,id DESC. Priority pagination requires both returned cursor fields; no snapshot guarantee across concurrent edits."
+      },
+      "IncidentSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "number",
+          "title",
+          "state",
+          "priority",
+          "reporter_id",
+          "affected_user_id",
+          "category",
+          "version",
+          "created_at",
+          "updated_at",
+          "description",
+          "subcategory",
+          "impact",
+          "urgency",
+          "priority_override",
+          "priority_reason",
+          "hold_reason",
+          "resolution_code",
+          "resolution_description",
+          "cancellation_reason",
+          "started_at",
+          "resolved_at",
+          "closed_at",
+          "cancelled_at",
+          "assigned_to",
+          "assignment_group_id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "number": {
+            "type": "string",
+            "pattern": "^INC[0-9]+$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "NEW",
+              "IN_PROGRESS",
+              "ON_HOLD",
+              "RESOLVED",
+              "CLOSED",
+              "CANCELLED"
+            ]
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "reporter_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "affected_user_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "hardware",
+              "software",
+              "network",
+              "access",
+              "other"
+            ]
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000
+          },
+          "subcategory": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "impact": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "urgency": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "priority_override": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 5
+          },
+          "priority_reason": {
+            "type": "string"
+          },
+          "hold_reason": {
+            "type": "string"
+          },
+          "resolution_code": {
+            "type": "string"
+          },
+          "resolution_description": {
+            "type": "string"
+          },
+          "cancellation_reason": {
+            "type": "string"
+          },
+          "started_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "resolved_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "closed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "cancelled_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "assigned_to": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "assignment_group_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      },
+      "IncidentChange": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "actor_user_id",
+          "incident_version",
+          "occurred_at",
+          "before",
+          "after"
+        ],
+        "properties": {
+          "actor_user_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "incident_version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IncidentSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "after": {
+            "$ref": "#/components/schemas/IncidentSnapshot"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "IncidentHistoryEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "type",
+          "summary",
+          "event_time",
+          "data"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "incident.created",
+              "incident.updated",
+              "incident.assigned",
+              "incident.state.changed",
+              "incident.reopened",
+              "incident.resolved",
+              "incident.closed",
+              "incident.cancelled",
+              "incident.priority.changed"
+            ]
+          },
+          "summary": {
+            "type": "string"
+          },
+          "actor_user_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "event_time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "data": {
+            "$ref": "#/components/schemas/IncidentChange"
+          }
+        }
+      },
+      "IncidentHistory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "entries",
+          "pending"
+        ],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncidentHistoryEntry"
+            }
+          },
+          "next_before_event_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "pending": {
+            "type": "boolean"
+          }
+        },
+        "description": "Asynchronous shared activity projection by the real worker; newest source outbox event first, regardless of projection completion order. event_time equals business occurred_at, never worker receipt time. pending reports undelivered incident events; record writes remain durable while worker is unavailable."
+      },
+      "IncidentOption": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "label"
+        ],
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      },
+      "IncidentCategory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "label",
+          "subcategories"
+        ],
+        "properties": {
+          "value": {
+            "type": "string",
+            "enum": [
+              "hardware",
+              "software",
+              "network",
+              "access",
+              "other"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "subcategories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncidentOption"
+            }
+          }
+        }
+      },
+      "IncidentMetadata": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "categories",
+          "states",
+          "resolution_codes",
+          "priority_matrix",
+          "can_create"
+        ],
+        "properties": {
+          "categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncidentCategory"
+            }
+          },
+          "states": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncidentOption"
+            }
+          },
+          "resolution_codes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncidentOption"
+            }
+          },
+          "priority_matrix": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5
+              }
+            },
+            "example": [
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                3,
+                4
+              ],
+              [
+                3,
+                4,
+                5
+              ]
+            ]
+          },
+          "can_create": {
+            "type": "boolean"
+          }
+        }
+      },
+      "IncidentChoice": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "user_active",
+          "membership_active"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "user_active": {
+            "type": "boolean"
+          },
+          "membership_active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "IncidentChoices": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "users",
+          "groups"
+        ],
+        "properties": {
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncidentChoice"
+            }
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncidentChoice"
+            }
+          },
+          "next_after_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
           }
         }
       }
