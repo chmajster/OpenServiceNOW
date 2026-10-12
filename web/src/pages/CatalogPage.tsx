@@ -185,7 +185,7 @@ function Order({ id }: { id: string }) {
       controller.current?.abort();
     };
   }, []);
-  const dirty = Object.keys(values).length > 0 && !confirmed;
+  const dirty = (Object.keys(values).length > 0 || uncertain) && !confirmed;
   async function submit() {
     if (!query.data || busy || conflict) return;
     setBusy(true);
