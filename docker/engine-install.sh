@@ -44,7 +44,8 @@ install_docker_engine() {
   case "$distribution" in ubuntu|debian) ;; *) engine_fail "Automatic Engine updates support Ubuntu/Debian; use --skip-docker-update with an existing engine on ${distribution:-this OS}." ;; esac
   command -v apt-get >/dev/null || engine_fail 'apt-get is required for Engine package management.'
   family=$(engine_package_family)
-  exec 8>/run/lock/opensnow-docker-engine.lock
+  install -m 0700 -d /run/opensnow
+  exec 8>/run/opensnow/docker-engine.lock
   flock -w 120 8 || engine_fail 'Another Docker package installation is running.'
   export DEBIAN_FRONTEND=noninteractive
   apt-get -o DPkg::Lock::Timeout=120 update 8>&-
