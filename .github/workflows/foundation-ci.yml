@@ -207,6 +207,7 @@ jobs:
         with:
           node-version: "24"
       - name: Verify native lifecycle and known-ID scheduler/worker execution on isolated data
+        shell: bash
         run: |
           mkdir -p .opensnow/local-runtime-verification
           bash tests/local_runtime_test.sh 2>&1 | tee .opensnow/local-runtime-verification/lifecycle.log
