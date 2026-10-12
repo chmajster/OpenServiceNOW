@@ -12,6 +12,7 @@ export function RemoteCombobox({
   disabled = false,
   allowInactive = false,
   clearable = true,
+  endpoint,
 }: {
   kind: ChoiceKind;
   label: string;
@@ -20,6 +21,7 @@ export function RemoteCombobox({
   disabled?: boolean;
   allowInactive?: boolean;
   clearable?: boolean;
+  endpoint?: string;
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -103,8 +105,9 @@ export function RemoteCombobox({
       </div>
       {open && !disabled ? (
         <Options
-          key={kind}
+          key={`${kind}:${endpoint ?? ""}`}
           kind={kind}
+          endpoint={endpoint}
           allowInactive={allowInactive}
           search={search}
           pending={query !== search}
@@ -128,6 +131,7 @@ export function RemoteCombobox({
 
 function Options({
   kind,
+  endpoint: customEndpoint,
   allowInactive,
   search,
   pending,
@@ -137,6 +141,7 @@ function Options({
   choose,
 }: {
   kind: ChoiceKind;
+  endpoint?: string;
   allowInactive: boolean;
   search: string;
   pending: boolean;
@@ -146,10 +151,13 @@ function Options({
   choose: (value: Choice) => void;
 }) {
   const endpoint =
-    kind === "users" ? "/api/v1/admin/users/" : `/api/v1/admin/rbac/${kind}`;
-  const params = new URLSearchParams({ limit: "50", q: search });
+    customEndpoint ??
+    (kind === "users" ? "/api/v1/admin/users/" : `/api/v1/admin/rbac/${kind}`);
+  const url = new URL(endpoint, window.location.origin);
+  url.searchParams.set("limit", "50");
+  url.searchParams.set("q", search);
   const page = useRemotePage<Role | Group | TenantUser>(
-    `${endpoint}?${params}`,
+    `${url.pathname}${url.search}`,
     kind,
   );
   const options: Choice[] = page.items.map((item) =>
