@@ -429,6 +429,12 @@ func TestIncidentCollaboration(t *testing.T) {
 	if len(again.Entries) != len(opHistory.Entries) {
 		t.Fatal("replayed event duplicated timeline")
 	}
+	if _, err := db.ExecContext(ctx, `UPDATE activity_entries SET actor_user_id=NULL WHERE tenant_id=? AND source_event_id=?`, root.TenantID, eventID); err != nil {
+		t.Fatal(err)
+	}
+	if w := request(operatorLogin, "GET", base+"/history", nil, ""); w.Code != 200 {
+		t.Fatal("nullable activity actor broke timeline", w.Code, w.Body)
+	}
 	if w := request(reporterLogin, "GET", base+"/messages", nil, ""); !strings.Contains(w.Body.String(), `"9007199254741999"`) && strings.Contains(w.Body.String(), "9007199254741999") {
 		t.Fatal("BIGINT not string", w.Body)
 	}

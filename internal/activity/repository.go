@@ -114,7 +114,7 @@ func (r *Repository) list(ctx context.Context, tenantID uint64, objectType, obje
 	}
 	query := `
 		SELECT id, tenant_id, object_type, object_id, entry_type, actor_user_id,
-		       summary, data, source_event_id, event_time, (SELECT display_name FROM users WHERE users.id=activity_entries.actor_user_id)
+		       summary, data, source_event_id, event_time, COALESCE((SELECT display_name FROM users WHERE users.id=activity_entries.actor_user_id),'')
 		FROM activity_entries
 		WHERE tenant_id = ? AND object_type = ? AND object_id = ?
 	`
