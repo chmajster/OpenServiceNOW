@@ -776,6 +776,7 @@ function HistoryPanel({
     `/api/v1/incidents/${record.id}/history?limit=20${before ? `&before_event_id=${before}` : ""}`,
   );
   function value(field: string, item: unknown) {
+    if (item === undefined) return "—";
     if (typeof item === "string") {
       if (field === "state") return optionLabel(metadata.states, item);
       if (field === "category") return optionLabel(metadata.categories, item);

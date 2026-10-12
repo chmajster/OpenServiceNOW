@@ -401,6 +401,9 @@ test("incident communication protects notes/files and supports watchers, relatio
         .getByRole("list", { name: "Historia zdarzeń" })
         .getByText(`PUBLICZNA-ODPOWIEDZ-${scope}`, { exact: true }),
     ).toBeVisible();
+    await expect(
+      page.getByRole("list", { name: "Historia zdarzeń" }),
+    ).not.toContainText("Pundefined");
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth,
