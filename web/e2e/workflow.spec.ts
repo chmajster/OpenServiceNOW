@@ -138,7 +138,7 @@ test("workflow approval preserves proposal, pins version and creates exactly one
           "/api/v1/notifications/preferences",
           {
             headers: await csrf(reporter.context.request),
-            data: { ...prefs, smtp: true, state_changes: true },
+          data: { ...prefs, smtp_enabled: true, state_changes: true },
           },
         )
       ).status(),
