@@ -312,6 +312,7 @@ textarea {
   top: 0;
   display: flex;
   height: 100vh;
+  overflow-y: auto;
   flex-direction: column;
   padding: 1.3rem;
   background: var(--sidebar);
