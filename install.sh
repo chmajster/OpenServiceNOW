@@ -207,9 +207,11 @@ prepare_env() {
 compose() {
   local -a files=(-f "$ROOT_DIR/docker-compose.yml")
   local ignore_orphans=false
+  local docker_env_file=/dev/null
+  if [[ -f "$ENV_FILE" ]]; then docker_env_file=$ENV_FILE; fi
   if [[ "$MODE" == local-docker ]]; then files+=(-f "$ROOT_DIR/docker/compose.local.yaml"); else ignore_orphans=true; fi
   # The native profile intentionally leaves verified Docker app containers stopped.
-  (cd "$ROOT_DIR" && COMPOSE_IGNORE_ORPHANS="$ignore_orphans" docker compose --project-directory "$ROOT_DIR" -p "$COMPOSE_PROJECT_NAME" "${files[@]}" "$@")
+  (cd "$ROOT_DIR" && OPENSNOW_DOCKER_ENV_FILE="$docker_env_file" COMPOSE_IGNORE_ORPHANS="$ignore_orphans" docker compose --project-directory "$ROOT_DIR" -p "$COMPOSE_PROJECT_NAME" "${files[@]}" "$@")
 }
 
 check_dependency_ownership() {

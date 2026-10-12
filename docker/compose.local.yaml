@@ -6,7 +6,7 @@ x-local-backend: &backend
     dockerfile: docker/Dockerfile
     target: backend
   working_dir: /app
-  env_file: .env
+  env_file: ${OPENSNOW_DOCKER_ENV_FILE:-.env}
   environment: &backend-environment
     MYSQL_HOST: mysql
     MYSQL_PORT: "3306"

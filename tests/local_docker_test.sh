@@ -120,6 +120,14 @@ installer --start
 installer --status
 stop_listener
 
+# Replacing the API also refreshes an already-running Nginx upstream.
+api_before=$(compose ps -aq api)
+compose rm -sf api
+installer --start
+[[ "$(compose ps -aq api)" != "$api_before" ]]
+assert_healthy
+ids_before=$(compose ps -aq | sort)
+
 # A failed build must leave the previous containers and real database operational.
 cp "$checkout/internal/platform/health/handler.go" "$test_dir/handler-original.go"
 printf '\ninvalid Go source\n' >>"$checkout/internal/platform/health/handler.go"
@@ -177,6 +185,22 @@ installer --no-start
 installer --start
 assert_healthy
 [[ "$(sql "SELECT password_hash FROM users WHERE email='admin@example.test'")" == "$original_hash" ]]
+if [[ "${LOCAL_DOCKER_KEEP:-0}" != 1 ]]; then
+  installer --uninstall
+  [[ -f "$checkout/.env" ]]
+  docker volume inspect "${project}_mysql-data" >/dev/null
+  installer
+  assert_healthy
+  [[ "$(sql "SELECT password_hash FROM users WHERE email='admin@example.test'")" == "$original_hash" ]]
+  curl --fail --silent http://127.0.0.1:8080/api/v1/setup | grep -q '"required":false'
+  # Stop/uninstall remain possible if the operator loses the local configuration.
+  mv "$checkout/.env" "$test_dir/env-saved"
+  installer --stop
+  mv "$test_dir/env-saved" "$checkout/.env"
+  installer --uninstall --purge-data
+  [[ ! -f "$checkout/.env" ]]
+  if docker volume inspect "${project}_mysql-data" >/dev/null 2>&1; then echo 'SQL volume survived explicit purge' >&2; exit 1; fi
+fi
 verified=1
 echo 'Docker fresh install, browser/API setup, real jobs, image/source update, build failure preservation, partial-start cleanup, lifecycle, port fallback/8100/exhaustion and credential/data preservation passed.'
 if [[ "${LOCAL_DOCKER_KEEP:-0}" == 1 ]]; then printf 'Verification checkout: %s\n' "$checkout"; fi

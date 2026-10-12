@@ -4,7 +4,9 @@ DOCKER_WEB_PORT=8080
 REQUESTED_DOCKER_PORT=${OPENSNOW_DOCKER_PORT:-}
 
 docker_compose() {
-  (cd "$ROOT_DIR" && OPENSNOW_DOCKER_PORT="$DOCKER_WEB_PORT" docker compose --project-directory "$ROOT_DIR" -p "$COMPOSE_PROJECT_NAME" -f "$ROOT_DIR/docker-compose.yml" -f "$ROOT_DIR/docker/compose.local.yaml" "$@")
+  local docker_env_file=/dev/null
+  if [[ -f "$ENV_FILE" ]]; then docker_env_file=$ENV_FILE; fi
+  (cd "$ROOT_DIR" && OPENSNOW_DOCKER_ENV_FILE="$docker_env_file" OPENSNOW_DOCKER_PORT="$DOCKER_WEB_PORT" docker compose --project-directory "$ROOT_DIR" -p "$COMPOSE_PROJECT_NAME" -f "$ROOT_DIR/docker-compose.yml" -f "$ROOT_DIR/docker/compose.local.yaml" "$@")
 }
 
 check_runtime_mode() {
@@ -71,7 +73,7 @@ check_docker_runtime_tools() {
 
 stop_docker_application() {
   local ids
-  ids=$(docker ps -aq --filter "label=com.docker.compose.project=$COMPOSE_PROJECT_NAME" --filter 'label=com.docker.compose.service=api')
+  ids=$(docker_compose ps -aq api frontend worker scheduler)
   [[ -n "$ids" ]] || return 0
   docker_compose stop frontend scheduler worker api
 }
@@ -144,7 +146,14 @@ verify_docker_runtime() {
 }
 
 docker_start_runtime() {
+  local previous_api current_api
+  previous_api=$(docker_compose ps -aq api)
   docker_start_services api
+  current_api=$(docker_compose ps -aq api)
+  if [[ "$previous_api" != "$current_api" && "$(container_health frontend || true)" == healthy ]]; then
+    # Nginx resolves its upstream at startup; refresh it after API replacement.
+    docker_compose restart frontend
+  fi
   docker_start_services frontend worker scheduler
   verify_docker_runtime
   capture_docker_logs
