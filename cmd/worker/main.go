@@ -16,6 +16,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/activity"
 	"github.com/chmajster/OpenServiceNOW/internal/events"
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
+	"github.com/chmajster/OpenServiceNOW/internal/incidents"
 	"github.com/chmajster/OpenServiceNOW/internal/jobs"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
@@ -100,6 +101,10 @@ func main() {
 			logger.Error("register activity projection handler", "event_type", eventType, "error", err)
 			os.Exit(1)
 		}
+	}
+	if err := incidents.RegisterEventHandlers(dispatcher, incidents.NewRepository(db), projector); err != nil {
+		logger.Error("register incident activity handlers", "error", err)
+		os.Exit(1)
 	}
 
 	if *once {

@@ -16,10 +16,10 @@ type Entry struct {
 	ObjectType    string          `json:"object_type"`
 	ObjectID      string          `json:"object_id"`
 	Type          string          `json:"type"`
-	ActorUserID   *uint64         `json:"actor_user_id,omitempty"`
+	ActorUserID   *uint64         `json:"actor_user_id,string,omitempty"`
 	Summary       string          `json:"summary"`
 	Data          json.RawMessage `json:"data,omitempty"`
-	SourceEventID *uint64         `json:"source_event_id,omitempty"`
+	SourceEventID *uint64         `json:"source_event_id,string,omitempty"`
 	EventTime     time.Time       `json:"event_time"`
 }
 

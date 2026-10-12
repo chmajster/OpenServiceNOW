@@ -28,8 +28,8 @@ type Assignment struct {
 	TenantID          uint64    `json:"tenant_id,string"`
 	ObjectType        string    `json:"object_type"`
 	ObjectID          string    `json:"object_id"`
-	AssignedTo        *uint64   `json:"assigned_to,omitempty"`
-	AssignmentGroupID *uint64   `json:"assignment_group_id,omitempty"`
+	AssignedTo        *uint64   `json:"assigned_to,string,omitempty"`
+	AssignmentGroupID *uint64   `json:"assignment_group_id,string,omitempty"`
 	Version           uint64    `json:"version,string"`
 	UpdatedAt         time.Time `json:"updated_at"`
 }

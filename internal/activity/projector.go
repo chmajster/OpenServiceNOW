@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/chmajster/OpenServiceNOW/internal/events"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
@@ -25,7 +26,8 @@ func (p *Projector) Handler(entryType, summary string) events.Handler {
 			return ErrInvalid
 		}
 		var actorPayload struct {
-			ActorUserID uint64 `json:"actor_user_id,string"`
+			ActorUserID uint64     `json:"actor_user_id,string"`
+			OccurredAt  *time.Time `json:"occurred_at"`
 		}
 		if err := json.Unmarshal(event.Payload, &actorPayload); err != nil {
 			return fmt.Errorf("decode activity actor: %w", err)
@@ -36,6 +38,13 @@ func (p *Projector) Handler(entryType, summary string) events.Handler {
 			actor = &value
 		}
 		eventID := event.ID
+		eventTime := event.CreatedAt
+		if actorPayload.OccurredAt != nil {
+			if actorPayload.OccurredAt.IsZero() {
+				return ErrInvalid
+			}
+			eventTime = actorPayload.OccurredAt.UTC()
+		}
 		return p.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec database.Executor) error {
 			_, _, err := p.repo.Append(ctx, exec, Input{
 				TenantID:      event.TenantID,
@@ -46,7 +55,7 @@ func (p *Projector) Handler(entryType, summary string) events.Handler {
 				Summary:       summary,
 				Data:          event.Payload,
 				SourceEventID: &eventID,
-				EventTime:     event.CreatedAt,
+				EventTime:     eventTime,
 			})
 			return err
 		})

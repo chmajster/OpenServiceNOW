@@ -1,0 +1,1 @@
+ALTER TABLE activity_entries DROP INDEX idx_activity_business_order;

@@ -91,6 +91,16 @@ func (r *Repository) List(
 	beforeID uint64,
 	limit int,
 ) (Page, error) {
+	return r.list(ctx, tenantID, objectType, objectID, beforeID, limit, false)
+}
+
+// ListBySourceEvent follows transactional event order even if workers project
+// concurrent events out of order. Its cursor identifies the source event.
+func (r *Repository) ListBySourceEvent(ctx context.Context, tenantID uint64, objectType, objectID string, beforeEventID uint64, limit int) (Page, error) {
+	return r.list(ctx, tenantID, objectType, objectID, beforeEventID, limit, true)
+}
+
+func (r *Repository) list(ctx context.Context, tenantID uint64, objectType, objectID string, beforeID uint64, limit int, bySource bool) (Page, error) {
 	objectType = strings.TrimSpace(objectType)
 	objectID = strings.TrimSpace(objectID)
 	if tenantID == 0 || objectType == "" || objectID == "" || limit < 1 || limit > 200 {
@@ -103,11 +113,16 @@ func (r *Repository) List(
 		WHERE tenant_id = ? AND object_type = ? AND object_id = ?
 	`
 	args := []any{tenantID, objectType, objectID}
+	orderColumn := "id"
+	if bySource {
+		orderColumn = "source_event_id"
+		query += " AND source_event_id IS NOT NULL"
+	}
 	if beforeID > 0 {
-		query += " AND id < ?"
+		query += " AND " + orderColumn + " < ?"
 		args = append(args, beforeID)
 	}
-	query += " ORDER BY id DESC LIMIT ?"
+	query += " ORDER BY " + orderColumn + " DESC LIMIT ?"
 	args = append(args, limit+1)
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
@@ -131,6 +146,9 @@ func (r *Repository) List(
 	if len(entries) > limit {
 		page.Entries = entries[:limit]
 		page.NextBeforeID = page.Entries[len(page.Entries)-1].ID
+		if bySource {
+			page.NextBeforeID = *page.Entries[len(page.Entries)-1].SourceEventID
+		}
 	}
 	return page, nil
 }
