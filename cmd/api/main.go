@@ -26,6 +26,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/platform/ratelimit"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/requestinfo"
 	"github.com/chmajster/OpenServiceNOW/internal/rbac"
+	"github.com/chmajster/OpenServiceNOW/internal/sla"
 	"github.com/chmajster/OpenServiceNOW/internal/tenants"
 	"github.com/chmajster/OpenServiceNOW/internal/users"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
@@ -146,6 +147,9 @@ func main() {
 				incidents.RegisterRoutes(r, incidentHandler, identityMiddleware)
 			},
 			func(r chi.Router) { notifications.RegisterRoutes(r, notificationHandler, identityMiddleware) },
+			func(r chi.Router) {
+				sla.RegisterRoutes(r, sla.NewHandler(sla.NewService(db), identityService), identityMiddleware)
+			},
 		),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,

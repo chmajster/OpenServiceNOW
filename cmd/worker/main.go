@@ -22,6 +22,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/notifications"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
+	"github.com/chmajster/OpenServiceNOW/internal/sla"
 	"github.com/chmajster/OpenServiceNOW/internal/systemjobs"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 )
@@ -85,6 +86,15 @@ func main() {
 		os.Exit(1)
 	}
 	projector := activity.NewProjector(database.NewTxManager(db), activity.NewRepository(db))
+	slaService := sla.NewService(db)
+	if err := slaService.Register(dispatcher, projector); err != nil {
+		logger.Error("register SLA consumer failed")
+		os.Exit(1)
+	}
+	if err := jobWorker.Register(sla.JobType, slaService.JobHandler); err != nil {
+		logger.Error("register SLA worker failed")
+		os.Exit(1)
+	}
 	notificationService := notifications.NewService(db, cfg.NotificationKey, cfg.SMTPAllowInsecure)
 	if err := notificationService.Register(dispatcher); err != nil {
 		logger.Error("register notification consumer failed")

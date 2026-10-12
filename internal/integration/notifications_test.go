@@ -177,7 +177,7 @@ func TestIndependentNotifications(t *testing.T) {
 	}
 	notification := page.Notifications[0]
 	history, err := incidentService.History(ctx, reporterActor, item.ID, 0, 100)
-	if err != nil || len(history.Entries) != 2 || history.Pending {
+	if err != nil || len(history.Entries) != 3 || history.Pending {
 		t.Fatal("independent timeline", history, err)
 	}
 	mailPage, err := service.MailList(ctx, root.TenantID, reporter, 0, 25)
@@ -356,7 +356,7 @@ func TestIndependentNotifications(t *testing.T) {
 		t.Fatal("SMTP blocked in-app", page, err)
 	}
 	history, err = incidentService.History(ctx, reporterActor, item.ID, 0, 100)
-	if err != nil || history.Pending || len(history.Entries) != 4 {
+	if err != nil || history.Pending || len(history.Entries) != 5 {
 		t.Fatal("SMTP blocked timeline", history, err)
 	}
 	item, err = incidentService.Assign(ctx, rootActor, item.ID, incidents.AssignmentInput{Version: item.Version, AssignedTo: &operator})

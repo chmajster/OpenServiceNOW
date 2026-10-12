@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/chmajster/OpenServiceNOW/internal/attachments"
 	"github.com/chmajster/OpenServiceNOW/internal/audit"
@@ -33,7 +34,7 @@ func (s *Service) communicationTx(ctx context.Context, a Actor, id uint64, fn fu
 	})
 }
 func (s *Service) collaborationEvent(ctx context.Context, e database.Executor, a Actor, r Record, kind, visibility, key string, data map[string]any) error {
-	now := s.now().UTC()
+	now := s.now().UTC().Truncate(time.Microsecond)
 	data["actor_user_id"] = fmt.Sprint(a.UserID)
 	data["occurred_at"] = now
 	data["incident_version"] = fmt.Sprint(r.Version)
@@ -90,7 +91,24 @@ func (s *Service) AddMessage(ctx context.Context, a Actor, id uint64, input Comm
 			kind = "work.work_note.added"
 			visibility = "INTERNAL"
 		}
-		return s.collaborationEvent(ctx, e, a, r, kind, visibility, fmt.Sprintf("incident-message:%d", message.ID), map[string]any{"resource_id": fmt.Sprint(message.ID), "message_id": fmt.Sprint(message.ID), "message_type": input.Type, "body": message.Body})
+		if err := s.collaborationEvent(ctx, e, a, r, kind, visibility, fmt.Sprintf("incident-message:%d", message.ID), map[string]any{"resource_id": fmt.Sprint(message.ID), "message_id": fmt.Sprint(message.ID), "message_type": input.Type, "body": message.Body}); err != nil {
+			return err
+		}
+		if input.Type == workrecords.MessageComment && a.Has("read") && a.UserID != r.ReporterID {
+			// One durable business event per incident; retries and later replies keep
+			// the first occurrence. No private body enters the SLA contract.
+			now := s.now().UTC().Truncate(time.Microsecond)
+			payload, err := json.Marshal(ChangeEvent{ActorUserID: a.UserID, IncidentVersion: r.Version, OccurredAt: now, After: snapshot(r)})
+			if err != nil {
+				return err
+			}
+			_, created, err := s.outbox.Append(ctx, e, events.Input{TenantID: a.TenantID, Type: "incident.first_response", AggregateType: "incident", AggregateID: fmt.Sprint(id), Payload: payload, IdempotencyKey: fmt.Sprintf("incident-first-response:%d", id), AvailableAt: now})
+			if err != nil || !created {
+				return err
+			}
+			return s.audit.Append(ctx, e, audit.Event{TenantID: &a.TenantID, ActorUserID: &a.UserID, Time: now, Action: "incident.first_response", ObjectType: "incident", ObjectID: fmt.Sprint(id), NewValues: map[string]any{"message_id": fmt.Sprint(message.ID), "incident_version": fmt.Sprint(r.Version)}, RequestID: a.RequestID, Source: "api", IPAddress: a.IPAddress})
+		}
+		return nil
 	})
 	return message, err
 }

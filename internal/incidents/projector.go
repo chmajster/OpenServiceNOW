@@ -25,6 +25,9 @@ var EventSummaries = map[string]string{
 // RegisterEventHandlers is also used by integration tests, so every emitted
 // contract is verified against the handlers that cmd/worker actually runs.
 func RegisterEventHandlers(dispatcher *events.Dispatcher, repo *Repository, projector *activity.Projector) error {
+	if err := dispatcher.Register("incident.first_response", projector.Handler("incident.first_response", "Pierwsza odpowiedź operatora")); err != nil {
+		return err
+	}
 	for eventType, summary := range EventSummaries {
 		project := projector.Handler(eventType, summary)
 		handler := func(ctx context.Context, event events.Event) error {
