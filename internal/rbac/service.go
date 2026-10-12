@@ -48,6 +48,34 @@ func (s *Service) ListPermissions(ctx context.Context) ([]Permission, error) {
 	return result, nil
 }
 
+func (s *Service) GetRole(ctx context.Context, tenantID, roleID uint64) (Role, error) {
+	if roleID == 0 {
+		return Role{}, ErrInvalid
+	}
+	page, err := s.repo.ListRoles(ctx, tenantID, roleID-1, 1, "")
+	if err != nil {
+		return Role{}, err
+	}
+	if len(page.Roles) == 0 || page.Roles[0].ID != roleID {
+		return Role{}, ErrNotFound
+	}
+	return page.Roles[0], nil
+}
+
+func (s *Service) GetGroup(ctx context.Context, tenantID, groupID uint64) (Group, error) {
+	if groupID == 0 {
+		return Group{}, ErrInvalid
+	}
+	page, err := s.repo.ListGroups(ctx, tenantID, groupID-1, 1, "")
+	if err != nil {
+		return Group{}, err
+	}
+	if len(page.Groups) == 0 || page.Groups[0].ID != groupID {
+		return Group{}, ErrNotFound
+	}
+	return page.Groups[0], nil
+}
+
 func (s *Service) ListRoles(
 	ctx context.Context,
 	tenantID, afterID uint64,
@@ -133,6 +161,10 @@ func (s *Service) SetRolePermissions(
 		return err
 	}
 	return s.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec platformdb.Executor) error {
+		previous, err := s.repo.RolePermissionSnapshot(ctx, exec, actor.TenantID, roleID)
+		if err != nil {
+			return err
+		}
 		if err := s.repo.SetRolePermissions(
 			ctx,
 			exec,
@@ -153,6 +185,7 @@ func (s *Service) SetRolePermissions(
 			Action:      "rbac.role.permissions.set",
 			ObjectType:  "role",
 			ObjectID:    fmt.Sprint(roleID),
+			OldValues:   previous,
 			NewValues:   map[string]any{"permissions": keys, "version": fmt.Sprint(expectedVersion + 1)},
 			RequestID:   actor.RequestID,
 			Source:      "api",

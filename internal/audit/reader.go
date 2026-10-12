@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"time"
 )
 
 type Reader struct {
@@ -17,6 +18,18 @@ func NewReader(db *sql.DB) *Reader {
 }
 
 func (r *Reader) List(ctx context.Context, tenantID, beforeID uint64, limit int) (Page, error) {
+	return r.ListFiltered(ctx, tenantID, beforeID, limit, Filter{})
+}
+
+// Filter uses exact matches and an inclusive time range. Tenant scope is always
+// supplied separately by the authenticated transport, never by query parameters.
+type Filter struct {
+	From, To                                time.Time
+	ActorUserID                             uint64
+	Action, ObjectType, ObjectID, RequestID string
+}
+
+func (r *Reader) ListFiltered(ctx context.Context, tenantID, beforeID uint64, limit int, filter Filter) (Page, error) {
 	if limit < 1 || limit > 200 {
 		return Page{}, fmt.Errorf("audit limit out of range")
 	}
@@ -29,6 +42,24 @@ func (r *Reader) List(ctx context.Context, tenantID, beforeID uint64, limit int)
 		WHERE tenant_id = ?
 	`
 	args := []any{tenantID}
+	for _, condition := range []struct {
+		clause  string
+		value   any
+		enabled bool
+	}{
+		{"event_time >= ?", filter.From.UTC(), !filter.From.IsZero()},
+		{"event_time <= ?", filter.To.UTC(), !filter.To.IsZero()},
+		{"actor_user_id = ?", filter.ActorUserID, filter.ActorUserID != 0},
+		{"action = ?", filter.Action, filter.Action != ""},
+		{"object_type = ?", filter.ObjectType, filter.ObjectType != ""},
+		{"object_id = ?", filter.ObjectID, filter.ObjectID != ""},
+		{"request_id = ?", filter.RequestID, filter.RequestID != ""},
+	} {
+		if condition.enabled {
+			query += " AND " + condition.clause
+			args = append(args, condition.value)
+		}
+	}
 	if beforeID > 0 {
 		query += " AND id < ?"
 		args = append(args, beforeID)

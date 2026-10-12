@@ -65,6 +65,11 @@ type fakeRBAC struct {
 	removeUserRoleCalls   int
 }
 
+func (f *fakeRBAC) GetRole(context.Context, uint64, uint64) (Role, error) { return Role{}, ErrNotFound }
+func (f *fakeRBAC) GetGroup(context.Context, uint64, uint64) (Group, error) {
+	return Group{}, ErrNotFound
+}
+
 func (f *fakeRBAC) ListPermissions(context.Context) ([]Permission, error) {
 	return []Permission{{ID: 1, Key: "admin.rbac.manage"}}, nil
 }
