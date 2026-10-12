@@ -23,6 +23,12 @@ for distribution in ubuntu:26.04 debian:bookworm-slim; do
     --mount "type=bind,src=$repo_dir/docker/engine-install.sh,dst=/engine-install.sh,readonly" \
     "$image" >/dev/null
   docker exec "$name" bash -euc '
+      # Finish boot/tmpfiles setup before APT creates temporary signature files.
+      boot_state=$(timeout 60s systemctl is-system-running --wait || true)
+      case "$boot_state" in
+        running|degraded) ;;
+        *) echo "Engine fixture did not finish booting: $boot_state" >&2; exit 1 ;;
+      esac
       bash /engine-install.sh root
       docker info >/dev/null
       docker compose version
