@@ -14,6 +14,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/attachments"
 	"github.com/chmajster/OpenServiceNOW/internal/audit"
 	"github.com/chmajster/OpenServiceNOW/internal/auditapi"
+	"github.com/chmajster/OpenServiceNOW/internal/catalog"
 	"github.com/chmajster/OpenServiceNOW/internal/events"
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
 	"github.com/chmajster/OpenServiceNOW/internal/incidents"
@@ -26,6 +27,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/platform/ratelimit"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/requestinfo"
 	"github.com/chmajster/OpenServiceNOW/internal/rbac"
+	"github.com/chmajster/OpenServiceNOW/internal/requests"
 	"github.com/chmajster/OpenServiceNOW/internal/sla"
 	"github.com/chmajster/OpenServiceNOW/internal/tenants"
 	"github.com/chmajster/OpenServiceNOW/internal/users"
@@ -110,6 +112,7 @@ func main() {
 	}
 	incidentService.WithAttachments(files)
 	incidentHandler := incidents.NewHandler(incidentService, identityService)
+	requestHandler := requests.NewHandler(requests.NewService(db, files), catalog.NewService(db), identityService)
 	notificationHandler := notifications.NewHandler(notifications.NewService(db, cfg.NotificationKey, cfg.SMTPAllowInsecure), outboxRepo)
 
 	healthHandler := health.New(
@@ -147,6 +150,7 @@ func main() {
 				incidents.RegisterRoutes(r, incidentHandler, identityMiddleware)
 			},
 			func(r chi.Router) { notifications.RegisterRoutes(r, notificationHandler, identityMiddleware) },
+			func(r chi.Router) { requests.RegisterRoutes(r, requestHandler, identityMiddleware) },
 			func(r chi.Router) {
 				sla.RegisterRoutes(r, sla.NewHandler(sla.NewService(db), identityService), identityMiddleware)
 			},

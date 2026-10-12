@@ -88,7 +88,7 @@ September runner-allocation failures (including run #523) and early deployment f
 [P2] [x] Deliver core Incident Management: transactional model/INC numbering/assignment/audit/outbox, object RBAC/read-own, priority matrix and audited override, backend lifecycle, idempotency/versioning, server list/search/filters and complete React flow. MySQL and desktop/mobile evidence is recorded in STATUS.md and PR #17.
 [P2] [ ] Extend incidents with real CMDB/service sources, templates and major-incident coordination. PR #18 implements bounded related/parent-child relations and only the confirmed assign-to-self/start-work batch actions; broader orchestration remains future work.
 [P2] [x] Implement asynchronous incident SLA with immutable policy/calendar versions, business-time response/resolution cycles, exact-reason pauses, durable ordered replay, bounded scheduler/jobs, idempotent warning/breach notifications and working administration/incident API/UI. Verification and final CI evidence are tracked in PR #20 and STATUS.md; no retroactive enrollment or policy rebinding is claimed.
-[P2] [ ] Requests and Service Catalog.
+[P2] [x] Deliver catalog/category/item versions, declarative server-validated forms, atomic Request/Requested Item/Task fulfillment, actor-scoped idempotency, historical snapshots, object-authorized portal/operator queues and private communication/files/history. Manual tasks are independent; approval/dependency automation and request SLA/notification channels remain later stages. Current verification/review evidence is maintained in PR #21 and STATUS.md.
 [P2] [ ] Workflow and Approval engines.
 [P2] [ ] Change and Problem Management.
 [P2] [ ] CMDB and Asset Management.

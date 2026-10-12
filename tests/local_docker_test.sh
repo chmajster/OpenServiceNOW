@@ -32,6 +32,11 @@ REDIS_PASSWORD=docker-test-redis
 MYSQL_PASSWORD=docker-test-mysql
 COMPOSE_PROJECT_NAME=$project
 EOF
+if [[ "${LOCAL_DOCKER_BROWSER:-0}" == 1 ]]; then
+  # Only the disposable checkout uses a short account window for repeated E2E
+  # administrator logins. Default production windows and attempt limits remain.
+  printf '\nAUTH_LOGIN_ACCOUNT_WINDOW=1m\n' >>"$checkout/.env.example"
+fi
 # Older engines require explicit IPAM before a fixture can reserve an old API IP.
 # Reuse a free subnet chosen by Docker rather than hard-coding a host network.
 docker network create "${project}-subnet-probe" >/dev/null
