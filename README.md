@@ -4,7 +4,7 @@ OpenServiceNOW is an enterprise ITSM / IT Operations platform implemented indepe
 
 ## Current state
 
-The administration foundation and shared work-platform infrastructure are implemented in `main`. Business modules continue according to the roadmap; an internal library does not imply an available HTTP endpoint or UI screen.
+The administration foundation, shared work platform and core Incident Management process are implemented. Further business modules continue according to the roadmap; an internal library does not imply an available HTTP endpoint or UI screen.
 
 Implemented foundation capabilities:
 
@@ -45,8 +45,50 @@ Durable MySQL-backed jobs, worker/scheduler execution and shared work-record inf
 | --- | --- | --- | --- |
 | First-run setup, authentication, tenants, users, RBAC and audit | Services, repositories and migrations | Documented in OpenAPI | Setup, login and administration screens |
 | Jobs and scheduler | Durable jobs/attempts/logs, leases, retry/cancellation primitives; scheduler → worker session cleanup | No public job-management endpoints | No job-management screen |
-| Work records, outbox, activity and attachments | Shared libraries, SQL persistence, worker projections and integration tests | No public business-record/attachment endpoints | No business-record/attachment screens |
-| Incident, SLA and other roadmap business modules | Remaining roadmap work | Not available | Not available |
+| Work records, outbox, activity and attachments | Shared libraries, SQL persistence, worker projections and integration tests | Numbering, assignment and history through incidents; no generic work/file endpoints | Incident assignment/history; communication/files remain future work |
+| Incident Management | Transactional lifecycle, numbering, RBAC, audit and worker history | Documented `/api/v1/incidents` routes | List, creation, details and lifecycle actions |
+| SLA and other roadmap business modules | Remaining roadmap work | Not available | Not available |
+
+## Incident Management
+
+Open **Incydenty** to search/filter the server-paginated list or **Zgłoś incydent** to report a problem. **Moje**, **Mojej grupy** and **Nieprzypisane** apply the same object authorization as the full list. Filters, sort cursors and detail tabs are stored in the URL. An agent selects an active organization member/group in **Przypisanie**, then uses **Stan** to start work, hold, resolve and close. Choices search independently of the first 50 results and support keyboard selection/pagination.
+
+The organization and reporter come from the backend session. Numbers such as `INC0000001` are unique per organization. Creation requires `Idempotency-Key`: the same normalized body/key returns the original incident; changing the body returns 409. Updates use the decimal-string incident version. Conflicts retain the draft and require an explicit decision against the current state; delayed responses for another incident are ignored. **Sprawdź wynik poprzedniej próby** reconciles a lost creation response with its original body/key. Pending form drafts/keys survive errors within the mounted form, not closing/reloading it.
+
+Impact and urgency use 1 (high), 2 (medium), 3 (low); P1 is the highest priority:
+
+| Impact × urgency | 1 | 2 | 3 |
+| --- | --- | --- | --- |
+| 1 | P1 | P2 | P3 |
+| 2 | P2 | P3 | P4 |
+| 3 | P3 | P4 | P5 |
+
+An override requires `incident.priority.override`, a reason and an audited separate action. Changing impact/urgency restores the matrix priority. Category/subcategory pairs and resolution codes come from the implemented domain catalog returned by metadata.
+
+| Current state | Allowed next states |
+| --- | --- |
+| NEW | IN_PROGRESS, ON_HOLD, CANCELLED |
+| IN_PROGRESS | ON_HOLD, RESOLVED, CANCELLED |
+| ON_HOLD | IN_PROGRESS, RESOLVED, CANCELLED |
+| RESOLVED | CLOSED, IN_PROGRESS |
+| CLOSED | IN_PROGRESS |
+| CANCELLED | Terminal |
+
+Holding/cancelling requires a reason; resolving requires a code and description. Starting/resolving requires an active assigned user, active organization membership and membership in the selected active group. Reopening requires a reason and emits `incident.reopened`; it clears the current resolution/closure fields and preserves their historical values. Closed/cancelled records cannot otherwise be edited or assigned.
+
+| Permission | Access |
+| --- | --- |
+| `incident.create` | Create, together with `incident.read` or `incident.read_own` |
+| `incident.read` | Read incidents in the current organization |
+| `incident.read_own` | Read incidents reported by or affecting the actor |
+| `incident.update` | Edit fields and perform other allowed lifecycle transitions |
+| `incident.assign` | Change assignment |
+| `incident.resolve` | Resolve and close |
+| `incident.priority.override` | Set/reset an audited priority override |
+
+Writes also require read access to the concrete incident. Create requester/agent roles in **Role** and assign them to users/groups; the protected `platform_admin` inherits the live catalog. Read-own reporters can select themselves as the affected person; agents with organization-wide read can select other active organization members.
+
+Incident, required shared assignment row, audit, request digest and outbox event are persisted atomically in MySQL. Every emitted incident event has a production worker handler. **Historia** shows before/after changes and business occurrence time/version, ordered by source event rather than projection completion. While the worker is unavailable, records remain saved and history reports pending processing; **Odśwież historię** reads the latest state. Communication, files, CMDB/service relations, SLA, templates, bulk actions and major/parent-child workflows are subsequent stages with no unfinished controls in this release.
 
 ## Administration panel
 
@@ -353,7 +395,7 @@ make e2e
 
 1. start MySQL/Redis and apply migrations,
 2. leave the disposable database empty to test first-run account creation (an existing E2E account is also supported),
-3. start the API,
+3. start the API and worker (`make worker`, needed for incident history),
 4. start Vite on `127.0.0.1:5173`,
 5. export `E2E_TENANT`, `E2E_ADMIN_EMAIL`, `E2E_ADMIN_PASSWORD`, `E2E_OPERATOR_EMAIL`, and `E2E_OPERATOR_PASSWORD`,
 6. install Chromium once with `cd web && npx playwright install chromium`,
@@ -364,6 +406,8 @@ CI performs infrastructure/migration/startup steps automatically in its dedicate
 When testing a fresh default `admin` password, the setup scenario completes its required change before the remaining tests. Suite-created accounts also complete the temporary-password flow. Test login helpers respect real `Retry-After` limits instead of weakening authentication policy.
 
 ## Verification status
+
+Incident Management in [PR #17](https://github.com/chmajster/OpenServiceNOW/pull/17) passed local Go unit/race/vet/build, disposable MySQL integration and migration lifecycle 1–32, 15 frontend unit tests, TypeScript/build and 24/24 desktop/mobile browser scenarios. Coverage includes concurrent/idempotent creation, lost-response reconciliation, version conflicts, object/tenant isolation, all nine real worker projections, out-of-order history and persisted reads through a new SQL service. The native lifecycle CI suite additionally verifies the incident/number/assignment/history across API/worker restarts, port changes and ordinary uninstall/reinstall. Final CI/review/merge results are recorded in PR #17.
 
 Own-account implementation in [PR #16](https://github.com/chmajster/OpenServiceNOW/pull/16) passed local Go unit/race/vet/build, disposable MySQL integration and migration lifecycle 1–27, 13 frontend unit tests and 22/22 desktop/mobile browser scenarios. Tests cover credential-version fencing, global session rotation/revocation, restricted temporary accounts, profile conflicts, rollback on audit failure, restart persistence and legacy Unicode credentials. The PR records final CI and merge evidence; [STATUS.md](STATUS.md) distinguishes these delivered APIs/screens from internal shared libraries and future providers.
 

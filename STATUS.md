@@ -4,9 +4,9 @@ Last updated: 2026-10-12
 
 ## Current phase
 
-Foundation and shared work-platform development.
+Incident Management core process, following the delivered foundation and shared work platform.
 
-The repository includes the administration foundation, durable MySQL jobs/worker, scheduler and work-record infrastructure. The full application is deployed through DevBox with real MySQL/Redis readiness. This deployment verification does not declare all roadmap phases complete.
+The repository includes the administration foundation, durable MySQL jobs/worker, scheduler, work-record infrastructure and the core Incident Management API/UI. The full application is deployed through DevBox with real MySQL/Redis readiness. This delivery does not declare every Phase 3 extension or later roadmap phase complete.
 
 ## Last completed
 
@@ -16,8 +16,8 @@ Availability boundaries:
 
 - Setup, authentication, own-account profile/password/sessions, tenant/user/RBAC administration and audit have implemented services, OpenAPI routes and React screens.
 - Jobs, attempts/logs, leases, retries/cancellation, session-cleanup scheduling and worker execution are implemented internally. There is no public job-management API or UI.
-- Work records, outbox, attachments and activity have shared libraries, migrations, worker projections and integration tests. They have no public business-record/attachment routes or screens yet; object-specific business authorization must be supplied by their future domain consumers.
-- Incident/SLA/request and later business capabilities remain roadmap work.
+- Work records, outbox, attachments and activity have shared libraries, migrations, worker projections and integration tests. Incidents now consume numbering, assignments and activity with domain object authorization; generic work/job administration and attachment/communication routes/screens remain unavailable.
+- Incident Management has persistence, OpenAPI routes and React list/create/detail/lifecycle/history screens. SLA/request and later business capabilities remain roadmap work.
 
 Implemented foundation capabilities:
 
@@ -91,7 +91,21 @@ Implemented foundation capabilities:
 
 ## Currently in progress
 
-Business-module APIs/UI, broader asynchronous operational monitoring and external identity providers remain roadmap work. Implemented shared libraries are available to domain consumers, rather than exposed as unfinished screens.
+Further incident communication/files/CMDB integration, other business modules, asynchronous operational monitoring and external identity providers remain roadmap work. Shared libraries are consumed through domain APIs rather than exposed as unfinished screens.
+
+## Incident Management result
+
+[PR #17](https://github.com/chmajster/OpenServiceNOW/pull/17) delivers the core incident model, fixed category/subcategory catalog, explicit 3×3 priority matrix, separate audited priority override and backend-controlled NEW/IN_PROGRESS/ON_HOLD/RESOLVED/CLOSED/CANCELLED lifecycle. Holding/cancelling/reopening reasons, resolution code/description and active assignments are enforced in the API. Reopening emits a distinct event and preserves prior resolution/closure values in history.
+
+Session-derived organization/actor, object read/read-own checks, separate action permissions and active member/group validation apply on the backend. Lists and lookups are bounded/server-filtered; newest/oldest/priority sorting uses stable keyset order. Summaries omit large descriptions. Identifiers, cursors and versions are decimal strings; pagination does not promise a frozen snapshot during concurrent edits.
+
+Shared numbering/assignment services accept the domain transaction without duplicated SQL. Writes persist incident, required assignment row, audit and outbox atomically. Actor/organization-scoped creation keys and body digests deduplicate concurrent retries and reject changed bodies; versioned updates prevent lost changes. Production worker handlers project all nine incident event types idempotently, preserving mutation-time before/after values, version and business occurrence time. History follows source-event order and reports pending projection independently of synchronous record persistence/readiness.
+
+React exposes list/create/details, **Moje**, **Mojej grupy**, **Nieprzypisane**, assignment, lifecycle, priority and history. Paginated choices require domain access rather than user-administration permission. Responses are object-bound/cancelled; dirty forms retain their base version across refresh and require explicit conflict decisions. Lost creation responses reuse their in-memory body/key; unfinished drafts are not persisted across closing/reloading the form.
+
+Go unit/race/vet/build, disposable MySQL integration and migrations 1–32, 15 frontend unit tests and typecheck/build passed. Full browser regression passed 24/24 desktop/mobile scenarios, including lost response after a real committed incident write, agent beyond the first directory page, keyboard actions, own-record restrictions, rejected API transition, retained conflict draft, reopen, real worker history and refresh persistence. MySQL tests verify all nine event types, source-order pagination after out-of-order delivery and retry deduplication. The native lifecycle CI suite checks incident/number/assignment/history persistence across restarts, port changes and ordinary uninstall/reinstall. Final CI, review and merge evidence are tracked in PR #17.
+
+Communication/work notes/files, SLA, CMDB/service relations, configurable catalogs, parent-child/major workflows, templates and bulk operations remain subsequent stages. No controls represent them as currently available.
 
 ## Administration usability result
 
@@ -226,9 +240,14 @@ Implemented migration versions:
 - `000024_job_logs`,
 - `000025_installation_state`,
 - `000026_user_credentials`,
-- `000027_account_sessions`.
+- `000027_account_sessions`,
+- `000028_group_availability`,
+- `000029_incidents`,
+- `000030_incident_requests`,
+- `000031_incident_permissions`,
+- `000032_activity_event_order`.
 
-Each up/down migration contains one SQL statement. Runtime readiness requires migration version 27, `dirty=false`, and the foundation metadata singleton. The real MySQL lifecycle test passed latest → one-step rollback → latest → legacy schema 24 → latest → full rollback → latest → readiness. Migration 25 permanently closes first-run setup for existing accounts/organizations without changing credentials; migration 26 preserves existing hashes and defaults the required-change flag to false. The reserved `groups` identifier is quoted in schema and repository SQL.
+Each up/down migration contains one SQL statement. Runtime readiness requires migration version 32, `dirty=false`, and the foundation metadata singleton. The real MySQL lifecycle test passed latest → one-step rollback → latest → legacy schema 24 → latest → full rollback → latest → readiness. Migration 25 permanently closes first-run setup for existing accounts/organizations without changing credentials; migration 26 preserves existing hashes and defaults the required-change flag to false. The reserved `groups` identifier is quoted in schema and repository SQL.
 
 ## Technical debt
 
