@@ -381,6 +381,8 @@ Exit criteria:
 
 ## Phase 10 — Notifications and Integrations
 
+PR #19 implements the incident subset: independent event consumers, in-app inbox/count/read, per-user preferences, optional SMTP with encrypted secrets/external key, fixed safe templates, durable jobs/attempt outcomes and administrative test/retry. It defines a legacy-event cutoff to prevent accidental historical mail and rechecks access on delivery and late reads. Verification is tracked in STATUS.md/PR #19. This does not complete webhook/inbound mail, editable templates or every integration listed below.
+
 Notifications:
 
 - in-app,

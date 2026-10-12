@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sort"
 	"sync"
 	"time"
 )
@@ -14,6 +15,10 @@ type Store interface {
 	Heartbeat(context.Context, uint64, string, time.Duration) (HeartbeatState, error)
 	Complete(context.Context, uint64, string) error
 	Fail(context.Context, uint64, string, error, time.Duration) error
+	Distribute(context.Context, uint64, string, []string) error
+	ClaimDelivery(context.Context, string, time.Duration) (Delivery, bool, error)
+	HeartbeatDelivery(context.Context, uint64, string, time.Duration) (HeartbeatState, error)
+	FinishDelivery(context.Context, uint64, string, error, time.Duration) error
 }
 
 type Handler func(context.Context, Event) error
@@ -26,7 +31,7 @@ type Dispatcher struct {
 	pollInterval  time.Duration
 	leaseDuration time.Duration
 	retryDelay    time.Duration
-	handlers      map[string]Handler
+	handlers      map[string]map[string]Handler
 }
 
 func NewDispatcher(
@@ -53,18 +58,25 @@ func NewDispatcher(
 		pollInterval:  pollInterval,
 		leaseDuration: leaseDuration,
 		retryDelay:    retryDelay,
-		handlers:      make(map[string]Handler),
+		handlers:      make(map[string]map[string]Handler),
 	}, nil
 }
 
 func (d *Dispatcher) Register(eventType string, handler Handler) error {
-	if eventType == "" || len(eventType) > 120 || handler == nil {
+	return d.RegisterConsumer("activity.v1", eventType, handler)
+}
+
+func (d *Dispatcher) RegisterConsumer(consumerID, eventType string, handler Handler) error {
+	if !consumerPattern.MatchString(consumerID) || eventType == "" || len(eventType) > 120 || handler == nil {
 		return ErrInvalid
 	}
-	if _, exists := d.handlers[eventType]; exists {
-		return fmt.Errorf("event handler %q already registered", eventType)
+	if d.handlers[eventType] == nil {
+		d.handlers[eventType] = make(map[string]Handler)
 	}
-	d.handlers[eventType] = handler
+	if _, exists := d.handlers[eventType][consumerID]; exists {
+		return fmt.Errorf("event consumer %q already registered for %q", consumerID, eventType)
+	}
+	d.handlers[eventType][consumerID] = handler
 	return nil
 }
 
@@ -134,22 +146,40 @@ func (d *Dispatcher) loop(ctx context.Context, owner string) error {
 }
 
 func (d *Dispatcher) claimAndDispatch(ctx context.Context, owner string) (bool, error) {
+	// Both stages make progress on every iteration: a busy stream of new events
+	// must not starve delivery attempts, and a failing consumer must not block split.
 	event, ok, err := d.store.Claim(ctx, owner, d.leaseDuration)
 	if err != nil {
 		return false, err
 	}
-	if !ok {
-		return false, nil
-	}
-	handler, exists := d.handlers[event.Type]
-	if !exists {
-		deliveryErr := fmt.Errorf("no handler registered for event type %q", event.Type)
-		finalCtx, cancel := finalizationContext(ctx)
-		defer cancel()
-		if err := d.store.Fail(finalCtx, event.ID, owner, deliveryErr, d.retryDelay); err != nil {
-			return true, errors.Join(deliveryErr, err)
+	if ok {
+		consumers := make([]string, 0, len(d.handlers[event.Type]))
+		for consumer := range d.handlers[event.Type] {
+			consumers = append(consumers, consumer)
 		}
-		return true, nil
+		sort.Strings(consumers)
+		if len(consumers) == 0 {
+			deliveryErr := fmt.Errorf("no handler registered for event type %q", event.Type)
+			finalCtx, cancel := finalizationContext(ctx)
+			defer cancel()
+			if err := d.store.Fail(finalCtx, event.ID, owner, deliveryErr, d.retryDelay); err != nil {
+				return true, errors.Join(deliveryErr, err)
+			}
+		} else if err := d.store.Distribute(ctx, event.ID, owner, consumers); err != nil {
+			return true, err
+		}
+	}
+	delivery, deliveryOK, err := d.store.ClaimDelivery(ctx, owner, d.leaseDuration)
+	if err != nil {
+		return ok, err
+	}
+	if !deliveryOK {
+		return ok, nil
+	}
+	event = delivery.Event
+	handler := d.handlers[event.Type][delivery.ConsumerID]
+	if handler == nil {
+		return true, d.store.FinishDelivery(ctx, delivery.ID, owner, ErrInvalid, d.retryDelay)
 	}
 
 	eventCtx, cancel := context.WithCancel(ctx)
@@ -167,7 +197,7 @@ func (d *Dispatcher) claimAndDispatch(ctx context.Context, owner string) (bool, 
 				heartbeatDone <- true
 				return
 			case <-ticker.C:
-				state, err := d.store.Heartbeat(eventCtx, event.ID, owner, d.leaseDuration)
+				state, err := d.store.HeartbeatDelivery(eventCtx, delivery.ID, owner, d.leaseDuration)
 				if err != nil || !state.LeaseValid {
 					if err != nil {
 						d.logger.Error("outbox heartbeat failed", "event_id", event.ID, "error", err)
@@ -189,14 +219,7 @@ func (d *Dispatcher) claimAndDispatch(ctx context.Context, owner string) (bool, 
 	}
 	finalCtx, finalCancel := finalizationContext(ctx)
 	defer finalCancel()
-	if deliveryErr != nil {
-		if err := d.store.Fail(finalCtx, event.ID, owner, deliveryErr, d.retryDelay); err != nil &&
-			!errors.Is(err, ErrLeaseLost) {
-			return true, errors.Join(deliveryErr, err)
-		}
-		return true, nil
-	}
-	if err := d.store.Complete(finalCtx, event.ID, owner); err != nil &&
+	if err := d.store.FinishDelivery(finalCtx, delivery.ID, owner, deliveryErr, d.retryDelay); err != nil &&
 		!errors.Is(err, ErrLeaseLost) {
 		return true, err
 	}

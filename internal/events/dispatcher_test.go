@@ -10,10 +10,12 @@ import (
 )
 
 type fakeStore struct {
-	event     Event
-	claimed   bool
-	completed bool
-	failed    error
+	event           Event
+	claimed         bool
+	completed       bool
+	failed          error
+	consumer        string
+	deliveryClaimed bool
 }
 
 func (f *fakeStore) Claim(context.Context, string, time.Duration) (Event, bool, error) {
@@ -34,6 +36,26 @@ func (f *fakeStore) Complete(context.Context, uint64, string) error {
 }
 
 func (f *fakeStore) Fail(_ context.Context, _ uint64, _ string, err error, _ time.Duration) error {
+	f.failed = err
+	return nil
+}
+
+func (f *fakeStore) Distribute(_ context.Context, _ uint64, _ string, consumers []string) error {
+	f.consumer = consumers[0]
+	return nil
+}
+func (f *fakeStore) ClaimDelivery(context.Context, string, time.Duration) (Delivery, bool, error) {
+	if f.consumer == "" || f.deliveryClaimed {
+		return Delivery{}, false, nil
+	}
+	f.deliveryClaimed = true
+	return Delivery{ID: 1, ConsumerID: f.consumer, Event: f.event}, true, nil
+}
+func (f *fakeStore) HeartbeatDelivery(ctx context.Context, id uint64, owner string, lease time.Duration) (HeartbeatState, error) {
+	return f.Heartbeat(ctx, id, owner, lease)
+}
+func (f *fakeStore) FinishDelivery(_ context.Context, _ uint64, _ string, err error, _ time.Duration) error {
+	f.completed = err == nil
 	f.failed = err
 	return nil
 }

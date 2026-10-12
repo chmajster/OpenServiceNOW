@@ -11,6 +11,8 @@ x-local-backend: &backend
     MYSQL_HOST: mysql
     MYSQL_PORT: "3306"
     REDIS_ADDR: redis:6379
+    NOTIFICATION_ENCRYPTION_KEY: ${NOTIFICATION_ENCRYPTION_KEY:-}
+    SMTP_ALLOW_INSECURE: ${SMTP_ALLOW_INSECURE:-false}
     HTTP_ADDR: 0.0.0.0:8080
     ATTACHMENT_ROOT: /var/lib/opensnow/attachments
     BOOTSTRAP_ON_START: "false"

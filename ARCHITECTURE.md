@@ -2,9 +2,9 @@
 
 ## Status
 
-Phase 0 established the target architecture and module boundaries. The implemented stack contains API, migration/bootstrap, worker and scheduler executables, MySQL schema through migration 37, Redis-backed controls, identity/RBAC/audit services, the first-run installer, React administration and own-account UI.
+Phase 0 established the target architecture and module boundaries. The implemented stack contains API, migration/bootstrap, worker and scheduler executables, MySQL schema through migration 48, Redis-backed controls, identity/RBAC/audit services, the first-run installer, React administration and own-account UI.
 
-Shared work-record, jobs, outbox, activity and attachment libraries are implemented and integration-tested. The scheduler enqueues durable session- and attachment-cleanup jobs; the worker executes them and dispatches activity events. Incident Management consumes shared numbering, assignments, messages, watchers, relations, attachments and activity through domain-authorized API/UI. Generic work/job-management and arbitrary-object attachment APIs/UI remain future stages. Existing routes/screens cover setup, authentication, own accounts, tenant/user/RBAC/audit administration and incidents. The remaining sections distinguish implemented foundations from target business capabilities; see STATUS.md and TODO.md for verified progress.
+Shared work-record, jobs, outbox, activity and attachment libraries are implemented and integration-tested. The scheduler enqueues durable session- and attachment-cleanup jobs; the worker executes them and dispatches activity events. Incident Management consumes shared numbering, assignments, messages, watchers, relations, attachments and activity through domain-authorized API/UI. Generic work/job-management and arbitrary-object attachment APIs/UI remain future stages. Existing routes/screens cover setup, authentication, own accounts, tenant/user/RBAC/audit administration, incidents and notifications/delivery administration. The remaining sections distinguish implemented foundations from target business capabilities; see STATUS.md and TODO.md for verified progress.
 
 ## Architectural goals
 
@@ -483,7 +483,7 @@ The design should favor composable shared services/tables over inheritance patte
 
 ## Events
 
-Phase 1+ should introduce an internal event abstraction with stable event envelopes.
+The implemented outbox uses stable event envelopes and independent durable consumer deliveries. Activity and notifications are production consumers; future modules register their own stable versioned consumer ID and explicit replay policy.
 
 Example events:
 
@@ -501,9 +501,21 @@ workflow.failed
 ci.updated
 ```
 
-Initial delivery may be in-process. Event contracts must not assume the implementation is permanently in-process so a broker can be introduced later.
+Delivery currently runs in cmd/worker using MySQL claims and leases. No in-process-only acknowledgement or Redis-only persistence represents successful delivery. Event contracts remain independent of transport so a broker can be introduced later.
 
 Events are not a substitute for transactional consistency. Where a database write and later asynchronous processing must be coupled reliably, use a transactional outbox pattern.
+
+## Notifications and independent event consumers
+
+MySQL stores a unique delivery per `(event_id, consumer_id)` with its own attempts, lease and outcome. The dispatcher freezes every required consumer and commits the split atomically. Outbox DELIVERED means distribution committed; each delivery independently reports PENDING, DELIVERING, DELIVERED, FAILED or SKIPPED. `activity.v1` and `notifications.v1` are separate consumers. History readiness depends on activity alone. Future modules register stable versioned IDs and define explicit replay policy before worker startup.
+
+Migrations 38–48 mark existing events as notification-ineligible, preserve completed activity, migrate failed activity into retryable deliveries and allow pending legacy activity to finish without sending historical notifications. Already split events never acquire consumers implicitly. Stop the old API/worker/scheduler while upgrading; mixed dispatcher versions are unsupported.
+
+`internal/notifications` consumes assignment, communication, state and resolution events. It verifies current membership and incident/private-note access before materializing a unique event/user effect. In-app effects and SMTP jobs commit together using shared jobs transactions. Lists, counters, read actions and own mail history filter access before pagination. SMTP rechecks recipient access and preferences before each attempt. Observing a record grants no access.
+
+Own notification/preferences/history APIs and administration configuration/queue/retry APIs are exposed through working React screens. `admin.notifications.manage` gates administration. Tenant-bound AES-256-GCM encrypts SMTP passwords with an external 32-byte key; API and logs contain only safe metadata/error codes. SMTP is optional and in-app requires no key or mail account. Versioned configuration and retries preserve concurrent-write safety; the administrator test targets only their own login address.
+
+SMTP uses durable existing worker jobs with bounded network timeouts and records real attempt outcomes. DELIVERED requires acknowledged DATA acceptance, rather than enqueue success. Lost leases may leave UNKNOWN attempts; durable job exhaustion is reflected as FAILED. External SMTP is at-least-once: acceptance followed by lost acknowledgement can cause a duplicate on retry. Templates contain generic summaries and incident identifiers, never private bodies, titles or filenames. Editable templates, inbound mail and webhooks remain future modules. See [README notification operations](README.md#notifications-and-independent-event-consumers) for external-key setup, safe upgrade/replay policy, optional local Mailpit and runtime limits.
 
 ## Jobs and workers
 

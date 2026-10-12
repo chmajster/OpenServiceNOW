@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
 )
 
 type Repository struct {
@@ -19,6 +21,10 @@ func NewRepository(db *sql.DB) *Repository {
 }
 
 func (r *Repository) Enqueue(ctx context.Context, input EnqueueInput) (Job, bool, error) {
+	return r.EnqueueInTx(ctx, r.db, input)
+}
+
+func (r *Repository) EnqueueInTx(ctx context.Context, exec database.Executor, input EnqueueInput) (Job, bool, error) {
 	input.Type = strings.TrimSpace(input.Type)
 	input.IdempotencyKey = strings.TrimSpace(input.IdempotencyKey)
 	if input.Type == "" || len(input.Type) > 120 || len(input.IdempotencyKey) > 190 ||
@@ -39,7 +45,7 @@ func (r *Repository) Enqueue(ctx context.Context, input EnqueueInput) (Job, bool
 	}
 	if input.CreatedBy != nil {
 		var found int
-		err := r.db.QueryRowContext(ctx, `
+		err := exec.QueryRowContext(ctx, `
 			SELECT 1
 			FROM tenant_memberships tm
 			JOIN users u ON u.id = tm.user_id
@@ -61,7 +67,7 @@ func (r *Repository) Enqueue(ctx context.Context, input EnqueueInput) (Job, bool
 	var id uint64
 	created := true
 	if input.IdempotencyKey == "" {
-		result, err := r.db.ExecContext(ctx, `
+		result, err := exec.ExecContext(ctx, `
 			INSERT INTO jobs (
 				tenant_id, scope_key, job_type, payload, max_attempts, available_at, created_by
 			) VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -75,7 +81,7 @@ func (r *Repository) Enqueue(ctx context.Context, input EnqueueInput) (Job, bool
 		}
 		id = uint64(lastID)
 	} else {
-		result, err := r.db.ExecContext(ctx, `
+		result, err := exec.ExecContext(ctx, `
 			INSERT INTO jobs (
 				tenant_id, scope_key, job_type, payload, max_attempts, available_at, idempotency_key, created_by
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -95,7 +101,7 @@ func (r *Repository) Enqueue(ctx context.Context, input EnqueueInput) (Job, bool
 		}
 		id = uint64(lastID)
 	}
-	job, err := r.Get(ctx, input.TenantID, id)
+	job, err := scanJob(exec.QueryRowContext(ctx, jobSelect+` WHERE scope_key=? AND id=?`, scopeKey(input.TenantID), id))
 	return job, created, err
 }
 

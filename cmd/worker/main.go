@@ -19,6 +19,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
 	"github.com/chmajster/OpenServiceNOW/internal/incidents"
 	"github.com/chmajster/OpenServiceNOW/internal/jobs"
+	"github.com/chmajster/OpenServiceNOW/internal/notifications"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
 	"github.com/chmajster/OpenServiceNOW/internal/systemjobs"
@@ -84,6 +85,15 @@ func main() {
 		os.Exit(1)
 	}
 	projector := activity.NewProjector(database.NewTxManager(db), activity.NewRepository(db))
+	notificationService := notifications.NewService(db, cfg.NotificationKey, cfg.SMTPAllowInsecure)
+	if err := notificationService.Register(dispatcher); err != nil {
+		logger.Error("register notification consumer failed")
+		os.Exit(1)
+	}
+	if err := jobWorker.Register(notifications.SMTPJobType, notificationService.MailHandler); err != nil {
+		logger.Error("register SMTP worker failed")
+		os.Exit(1)
+	}
 	if err := workrecords.RegisterActivityHandlers(dispatcher, projector); err != nil {
 		logger.Error("register work activity handlers", "error", err)
 		os.Exit(1)

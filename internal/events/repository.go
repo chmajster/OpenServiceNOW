@@ -280,7 +280,7 @@ const eventSelect = `
 		id, tenant_id, event_type, event_version, aggregate_type, aggregate_id, payload, status,
 		attempt_count, max_attempts, available_at, COALESCE(lease_owner, ''),
 		lease_expires_at, COALESCE(last_error, ''), COALESCE(idempotency_key, ''),
-		created_at, delivered_at
+		created_at, delivered_at, notification_eligible
 	FROM outbox_events
 `
 
@@ -311,6 +311,7 @@ func scanEvent(row rowScanner) (Event, error) {
 		&event.IdempotencyKey,
 		&event.CreatedAt,
 		&deliveredAt,
+		&event.NotificationEligible,
 	); err != nil {
 		return Event{}, err
 	}

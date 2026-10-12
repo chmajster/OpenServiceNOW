@@ -38,6 +38,38 @@ func TestMigrationLifecycle(t *testing.T) {
 
 	assertMigrationVersion(t, m, database.RequiredSchemaVersion)
 
+	// Upgrade an actual pre-fan-out outbox. Enabling notifications must not
+	// reinterpret legacy completed, failed or pending events as new mail work.
+	if err := m.Steps(37 - int(database.RequiredSchemaVersion)); err != nil {
+		t.Fatal(err)
+	}
+	for _, status := range []string{"DELIVERED", "FAILED", "PENDING"} {
+		if _, err := db.ExecContext(ctx, `INSERT INTO outbox_events(scope_key,event_type,aggregate_type,aggregate_id,payload,status,delivered_at) VALUES('system','incident.assigned','incident','migration-notification-test','{}',?,IF(?='DELIVERED',UTC_TIMESTAMP(6),NULL))`, status, status); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := m.Up(); err != nil {
+		t.Fatal(err)
+	}
+	var eligible int
+	if err := db.QueryRowContext(ctx, `SELECT SUM(notification_eligible) FROM outbox_events WHERE aggregate_id='migration-notification-test'`).Scan(&eligible); err != nil || eligible != 0 {
+		t.Fatalf("historical notification eligibility %d: %v", eligible, err)
+	}
+	var skipped int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM event_deliveries d JOIN outbox_events e ON e.id=d.event_id WHERE e.aggregate_id='migration-notification-test' AND d.consumer_id='notifications.v1' AND d.status='SKIPPED'`).Scan(&skipped); err != nil || skipped != 2 {
+		t.Fatalf("legacy delivery policy %d: %v", skipped, err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO outbox_events(scope_key,event_type,aggregate_type,aggregate_id,payload) VALUES('system','test.new','system','migration-new-test','{}')`); err != nil {
+		t.Fatal(err)
+	}
+	var fresh bool
+	if err := db.QueryRowContext(ctx, `SELECT notification_eligible FROM outbox_events WHERE aggregate_id='migration-new-test'`).Scan(&fresh); err != nil || !fresh {
+		t.Fatal("new events were disabled", err)
+	}
+	if _, err := db.ExecContext(ctx, `DELETE FROM outbox_events WHERE aggregate_id IN ('migration-notification-test','migration-new-test')`); err != nil {
+		t.Fatal(err)
+	}
+
 	if err := m.Steps(-1); err != nil {
 		t.Fatalf("rollback one migration: %v", err)
 	}

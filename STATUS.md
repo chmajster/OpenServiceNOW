@@ -4,7 +4,7 @@ Last updated: 2026-10-12
 
 ## Current phase
 
-Incident Management, including incident collaboration and the operator queue, following the delivered foundation and shared work platform.
+Independent outbox consumers and incident notifications, following the delivered foundation, Incident Management and collaboration/operator queue.
 
 The repository includes the administration foundation, durable MySQL jobs/worker, scheduler, work-record infrastructure and the core Incident Management API/UI. The full application is deployed through DevBox with real MySQL/Redis readiness. This delivery does not declare every Phase 3 extension or later roadmap phase complete.
 
@@ -91,7 +91,13 @@ Implemented foundation capabilities:
 
 ## Currently in progress
 
-Further incident communication/files/CMDB integration, other business modules, asynchronous operational monitoring and external identity providers remain roadmap work. Shared libraries are consumed through domain APIs rather than exposed as unfinished screens.
+CMDB, other business modules, editable notification templates/webhooks/inbound mail, broader operational monitoring and external identity providers remain roadmap work. Independent consumers and the incident notification subset are implemented and locally verified in PR #19; final CI/review/merge evidence is maintained in that PR. Shared libraries are consumed through domain APIs rather than exposed as unfinished screens.
+
+## Notifications result
+
+[PR #19](https://github.com/chmajster/OpenServiceNOW/pull/19) implements unique event/consumer deliveries, atomic split, independent leases/retries and preserved activity idempotency. Migrations 38–48 explicitly exclude legacy events from notifications. In-app lists/counts/read actions and SMTP attempts recheck current organization/object/private-note access. Notification materialization and SMTP jobs share a MySQL transaction; SMTP failure does not block activity or in-app. SMTP uses optional configuration, tenant-bound AES-256-GCM credentials with an external key, safe DTOs/errors, organization-specific user preferences, real delivery/attempt history and controlled administrative tests/retries. React exposes all these capabilities with decimal IDs, URL pagination/tabs, retained conflict proposals and no browser secret persistence.
+
+Verification passed Go unit/race/vet/build, OpenAPI, frontend typecheck/build and 19 frontend unit tests, disposable MySQL integration and migrations 1–48 with legacy cutoff and full rollback/re-upgrade, real SMTP DATA acceptance and lost-response handling. The existing 26 desktop/mobile regression scenarios passed; after fixing notification tab freshness and table overflow, an additional 6/6 scoped setup/incident/notification browser scenarios passed on fresh data with real Mailpit and IDs above 2^53−1. Actual API/worker restart preserved notification IDs/read states, preferences, SMTP configuration, delivery outcomes/attempt counts, incident history and saved login. Additional desktop/mobile inbox/configuration/queue checks after restart passed without page overflow. The latest six-job CI, full 28-scenario regression, final review and merge evidence are recorded in PR #19; earlier CI results apply only to their historical revisions. SMTP external delivery permits duplicates after accepted DATA and lost acknowledgement. Editable templates, webhooks/inbound mail and secret rotation tooling are not delivered. Local Mailpit needs no external account; in-app needs no SMTP configuration/key. Upgrade stops old API/workers during migration; mixed dispatcher versions are unsupported.
 
 ## Incident collaboration result
 
@@ -101,7 +107,7 @@ API/file metadata/audit/outbox writes share a transaction. Message/upload keys r
 
 Native storage uses `ATTACHMENT_ROOT`; Docker/DevBox services share an external persistent named attachment volume. Uploads enforce 10 MiB per file and 11 MiB multipart in API/proxy, sniff MIME, validate names and require authorized download. Deletion blocks download immediately; hourly durable worker cleanup sweeps managed orphan/temp/deleted files after a 24-hour grace period. Ordinary uninstall preserves storage; native/Docker locations need explicit file migration when switching modes. The Docker lifecycle suite verifies real authenticated bytes after API replacement, image rebuild and uninstall/reinstall, plus both upload size limits.
 
-Local verification passed Go unit/race/vet/build, OpenAPI, ShellCheck/installer checks, 17 frontend unit tests/typecheck/build and disposable MySQL with all 37 migrations and rollback/re-upgrade. MySQL verifies cross-organization/private resource isolation, atomic SQL-failure rollback, one-connection transaction reuse, idempotency, worker replay, absent activity authors, removal of inactive observers, storage reconciliation and per-record batch outcomes. A full 26/26 desktop/mobile browser regression used actual SQL identifiers above 2^53−1 across users/groups/sessions/incidents/files/events and preserved records/history/login after restarting real API/worker processes. Additional 8/8 scoped desktop/mobile scenarios verified independent reply/note drafts and private file defaults. The isolated Docker lifecycle passed authenticated 3.25 MB upload/download, 10/11 MiB rejection, API replacement, image rebuild and ordinary uninstall/reinstall with unchanged file bytes and saved session. Final six-job CI, review and merge evidence are tracked in PR #18. No external notification provider, object-store adapter, SLA/CMDB source or message editing is claimed; communication is append-only and drafts are memory-only.
+Local verification passed Go unit/race/vet/build, OpenAPI, ShellCheck/installer checks, 17 frontend unit tests/typecheck/build and disposable MySQL with all 37 migrations and rollback/re-upgrade. MySQL verifies cross-organization/private resource isolation, atomic SQL-failure rollback, one-connection transaction reuse, idempotency, worker replay, absent activity authors, removal of inactive observers, storage reconciliation and per-record batch outcomes. A full 26/26 desktop/mobile browser regression used actual SQL identifiers above 2^53−1 across users/groups/sessions/incidents/files/events and preserved records/history/login after restarting real API/worker processes. Additional 8/8 scoped desktop/mobile scenarios verified independent reply/note drafts and private file defaults. The isolated Docker lifecycle passed authenticated 3.25 MB upload/download, 10/11 MiB rejection, API replacement, image rebuild and ordinary uninstall/reinstall with unchanged file bytes and saved session. Final six-job CI, review and merge evidence are tracked in PR #18. That PR did not deliver an external notification provider; PR #19 adds optional SMTP. No object-store adapter, SLA/CMDB source or message editing is claimed; communication is append-only and drafts are memory-only.
 
 ## Incident Management result
 
@@ -117,7 +123,7 @@ Final UI review also retains dirty forms when concurrent closure removes write e
 
 Go unit/race/vet/build, disposable MySQL integration and migrations 1–32, 15 frontend unit tests and typecheck/build passed. Full browser regression passed 24/24 desktop/mobile scenarios, including lost response after a real committed incident write, agent beyond the first directory page, keyboard actions, own-record restrictions, rejected API transition, retained conflict draft, reopen, real worker history and refresh persistence. MySQL tests verify all nine event types, source-order pagination after out-of-order delivery and retry deduplication. The native lifecycle CI suite checks incident/number/assignment/history persistence across restarts, port changes and ordinary uninstall/reinstall. Final CI, review and merge evidence are tracked in PR #17.
 
-Communication/work notes/files, SLA, CMDB/service relations, configurable catalogs, parent-child/major workflows, templates and bulk operations remain subsequent stages. No controls represent them as currently available.
+At PR #17 completion, collaboration was a subsequent stage; PR #18 delivered replies/notes/files, related/parent-child records and two operator batch actions. SLA, CMDB/service relations, configurable catalogs, major workflows and broader automation remain subsequent stages.
 
 ## Administration usability result
 
@@ -262,9 +268,20 @@ Implemented migration versions:
 - `000034_activity_access`,
 - `000035_activity_access_backfill`,
 - `000036_incident_collaboration_requests`,
-- `000037_incident_collaboration_permissions`.
+- `000037_incident_collaboration_permissions`,
+- `000038_event_notification_policy`,
+- `000039_event_notification_default`,
+- `000040_event_deliveries`,
+- `000041_event_delivery_backfill`,
+- `000042_event_legacy_distribution`,
+- `000043_notification_preferences`,
+- `000044_notification_smtp_config`,
+- `000045_notifications`,
+- `000046_notification_mail_deliveries`,
+- `000047_notification_mail_attempts`,
+- `000048_notification_permission`.
 
-Each up/down migration contains one SQL statement. Runtime readiness requires migration version 37, `dirty=false`, and the foundation metadata singleton. The real MySQL lifecycle test passed latest → one-step rollback → latest → legacy schema 24 → latest → full rollback → latest → readiness. Migration 25 permanently closes first-run setup for existing accounts/organizations without changing credentials; migration 26 preserves existing hashes and defaults the required-change flag to false. The reserved `groups` identifier is quoted in schema and repository SQL.
+Each up/down migration contains one SQL statement. Runtime readiness requires migration version 48, `dirty=false`, and the foundation metadata singleton. The real MySQL lifecycle test passed latest → one-step rollback → latest → legacy schema 24 → latest → full rollback → latest → readiness. Migration 25 permanently closes first-run setup for existing accounts/organizations without changing credentials; migration 26 preserves existing hashes and defaults the required-change flag to false. The reserved `groups` identifier is quoted in schema and repository SQL.
 
 ## Technical debt
 

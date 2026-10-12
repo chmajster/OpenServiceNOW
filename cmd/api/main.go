@@ -17,6 +17,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/events"
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
 	"github.com/chmajster/OpenServiceNOW/internal/incidents"
+	"github.com/chmajster/OpenServiceNOW/internal/notifications"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/cache"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
@@ -108,6 +109,7 @@ func main() {
 	}
 	incidentService.WithAttachments(files)
 	incidentHandler := incidents.NewHandler(incidentService, identityService)
+	notificationHandler := notifications.NewHandler(notifications.NewService(db, cfg.NotificationKey, cfg.SMTPAllowInsecure), outboxRepo)
 
 	healthHandler := health.New(
 		func(ctx context.Context) error {
@@ -143,6 +145,7 @@ func main() {
 			func(r chi.Router) {
 				incidents.RegisterRoutes(r, incidentHandler, identityMiddleware)
 			},
+			func(r chi.Router) { notifications.RegisterRoutes(r, notificationHandler, identityMiddleware) },
 		),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
