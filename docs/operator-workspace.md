@@ -231,12 +231,38 @@ held while all three actual processes restarted; the same execution/deadline
 continued without duplicate tasks. A later history assertion in that run was
 corrected and the complete browser flow subsequently passed.
 
+## Authorized search, context and reports checkpoint
+
+Stage F provides permission-scoped metadata for eleven object types, exact-number
+search, stable parent/task/item URLs and batched access revalidation. Search does
+not index private notes or confidential catalog form values. Record context reads
+source and targets independently, limits each section and links to complete lists.
+Reference selectors retrieve an exact selected identifier under the same policy
+used by their search; public previews load only when opened.
+
+Operational reports aggregate the entire authorized set in a repeatable-read
+snapshot. They cover active states/groups, disjoint backlog ages, actual durable
+incident SLA risk, Problems ranked by independently readable linked incidents,
+and reserved/closed Changes. Definitions distinguish snapshot and UTC half-open
+time ranges. Counts drill into freshly authorized, cursor-paginated source lists;
+no SLA is invented for requests, Problems or Changes. Aggregate groups are bounded,
+as are search, context, metadata, report periods and source page sizes.
+
+Validation: Go unit/OpenAPI tests, vet/build and the three relevant MySQL domain
+integration tests passed (7.388s). Frontend 31 tests, typecheck and production build
+passed. Desktop (9.1s) and touch mobile (8.3s) browser flows verified 31 Problems
+across pages 25+6, refresh, exact BIGINT task search, public selected-reference
+preview, independently readable CI/Change context, report source drilldown and
+absence of invented Change SLA. A mobile aggregate-table width issue was found
+and fixed; the repeat mobile flow passed and its screenshot was inspected.
+
 ## Remaining implementation
 
-1. Extend authorized global search, bounded workspace metadata/context and reference
-   previews; implement operational reports with definitions and source drilldown.
+1. Finish the shared form/related-list review, particularly retained uncertain
+   commands, human-readable conflicts and current calendar conditions.
 2. Execute the full combined ITSM acceptance, final screenshots at 1366/1920/mobile
    and all applicable installer/runtime/migration/regression checks.
+3. Update final project documentation and PR with actual results and limitations.
 
-Stage F and the complete combined ITSM acceptance are pending. No automatic merge
-is authorized.
+Core stage F flows passed; combined acceptance and final regression are pending.
+No automatic merge is authorized.
