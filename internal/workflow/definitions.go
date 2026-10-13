@@ -16,14 +16,31 @@ import (
 )
 
 type Service struct {
-	DB       *sql.DB
-	tx       *database.TxManager
-	commands Commands
-	now      func() time.Time
+	DB             *sql.DB
+	tx             *database.TxManager
+	commands       Commands
+	changeCommands Commands
+	now            func() time.Time
 }
 
-func NewService(db *sql.DB, commands Commands) *Service {
-	return &Service{db, database.NewTxManager(db), commands, func() time.Time { return time.Now().UTC() }}
+func NewService(db *sql.DB, commands Commands, changeCommands ...Commands) *Service {
+	s := &Service{DB: db, tx: database.NewTxManager(db), commands: commands, now: func() time.Time { return time.Now().UTC() }}
+	if len(changeCommands) > 0 {
+		s.changeCommands = changeCommands[0]
+	}
+	return s
+}
+func (s *Service) domainCommands(x Execution) (Commands, error) {
+	if x.Domain == "CHANGE" {
+		if s.changeCommands != nil {
+			return s.changeCommands, nil
+		}
+		return nil, ErrInvalid
+	}
+	if x.Domain != "REQUEST" && x.Domain != "" || s.commands == nil {
+		return nil, ErrInvalid
+	}
+	return s.commands, nil
 }
 func NewServiceWithClock(db *sql.DB, commands Commands, clock func() time.Time) *Service {
 	s := NewService(db, commands)
@@ -141,7 +158,11 @@ func ActiveExecutor(ctx context.Context, e database.Executor, tenant uint64, c C
 	if err != nil {
 		return a, err
 	}
-	if !a.Has("workflow.execute") || !a.Has("request.fulfill") {
+	permission := "request.fulfill"
+	if c.Domain == "CHANGE" {
+		permission = "change.execute"
+	}
+	if !a.Has("workflow.execute") || !a.Has(permission) {
 		return a, workrecords.ErrForbidden
 	}
 	var unrestricted bool

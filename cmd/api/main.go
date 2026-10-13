@@ -16,6 +16,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/audit"
 	"github.com/chmajster/OpenServiceNOW/internal/auditapi"
 	"github.com/chmajster/OpenServiceNOW/internal/catalog"
+	"github.com/chmajster/OpenServiceNOW/internal/changes"
 	"github.com/chmajster/OpenServiceNOW/internal/cmdb"
 	"github.com/chmajster/OpenServiceNOW/internal/events"
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
@@ -123,9 +124,11 @@ func main() {
 	requestHandler := requests.NewHandler(requestService, catalog.NewService(db), identityService)
 	problemService := problems.NewService(db, files, incidents.NewProblemDomain(incidentService))
 	problemHandler := problems.NewHandler(problemService, identityService)
-	cmdbService := cmdb.NewService(db, files, map[string]cmdb.RecordDomain{"incidents": incidents.NewCMDBDomain(incidentService), "requests": requests.NewCMDBDomain(requestService), "problems": problems.NewCMDBDomain(problemService)})
+	changeService := changes.NewService(db, files, problemService)
+	changeHandler := changes.NewHandler(changeService, identityService)
+	cmdbService := cmdb.NewService(db, files, map[string]cmdb.RecordDomain{"incidents": incidents.NewCMDBDomain(incidentService), "requests": requests.NewCMDBDomain(requestService), "problems": problems.NewCMDBDomain(problemService), "changes": changes.NewCMDBDomain(changeService)})
 	cmdbHandler := cmdb.NewHandler(cmdbService, identityService)
-	workflowService := workflow.NewService(db, requestService)
+	workflowService := workflow.NewService(db, requestService, changeService)
 	workflowHandler := workflow.NewHandler(workflowService, identityService)
 	requestViewDomain := func(tasks bool) recordviews.Domain {
 		return recordviews.Domain{Read: func(a workrecords.Principal) bool {
@@ -136,6 +139,10 @@ func main() {
 		}}
 	}
 	viewHandler := &recordviews.Handler{Permissions: identityService, Service: &recordviews.Service{DB: db, Domains: map[string]recordviews.Domain{
+		"changes": {Read: func(a workrecords.Principal) bool { return a.Has("change.read") || a.Has("change.read_own") }, Validate: func(a workrecords.Principal, raw json.RawMessage) error {
+			_, err := recordlists.ValidateConfig(raw, changes.ListSchema(), changes.ListSorts, changes.ListGroups, changes.ListColumns)
+			return err
+		}},
 		"problems": {Read: func(a workrecords.Principal) bool { return a.Has("problem.read") || a.Has("problem.read_own") }, Validate: func(a workrecords.Principal, raw json.RawMessage) error {
 			_, err := recordlists.ValidateConfig(raw, problems.ListSchema(), problems.ListSorts, problems.ListGroups, problems.ListColumns)
 			return err
@@ -192,6 +199,7 @@ func main() {
 			func(r chi.Router) { workflow.RegisterRoutes(r, workflowHandler, identityMiddleware) },
 			func(r chi.Router) { workspace.RegisterRoutes(r, workspaceHandler, identityMiddleware) },
 			func(r chi.Router) { problems.RegisterRoutes(r, problemHandler, identityMiddleware) },
+			func(r chi.Router) { changes.RegisterRoutes(r, changeHandler, identityMiddleware) },
 			func(r chi.Router) { cmdb.RegisterRoutes(r, cmdbHandler, identityMiddleware) },
 			func(r chi.Router) { recordviews.RegisterRoutes(r, viewHandler, identityMiddleware) },
 			func(r chi.Router) {

@@ -15,7 +15,7 @@ func participantSQL(alias string) string {
 }
 
 // AccessSQL filters lists/counts before pagination, including late notification reads.
-func AccessSQL(a Actor, alias string) (string, []any) {
+func requestAccessSQL(a Actor, alias string) (string, []any) {
 	if a.Has("workflow.manage") || a.Has("request.manage") {
 		return "1=1", nil
 	}
@@ -36,6 +36,23 @@ func AccessSQL(a Actor, alias string) (string, []any) {
 	return "(" + q + ")", args
 }
 
+func AccessSQL(a Actor, alias string) (string, []any) {
+	request, args := requestAccessSQL(a, alias)
+	change := "1=0"
+	changeArgs := []any{}
+	if a.Has("change.read") {
+		change = "1=1"
+	} else if a.Has("change.read_own") {
+		change = "EXISTS(SELECT 1 FROM changes ch JOIN work_assignments cwa ON cwa.tenant_id=ch.tenant_id AND cwa.object_type='change' AND cwa.object_id=CAST(ch.id AS CHAR) WHERE ch.tenant_id=" + alias + ".tenant_id AND ch.id=" + alias + ".change_id AND (ch.reporter_id=? OR cwa.assigned_to=? OR EXISTS(SELECT 1 FROM group_memberships gm JOIN `groups` g ON g.tenant_id=gm.tenant_id AND g.id=gm.group_id AND g.active=TRUE WHERE gm.tenant_id=ch.tenant_id AND gm.group_id=cwa.assignment_group_id AND gm.user_id=?)))"
+		changeArgs = append(changeArgs, a.UserID, a.UserID, a.UserID)
+	}
+	if a.Has("workflow.approve") {
+		change = "(" + change + " OR " + participantSQL(alias) + ")"
+		changeArgs = append(changeArgs, a.UserID)
+	}
+	return "((" + alias + ".domain_type='REQUEST' AND " + request + ") OR (" + alias + ".domain_type='CHANGE' AND " + change + "))", append(args, changeArgs...)
+}
+
 type ExecutionPage struct {
 	Items []Execution `json:"items"`
 	Next  uint64      `json:"next_before_id,string,omitempty"`
@@ -51,7 +68,7 @@ func (s *Service) List(ctx context.Context, a Actor, mine bool, request, before 
 	p, args := AccessSQL(a, "x")
 	params := []any{a.TenantID}
 	params = append(params, args...)
-	q := "SELECT x.id,x.definition_id,x.definition_version,x.request_id,x.requested_item_id,x.executor_id,x.group_id,x.current_node,x.state,x.version,x.approved,x.error_code,x.created_at,x.updated_at,r.number,JSON_UNQUOTE(JSON_EXTRACT(v.config,'$.name')) FROM workflow_executions x JOIN service_requests r ON r.tenant_id=x.tenant_id AND r.id=x.request_id JOIN workflow_versions v ON v.tenant_id=x.tenant_id AND v.definition_id=x.definition_id AND v.version=x.definition_version WHERE x.tenant_id=? AND " + p
+	q := "SELECT x.id,x.definition_id,x.definition_version,COALESCE(x.request_id,0),COALESCE(x.requested_item_id,0),x.executor_id,x.group_id,x.current_node,x.state,x.version,x.approved,x.error_code,x.created_at,x.updated_at,COALESCE(r.number,''),JSON_UNQUOTE(JSON_EXTRACT(v.config,'$.name')),x.domain_type,COALESCE(x.change_id,0),COALESCE(x.subject_version,0),COALESCE(x.subject_revision,0),COALESCE(ch.number,'') FROM workflow_executions x LEFT JOIN service_requests r ON r.tenant_id=x.tenant_id AND r.id=x.request_id LEFT JOIN changes ch ON ch.tenant_id=x.tenant_id AND ch.id=x.change_id JOIN workflow_versions v ON v.tenant_id=x.tenant_id AND v.definition_id=x.definition_id AND v.version=x.definition_version WHERE x.tenant_id=? AND " + p
 	if mine {
 		q += pendingSQL()
 		params = append(params, s.now(), a.UserID)
@@ -78,7 +95,7 @@ func (s *Service) List(ctx context.Context, a Actor, mine bool, request, before 
 	page := ExecutionPage{Items: []Execution{}}
 	for rows.Next() {
 		var x Execution
-		if err = rows.Scan(&x.ID, &x.DefinitionID, &x.DefinitionVersion, &x.RequestID, &x.RequestedItemID, &x.ExecutorID, &x.GroupID, &x.CurrentNode, &x.State, &x.Version, &x.Approved, &x.ErrorCode, &x.CreatedAt, &x.UpdatedAt, &x.RequestNumber, &x.Name); err != nil {
+		if err = rows.Scan(&x.ID, &x.DefinitionID, &x.DefinitionVersion, &x.RequestID, &x.RequestedItemID, &x.ExecutorID, &x.GroupID, &x.CurrentNode, &x.State, &x.Version, &x.Approved, &x.ErrorCode, &x.CreatedAt, &x.UpdatedAt, &x.RequestNumber, &x.Name, &x.Domain, &x.ChangeID, &x.SubjectVersion, &x.SubjectRevision, &x.ChangeNumber); err != nil {
 			return page, err
 		}
 		x.Steps = []Step{}
@@ -119,7 +136,9 @@ func (s *Service) get(ctx context.Context, e database.Executor, a Actor, id uint
 	x.Name = c.Name
 	x.Steps = []Step{}
 	x.Actions = []string{}
-	if err = e.QueryRowContext(ctx, "SELECT snapshot,form_values FROM requested_items WHERE tenant_id=? AND id=? AND request_id=?", a.TenantID, x.RequestedItemID, x.RequestID).Scan(&x.Snapshot, &x.Values); err != nil {
+	if x.Domain == "CHANGE" {
+		x.Snapshot = x.SubjectSnapshot
+	} else if err = e.QueryRowContext(ctx, "SELECT snapshot,form_values FROM requested_items WHERE tenant_id=? AND id=? AND request_id=?", a.TenantID, x.RequestedItemID, x.RequestID).Scan(&x.Snapshot, &x.Values); err != nil {
 		return x, err
 	}
 	rows, err := e.QueryContext(ctx, "SELECT node_id,state,version,result,started_at,deadline,finished_at FROM workflow_steps WHERE tenant_id=? AND execution_id=? ORDER BY started_at,node_id LIMIT 50", a.TenantID, id)
@@ -236,6 +255,19 @@ func (s *Service) Decide(ctx context.Context, a Actor, id uint64, node string, i
 		x, err := lockExecution(ctx, e, a.TenantID, id)
 		if err != nil {
 			return err
+		}
+		if x.Domain == "CHANGE" {
+			commands, err := s.domainCommands(x)
+			if err != nil {
+				return err
+			}
+			validator, ok := commands.(SubjectValidator)
+			if !ok {
+				return ErrInvalid
+			}
+			if err = validator.ValidateSubjectInTx(ctx, e, a, x); err != nil {
+				return err
+			}
 		}
 		c, err := Published(ctx, e, a.TenantID, x.DefinitionID, x.DefinitionVersion)
 		if err != nil {
@@ -362,6 +394,17 @@ func (s *Service) Repair(ctx context.Context, a Actor, id, version uint64, actio
 		x, err := lockExecution(ctx, e, a.TenantID, id)
 		if err != nil {
 			return err
+		}
+		if x.Domain == "CHANGE" {
+			p, args := AccessSQL(a, "x")
+			var ok bool
+			params := append([]any{a.TenantID, id}, args...)
+			if err = e.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM workflow_executions x WHERE x.tenant_id=? AND x.id=? AND "+p+")", params...).Scan(&ok); err != nil {
+				return err
+			}
+			if !ok {
+				return ErrNotFound
+			}
 		}
 		if x.Version != version {
 			return ErrConflict

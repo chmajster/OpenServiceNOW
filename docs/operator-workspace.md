@@ -168,12 +168,49 @@ preview, bidirectional incident/CI links, analytical work, private note, verific
 closure/reload, history and multi-page list counts. Repeated with PRB/task identifiers
 above the JavaScript safe integer range. Screenshots inspected at 1366/1920/mobile.
 
+## Change backend checkpoint
+
+Migrations 90–98 add versioned Standard templates, CHG records/CHGTASK tasks,
+Problem/CI links, explicit workflow Change subjects, calendar rules and RBAC.
+Historical migrations and Request execution identities are preserved. Change
+uses the existing durable engine through a typed adapter; no generic domain
+write permission or second automation engine was introduced. Every evaluation
+pins an immutable public snapshot, record version and assessment revision.
+Material edits invalidate stamps and pending executions without deleting their
+decisions. Stale jobs and decisions cannot authorize the replacement revision.
+
+Normal requires assessment before authorization. Standard uses an independently
+approved immutable template with exact plans/scope/group/workflow/CI constraints,
+risk ceiling and duration ceiling, plus a real approval for each instance.
+Emergency requires urgency justification and its own typed definition, whose
+decision deadline cannot exceed 24 hours. Self approval is denied for Change.
+Tasks start/complete only during Implement; required completion, actual execution
+instants and the recorded review outcome gate closure. Problem/incident states
+are never closed as a side effect.
+
+Scheduling checks shared-CI overlap and service-window/blackout rules atomically
+under the existing tenant lock. Half-open boundaries permit adjacent changes.
+Protected records expose no identifiers, titles or dates in collision details;
+an explicit override requires separate permission, reason and audit. Dates are
+stored as UTC instants with a separately validated IANA display zone. Calendar
+queries are bounded to 93 days/1000 records. Template/rule administration is
+versioned, permission checked and idempotent.
+
+Backend validation: Go unit/OpenAPI, vet and build passed. Full isolated MySQL
+integration through schema 98 passed (64.094s), including migration lifecycle,
+installer, retained catalog workflow, duplicate decisions/creation/tasks, scope
+invalidation, durable waits, concurrent reservations and edits, protected
+collision details, boundaries/windows/blackouts, task execution/review/closure,
+Standard/Emergency rules, private notes and revoked permissions. A prior run
+encountered leftover fixtures from a failed test; the rollback correctly refused
+to discard Change executions, and the successful full run used a fresh disposable
+test schema. Actual process-restart browser acceptance remains pending.
+
 ## Remaining implementation
 
-1. Deliver Change domain adapter, version-bound approval/invalidation, tasks,
-   Normal/Standard/Emergency lifecycle, versioned templates, concurrent safe
-   scheduling, windows/blackouts/calendar and CAB. Add Problem → remedial Change
-   creation and bidirectional links when the actual Change process is implemented.
+1. Finish the Change UI: forms, approval integration, calendar/rules/templates,
+   CAB, Problem → remedial Change action and bidirectional related lists. Verify
+   the real browser flow, BIGINT, restart and negative paths before exposing it.
 2. Extend authorized search/context and reference previews, add operational reports
    and execute the complete ITSM scenario and installer/runtime/regression checks.
 

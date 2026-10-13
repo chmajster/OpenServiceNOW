@@ -130,6 +130,10 @@ func (s *Service) domain(kind string) (RecordDomain, string, string, error) {
 		if d := s.Domains[kind]; d != nil {
 			return d, "cmdb_incident_links", "incident_id", nil
 		}
+	case "changes":
+		if d := s.Domains[kind]; d != nil {
+			return d, "cmdb_change_links", "change_id", nil
+		}
 	case "problems":
 		if d := s.Domains[kind]; d != nil {
 			return d, "cmdb_problem_links", "problem_id", nil

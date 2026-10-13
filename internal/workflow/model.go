@@ -39,6 +39,8 @@ type Node struct {
 	Audience     string          `json:"audience,omitempty"`
 }
 type Config struct {
+	Domain       string `json:"domain,omitempty"`
+	ChangeType   string `json:"change_type,omitempty"`
 	Name         string `json:"name"`
 	ExecutorID   uint64 `json:"executor_id,string"`
 	GroupID      uint64 `json:"group_id,string"`
@@ -52,6 +54,12 @@ type Definition struct {
 	Draft            Config `json:"draft"`
 }
 type Execution struct {
+	Domain            string          `json:"domain"`
+	ChangeID          uint64          `json:"change_id,string,omitempty"`
+	SubjectVersion    uint64          `json:"subject_version,string,omitempty"`
+	SubjectRevision   uint64          `json:"subject_revision,string,omitempty"`
+	SubjectSnapshot   json.RawMessage `json:"subject_snapshot,omitempty"`
+	ChangeNumber      string          `json:"change_number,omitempty"`
 	ID                uint64          `json:"id,string"`
 	DefinitionID      uint64          `json:"definition_id,string"`
 	DefinitionVersion uint64          `json:"definition_version,string"`

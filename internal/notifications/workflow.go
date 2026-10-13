@@ -19,7 +19,7 @@ func (s *Service) handleWorkflow(ctx context.Context, event events.Event) error 
 		At   time.Time `json:"occurred_at"`
 	}
 	request, err := strconv.ParseUint(event.AggregateID, 10, 64)
-	if err != nil || request == 0 || event.TenantID == 0 || event.AggregateType != "request" || event.Version != 1 || json.Unmarshal(event.Payload, &p) != nil || p.ID == 0 || p.At.IsZero() {
+	if err != nil || request == 0 || event.TenantID == 0 || (event.AggregateType != "request" && event.AggregateType != "change") || event.Version != 1 || json.Unmarshal(event.Payload, &p) != nil || p.ID == 0 || p.At.IsZero() {
 		return events.ErrInvalid
 	}
 	return s.tx.WithTx(ctx, nil, func(e database.Executor) error {
@@ -30,16 +30,26 @@ func (s *Service) handleWorkflow(ctx context.Context, event events.Event) error 
 		if tenantState != "ACTIVE" {
 			return nil
 		}
+		column := "request_id"
+		if event.AggregateType == "change" {
+			column = "change_id"
+		}
 		var requester uint64
-		if err := e.QueryRowContext(ctx, "SELECT requester_id FROM workflow_executions WHERE tenant_id=? AND id=? AND request_id=?", event.TenantID, p.ID, request).Scan(&requester); err != nil {
+		if err := e.QueryRowContext(ctx, "SELECT requester_id FROM workflow_executions WHERE tenant_id=? AND id=? AND "+column+"=?", event.TenantID, p.ID, request).Scan(&requester); err != nil {
 			return err
 		}
 		users := []uint64{requester}
 		label := "Zaktualizowano proces Twojego wniosku"
 		kind := "state"
+		if event.AggregateType == "change" {
+			label = "Zaktualizowano proces Twojej zmiany"
+		}
 		if event.Type == "workflow.approval.requested" {
 			label = "Wniosek oczekuje na Twoją akceptację"
 			kind = "approval"
+			if event.AggregateType == "change" {
+				label = "Zmiana oczekuje na Twoją akceptację"
+			}
 			users = []uint64{}
 			rows, err := e.QueryContext(ctx, "SELECT user_id FROM workflow_decisions WHERE tenant_id=? AND execution_id=? AND node_id=? ORDER BY user_id LIMIT 100", event.TenantID, p.ID, p.Node)
 			if err != nil {

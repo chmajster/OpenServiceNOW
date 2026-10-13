@@ -15,6 +15,7 @@ import (
 
 	"github.com/chmajster/OpenServiceNOW/internal/activity"
 	"github.com/chmajster/OpenServiceNOW/internal/attachments"
+	"github.com/chmajster/OpenServiceNOW/internal/changes"
 	"github.com/chmajster/OpenServiceNOW/internal/cmdb"
 	"github.com/chmajster/OpenServiceNOW/internal/events"
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
@@ -90,7 +91,7 @@ func main() {
 		os.Exit(1)
 	}
 	projector := activity.NewProjector(database.NewTxManager(db), activity.NewRepository(db))
-	workflowService := workflow.NewService(db, requests.NewService(db, nil))
+	workflowService := workflow.NewService(db, requests.NewService(db, nil), changes.NewService(db, nil, nil))
 	if err := jobWorker.Register(workflow.JobType, workflowService.JobHandler); err != nil {
 		logger.Error("register workflow worker failed")
 		os.Exit(1)
@@ -146,6 +147,10 @@ func main() {
 			logger.Error("register CMDB activity failed")
 			os.Exit(1)
 		}
+	}
+	if err := changes.RegisterActivityHandlers(dispatcher, projector); err != nil {
+		logger.Error("register Change activity failed")
+		os.Exit(1)
 	}
 	if err := problems.RegisterActivityHandlers(dispatcher, projector); err != nil {
 		logger.Error("register Problem activity failed")

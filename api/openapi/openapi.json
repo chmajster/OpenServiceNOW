@@ -11227,6 +11227,17 @@
               "type": "string",
               "pattern": "^[1-9][0-9]*$"
             }
+          },
+          {
+            "name": "domain",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "REQUEST",
+                "CHANGE"
+              ]
+            }
           }
         ],
         "responses": {
@@ -12791,7 +12802,10 @@
               "enum": [
                 "incidents",
                 "requests",
-                "fulfillment"
+                "fulfillment",
+                "cmdb",
+                "problems",
+                "changes"
               ]
             }
           },
@@ -15138,7 +15152,8 @@
               "enum": [
                 "incidents",
                 "requests",
-                "problems"
+                "problems",
+                "changes"
               ]
             }
           },
@@ -16051,7 +16066,8 @@
               "enum": [
                 "incidents",
                 "requests",
-                "problems"
+                "problems",
+                "changes"
               ]
             }
           },
@@ -16180,7 +16196,8 @@
               "enum": [
                 "incidents",
                 "requests",
-                "problems"
+                "problems",
+                "changes"
               ]
             }
           },
@@ -16318,7 +16335,8 @@
               "enum": [
                 "incidents",
                 "requests",
-                "problems"
+                "problems",
+                "changes"
               ]
             }
           },
@@ -20216,6 +20234,4398 @@
             }
           }
         ]
+      }
+    },
+    "/api/v1/changes/": {
+      "get": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_get_",
+        "summary": "GET /",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "NEW",
+                "ASSESS",
+                "AUTHORIZE",
+                "SCHEDULED",
+                "IMPLEMENT",
+                "REVIEW",
+                "CLOSED",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "impact",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "HIGH",
+                "MEDIUM",
+                "LOW"
+              ]
+            }
+          },
+          {
+            "name": "active",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "problem_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 16384
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "newest",
+                "oldest",
+                "title",
+                "updated"
+              ]
+            }
+          },
+          {
+            "name": "group_by",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "state",
+                "impact",
+                "assignment_group_id",
+                "risk"
+              ]
+            }
+          },
+          {
+            "name": "before_value",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "csv"
+              ]
+            }
+          },
+          {
+            "name": "risk",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "HIGH",
+                "MEDIUM",
+                "LOW"
+              ]
+            }
+          },
+          {
+            "name": "change_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "NORMAL",
+                "STANDARD",
+                "EMERGENCY"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangePage"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Authorized filtered/sorted metadata only; max 10000, neutralized formulas, text BIGINTs"
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Narrow export filters"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_post_",
+        "summary": "POST /",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Change"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/changes/{id}": {
+      "get": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_get_id",
+        "summary": "GET /{id}",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Change"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_put_id",
+        "summary": "PUT /{id}",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Change"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/changes/{id}/transition": {
+      "post": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_post_id_transition",
+        "summary": "POST /{id}/transition",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Change"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeTransition"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/changes/source-problems/{problemID}": {
+      "get": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_get_source-problems_problemID",
+        "summary": "GET /source-incidents/{problemID}",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "problemID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeSourceProblem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/changes/lookups/problems": {
+      "get": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_get_lookups_problems",
+        "summary": "GET /lookups/incidents",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeProblemPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/changes/lookups/users": {
+      "get": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_get_lookups_users",
+        "summary": "GET /lookups/users",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryChoices"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/changes/lookups/groups": {
+      "get": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_get_lookups_groups",
+        "summary": "GET /lookups/groups",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryChoices"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/changes/{id}/problems": {
+      "get": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_get_id_problems",
+        "summary": "GET /{id}/incidents",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeProblemPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/changes/{id}/problems/{problemID}": {
+      "put": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_put_id_problems_problemID",
+        "summary": "PUT /{id}/incidents/{problemID}",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "problemID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Change"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeProblemLink"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_delete_id_problems_problemID",
+        "summary": "DELETE /{id}/incidents/{problemID}",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "problemID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Change"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeProblemLink"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/changes/{id}/tasks": {
+      "get": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_get_id_tasks",
+        "summary": "GET /{id}/tasks",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeTaskPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_post_id_tasks",
+        "summary": "POST /{id}/tasks",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeTask"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeTaskInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/changes/{id}/tasks/{taskID}": {
+      "get": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_get_id_tasks_taskID",
+        "summary": "GET /{id}/tasks/{taskID}",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "taskID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeTask"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_put_id_tasks_taskID",
+        "summary": "PUT /{id}/tasks/{taskID}",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "taskID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object-authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeTask"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeTaskInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/changes/{id}/history": {
+      "get": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_get_id_history",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Change object access is checked first. Current change.notes is required for INTERNAL messages/files/history; filters precede pagination. PUBLIC communication requires change.create or change.manage. Tenant and author come from server session. Files use shared private durable storage, bounded upload and linked-message visibility. Idempotent writes reuse shared transaction reservations. No incident SLA or auto-closure.",
+        "responses": {
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Expired session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absent/unreadable object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, transition or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Upload limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Commit outcome uncertain; retry identical keyed creation or compare current version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeHistoryPage"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/changes/{id}/communication-access": {
+      "get": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_get_id_communication-access",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Change object access is checked first. Current change.notes is required for INTERNAL messages/files/history; filters precede pagination. PUBLIC communication requires change.create or change.manage. Tenant and author come from server session. Files use shared private durable storage, bounded upload and linked-message visibility. Idempotent writes reuse shared transaction reservations. No incident SLA or auto-closure.",
+        "responses": {
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Expired session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absent/unreadable object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, transition or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Upload limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Commit outcome uncertain; retry identical keyed creation or compare current version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestCommunicationAccess"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/changes/{id}/messages": {
+      "get": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_get_id_messages",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Change object access is checked first. Current change.notes is required for INTERNAL messages/files/history; filters precede pagination. PUBLIC communication requires change.create or change.manage. Tenant and author come from server session. Files use shared private durable storage, bounded upload and linked-message visibility. Idempotent writes reuse shared transaction reservations. No incident SLA or auto-closure.",
+        "responses": {
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Expired session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absent/unreadable object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, transition or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Upload limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Commit outcome uncertain; retry identical keyed creation or compare current version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentMessagePage"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_post_id_messages",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "description": "Change object access is checked first. Current change.notes is required for INTERNAL messages/files/history; filters precede pagination. PUBLIC communication requires change.create or change.manage. Tenant and author come from server session. Files use shared private durable storage, bounded upload and linked-message visibility. Idempotent writes reuse shared transaction reservations. No incident SLA or auto-closure.",
+        "responses": {
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Expired session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absent/unreadable object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, transition or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Upload limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Commit outcome uncertain; retry identical keyed creation or compare current version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentMessage"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+            },
+            "description": "Actor/organization-scoped digest of record/resource and normalized content; different content with same key returns 409. Retry the exact request to reconcile a lost response."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentMessageInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/changes/{id}/files": {
+      "get": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_get_id_files",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Change object access is checked first. Current change.notes is required for INTERNAL messages/files/history; filters precede pagination. PUBLIC communication requires change.create or change.manage. Tenant and author come from server session. Files use shared private durable storage, bounded upload and linked-message visibility. Idempotent writes reuse shared transaction reservations. No incident SLA or auto-closure.",
+        "responses": {
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Expired session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absent/unreadable object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, transition or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Upload limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Commit outcome uncertain; retry identical keyed creation or compare current version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentFilePage"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_post_id_files",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "description": "Change object access is checked first. Current change.notes is required for INTERNAL messages/files/history; filters precede pagination. PUBLIC communication requires change.create or change.manage. Tenant and author come from server session. Files use shared private durable storage, bounded upload and linked-message visibility. Idempotent writes reuse shared transaction reservations. No incident SLA or auto-closure.",
+        "responses": {
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Expired session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absent/unreadable object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, transition or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Upload limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Commit outcome uncertain; retry identical keyed creation or compare current version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentFile"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+            },
+            "description": "Actor/organization-scoped digest of record/resource and normalized content; different content with same key returns 409. Retry the exact request to reconcile a lost response."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Nonempty, maximum 10485760 bytes"
+                  },
+                  "visibility": {
+                    "enum": [
+                      "PUBLIC",
+                      "INTERNAL"
+                    ],
+                    "type": "string"
+                  },
+                  "message_id": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "additionalProperties": false,
+                "anyOf": [
+                  {
+                    "required": [
+                      "visibility"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "message_id"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/changes/{id}/files/{fileID}": {
+      "get": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_get_id_files_fileID",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Change object access is checked first. Current change.notes is required for INTERNAL messages/files/history; filters precede pagination. PUBLIC communication requires change.create or change.manage. Tenant and author come from server session. Files use shared private durable storage, bounded upload and linked-message visibility. Idempotent writes reuse shared transaction reservations. No incident SLA or auto-closure.",
+        "responses": {
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Expired session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absent/unreadable object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, transition or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Upload limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Commit outcome uncertain; retry identical keyed creation or compare current version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "fileID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Changes"
+        ],
+        "operationId": "change_delete_id_files_fileID",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "description": "Change object access is checked first. Current change.notes is required for INTERNAL messages/files/history; filters precede pagination. PUBLIC communication requires change.create or change.manage. Tenant and author come from server session. Files use shared private durable storage, bounded upload and linked-message visibility. Idempotent writes reuse shared transaction reservations. No incident SLA or auto-closure.",
+        "responses": {
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Expired session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absent/unreadable object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, transition or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Upload limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Commit outcome uncertain; retry identical keyed creation or compare current version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Authorized result"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "fileID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/changes/calendar": {
+      "get": {
+        "operationId": "change_get_calendar",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized current result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeCalendar"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/changes/{id}/collisions": {
+      "get": {
+        "operationId": "change_get_id_collisions",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized current result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeCollision"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/changes/calendar-rules": {
+      "get": {
+        "operationId": "change_get_calendar-rules",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized current result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeRulePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "change_post_calendar-rules",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized current result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeCalendarRule"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeCalendarRuleInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/changes/calendar-rules/{ruleID}": {
+      "put": {
+        "operationId": "change_put_calendar-rules_ruleID",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "ruleID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized current result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeCalendarRule"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeCalendarRuleInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/changes/templates": {
+      "get": {
+        "operationId": "change_get_templates",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized current result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeTemplatePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "change_post_templates",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized current result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeTemplate"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeTemplateInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/changes/templates/{templateID}": {
+      "get": {
+        "operationId": "change_get_templates_templateID",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "templateID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized current result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeTemplate"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "change_put_templates_templateID",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "templateID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized current result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeTemplate"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeTemplateInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/changes/templates/{templateID}/versions/{version}": {
+      "get": {
+        "operationId": "change_get_templates_templateID_versions_version",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "templateID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized current result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeTemplateConfig"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/changes/templates/{templateID}/publish": {
+      "post": {
+        "operationId": "change_post_templates_templateID_publish",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "templateID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized current result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeTemplate"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeTemplatePublication"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/changes/approval-processes": {
+      "get": {
+        "operationId": "change_get_approval-processes",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "change_type",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "NORMAL",
+                "STANDARD",
+                "EMERGENCY"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized current result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeChoicePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/changes/approval-processes/{definitionID}": {
+      "get": {
+        "operationId": "change_get_approval-processes_definitionID",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "definitionID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized current result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeProcessChoice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session/access, version/process/idempotency conflict, or unavailable/uncertain commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
       }
     }
   },
@@ -24808,6 +29218,21 @@
             },
             "maxItems": 50,
             "minItems": 2
+          },
+          "domain": {
+            "type": "string",
+            "enum": [
+              "REQUEST",
+              "CHANGE"
+            ]
+          },
+          "change_type": {
+            "type": "string",
+            "enum": [
+              "NORMAL",
+              "STANDARD",
+              "EMERGENCY"
+            ]
           }
         },
         "required": [
@@ -24817,7 +29242,8 @@
           "self_approval",
           "nodes"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Absent domain preserves historical Request semantics. Change requires its type and DENY self-approval. Only finite approval graphs ending AUTHORIZED/REJECTED are executable by the explicit Change adapter. Emergency deadlines are at most 24 hours."
       },
       "WorkflowDefinition": {
         "type": "object",
@@ -25123,11 +29549,11 @@
           },
           "request_id": {
             "type": "string",
-            "pattern": "^[1-9][0-9]*$"
+            "pattern": "^(0|[1-9][0-9]*)$"
           },
           "requested_item_id": {
             "type": "string",
-            "pattern": "^[1-9][0-9]*$"
+            "pattern": "^(0|[1-9][0-9]*)$"
           },
           "executor_id": {
             "type": "string",
@@ -25179,7 +29605,14 @@
             "type": "string"
           },
           "snapshot": {
-            "$ref": "#/components/schemas/CatalogPublication"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CatalogPublication"
+              },
+              {
+                "$ref": "#/components/schemas/ChangeEvaluationSnapshot"
+              }
+            ]
           },
           "values": {
             "type": "object",
@@ -25214,6 +29647,32 @@
                 "CANCEL"
               ]
             }
+          },
+          "domain": {
+            "type": "string",
+            "enum": [
+              "REQUEST",
+              "CHANGE"
+            ]
+          },
+          "change_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "subject_version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "subject_revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "subject_snapshot": {
+            "$ref": "#/components/schemas/ChangeEvaluationSnapshot"
+          },
+          "change_number": {
+            "type": "string",
+            "maxLength": 40
           }
         },
         "required": [
@@ -25233,7 +29692,8 @@
           "name",
           "request_number",
           "steps",
-          "actions"
+          "actions",
+          "domain"
         ],
         "additionalProperties": false
       },
@@ -25567,7 +30027,10 @@
             "enum": [
               "incidents",
               "requests",
-              "fulfillment"
+              "fulfillment",
+              "cmdb",
+              "problems",
+              "changes"
             ]
           },
           "name": {
@@ -25614,7 +30077,10 @@
             "enum": [
               "incidents",
               "requests",
-              "fulfillment"
+              "fulfillment",
+              "cmdb",
+              "problems",
+              "changes"
             ]
           },
           "name": {
@@ -27988,6 +32454,1651 @@
         },
         "required": [
           "entries"
+        ]
+      },
+      "ChangePage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Change"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordListGroup"
+            }
+          },
+          "next_before_value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "groups"
+        ],
+        "description": "List DTO includes empty narratives; full fields are loaded only by authorized object GET. Counts/groups apply access and all filters before pagination."
+      },
+      "ChangeTaskInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1
+          },
+          "instructions": {
+            "type": "string",
+            "maxLength": 20000,
+            "minLength": 1
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "IN_PROGRESS",
+              "COMPLETED",
+              "CANCELLED"
+            ]
+          },
+          "result": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "assigned_to": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "assignment_group_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "change_version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "title",
+          "instructions",
+          "state",
+          "assignment_group_id",
+          "change_version"
+        ],
+        "description": "Current parent/task CAS and idempotency are atomic. Start/complete tasks only during IMPLEMENT. Required incomplete tasks block REVIEW/CLOSED."
+      },
+      "ChangeTask": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1
+          },
+          "instructions": {
+            "type": "string",
+            "maxLength": 20000,
+            "minLength": 1
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "IN_PROGRESS",
+              "COMPLETED",
+              "CANCELLED"
+            ]
+          },
+          "result": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "assigned_to": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "assignment_group_id": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "change_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "number": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "assigned_name": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "group_name": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "can_edit": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "title",
+          "instructions",
+          "required",
+          "state",
+          "result",
+          "assigned_to",
+          "assignment_group_id",
+          "id",
+          "change_id",
+          "number",
+          "version",
+          "assigned_name",
+          "group_name",
+          "updated_at",
+          "can_edit"
+        ]
+      },
+      "ChangeTaskPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChangeTask"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "ChangeHistoryEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "tenant_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "object_type": {
+            "type": "string",
+            "const": "change"
+          },
+          "object_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "type": {
+            "type": "string"
+          },
+          "actor_user_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "actor_name": {
+            "type": "string"
+          },
+          "source_event_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "event_time": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "object_type",
+          "object_id",
+          "type",
+          "summary",
+          "event_time"
+        ],
+        "additionalProperties": false
+      },
+      "ChangeHistoryPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChangeHistoryEntry"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "entries"
+        ]
+      },
+      "ChangeFields": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "justification": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "scope": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "implementation_plan": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "test_plan": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "rollback_plan": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "emergency_reason": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "review_result": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "change_type": {
+            "type": "string",
+            "enum": [
+              "NORMAL",
+              "STANDARD",
+              "EMERGENCY"
+            ]
+          },
+          "impact": {
+            "type": "string",
+            "enum": [
+              "HIGH",
+              "MEDIUM",
+              "LOW"
+            ]
+          },
+          "risk": {
+            "type": "string",
+            "enum": [
+              "HIGH",
+              "MEDIUM",
+              "LOW"
+            ]
+          },
+          "review_outcome": {
+            "type": "string",
+            "enum": [
+              "",
+              "SUCCESS",
+              "PARTIAL",
+              "FAILED"
+            ]
+          },
+          "planned_start": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "planned_end": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "time_zone": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "workflow_id": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "workflow_version": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "template_id": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "template_version": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "assigned_to": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "assignment_group_id": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": []
+      },
+      "ChangeInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string",
+            "maxLength": 20000,
+            "minLength": 1
+          },
+          "justification": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "scope": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "implementation_plan": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "test_plan": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "rollback_plan": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "emergency_reason": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "review_result": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "change_type": {
+            "type": "string",
+            "enum": [
+              "NORMAL",
+              "STANDARD",
+              "EMERGENCY"
+            ]
+          },
+          "impact": {
+            "type": "string",
+            "enum": [
+              "HIGH",
+              "MEDIUM",
+              "LOW"
+            ]
+          },
+          "risk": {
+            "type": "string",
+            "enum": [
+              "HIGH",
+              "MEDIUM",
+              "LOW"
+            ]
+          },
+          "review_outcome": {
+            "type": "string",
+            "enum": [
+              "",
+              "SUCCESS",
+              "PARTIAL",
+              "FAILED"
+            ]
+          },
+          "planned_start": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "planned_end": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "time_zone": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "workflow_id": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "workflow_version": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "template_id": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "template_version": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "assigned_to": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "assignment_group_id": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "source_problem_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "source_version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "title",
+          "description",
+          "change_type",
+          "impact",
+          "risk",
+          "time_zone"
+        ],
+        "description": "Current object access and change.create/manage/assign are checked atomically with an actor-scoped idempotency key. Material fields invalidate the assessed revision. IMPLEMENT/REVIEW plans and change type are immutable. Standard must match the approved template; source Problem transfers explicit public fields only, never messages or attachments."
+      },
+      "Change": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "justification": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "scope": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "implementation_plan": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "test_plan": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "rollback_plan": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "emergency_reason": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "review_result": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "change_type": {
+            "type": "string",
+            "enum": [
+              "NORMAL",
+              "STANDARD",
+              "EMERGENCY"
+            ]
+          },
+          "impact": {
+            "type": "string",
+            "enum": [
+              "HIGH",
+              "MEDIUM",
+              "LOW"
+            ]
+          },
+          "risk": {
+            "type": "string",
+            "enum": [
+              "HIGH",
+              "MEDIUM",
+              "LOW"
+            ]
+          },
+          "review_outcome": {
+            "type": "string",
+            "enum": [
+              "",
+              "SUCCESS",
+              "PARTIAL",
+              "FAILED"
+            ]
+          },
+          "planned_start": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "planned_end": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "time_zone": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "workflow_id": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "workflow_version": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "template_id": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "template_version": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "assigned_to": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "assignment_group_id": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "reporter_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "assessment_revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "approved_revision": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evaluated_version": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "execution_id": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reporter_name": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "assigned_name": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "group_name": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "number": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "NEW",
+              "ASSESS",
+              "AUTHORIZE",
+              "SCHEDULED",
+              "IMPLEMENT",
+              "REVIEW",
+              "CLOSED",
+              "CANCELLED"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 10000
+          },
+          "approval_state": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "PENDING",
+              "APPROVED",
+              "REJECTED",
+              "INVALIDATED"
+            ]
+          },
+          "actual_start": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "actual_end": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "can_edit": {
+            "type": "boolean"
+          },
+          "can_assign": {
+            "type": "boolean"
+          },
+          "can_tasks": {
+            "type": "boolean"
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "NEW",
+                "ASSESS",
+                "AUTHORIZE",
+                "SCHEDULED",
+                "IMPLEMENT",
+                "REVIEW",
+                "CLOSED",
+                "CANCELLED"
+              ]
+            }
+          }
+        },
+        "required": [
+          "description",
+          "justification",
+          "scope",
+          "implementation_plan",
+          "test_plan",
+          "rollback_plan",
+          "emergency_reason",
+          "review_result",
+          "title",
+          "change_type",
+          "impact",
+          "risk",
+          "review_outcome",
+          "planned_start",
+          "planned_end",
+          "time_zone",
+          "workflow_id",
+          "workflow_version",
+          "template_id",
+          "template_version",
+          "assigned_to",
+          "assignment_group_id",
+          "id",
+          "reporter_id",
+          "version",
+          "assessment_revision",
+          "approved_revision",
+          "evaluated_version",
+          "execution_id",
+          "reporter_name",
+          "assigned_name",
+          "group_name",
+          "number",
+          "state",
+          "reason",
+          "approval_state",
+          "actual_start",
+          "actual_end",
+          "created_at",
+          "updated_at",
+          "can_edit",
+          "can_assign",
+          "can_tasks",
+          "actions"
+        ]
+      },
+      "ChangeTransition": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "NEW",
+              "ASSESS",
+              "AUTHORIZE",
+              "SCHEDULED",
+              "IMPLEMENT",
+              "REVIEW",
+              "CLOSED",
+              "CANCELLED"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 10000
+          },
+          "override": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "version",
+          "state"
+        ],
+        "description": "Normal requires Assess before Authorize. Standard/Emergency use their own published Change definition; Standard additionally requires its exact approved template and CI set, Emergency requires urgency justification and a decision deadline no longer than 24h. Scheduling requires the approved assessment revision; overlap, blackout and window checks serialize with the reservation. Override needs change.schedule_override and audited reason. Server controls actual instants; required tasks gate Review/Closed, which needs a review result/outcome."
+      },
+      "ChangeSourceProblem": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "number": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "impact": {
+            "type": "string",
+            "enum": [
+              "HIGH",
+              "MEDIUM",
+              "LOW"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "maxLength": 24
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "can_link": {
+            "type": "boolean"
+          },
+          "solution_plan": {
+            "type": "string",
+            "maxLength": 20000
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "title",
+          "description",
+          "impact",
+          "state",
+          "version",
+          "can_link",
+          "solution_plan"
+        ]
+      },
+      "ChangeProblemLink": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "problem_version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "version",
+          "problem_version"
+        ]
+      },
+      "ChangeProblemPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChangeSourceProblem"
+            },
+            "maxItems": 100
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "ChangeCollision": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CIRecordReference"
+            },
+            "maxItems": 1000
+          },
+          "restricted_conflict": {
+            "type": "boolean"
+          },
+          "blackout": {
+            "type": "boolean"
+          },
+          "outside_window": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "restricted_conflict",
+          "blackout",
+          "outside_window"
+        ]
+      },
+      "ChangeCalendarRule": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "ci_id": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "WINDOW",
+              "BLACKOUT"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ends_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "time_zone": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "ci_id",
+          "kind",
+          "title",
+          "starts_at",
+          "ends_at",
+          "time_zone",
+          "active"
+        ]
+      },
+      "ChangeCalendarRuleInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "ci_id": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "WINDOW",
+              "BLACKOUT"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ends_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "time_zone": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "title",
+          "starts_at",
+          "ends_at",
+          "time_zone",
+          "active"
+        ]
+      },
+      "ChangeRulePage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChangeCalendarRule"
+            },
+            "maxItems": 100
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "ChangeCalendar": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Change"
+            },
+            "maxItems": 1000
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChangeCalendarRule"
+            },
+            "maxItems": 1000
+          }
+        },
+        "required": [
+          "changes",
+          "rules"
+        ]
+      },
+      "ChangeTemplateConfig": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "$ref": "#/components/schemas/ChangeFields"
+          },
+          "ci_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            },
+            "minItems": 1,
+            "maxItems": 20,
+            "uniqueItems": true
+          },
+          "max_risk": {
+            "type": "string",
+            "enum": [
+              "HIGH",
+              "MEDIUM",
+              "LOW"
+            ]
+          },
+          "max_duration_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2592000
+          }
+        },
+        "required": [
+          "fields",
+          "ci_ids",
+          "max_risk",
+          "max_duration_seconds"
+        ]
+      },
+      "ChangeTemplate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "draft": {
+            "$ref": "#/components/schemas/ChangeTemplateConfig"
+          },
+          "published_version": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "withdrawn": {
+            "type": "boolean"
+          },
+          "author_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "name",
+          "draft",
+          "published_version",
+          "withdrawn",
+          "author_id"
+        ]
+      },
+      "ChangeTemplateInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "config": {
+            "$ref": "#/components/schemas/ChangeTemplateConfig"
+          }
+        },
+        "required": [
+          "name",
+          "config"
+        ]
+      },
+      "ChangeTemplatePublication": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "withdraw": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "version"
+        ]
+      },
+      "ChangeTemplateSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "published_version": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "withdrawn": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "name",
+          "published_version",
+          "withdrawn"
+        ]
+      },
+      "ChangeTemplatePage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChangeTemplateSummary"
+            },
+            "maxItems": 100
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "ChangeProcessChoice": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/WorkflowConfig"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "config",
+          "version"
+        ]
+      },
+      "ChangeEvaluationSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "number": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "assessment_revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "fields": {
+            "$ref": "#/components/schemas/ChangeFields"
+          },
+          "cis": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
+                },
+                "identifier": {
+                  "type": "string",
+                  "maxLength": 120
+                },
+                "name": {
+                  "type": "string",
+                  "maxLength": 160
+                },
+                "class": {
+                  "type": "string",
+                  "enum": [
+                    "PHYSICAL_SERVER",
+                    "VM",
+                    "APPLICATION",
+                    "DATABASE",
+                    "NETWORK_DEVICE",
+                    "SERVICE"
+                  ]
+                },
+                "version": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
+                }
+              },
+              "required": [
+                "id",
+                "identifier",
+                "name",
+                "class",
+                "version"
+              ]
+            }
+          }
+        },
+        "required": [
+          "number",
+          "version",
+          "assessment_revision",
+          "fields",
+          "cis"
+        ]
+      },
+      "ChangeChoice": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 160
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "ChangeChoicePage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChangeChoice"
+            },
+            "maxItems": 100
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "items"
         ]
       }
     },

@@ -355,6 +355,9 @@ func (s *Service) Publish(ctx context.Context, a Actor, id, version uint64, with
 				if err != nil {
 					return invalid("wybierz opublikowaną wersję procesu w tej organizacji")
 				}
+				if config.Domain == "CHANGE" {
+					return invalid("katalog wymaga procesu domeny Request")
+				}
 				if config.GroupID != item.Draft.GroupID {
 					return invalid("grupa realizacji musi odpowiadać wersji procesu")
 				}

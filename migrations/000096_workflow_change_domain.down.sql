@@ -1,0 +1,1 @@
+ALTER TABLE workflow_executions DROP FOREIGN KEY workflow_change_subject_fk, DROP CHECK workflow_subject, DROP INDEX workflow_change_revision, DROP COLUMN subject_snapshot, DROP COLUMN subject_revision, DROP COLUMN subject_version, DROP COLUMN change_id, DROP COLUMN domain_type, MODIFY request_id BIGINT UNSIGNED NOT NULL, MODIFY requested_item_id BIGINT UNSIGNED NOT NULL;

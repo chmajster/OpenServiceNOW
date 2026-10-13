@@ -47,6 +47,15 @@ func find(c Config, id string) Node {
 
 // Only a finite sequential DAG is executable. Branches are choices, never forks.
 func Validate(c Config, publish bool) error {
+	if c.Domain != "" && c.Domain != "REQUEST" && c.Domain != "CHANGE" {
+		return invalid("nieobsługiwana domena procesu")
+	}
+	if c.Domain == "CHANGE" {
+		return validateChange(c, publish)
+	}
+	if c.ChangeType != "" {
+		return invalid("typ zmiany dotyczy wyłącznie domeny Change")
+	}
 	if !validText(c.Name, 1, 200) || len(c.Nodes) < 2 || len(c.Nodes) > 50 || c.SelfApproval != "DENY" && c.SelfApproval != "ALLOW" {
 		return invalid("nazwa, 2–50 kroków lub polityka samodzielnej akceptacji")
 	}

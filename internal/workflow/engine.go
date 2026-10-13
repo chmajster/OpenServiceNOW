@@ -39,8 +39,14 @@ func emit(ctx context.Context, e database.Executor, a Actor, x Execution, kind, 
 	if err := Audit(ctx, e, a, kind, x.ID, data); err != nil {
 		return err
 	}
+	aggregate, id := "request", x.RequestID
+	if x.Domain == "CHANGE" {
+		aggregate, id = "change", x.ChangeID
+		data["subject_version"] = fmt.Sprint(x.SubjectVersion)
+		data["subject_revision"] = fmt.Sprint(x.SubjectRevision)
+	}
 	raw, _ := json.Marshal(data)
-	_, _, err := events.NewRepository(nil).Append(ctx, e, events.Input{TenantID: a.TenantID, Type: kind, AggregateType: "request", AggregateID: fmt.Sprint(x.RequestID), Payload: raw, IdempotencyKey: fmt.Sprintf("workflow:%d:%d:%s", x.ID, x.Version, kind)})
+	_, _, err := events.NewRepository(nil).Append(ctx, e, events.Input{TenantID: a.TenantID, Type: kind, AggregateType: aggregate, AggregateID: fmt.Sprint(id), Payload: raw, IdempotencyKey: fmt.Sprintf("workflow:%d:%d:%s", x.ID, x.Version, kind)})
 	return err
 }
 
@@ -51,7 +57,7 @@ func StartInTx(ctx context.Context, e database.Executor, a Actor, definition, ve
 	if err != nil {
 		return 0, err
 	}
-	if c.GroupID != group {
+	if c.Domain == "CHANGE" || c.GroupID != group {
 		return 0, invalid("grupa pozycji katalogu nie odpowiada wersji procesu")
 	}
 	if _, err = ActiveExecutor(ctx, e, a.TenantID, c); err != nil {
@@ -74,11 +80,14 @@ func StartInTx(ctx context.Context, e database.Executor, a Actor, definition, ve
 func load(ctx context.Context, e database.Executor, tenant, id uint64, lock bool) (Execution, error) {
 	var x Execution
 	var due sql.NullTime
-	q := "SELECT x.id,x.definition_id,x.definition_version,x.request_id,x.requested_item_id,x.requester_id,x.executor_id,x.group_id,x.current_node,x.state,x.version,x.approved,x.error_code,x.next_check_at,x.created_at,x.updated_at,r.number FROM workflow_executions x JOIN service_requests r ON r.tenant_id=x.tenant_id AND r.id=x.request_id WHERE x.tenant_id=? AND x.id=?"
+	q := "SELECT x.id,x.definition_id,x.definition_version,COALESCE(x.request_id,0),COALESCE(x.requested_item_id,0),x.requester_id,x.executor_id,x.group_id,x.current_node,x.state,x.version,x.approved,x.error_code,x.next_check_at,x.created_at,x.updated_at,COALESCE(r.number,''),x.domain_type,COALESCE(x.change_id,0),COALESCE(x.subject_version,0),COALESCE(x.subject_revision,0),COALESCE(x.subject_snapshot,JSON_OBJECT()),COALESCE(ch.number,'') FROM workflow_executions x LEFT JOIN service_requests r ON r.tenant_id=x.tenant_id AND r.id=x.request_id LEFT JOIN changes ch ON ch.tenant_id=x.tenant_id AND ch.id=x.change_id WHERE x.tenant_id=? AND x.id=?"
 	if lock {
 		q += " FOR UPDATE"
 	}
-	err := e.QueryRowContext(ctx, q, tenant, id).Scan(&x.ID, &x.DefinitionID, &x.DefinitionVersion, &x.RequestID, &x.RequestedItemID, &x.RequesterID, &x.ExecutorID, &x.GroupID, &x.CurrentNode, &x.State, &x.Version, &x.Approved, &x.ErrorCode, &due, &x.CreatedAt, &x.UpdatedAt, &x.RequestNumber)
+	err := e.QueryRowContext(ctx, q, tenant, id).Scan(&x.ID, &x.DefinitionID, &x.DefinitionVersion, &x.RequestID, &x.RequestedItemID, &x.RequesterID, &x.ExecutorID, &x.GroupID, &x.CurrentNode, &x.State, &x.Version, &x.Approved, &x.ErrorCode, &due, &x.CreatedAt, &x.UpdatedAt, &x.RequestNumber, &x.Domain, &x.ChangeID, &x.SubjectVersion, &x.SubjectRevision, &x.SubjectSnapshot, &x.ChangeNumber)
+	if x.Domain != "CHANGE" {
+		x.SubjectSnapshot = nil
+	}
 	if due.Valid {
 		x.NextCheckAt = &due.Time
 	}
@@ -92,11 +101,18 @@ func lockExecution(ctx context.Context, e database.Executor, tenant, id uint64) 
 	if state != "ACTIVE" {
 		return Execution{}, workrecords.ErrForbidden
 	}
-	var request uint64
-	if err := e.QueryRowContext(ctx, "SELECT request_id FROM workflow_executions WHERE tenant_id=? AND id=?", tenant, id).Scan(&request); err != nil {
+	var domain string
+	var subject uint64
+	if err := e.QueryRowContext(ctx, "SELECT domain_type,COALESCE(change_id,request_id) FROM workflow_executions WHERE tenant_id=? AND id=?", tenant, id).Scan(&domain, &subject); err != nil {
 		return Execution{}, missing(err)
 	}
-	if err := e.QueryRowContext(ctx, "SELECT state FROM service_requests WHERE tenant_id=? AND id=? FOR UPDATE", tenant, request).Scan(&state); err != nil {
+	table := "service_requests"
+	if domain == "CHANGE" {
+		table = "changes"
+	} else if domain != "REQUEST" {
+		return Execution{}, ErrInvalid
+	}
+	if err := e.QueryRowContext(ctx, "SELECT state FROM "+table+" WHERE tenant_id=? AND id=? FOR UPDATE", tenant, subject).Scan(&state); err != nil {
 		return Execution{}, missing(err)
 	}
 	return load(ctx, e, tenant, id, true)
@@ -168,7 +184,11 @@ func (s *Service) advance(ctx context.Context, e database.Executor, tenant, id, 
 		return x, ErrInvalid
 	}
 	at := s.now().UTC()
-	parent, values, err := s.commands.ContextInTx(ctx, e, a, x)
+	commands, err := s.domainCommands(x)
+	if err != nil {
+		return x, err
+	}
+	parent, values, err := commands.ContextInTx(ctx, e, a, x)
 	if err != nil {
 		return x, err
 	}
@@ -233,7 +253,7 @@ func (s *Service) advance(ctx context.Context, e database.Executor, tenant, id, 
 		if !x.Approved {
 			return x, workrecords.ErrForbidden
 		}
-		task, err := s.commands.CreateTaskInTx(ctx, e, a, x, n)
+		task, err := commands.CreateTaskInTx(ctx, e, a, x, n)
 		if err != nil {
 			return x, err
 		}
@@ -252,7 +272,7 @@ func (s *Service) advance(ctx context.Context, e database.Executor, tenant, id, 
 		if json.Unmarshal(prior.Result, &result) != nil || result.TaskID == 0 {
 			return x, ErrInvalid
 		}
-		state, err := s.commands.TaskStateInTx(ctx, e, a, x, result.TaskID)
+		state, err := commands.TaskStateInTx(ctx, e, a, x, result.TaskID)
 		if err != nil {
 			return x, err
 		}
@@ -272,10 +292,10 @@ func (s *Service) advance(ctx context.Context, e database.Executor, tenant, id, 
 			outcome = "TIMER_ELAPSED"
 		}
 	case "UPDATE_RECORD":
-		if n.State != "CANCELLED" && !x.Approved {
+		if n.State != "CANCELLED" && !(x.Domain == "CHANGE" && n.State == "REJECTED") && !x.Approved {
 			return x, workrecords.ErrForbidden
 		}
-		if err = s.commands.UpdateInTx(ctx, e, a, x, n); err != nil {
+		if err = commands.UpdateInTx(ctx, e, a, x, n); err != nil {
 			return x, err
 		}
 	case "NOTIFY":
@@ -318,7 +338,7 @@ func equal(a, b json.RawMessage) bool {
 	return string(p) == string(q)
 }
 func (s *Service) Advance(ctx context.Context, tenant, id, version uint64) error {
-	if s.commands == nil {
+	if s.commands == nil && s.changeCommands == nil {
 		return jobs.ErrInvalid
 	}
 	var loaded Execution

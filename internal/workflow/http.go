@@ -211,7 +211,20 @@ func (h *Handler) Definitions(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, ErrInvalid)
 		return
 	}
-	rows, err := h.service.DB.QueryContext(r.Context(), "SELECT id,version,published_version,name FROM workflow_definitions WHERE tenant_id=? AND id>? AND (?='' OR LOCATE(?,name)>0) ORDER BY id LIMIT ?", a.TenantID, after, q, q, limit+1)
+	domain := r.URL.Query().Get("domain")
+	if domain != "" && domain != "REQUEST" && domain != "CHANGE" {
+		fail(w, r, ErrInvalid)
+		return
+	}
+	query := "SELECT d.id,d.version,d.published_version,d.name FROM workflow_definitions d WHERE d.tenant_id=? AND d.id>? AND (?='' OR LOCATE(?,d.name)>0)"
+	args := []any{a.TenantID, after, q, q}
+	if domain != "" {
+		query += " AND EXISTS(SELECT 1 FROM workflow_versions v WHERE v.tenant_id=d.tenant_id AND v.definition_id=d.id AND v.version=d.published_version AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(v.config,'$.domain')),'REQUEST')=?)"
+		args = append(args, domain)
+	}
+	query += " ORDER BY d.id LIMIT ?"
+	args = append(args, limit+1)
+	rows, err := h.service.DB.QueryContext(r.Context(), query, args...)
 	if err != nil {
 		fail(w, r, err)
 		return

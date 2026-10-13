@@ -16,7 +16,7 @@ export function WorkflowPicker({
     [busy, setBusy] = useState(false),
     [error, setError] = useState<string>();
   const p = useRemotePage<Definition>(
-    `/api/v1/workflow/definitions?limit=25&q=${encodeURIComponent(q)}`,
+    `/api/v1/workflow/definitions?domain=REQUEST&limit=25&q=${encodeURIComponent(q)}`,
     "items",
   );
   const selected = id && version ? `${id}:${version}` : "";
