@@ -13299,6 +13299,3898 @@
         },
         "description": "Per-record current permission, scope, version and domain rules; individual result statuses and partial success. Repeated stale versions do not repeat effects."
       }
+    },
+    "/api/v1/cmdb/classes": {
+      "get": {
+        "operationId": "cmdb_get__classes",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "GET /classes",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CIClasses"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/lookups/users": {
+      "get": {
+        "operationId": "cmdb_get__lookups_users",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "GET /lookups/users",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryChoices"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/lookups/groups": {
+      "get": {
+        "operationId": "cmdb_get__lookups_groups",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "GET /lookups/groups",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryChoices"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/cis": {
+      "get": {
+        "operationId": "cmdb_get__cis",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "GET /cis",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "class",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PHYSICAL_SERVER",
+                "VM",
+                "NETWORK_DEVICE",
+                "APPLICATION",
+                "DATABASE",
+                "SERVICE"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PLANNED",
+                "ACTIVE",
+                "MAINTENANCE",
+                "RETIRED"
+              ]
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DEV",
+                "TEST",
+                "STAGING",
+                "PROD"
+              ]
+            }
+          },
+          {
+            "name": "owner_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "location",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 16384,
+              "description": "JSON RecordFilter; 40 nodes, depth 5, 12 children per group"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "newest",
+                "oldest",
+                "title",
+                "updated"
+              ]
+            }
+          },
+          {
+            "name": "group_by",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "class",
+                "status",
+                "environment",
+                "criticality",
+                "lifecycle",
+                "support_group_id"
+              ]
+            }
+          },
+          {
+            "name": "before_value",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "csv"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CIPage"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Authorized filtered metadata, sorted, max 10000; formula-safe cells and text BIGINTs"
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Export exceeds 10000 records; narrow filters"
+          }
+        }
+      },
+      "post": {
+        "operationId": "cmdb_post__cis",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "POST /cis",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "Replay same actor/input without duplicating effects; required for record creation"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CI"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CIInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/cis/{id}": {
+      "get": {
+        "operationId": "cmdb_get__cis__id_",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "GET /cis/{id}",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CI"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "cmdb_put__cis__id_",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "PUT /cis/{id}",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CI"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CIInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/cis/{id}/archive": {
+      "post": {
+        "operationId": "cmdb_post__cis__id__archive",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "POST /cis/{id}/archive",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CI"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InventoryArchive"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/cis/{id}/history": {
+      "get": {
+        "operationId": "cmdb_get__cis__id__history",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "GET /cis/{id}/history",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryHistory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/cis/{id}/relations": {
+      "get": {
+        "operationId": "cmdb_get__cis__id__relations",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "GET /cis/{id}/relations",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CIRelationPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "cmdb_post__cis__id__relations",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "POST /cis/{id}/relations",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "Replay same actor/input without duplicating effects; required for record creation"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CI"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CIRelationInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/cis/{id}/relations/{relationID}": {
+      "delete": {
+        "operationId": "cmdb_delete__cis__id__relations__relationID_",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "DELETE /cis/{id}/relations/{relationID}",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "relationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CI"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CIRelationRemoval"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/cis/{id}/graph": {
+      "get": {
+        "operationId": "cmdb_get__cis__id__graph",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "GET /cis/{id}/graph",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "depth",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5,
+              "default": 2
+            }
+          },
+          {
+            "name": "max_nodes",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "RUNS_ON",
+                "HOSTED_ON",
+                "DEPENDS_ON",
+                "CONNECTS_TO",
+                "PART_OF"
+              ]
+            }
+          },
+          {
+            "name": "class",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PHYSICAL_SERVER",
+                "VM",
+                "NETWORK_DEVICE",
+                "APPLICATION",
+                "DATABASE",
+                "SERVICE"
+              ]
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DEV",
+                "TEST",
+                "STAGING",
+                "PROD"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CIGraph"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/cis/{id}/asset": {
+      "get": {
+        "operationId": "cmdb_get__cis__id__asset",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "GET /cis/{id}/asset",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CIAssetLink"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "cmdb_put__cis__id__asset",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "PUT /cis/{id}/asset",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CI"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CIAssetLinkInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/cis/{id}/records/{kind}": {
+      "get": {
+        "operationId": "cmdb_get__cis__id__records__kind_",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "GET /cis/{id}/records/{kind}",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "incidents",
+                "requests"
+              ]
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CIReferencePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/assets": {
+      "get": {
+        "operationId": "cmdb_get__assets",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "GET /assets",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ORDERED",
+                "IN_STOCK",
+                "IN_USE",
+                "IN_REPAIR",
+                "RETIRED",
+                "DISPOSED"
+              ]
+            }
+          },
+          {
+            "name": "owner_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "location",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "cmdb_post__assets",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "POST /assets",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "Replay same actor/input without duplicating effects; required for record creation"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Asset"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssetInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/assets/{id}": {
+      "get": {
+        "operationId": "cmdb_get__assets__id_",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "GET /assets/{id}",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Asset"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "cmdb_put__assets__id_",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "PUT /assets/{id}",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Asset"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssetInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/assets/{id}/archive": {
+      "post": {
+        "operationId": "cmdb_post__assets__id__archive",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "POST /assets/{id}/archive",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Asset"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InventoryArchive"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/assets/{id}/history": {
+      "get": {
+        "operationId": "cmdb_get__assets__id__history",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "GET /assets/{id}/history",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryHistory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/assets/{id}/ci": {
+      "get": {
+        "operationId": "cmdb_get__assets__id__ci",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "GET /assets/{id}/ci",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetCILink"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/records/{kind}/{id}/cis": {
+      "get": {
+        "operationId": "cmdb_get__records__kind___id__cis",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "GET /records/{kind}/{id}/cis",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "incidents",
+                "requests"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CIRecordLinks"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/records/{kind}/{id}/cis/{ciID}": {
+      "put": {
+        "operationId": "cmdb_put__records__kind___id__cis__ciID_",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "PUT /records/{kind}/{id}/cis/{ciID}",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "incidents",
+                "requests"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "ciID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "Replay same actor/input without duplicating effects; required for record creation"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CIRecordReference"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CIRecordLinkInput"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "cmdb_delete__records__kind___id__cis__ciID_",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "DELETE /records/{kind}/{id}/cis/{ciID}",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "incidents",
+                "requests"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "ciID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "Replay same actor/input without duplicating effects; required for record creation"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CIRecordReference"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CIRecordLinkInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/imports": {
+      "get": {
+        "operationId": "cmdb_get__imports",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "GET /imports",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryImportPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "cmdb_post__imports",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "POST /imports",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "Replay same actor/input without duplicating effects; required for record creation"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryImport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "UTF-8 RFC4180 CSV; max 1 MiB, 500 rows, 40 columns"
+                  },
+                  "config": {
+                    "type": "string",
+                    "description": "JSON InventoryImportConfig"
+                  }
+                },
+                "required": [
+                  "file",
+                  "config"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/imports/{id}": {
+      "get": {
+        "operationId": "cmdb_get__imports__id_",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "GET /imports/{id}",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryImport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/imports/{id}/rows": {
+      "get": {
+        "operationId": "cmdb_get__imports__id__rows",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "GET /imports/{id}/rows",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "after_row",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryImportRows"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/imports/{id}/apply": {
+      "post": {
+        "operationId": "cmdb_post__imports__id__apply",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "POST /imports/{id}/apply",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryImport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InventoryVersion"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/imports/{id}/review": {
+      "post": {
+        "operationId": "cmdb_post__imports__id__review",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "POST /imports/{id}/review",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryImport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InventoryVersion"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/imports/{id}/cancel": {
+      "post": {
+        "operationId": "cmdb_post__imports__id__cancel",
+        "tags": [
+          "CMDB"
+        ],
+        "summary": "POST /imports/{id}/cancel",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized domain result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryImport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validation, session, object access, version/idempotency conflict or unavailable operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InventoryVersion"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -18814,6 +22706,1575 @@
             }
           }
         }
+      },
+      "CIInput": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,99}$"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1
+          },
+          "class": {
+            "type": "string",
+            "enum": [
+              "PHYSICAL_SERVER",
+              "VM",
+              "NETWORK_DEVICE",
+              "APPLICATION",
+              "DATABASE",
+              "SERVICE"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PLANNED",
+              "ACTIVE",
+              "MAINTENANCE",
+              "RETIRED"
+            ]
+          },
+          "owner_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "support_group_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "criticality": {
+            "type": "string",
+            "enum": [
+              "CRITICAL",
+              "HIGH",
+              "NORMAL",
+              "LOW"
+            ]
+          },
+          "lifecycle": {
+            "type": "string",
+            "enum": [
+              "DESIGN",
+              "BUILD",
+              "OPERATE",
+              "RETIRE"
+            ]
+          },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "DEV",
+              "TEST",
+              "STAGING",
+              "PROD"
+            ]
+          },
+          "location": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "attributes": {
+            "type": "object"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          }
+        },
+        "required": [
+          "identifier",
+          "name",
+          "class",
+          "status",
+          "owner_id",
+          "environment"
+        ],
+        "additionalProperties": false,
+        "oneOf": [
+          {
+            "properties": {
+              "class": {
+                "const": "PHYSICAL_SERVER"
+              },
+              "attributes": {
+                "type": "object",
+                "properties": {
+                  "serial_number": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "manufacturer": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "model": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "cpu_cores": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 4096
+                  },
+                  "memory_gb": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1048576
+                  },
+                  "os": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "management_ip": {
+                    "type": "string",
+                    "description": "Valid IPv4 or IPv6 address"
+                  },
+                  "hostname": {
+                    "type": "string",
+                    "maxLength": 253
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "class"
+            ]
+          },
+          {
+            "properties": {
+              "class": {
+                "const": "VM"
+              },
+              "attributes": {
+                "type": "object",
+                "properties": {
+                  "vcpu": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1024
+                  },
+                  "memory_gb": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1048576
+                  },
+                  "os": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "ip_address": {
+                    "type": "string",
+                    "description": "Valid IPv4 or IPv6 address"
+                  },
+                  "hostname": {
+                    "type": "string",
+                    "maxLength": 253
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "class"
+            ]
+          },
+          {
+            "properties": {
+              "class": {
+                "const": "NETWORK_DEVICE"
+              },
+              "attributes": {
+                "type": "object",
+                "properties": {
+                  "vendor": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "model": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "management_ip": {
+                    "type": "string"
+                  },
+                  "serial_number": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "port_count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "class"
+            ]
+          },
+          {
+            "properties": {
+              "class": {
+                "const": "APPLICATION"
+              },
+              "attributes": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "url": {
+                    "type": "string",
+                    "maxLength": 2048,
+                    "format": "uri",
+                    "description": "HTTP or HTTPS, no credentials; never fetched by server"
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "class"
+            ]
+          },
+          {
+            "properties": {
+              "class": {
+                "const": "DATABASE"
+              },
+              "attributes": {
+                "type": "object",
+                "properties": {
+                  "engine": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "version": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  },
+                  "size_gb": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1099511627776
+                  },
+                  "hostname": {
+                    "type": "string",
+                    "maxLength": 253
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "class"
+            ]
+          },
+          {
+            "properties": {
+              "class": {
+                "const": "SERVICE"
+              },
+              "attributes": {
+                "type": "object",
+                "properties": {
+                  "tier": {
+                    "type": "string",
+                    "enum": [
+                      "CRITICAL",
+                      "HIGH",
+                      "NORMAL"
+                    ]
+                  },
+                  "availability_target": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "class"
+            ]
+          }
+        ],
+        "description": "Class is immutable after creation. Attributes are optional, explicitly typed and class-whitelisted. Active tenant owner and support group are checked by the server. Empty criticality/lifecycle normalize to NORMAL and the operational status default."
+      },
+      "CI": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,99}$"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1
+          },
+          "class": {
+            "type": "string",
+            "enum": [
+              "PHYSICAL_SERVER",
+              "VM",
+              "NETWORK_DEVICE",
+              "APPLICATION",
+              "DATABASE",
+              "SERVICE"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PLANNED",
+              "ACTIVE",
+              "MAINTENANCE",
+              "RETIRED"
+            ]
+          },
+          "owner_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "support_group_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "criticality": {
+            "type": "string",
+            "enum": [
+              "CRITICAL",
+              "HIGH",
+              "NORMAL",
+              "LOW"
+            ]
+          },
+          "lifecycle": {
+            "type": "string",
+            "enum": [
+              "DESIGN",
+              "BUILD",
+              "OPERATE",
+              "RETIRE"
+            ]
+          },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "DEV",
+              "TEST",
+              "STAGING",
+              "PROD"
+            ]
+          },
+          "location": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "attributes": {
+            "type": "object"
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "owner_name": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "support_group_name": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "lifecycle",
+          "identifier",
+          "class",
+          "owner_id",
+          "attributes",
+          "environment",
+          "status",
+          "location",
+          "name",
+          "criticality",
+          "id",
+          "version",
+          "owner_name",
+          "support_group_name",
+          "archived",
+          "created_at",
+          "updated_at"
+        ],
+        "additionalProperties": false
+      },
+      "CIPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CI"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordListGroup"
+            }
+          },
+          "next_before_value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "groups"
+        ],
+        "additionalProperties": false
+      },
+      "CIClassAttribute": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "TEXT",
+              "INTEGER",
+              "NUMBER",
+              "IP",
+              "URL",
+              "SELECT",
+              "HOSTNAME"
+            ]
+          },
+          "min": {
+            "type": "number"
+          },
+          "max": {
+            "type": "number"
+          },
+          "max_length": {
+            "type": "integer"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "type",
+          "min",
+          "max"
+        ],
+        "additionalProperties": false
+      },
+      "CIClass": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "PHYSICAL_SERVER",
+              "VM",
+              "NETWORK_DEVICE",
+              "APPLICATION",
+              "DATABASE",
+              "SERVICE"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "attributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CIClassAttribute"
+            }
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "attributes"
+        ],
+        "additionalProperties": false
+      },
+      "CIClasses": {
+        "type": "object",
+        "properties": {
+          "classes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CIClass"
+            }
+          },
+          "ci_import_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "asset_import_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "max_csv_bytes": {
+            "type": "integer",
+            "const": 1048576
+          },
+          "max_csv_rows": {
+            "type": "integer",
+            "const": 500
+          },
+          "max_csv_columns": {
+            "type": "integer",
+            "const": 40
+          }
+        },
+        "required": [
+          "classes",
+          "ci_import_fields",
+          "asset_import_fields",
+          "max_csv_bytes",
+          "max_csv_rows",
+          "max_csv_columns"
+        ],
+        "additionalProperties": false
+      },
+      "InventoryChoice": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 160
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "InventoryChoices": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InventoryChoice"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "CIRelation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "source_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "target_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "RUNS_ON",
+              "HOSTED_ON",
+              "DEPENDS_ON",
+              "CONNECTS_TO",
+              "PART_OF"
+            ]
+          },
+          "source_name": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "target_name": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "source_class": {
+            "type": "string",
+            "enum": [
+              "PHYSICAL_SERVER",
+              "VM",
+              "NETWORK_DEVICE",
+              "APPLICATION",
+              "DATABASE",
+              "SERVICE"
+            ]
+          },
+          "target_class": {
+            "type": "string",
+            "enum": [
+              "PHYSICAL_SERVER",
+              "VM",
+              "NETWORK_DEVICE",
+              "APPLICATION",
+              "DATABASE",
+              "SERVICE"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "source_id",
+          "target_id",
+          "type",
+          "source_name",
+          "target_name",
+          "source_class",
+          "target_class"
+        ],
+        "additionalProperties": false
+      },
+      "CIRelationInput": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "target_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "target_version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "RUNS_ON",
+              "HOSTED_ON",
+              "DEPENDS_ON",
+              "CONNECTS_TO",
+              "PART_OF"
+            ]
+          }
+        },
+        "required": [
+          "version",
+          "target_id",
+          "target_version",
+          "type"
+        ],
+        "additionalProperties": false,
+        "description": "RUNS_ON: application/database to VM/server; HOSTED_ON: VM to server; DEPENDS_ON: service/application/database to a supported CI; CONNECTS_TO: network to network/server/VM; PART_OF: same-class service/application/network or application to service. Self-links and duplicates are blocked; PART_OF containment cycles are blocked under the tenant write lock. Dependency cycles are allowed."
+      },
+      "CIRelationPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CIRelation"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "CIGraphNode": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "class": {
+            "type": "string",
+            "enum": [
+              "PHYSICAL_SERVER",
+              "VM",
+              "NETWORK_DEVICE",
+              "APPLICATION",
+              "DATABASE",
+              "SERVICE"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PLANNED",
+              "ACTIVE",
+              "MAINTENANCE",
+              "RETIRED"
+            ]
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "class",
+          "status",
+          "archived",
+          "depth"
+        ],
+        "additionalProperties": false
+      },
+      "CIGraph": {
+        "type": "object",
+        "properties": {
+          "nodes": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/CIGraphNode"
+            }
+          },
+          "edges": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "$ref": "#/components/schemas/CIRelation"
+            }
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "max_nodes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "max_depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5
+          },
+          "max_edges": {
+            "type": "integer",
+            "const": 200
+          }
+        },
+        "required": [
+          "nodes",
+          "edges",
+          "truncated",
+          "max_nodes",
+          "max_depth",
+          "max_edges"
+        ],
+        "additionalProperties": false
+      },
+      "CIRecordReference": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "number": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "state": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "can_link": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "title",
+          "state",
+          "version",
+          "can_link"
+        ],
+        "additionalProperties": false
+      },
+      "CIReferencePage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CIRecordReference"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "CIRecordLinks": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CI"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "record": {
+            "$ref": "#/components/schemas/CIRecordReference"
+          }
+        },
+        "required": [
+          "items",
+          "record"
+        ],
+        "additionalProperties": false
+      },
+      "CIRecordLinkInput": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "ci_version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "version",
+          "ci_version"
+        ],
+        "additionalProperties": false
+      },
+      "InventoryArchive": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1
+          }
+        },
+        "required": [
+          "version",
+          "archived",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "InventoryHistoryEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "tenant_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "object_type": {
+            "type": "string",
+            "enum": [
+              "ci",
+              "asset"
+            ]
+          },
+          "object_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "type": {
+            "type": "string"
+          },
+          "actor_user_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "actor_name": {
+            "type": "string"
+          },
+          "source_event_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "event_time": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "object_type",
+          "object_id",
+          "type",
+          "summary",
+          "event_time"
+        ],
+        "additionalProperties": false
+      },
+      "InventoryHistory": {
+        "type": "object",
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InventoryHistoryEntry"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "pending": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "entries",
+          "pending"
+        ],
+        "additionalProperties": false
+      },
+      "AssetInput": {
+        "type": "object",
+        "properties": {
+          "asset_tag": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "serial_number": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "vendor": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "location": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "purchase_date": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "purchase_cost": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "currency": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "warranty_until": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "owner_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "ORDERED",
+              "IN_STOCK",
+              "IN_USE",
+              "IN_REPAIR",
+              "RETIRED",
+              "DISPOSED"
+            ]
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          }
+        },
+        "required": [
+          "asset_tag",
+          "name",
+          "owner_id",
+          "state",
+          "currency"
+        ],
+        "additionalProperties": false
+      },
+      "Asset": {
+        "type": "object",
+        "properties": {
+          "asset_tag": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "serial_number": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "vendor": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "location": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "purchase_date": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "purchase_cost": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "currency": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "warranty_until": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "owner_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "ORDERED",
+              "IN_STOCK",
+              "IN_USE",
+              "IN_REPAIR",
+              "RETIRED",
+              "DISPOSED"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "owner_name": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "asset_tag",
+          "name",
+          "serial_number",
+          "vendor",
+          "model",
+          "location",
+          "purchase_date",
+          "purchase_cost",
+          "currency",
+          "warranty_until",
+          "owner_id",
+          "state",
+          "id",
+          "version",
+          "owner_name",
+          "archived",
+          "created_at",
+          "updated_at"
+        ],
+        "additionalProperties": false
+      },
+      "AssetPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Asset"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "CIAssetLink": {
+        "type": "object",
+        "properties": {
+          "asset": {
+            "$ref": "#/components/schemas/Asset"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "AssetCILink": {
+        "type": "object",
+        "properties": {
+          "ci": {
+            "$ref": "#/components/schemas/CI"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "CIAssetLinkInput": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "asset_id": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "asset_version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "version",
+          "asset_id",
+          "asset_version"
+        ],
+        "additionalProperties": false
+      },
+      "InventoryImportConfig": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string",
+            "enum": [
+              "CI",
+              "ASSET"
+            ]
+          },
+          "identity_key": {
+            "type": "string",
+            "enum": [
+              "identifier",
+              "asset_tag",
+              "serial_number"
+            ]
+          },
+          "mapping": {
+            "type": "object",
+            "maxProperties": 40,
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 160
+            }
+          }
+        },
+        "required": [
+          "target",
+          "identity_key",
+          "mapping"
+        ],
+        "additionalProperties": false
+      },
+      "InventoryImport": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string",
+            "enum": [
+              "CI",
+              "ASSET"
+            ]
+          },
+          "identity_key": {
+            "type": "string",
+            "enum": [
+              "identifier",
+              "asset_tag",
+              "serial_number"
+            ]
+          },
+          "mapping": {
+            "type": "object",
+            "maxProperties": 40,
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "creator_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "executor_id": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "file_name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "QUEUED_PREVIEW",
+              "PREVIEW_READY",
+              "QUEUED_APPLY",
+              "APPLYING",
+              "COMPLETED",
+              "PARTIAL",
+              "FAILED",
+              "CANCELLED"
+            ]
+          },
+          "error_code": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "job_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "job_status": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "attempts": {
+            "type": "integer"
+          },
+          "counts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "target",
+          "identity_key",
+          "mapping",
+          "creator_id",
+          "executor_id",
+          "file_name",
+          "state",
+          "error_code",
+          "job_status",
+          "attempts",
+          "counts",
+          "created_at",
+          "updated_at"
+        ],
+        "additionalProperties": false
+      },
+      "InventoryImportPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InventoryImport"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "InventoryImportRow": {
+        "type": "object",
+        "properties": {
+          "row_number": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "identity_value": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "action": {
+            "type": "string",
+            "maxLength": 30
+          },
+          "state": {
+            "type": "string",
+            "maxLength": 30
+          },
+          "record_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "expected_version": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "before": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "after": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "error_code": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "error_message": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "row_number",
+          "identity_value",
+          "action",
+          "state",
+          "expected_version",
+          "before",
+          "after",
+          "error_code",
+          "error_message"
+        ],
+        "additionalProperties": false
+      },
+      "InventoryImportRows": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InventoryImportRow"
+            }
+          },
+          "next_after_row": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "InventoryVersion": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "CIRelationRemoval": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "target_version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "version",
+          "target_version"
+        ],
+        "additionalProperties": false
       }
     },
     "responses": {

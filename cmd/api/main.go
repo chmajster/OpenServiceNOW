@@ -16,6 +16,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/audit"
 	"github.com/chmajster/OpenServiceNOW/internal/auditapi"
 	"github.com/chmajster/OpenServiceNOW/internal/catalog"
+	"github.com/chmajster/OpenServiceNOW/internal/cmdb"
 	"github.com/chmajster/OpenServiceNOW/internal/events"
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
 	"github.com/chmajster/OpenServiceNOW/internal/incidents"
@@ -119,6 +120,8 @@ func main() {
 	incidentHandler := incidents.NewHandler(incidentService, identityService)
 	requestService := requests.NewService(db, files)
 	requestHandler := requests.NewHandler(requestService, catalog.NewService(db), identityService)
+	cmdbService := cmdb.NewService(db, files, map[string]cmdb.RecordDomain{"incidents": incidents.NewCMDBDomain(incidentService), "requests": requests.NewCMDBDomain(requestService)})
+	cmdbHandler := cmdb.NewHandler(cmdbService, identityService)
 	workflowService := workflow.NewService(db, requestService)
 	workflowHandler := workflow.NewHandler(workflowService, identityService)
 	requestViewDomain := func(tasks bool) recordviews.Domain {
@@ -131,6 +134,10 @@ func main() {
 	}
 	viewHandler := &recordviews.Handler{Permissions: identityService, Service: &recordviews.Service{DB: db, Domains: map[string]recordviews.Domain{
 		"requests": requestViewDomain(false), "fulfillment": requestViewDomain(true),
+		"cmdb": {Read: func(a workrecords.Principal) bool { return a.Has("cmdb.read") || a.Has("cmdb.read_own") }, Validate: func(a workrecords.Principal, raw json.RawMessage) error {
+			_, err := recordlists.ValidateConfig(raw, cmdb.ListSchema(), cmdb.ListSorts, cmdb.ListGroups, cmdb.ListColumns)
+			return err
+		}},
 		"incidents": {Read: func(a workrecords.Principal) bool { return a.Has("incident.read") || a.Has("incident.read_own") }, Validate: func(a workrecords.Principal, raw json.RawMessage) error {
 			_, err := recordlists.ValidateConfig(raw, incidents.ListSchema(a.UserID), incidents.ListSorts, incidents.ListGroups, incidents.ListColumns)
 			return err
@@ -177,6 +184,7 @@ func main() {
 			func(r chi.Router) { requests.RegisterRoutes(r, requestHandler, identityMiddleware) },
 			func(r chi.Router) { workflow.RegisterRoutes(r, workflowHandler, identityMiddleware) },
 			func(r chi.Router) { workspace.RegisterRoutes(r, workspaceHandler, identityMiddleware) },
+			func(r chi.Router) { cmdb.RegisterRoutes(r, cmdbHandler, identityMiddleware) },
 			func(r chi.Router) { recordviews.RegisterRoutes(r, viewHandler, identityMiddleware) },
 			func(r chi.Router) {
 				sla.RegisterRoutes(r, sla.NewHandler(sla.NewService(db), identityService), identityMiddleware)
