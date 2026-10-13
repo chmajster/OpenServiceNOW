@@ -97,6 +97,7 @@ type PriorityInput struct {
 	Reason   string `json:"reason"`
 }
 type Filter struct {
+	Active, SLARisk                    bool
 	Query, State, Category, View, Sort string
 	Priority                           int
 	AssignedTo, GroupID, ReporterID    uint64

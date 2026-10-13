@@ -2134,7 +2134,8 @@
                 "all",
                 "mine",
                 "my_group",
-                "unassigned"
+                "unassigned",
+                "assigned"
               ],
               "default": "all"
             },
@@ -2241,6 +2242,24 @@
               "format": "date-time"
             },
             "description": "Inclusive created_at upper bound."
+          },
+          {
+            "name": "active",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "Exclude terminal states; tasks also require an active parent request."
+          },
+          {
+            "name": "sla_risk",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "Warning or breach on an ACTIVE/PAUSED SLA according to the durable worker checkpoint."
           }
         ]
       },
@@ -8858,6 +8877,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "active",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "Exclude terminal states; tasks also require an active parent request."
           }
         ]
       },
@@ -10471,6 +10499,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "active",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "Exclude terminal states; tasks also require an active parent request."
           }
         ]
       }
@@ -12476,6 +12513,79 @@
             }
           }
         }
+      }
+    },
+    "/api/v1/workspace/summary": {
+      "get": {
+        "operationId": "workspaceSummary",
+        "description": "Whole-dataset counts using the same current object scope and filters as linked lists. SLA uses the last durable engine checkpoint.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized workspace data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required"
+          },
+          "500": {
+            "description": "Read failed; no fabricated zero counts"
+          }
+        }
+      }
+    },
+    "/api/v1/workspace/search": {
+      "get": {
+        "operationId": "workspaceSearch",
+        "description": "Number/title search, bounded to 10 per type, exact number first; authorization applied before results. No notes, form values or instructions.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized workspace data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceSearch"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required"
+          },
+          "500": {
+            "description": "Read failed; no fabricated zero counts"
+          },
+          "400": {
+            "description": "Invalid query"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 200
+            }
+          }
+        ]
       }
     }
   },
@@ -16416,8 +16526,8 @@
               "assignment",
               "reply",
               "state",
-                "resolution",
-                "approval"
+              "resolution",
+              "approval"
             ]
           },
           "summary": {
@@ -17550,6 +17660,114 @@
         },
         "required": [],
         "additionalProperties": false
+      },
+      "WorkspaceMetric": {
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "count",
+          "url",
+          "definition"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "count": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "url": {
+            "type": "string"
+          },
+          "definition": {
+            "type": "string"
+          }
+        }
+      },
+      "WorkspaceSummary": {
+        "type": "object",
+        "required": [
+          "metrics",
+          "calculated_at"
+        ],
+        "properties": {
+          "metrics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceMetric"
+            }
+          },
+          "calculated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WorkspaceReference": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "number",
+          "title",
+          "state",
+          "url",
+          "exact"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "incident",
+              "request",
+              "fulfillment_task"
+            ]
+          },
+          "number": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "exact": {
+            "type": "boolean"
+          }
+        }
+      },
+      "WorkspaceSearch": {
+        "type": "object",
+        "required": [
+          "items",
+          "limit_per_type"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceReference"
+            }
+          },
+          "limit_per_type": {
+            "type": "integer",
+            "const": 10
+          }
+        }
       }
     },
     "responses": {

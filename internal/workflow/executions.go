@@ -53,7 +53,7 @@ func (s *Service) List(ctx context.Context, a Actor, mine bool, request, before 
 	params = append(params, args...)
 	q := "SELECT x.id,x.definition_id,x.definition_version,x.request_id,x.requested_item_id,x.executor_id,x.group_id,x.current_node,x.state,x.version,x.approved,x.error_code,x.created_at,x.updated_at,r.number,JSON_UNQUOTE(JSON_EXTRACT(v.config,'$.name')) FROM workflow_executions x JOIN service_requests r ON r.tenant_id=x.tenant_id AND r.id=x.request_id JOIN workflow_versions v ON v.tenant_id=x.tenant_id AND v.definition_id=x.definition_id AND v.version=x.definition_version WHERE x.tenant_id=? AND " + p
 	if mine {
-		q += " AND x.state='WAITING' AND EXISTS(SELECT 1 FROM workflow_steps ws JOIN workflow_decisions wd ON wd.tenant_id=ws.tenant_id AND wd.execution_id=ws.execution_id AND wd.node_id=ws.node_id WHERE ws.tenant_id=x.tenant_id AND ws.execution_id=x.id AND ws.node_id=x.current_node AND ws.state='WAITING' AND ws.deadline>? AND wd.user_id=? AND wd.decision='PENDING' AND (wd.group_id IS NULL OR EXISTS(SELECT 1 FROM group_memberships gm JOIN `groups` g ON g.tenant_id=gm.tenant_id AND g.id=gm.group_id AND g.active=TRUE WHERE gm.tenant_id=wd.tenant_id AND gm.group_id=wd.group_id AND gm.user_id=wd.user_id)))"
+		q += pendingSQL()
 		params = append(params, s.now(), a.UserID)
 	}
 	if request > 0 {
@@ -394,4 +394,20 @@ func (s *Service) Repair(ctx context.Context, a Actor, id, version uint64, actio
 		return err
 	})
 	return out, err
+}
+
+func pendingSQL() string {
+	return " AND x.state='WAITING' AND EXISTS(SELECT 1 FROM workflow_steps ws JOIN workflow_decisions wd ON wd.tenant_id=ws.tenant_id AND wd.execution_id=ws.execution_id AND wd.node_id=ws.node_id WHERE ws.tenant_id=x.tenant_id AND ws.execution_id=x.id AND ws.node_id=x.current_node AND ws.state='WAITING' AND ws.deadline>? AND wd.user_id=? AND wd.decision='PENDING' AND (wd.group_id IS NULL OR EXISTS(SELECT 1 FROM group_memberships gm JOIN `groups` g ON g.tenant_id=gm.tenant_id AND g.id=gm.group_id AND g.active=TRUE WHERE gm.tenant_id=wd.tenant_id AND gm.group_id=wd.group_id AND gm.user_id=wd.user_id)))"
+}
+func (s *Service) PendingCount(ctx context.Context, a Actor) (uint64, error) {
+	if !a.Has("workflow.approve") {
+		return 0, workrecords.ErrForbidden
+	}
+	p, args := AccessSQL(a, "x")
+	params := []any{a.TenantID}
+	params = append(params, args...)
+	params = append(params, s.now(), a.UserID)
+	var n uint64
+	err := s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM workflow_executions x WHERE x.tenant_id=? AND "+p+pendingSQL(), params...).Scan(&n)
+	return n, err
 }

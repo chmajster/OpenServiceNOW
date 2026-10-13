@@ -301,7 +301,11 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 			view = "group"
 		}
 	}
-	p, err := h.service.List(r.Context(), actor(r), isTask(r), r.URL.Query().Get("q"), r.URL.Query().Get("state"), view, before, limit)
+	if v := r.URL.Query().Get("active"); v != "" && v != "true" && v != "false" {
+		writeError(w, r, ErrInvalid)
+		return
+	}
+	p, err := h.service.ListFiltered(r.Context(), actor(r), isTask(r), r.URL.Query().Get("q"), r.URL.Query().Get("state"), view, before, limit, r.URL.Query().Get("active") == "true")
 	respond(w, r, 200, p, err)
 }
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {

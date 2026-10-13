@@ -354,7 +354,7 @@ func validateFilter(f Filter) error {
 	if f.Sort != "newest" && f.Sort != "oldest" && f.Sort != "priority" {
 		return ErrInvalid
 	}
-	if f.View != "all" && f.View != "mine" && f.View != "my_group" && f.View != "unassigned" {
+	if f.View != "all" && f.View != "mine" && f.View != "my_group" && f.View != "unassigned" && f.View != "assigned" {
 		return ErrInvalid
 	}
 	if f.State != "" {
@@ -408,4 +408,14 @@ func (s *Service) History(ctx context.Context, a Actor, id, before uint64, limit
 	}
 	err = s.repo.db.QueryRowContext(ctx, query+`)`, a.TenantID, fmt.Sprint(id)).Scan(&result.Pending)
 	return result, err
+}
+
+func (s *Service) Count(ctx context.Context, a Actor, f Filter) (uint64, error) {
+	if !a.Has("read") && !a.Has("read_own") {
+		return 0, ErrForbidden
+	}
+	if err := validateFilter(f); err != nil {
+		return 0, err
+	}
+	return s.repo.Count(ctx, a, f)
 }

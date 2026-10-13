@@ -33,6 +33,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/users"
 	"github.com/chmajster/OpenServiceNOW/internal/workflow"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
+	"github.com/chmajster/OpenServiceNOW/internal/workspace"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -113,8 +114,11 @@ func main() {
 	}
 	incidentService.WithAttachments(files)
 	incidentHandler := incidents.NewHandler(incidentService, identityService)
-	requestHandler := requests.NewHandler(requests.NewService(db, files), catalog.NewService(db), identityService)
-	workflowHandler := workflow.NewHandler(workflow.NewService(db, requests.NewService(db, files)), identityService)
+	requestService := requests.NewService(db, files)
+	requestHandler := requests.NewHandler(requestService, catalog.NewService(db), identityService)
+	workflowService := workflow.NewService(db, requestService)
+	workflowHandler := workflow.NewHandler(workflowService, identityService)
+	workspaceHandler := &workspace.Handler{Service: &workspace.Service{Incidents: incidentService, Requests: requestService, Workflow: workflowService}, Permissions: identityService}
 	notificationHandler := notifications.NewHandler(notifications.NewService(db, cfg.NotificationKey, cfg.SMTPAllowInsecure), outboxRepo)
 
 	healthHandler := health.New(
@@ -154,6 +158,7 @@ func main() {
 			func(r chi.Router) { notifications.RegisterRoutes(r, notificationHandler, identityMiddleware) },
 			func(r chi.Router) { requests.RegisterRoutes(r, requestHandler, identityMiddleware) },
 			func(r chi.Router) { workflow.RegisterRoutes(r, workflowHandler, identityMiddleware) },
+			func(r chi.Router) { workspace.RegisterRoutes(r, workspaceHandler, identityMiddleware) },
 			func(r chi.Router) {
 				sla.RegisterRoutes(r, sla.NewHandler(sla.NewService(db), identityService), identityMiddleware)
 			},

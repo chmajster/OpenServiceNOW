@@ -1,0 +1,137 @@
+package workspace
+
+import (
+	"context"
+	"errors"
+	"sort"
+	"strings"
+	"time"
+	"unicode"
+	"unicode/utf8"
+
+	"github.com/chmajster/OpenServiceNOW/internal/incidents"
+	"github.com/chmajster/OpenServiceNOW/internal/requests"
+	"github.com/chmajster/OpenServiceNOW/internal/workflow"
+	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
+)
+
+var ErrInvalid = errors.New("wpisz od 2 do 200 znaków, bez znaków sterujących")
+
+type Metric struct {
+	Key        string `json:"key"`
+	Label      string `json:"label"`
+	Count      uint64 `json:"count,string"`
+	URL        string `json:"url"`
+	Definition string `json:"definition"`
+}
+type Summary struct {
+	Metrics      []Metric  `json:"metrics"`
+	CalculatedAt time.Time `json:"calculated_at"`
+}
+type Service struct {
+	Incidents *incidents.Service
+	Requests  *requests.Service
+	Workflow  *workflow.Service
+}
+
+func incidentActor(a workrecords.Principal) incidents.Actor {
+	return incidents.Actor{TenantID: a.TenantID, UserID: a.UserID, Permissions: a.Permissions}
+}
+
+func (s *Service) Summary(ctx context.Context, a workrecords.Principal) (Summary, error) {
+	out := Summary{Metrics: []Metric{}, CalculatedAt: time.Now().UTC()}
+	add := func(key, label, url, definition string, count uint64) {
+		out.Metrics = append(out.Metrics, Metric{key, label, count, url, definition})
+	}
+	if a.Has("incident.read") || a.Has("incident.read_own") {
+		for _, v := range []struct {
+			key, label, view, definition string
+			risk                         bool
+		}{
+			{"my_incidents", "Moje aktywne incydenty", "assigned", "Przypisane do mnie; bez rozwiązanych, zamkniętych i anulowanych.", false},
+			{"group_incidents", "Incydenty moich grup", "my_group", "Przypisane do aktywnych grup, do których należę; wyłącznie aktywne.", false},
+			{"sla_risk", "Zagrożone SLA incydentów", "all", "Aktywne incydenty z ostrzeżeniem lub przekroczeniem aktywnego/wstrzymanego SLA. Stan ostatnio zapisany przez worker; obejmuje cały dostępny zbiór.", true},
+		} {
+			f := incidents.Filter{View: v.view, Sort: "newest", Limit: 25, Active: true, SLARisk: v.risk}
+			n, err := s.Incidents.Count(ctx, incidentActor(a), f)
+			if err != nil {
+				return Summary{}, err
+			}
+			url := "/incidents?active=true&view=" + v.view
+			if v.risk {
+				url += "&sla_risk=true"
+			}
+			add(v.key, v.label, url, v.definition, n)
+		}
+	}
+	if a.Has("request.fulfill") || a.Has("request.manage") {
+		for _, v := range []struct{ key, label, view, definition string }{
+			{"my_tasks", "Moje aktywne zadania", "mine", "Otwarte, realizowane i wstrzymane zadania przypisane do mnie w aktywnych wnioskach."},
+			{"group_tasks", "Zadania moich grup", "my_group", "Dostępne zadania aktywnych wniosków w aktywnych grupach, do których należę."},
+			{"unassigned_tasks", "Nieprzypisane zadania", "unassigned", "Dostępne aktywne zadania bez wykonawcy w aktywnych wnioskach."},
+		} {
+			n, err := s.Requests.Count(ctx, a, true, v.view, true)
+			if err != nil {
+				return Summary{}, err
+			}
+			add(v.key, v.label, "/fulfillment?active=true&view="+v.view, v.definition, n)
+		}
+	}
+	if a.Has("request.read_own") {
+		n, err := s.Requests.Count(ctx, a, false, "mine", true)
+		if err != nil {
+			return Summary{}, err
+		}
+		add("my_requests", "Moje aktywne wnioski", "/requests?active=true&view=mine", "Moje wnioski w stanie Złożony lub W realizacji.", n)
+	}
+	if a.Has("workflow.approve") {
+		n, err := s.Workflow.PendingCount(ctx, a)
+		if err != nil {
+			return Summary{}, err
+		}
+		add("approvals", "Oczekujące akceptacje", "/approvals", "Decyzje oczekujące na mnie w bieżącym kroku przed terminem, z aktualnym członkostwem i uprawnieniem.", n)
+	}
+	return out, nil
+}
+
+func ValidateQuery(q string) error {
+	if !utf8.ValidString(q) || utf8.RuneCountInString(q) < 2 || utf8.RuneCountInString(q) > 200 {
+		return ErrInvalid
+	}
+	for _, c := range q {
+		if unicode.IsControl(c) {
+			return ErrInvalid
+		}
+	}
+	return nil
+}
+func (s *Service) Search(ctx context.Context, a workrecords.Principal, q string) ([]workrecords.Reference, error) {
+	q = strings.TrimSpace(q)
+	if err := ValidateQuery(q); err != nil {
+		return nil, err
+	}
+	out := []workrecords.Reference{}
+	if a.Has("incident.read") || a.Has("incident.read_own") {
+		r, err := s.Incidents.Search(ctx, incidentActor(a), q)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r...)
+	}
+	if a.Has("request.read_own") || a.Has("request.fulfill") || a.Has("request.manage") {
+		r, err := s.Requests.Search(ctx, a, q, false)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r...)
+	}
+	if a.Has("request.fulfill") || a.Has("request.manage") {
+		r, err := s.Requests.Search(ctx, a, q, true)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r...)
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Exact && !out[j].Exact })
+	return out, nil
+}

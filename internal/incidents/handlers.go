@@ -235,7 +235,13 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := r.URL.Query()
-	f := Filter{Query: q.Get("q"), State: q.Get("state"), Category: q.Get("category"), View: q.Get("view"), Sort: q.Get("sort"), AfterID: after, Limit: limit}
+	for _, k := range []string{"active", "sla_risk"} {
+		if v := q.Get(k); v != "" && v != "true" && v != "false" {
+			writeError(w, r, ErrInvalid)
+			return
+		}
+	}
+	f := Filter{Query: q.Get("q"), State: q.Get("state"), Category: q.Get("category"), View: q.Get("view"), Sort: q.Get("sort"), AfterID: after, Limit: limit, Active: q.Get("active") == "true", SLARisk: q.Get("sla_risk") == "true"}
 	if f.View == "" {
 		f.View = "all"
 	}

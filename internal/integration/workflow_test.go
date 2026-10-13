@@ -237,6 +237,8 @@ func TestDurableRequestWorkflow(t *testing.T) {
 	if x.State != "WAITING" || x.CurrentNode != "approval" {
 		t.Fatal(x)
 	}
+	if n,err:=s.PendingCount(ctx,approver);err!=nil || n!=1 {t.Fatalf("pending count=%d err=%v",n,err)}
+	if n,err:=s.PendingCount(ctx,reporter);err!=nil || n!=0 {t.Fatalf("self approval count=%d err=%v",n,err)}
 	// New definitions and a service reconstruction cannot mutate an active version.
 	c.Nodes[2].Title = "CHANGED NEW VERSION"
 	def.Draft = c

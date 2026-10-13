@@ -165,41 +165,8 @@ func (r *Repository) ValidateGroupMember(ctx context.Context, exec database.Exec
 }
 func (r *Repository) List(ctx context.Context, a Actor, f Filter) (Page, error) {
 	columns := strings.ReplaceAll(strings.ReplaceAll(recordColumns, "i.description,", "'',"), "i.resolution_description,", "'',")
-	query := "SELECT " + columns + recordJoins + " WHERE i.tenant_id=?"
-	args := []any{a.TenantID}
-	if !a.Has("read") {
-		query += " AND (i.reporter_id=? OR i.affected_user_id=?)"
-		args = append(args, a.UserID, a.UserID)
-	}
-	switch f.View {
-	case "mine":
-		query += " AND (i.reporter_id=? OR i.affected_user_id=? OR w.assigned_to=?)"
-		args = append(args, a.UserID, a.UserID, a.UserID)
-	case "my_group":
-		query += " AND g.active=TRUE AND EXISTS(SELECT 1 FROM group_memberships gm WHERE gm.tenant_id=i.tenant_id AND gm.group_id=w.assignment_group_id AND gm.user_id=?)"
-		args = append(args, a.UserID)
-	case "unassigned":
-		query += " AND w.assigned_to IS NULL"
-	}
-	for _, condition := range []struct {
-		sql     string
-		value   any
-		enabled bool
-	}{
-		{"i.state=?", f.State, f.State != ""}, {"i.category=?", f.Category, f.Category != ""}, {"i.priority=?", f.Priority, f.Priority != 0},
-		{"w.assigned_to=?", f.AssignedTo, f.AssignedTo != 0}, {"w.assignment_group_id=?", f.GroupID, f.GroupID != 0}, {"i.reporter_id=?", f.ReporterID, f.ReporterID != 0},
-		{"i.created_at>=?", f.From.UTC(), !f.From.IsZero()}, {"i.created_at<=?", f.To.UTC(), !f.To.IsZero()},
-	} {
-		if condition.enabled {
-			query += " AND " + condition.sql
-			args = append(args, condition.value)
-		}
-	}
-	if f.Query != "" {
-		query += " AND (i.number LIKE ? ESCAPE '!' OR i.title LIKE ? ESCAPE '!')"
-		escaped := strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(f.Query)
-		args = append(args, "%"+escaped+"%", "%"+escaped+"%")
-	}
+	where, args := listWhere(a, f)
+	query := "SELECT " + columns + recordJoins + where
 	if f.AfterID > 0 {
 		switch f.Sort {
 		case "oldest":
@@ -248,4 +215,60 @@ func (r *Repository) List(ctx context.Context, a Actor, f Filter) (Page, error) 
 		}
 	}
 	return page, nil
+}
+
+// Counts and rows use the same object scope and filters, before pagination.
+func listWhere(a Actor, f Filter) (string, []any) {
+	query := " WHERE i.tenant_id=?"
+	args := []any{a.TenantID}
+	if !a.Has("read") {
+		query += " AND (i.reporter_id=? OR i.affected_user_id=?)"
+		args = append(args, a.UserID, a.UserID)
+	}
+	switch f.View {
+	case "mine":
+		query += " AND (i.reporter_id=? OR i.affected_user_id=? OR w.assigned_to=?)"
+		args = append(args, a.UserID, a.UserID, a.UserID)
+	case "my_group":
+		query += " AND g.active=TRUE AND EXISTS(SELECT 1 FROM group_memberships gm WHERE gm.tenant_id=i.tenant_id AND gm.group_id=w.assignment_group_id AND gm.user_id=?)"
+		args = append(args, a.UserID)
+	case "assigned":
+		query += " AND w.assigned_to=?"
+		args = append(args, a.UserID)
+	case "unassigned":
+		query += " AND w.assigned_to IS NULL"
+	}
+	for _, condition := range []struct {
+		sql     string
+		value   any
+		enabled bool
+	}{
+		{"i.state=?", f.State, f.State != ""}, {"i.category=?", f.Category, f.Category != ""}, {"i.priority=?", f.Priority, f.Priority != 0},
+		{"w.assigned_to=?", f.AssignedTo, f.AssignedTo != 0}, {"w.assignment_group_id=?", f.GroupID, f.GroupID != 0}, {"i.reporter_id=?", f.ReporterID, f.ReporterID != 0},
+		{"i.created_at>=?", f.From.UTC(), !f.From.IsZero()}, {"i.created_at<=?", f.To.UTC(), !f.To.IsZero()},
+	} {
+		if condition.enabled {
+			query += " AND " + condition.sql
+			args = append(args, condition.value)
+		}
+	}
+	if f.Query != "" {
+		query += " AND (i.number LIKE ? ESCAPE '!' OR i.title LIKE ? ESCAPE '!')"
+		escaped := strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(f.Query)
+		args = append(args, "%"+escaped+"%", "%"+escaped+"%")
+	}
+	if f.Active {
+		query += " AND i.state NOT IN ('RESOLVED','CLOSED','CANCELLED')"
+	}
+	if f.SLARisk {
+		query += ` AND EXISTS(SELECT 1 FROM sla_instances si WHERE si.tenant_id=i.tenant_id AND si.incident_id=i.id AND JSON_UNQUOTE(JSON_EXTRACT(si.state,'$.status')) IN ('ACTIVE','PAUSED') AND (JSON_EXTRACT(si.state,'$.warned_at') IS NOT NULL AND JSON_TYPE(JSON_EXTRACT(si.state,'$.warned_at'))<>'NULL' OR JSON_EXTRACT(si.state,'$.breached_at') IS NOT NULL AND JSON_TYPE(JSON_EXTRACT(si.state,'$.breached_at'))<>'NULL'))`
+	}
+	return query, args
+}
+
+func (r *Repository) Count(ctx context.Context, a Actor, f Filter) (uint64, error) {
+	where, args := listWhere(a, f)
+	var n uint64
+	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*)"+recordJoins+where, args...).Scan(&n)
+	return n, err
 }

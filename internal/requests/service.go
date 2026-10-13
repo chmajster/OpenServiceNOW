@@ -289,65 +289,30 @@ func (s *Service) ChangeTask(ctx context.Context, a Actor, id uint64, in Change,
 	return out, err
 }
 func (s *Service) List(ctx context.Context, a Actor, tasks bool, q, state, view string, before uint64, limit int) (any, error) {
-	if limit < 1 || limit > 100 || !catalog.Text(q, 0, 200) {
+	return s.ListFiltered(ctx, a, tasks, q, state, view, before, limit, false)
+}
+func (s *Service) ListFiltered(ctx context.Context, a Actor, tasks bool, q, state, view string, before uint64, limit int, active bool) (any, error) {
+	if limit < 1 || limit > 100 {
 		return nil, ErrInvalid
 	}
-	if tasks && !a.Has("request.manage") && !a.Has("request.fulfill") || !tasks && !a.Has("request.manage") && !a.Has("request.fulfill") && !a.Has("request.read_own") {
-		return nil, ErrForbidden
-	}
-	if state != "" && !contains([]string{"SUBMITTED", "IN_PROGRESS", "FULFILLED", "CLOSED", "CANCELLED", "OPEN", "ON_HOLD", "COMPLETED"}, state) {
-		return nil, ErrInvalid
+	where, args, err := listWhere(a, tasks, q, state, view, active)
+	if err != nil {
+		return nil, err
 	}
 	alias := "r"
-	p, pa := requestPredicate(a, "r")
 	if tasks {
 		alias = "t"
-		p, pa = taskPredicate(a, "t")
 	}
 	query := "SELECT r.id,r.number,r.requester_id,u.display_name,r.state,r.reason,r.version,r.created_at,r.updated_at FROM service_requests r JOIN users u ON u.id=r.requester_id"
 	if tasks {
 		query = "SELECT " + taskColumns + taskJoins
 	}
-	query += " WHERE " + alias + ".tenant_id=? AND " + p
-	args := []any{a.TenantID}
-	args = append(args, pa...)
+	query += where
 	if before > 0 {
 		query += " AND " + alias + ".id<?"
 		args = append(args, before)
 	}
-	if state != "" {
-		query += " AND " + alias + ".state=?"
-		args = append(args, state)
-	}
-	if !tasks {
-		if view != "mine" && view != "all" {
-			return nil, ErrInvalid
-		}
-		if view == "mine" {
-			query += " AND r.requester_id=?"
-			args = append(args, a.UserID)
-		}
-	} else {
-		if view != "group" && view != "mine" && view != "unassigned" {
-			return nil, ErrInvalid
-		}
-		if view != "group" {
-			query += " AND EXISTS(SELECT 1 FROM work_assignments wa WHERE wa.tenant_id=t.tenant_id AND wa.object_type='fulfillment_task' AND wa.object_id=CAST(t.id AS CHAR) AND "
-			if view == "mine" {
-				query += "wa.assigned_to=?)"
-				args = append(args, a.UserID)
-			} else {
-				query += "wa.assigned_to IS NULL)"
-			}
-		}
-	}
-	query += " AND (?='' OR LOCATE(?," + alias + ".number)>0"
-	args = append(args, q, q)
-	if tasks {
-		query += " OR LOCATE(?,t.title)>0"
-		args = append(args, q)
-	}
-	query += ") ORDER BY " + alias + ".id DESC LIMIT ?"
+	query += " ORDER BY " + alias + ".id DESC LIMIT ?"
 	args = append(args, limit+1)
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -401,4 +366,83 @@ func RegisterEventHandlers(d *events.Dispatcher, p *activity.Projector) error {
 		}
 	}
 	return nil
+}
+
+func listWhere(a Actor, tasks bool, q, state, view string, active bool) (string, []any, error) {
+	if !catalog.Text(q, 0, 200) {
+		return "", nil, ErrInvalid
+	}
+	if tasks && !a.Has("request.manage") && !a.Has("request.fulfill") || !tasks && !a.Has("request.manage") && !a.Has("request.fulfill") && !a.Has("request.read_own") {
+		return "", nil, ErrForbidden
+	}
+	if state != "" && !contains([]string{"SUBMITTED", "IN_PROGRESS", "FULFILLED", "CLOSED", "CANCELLED", "OPEN", "ON_HOLD", "COMPLETED"}, state) {
+		return "", nil, ErrInvalid
+	}
+	alias := "r"
+	p, pa := requestPredicate(a, "r")
+	if tasks {
+		alias = "t"
+		p, pa = taskPredicate(a, "t")
+	}
+	query := " WHERE " + alias + ".tenant_id=? AND " + p
+	args := []any{a.TenantID}
+	args = append(args, pa...)
+	if state != "" {
+		query += " AND " + alias + ".state=?"
+		args = append(args, state)
+	}
+	if !tasks {
+		if view != "mine" && view != "all" {
+			return "", nil, ErrInvalid
+		}
+		if view == "mine" {
+			query += " AND r.requester_id=?"
+			args = append(args, a.UserID)
+		}
+	} else {
+		if view != "group" && view != "my_group" && view != "mine" && view != "unassigned" {
+			return "", nil, ErrInvalid
+		}
+		if view == "my_group" {
+			query += " AND g.active=TRUE AND EXISTS(SELECT 1 FROM group_memberships gm WHERE gm.tenant_id=t.tenant_id AND gm.group_id=wa.assignment_group_id AND gm.user_id=?)"
+			args = append(args, a.UserID)
+		} else if view != "group" {
+			query += " AND EXISTS(SELECT 1 FROM work_assignments wa WHERE wa.tenant_id=t.tenant_id AND wa.object_type='fulfillment_task' AND wa.object_id=CAST(t.id AS CHAR) AND "
+			if view == "mine" {
+				query += "wa.assigned_to=?)"
+				args = append(args, a.UserID)
+			} else {
+				query += "wa.assigned_to IS NULL)"
+			}
+		}
+	}
+	query += " AND (?='' OR LOCATE(?," + alias + ".number)>0"
+	args = append(args, q, q)
+	if tasks {
+		query += " OR LOCATE(?,t.title)>0"
+		args = append(args, q)
+	}
+	query += ")"
+	if active {
+		if tasks {
+			query += " AND t.state NOT IN ('COMPLETED','CANCELLED') AND r.state NOT IN ('FULFILLED','CLOSED','CANCELLED')"
+		} else {
+			query += " AND r.state IN ('SUBMITTED','IN_PROGRESS')"
+		}
+	}
+	return query, args, nil
+}
+
+func (s *Service) Count(ctx context.Context, a Actor, tasks bool, view string, active bool) (uint64, error) {
+	where, args, err := listWhere(a, tasks, "", "", view, active)
+	if err != nil {
+		return 0, err
+	}
+	joins := " FROM service_requests r"
+	if tasks {
+		joins = taskJoins
+	}
+	var n uint64
+	err = s.db.QueryRowContext(ctx, "SELECT COUNT(*)"+joins+where, args...).Scan(&n)
+	return n, err
 }
