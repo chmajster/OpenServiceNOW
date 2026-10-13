@@ -331,14 +331,23 @@ export function IncidentWorkspace({
       <div hidden={activeTab !== "communication"} className="panel">
         <CommunicationPanel record={record} retain={retain} />
       </div>
-      {activeTab === "problems" && (
-        <section className="panel">
-          <IncidentProblems record={record} onChanged={refresh} />
+      {(activeTab === "problems" || draftTabs.related_problems) && (
+        <section className="panel" hidden={activeTab !== "problems"}>
+          <IncidentProblems
+            retain={retain}
+            record={record}
+            onChanged={refresh}
+          />
         </section>
       )}
-      {activeTab === "cmdb" && (
-        <div className="panel">
-          <RecordCIPanel kind="incidents" id={record.id} onChanged={refresh} />
+      {(activeTab === "cmdb" || draftTabs.related_cis) && (
+        <div className="panel" hidden={activeTab !== "cmdb"}>
+          <RecordCIPanel
+            retain={retain}
+            kind="incidents"
+            id={record.id}
+            onChanged={refresh}
+          />
         </div>
       )}
       {activeTab === "participants" && (

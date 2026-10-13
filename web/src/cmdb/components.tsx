@@ -1,3 +1,4 @@
+import { useRetainedCommand } from "../components/useRetainedCommand";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, ApiError, jsonBody } from "../api/client";
@@ -618,10 +619,12 @@ export function RecordCIPanel({
   kind,
   id,
   onChanged,
+  retain,
 }: {
   kind: "incidents" | "requests" | "problems" | "changes";
   id: string;
   onChanged: () => void | Promise<void>;
+  retain?: (tab: string, needed: boolean) => void;
 }) {
   const { hasPermission } = useAuth();
   const allowed = hasPermission("cmdb.read") || hasPermission("cmdb.read_own");
@@ -631,6 +634,7 @@ export function RecordCIPanel({
       kind={kind}
       id={id}
       onChanged={onChanged}
+      retain={retain}
     />
   ) : (
     <PageState title="Brak uprawnień do CMDB" />
@@ -640,10 +644,12 @@ function RecordCIEditor({
   kind,
   id,
   onChanged,
+  retain,
 }: {
   kind: "incidents" | "requests" | "problems" | "changes";
   id: string;
   onChanged: () => void | Promise<void>;
+  retain?: (tab: string, needed: boolean) => void;
 }) {
   const base = `/api/v1/cmdb/records/${kind}/${id}/cis`;
   const p = useIncidentQuery<{ record: Reference; items: CI[] }>(
@@ -654,6 +660,7 @@ function RecordCIEditor({
     [error, setError] = useState<string>(),
     [notice, setNotice] = useState<string>(),
     [uncertain, setUncertain] = useState(false);
+  useRetainedCommand(retain, "related_cis", busy || uncertain);
   const selected = useIncidentQuery<CI>(
     choice ? `/api/v1/cmdb/cis/${choice.id}` : null,
   );

@@ -1,3 +1,4 @@
+import { ConflictComparison } from "../components/ConflictComparison";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Link,
@@ -187,6 +188,23 @@ function ProblemList() {
             maxLength={160}
             onChange={(e) => setSearch(e.target.value)}
           />
+        </label>
+        <label>
+          Kolejka
+          <select
+            aria-label="Kolejka"
+            value={params.get("view") ?? "all"}
+            onChange={(e) => {
+              const n = new URLSearchParams(params);
+              n.set("view", e.target.value);
+              first(n);
+            }}
+          >
+            <option value="all">Wszystkie dostępne</option>
+            <option value="mine">Przypisane do mnie</option>
+            <option value="my_group">Moje grupy</option>
+            <option value="unassigned">Bez wykonawcy</option>
+          </select>
         </label>
         <button className="button">Zastosuj wyszukiwanie</button>
         <button type="button" className="button" onClick={p.reload}>
@@ -460,7 +478,13 @@ function Editor({ initial }: { initial: Problem }) {
     n.set("tab", key);
     setParams(n);
   }
-  const blocked = editor.busy || !!editor.conflict || editor.uncertain;
+  const relatedPending = !!(
+    retained.related_cis ||
+    retained.related_incidents ||
+    retained.related_problems
+  );
+  const blocked =
+    editor.busy || !!editor.conflict || editor.uncertain || relatedPending;
   return (
     <>
       <UnsavedGuard
@@ -530,16 +554,10 @@ function Editor({ initial }: { initial: Problem }) {
       {editor.conflict && (
         <section className="panel" aria-label="Konflikt wersji">
           <h2>Konflikt wersji</h2>
-          <div className="conflict-columns">
-            <div>
-              <h3>Twoja propozycja</h3>
-              <pre>{JSON.stringify(draft, null, 2)}</pre>
-            </div>
-            <div>
-              <h3>Aktualny problem</h3>
-              <pre>{JSON.stringify(fields(editor.conflict), null, 2)}</pre>
-            </div>
-          </div>
+          <ConflictComparison
+            proposal={draft}
+            current={fields(editor.conflict)}
+          />
           <button
             onClick={() => {
               setBase(editor.conflict!);
@@ -671,20 +689,22 @@ function Editor({ initial }: { initial: Problem }) {
       <section hidden={tab !== "activity"}>
         <CommunicationPanel record={r} apiBase={path} retain={retain} />
       </section>
-      {tab === "related" && (
-        <section className="panel">
+      {(tab === "related" || relatedPending) && (
+        <section className="panel" hidden={tab !== "related"}>
           {dirty ? (
             <PageState title="Zapisz lub odrzuć edycję przed zmianą powiązań" />
           ) : (
             <>
               <ProblemChanges id={r.id} canLink={r.can_edit} />
               <ProblemIncidents
+                retain={retain}
                 record={r}
                 onChanged={() => save(path, undefined, "GET").then(() => {})}
               />
               {(hasPermission("cmdb.read") ||
                 hasPermission("cmdb.read_own")) && (
                 <RecordCIPanel
+                  retain={retain}
                   kind="problems"
                   id={r.id}
                   onChanged={() => save(path, undefined, "GET").then(() => {})}

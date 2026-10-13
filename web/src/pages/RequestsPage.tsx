@@ -1,3 +1,4 @@
+import { ConflictComparison } from "../components/ConflictComparison";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
@@ -419,7 +420,9 @@ function Workspace({
   const selectedTab = params.get("tab");
   const tab =
     selectedTab &&
-    ["info", "actions", "communication", "history"].includes(selectedTab)
+    ["info", "actions", "communication", "cmdb", "history"].includes(
+      selectedTab,
+    )
       ? selectedTab
       : "info";
   const [state, setState] = useState(""),
@@ -596,14 +599,17 @@ function Workspace({
           </button>
         ))}
       </div>
-      {tab === "cmdb" && !tasks && (
-        <RecordCIPanel
-          kind="requests"
-          id={r.id}
-          onChanged={() =>
-            editor.save(path, undefined, "GET").then(() => undefined)
-          }
-        />
+      {(tab === "cmdb" || draftTabs.related_cis) && !tasks && (
+        <section hidden={tab !== "cmdb"}>
+          <RecordCIPanel
+            retain={retain}
+            kind="requests"
+            id={r.id}
+            onChanged={() =>
+              editor.save(path, undefined, "GET").then(() => undefined)
+            }
+          />
+        </section>
       )}
       {editor.notice ? <p role="status">{editor.notice}</p> : null}
       {editor.error ? <p role="alert">{editor.error}</p> : null}
@@ -615,10 +621,21 @@ function Workspace({
             {assigned?.label}. Aktualny stan: {states[editor.conflict.state]},
             wersja {editor.conflict.version}.
           </p>
-          <details>
-            <summary>Aktualny rekord</summary>
-            <pre>{JSON.stringify(editor.conflict, null, 2)}</pre>
-          </details>
+          <ConflictComparison
+            proposal={{
+              state: states[state] ?? state ?? states[r.state],
+              reason,
+              assigned_to: assigned?.label ?? "Bez przypisania",
+            }}
+            current={{
+              state: states[editor.conflict.state],
+              reason: "reason" in editor.conflict ? editor.conflict.reason : "",
+              assigned_to:
+                "assigned_name" in editor.conflict
+                  ? editor.conflict.assigned_name
+                  : "Bez przypisania",
+            }}
+          />
           <button
             className="button button--secondary"
             onClick={() => {

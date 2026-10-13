@@ -1,3 +1,5 @@
+import { ConflictComparison } from "../components/ConflictComparison";
+import { useRetainedCommand } from "../components/useRetainedCommand";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, ApiError, jsonBody } from "../api/client";
@@ -18,9 +20,11 @@ import {
 export function ProblemIncidents({
   record,
   onChanged,
+  retain,
 }: {
   record: Problem;
   onChanged: () => Promise<void>;
+  retain?: (tab: string, needed: boolean) => void;
 }) {
   const path = `/api/v1/problems/${record.id}/incidents`,
     p = useRemotePage<SourceIncident>(path + "?limit=25", "items", "before_id");
@@ -44,8 +48,11 @@ export function ProblemIncidents({
       controller.current?.abort();
     };
   }, []);
+  useRetainedCommand(retain, "related_incidents", busy || uncertain);
+  const inFlight = useRef(false);
   async function change(incident: SourceIncident | undefined, remove: boolean) {
-    if (busy || (!incident && !operation.current)) return;
+    if (inFlight.current || (!incident && !operation.current)) return;
+    inFlight.current = true;
     setBusy(true);
     setError("");
     const c = new AbortController();
@@ -84,6 +91,7 @@ export function ProblemIncidents({
         setUncertain(!(e instanceof ApiError) || e.status >= 500);
       }
     } finally {
+      inFlight.current = false;
       if (alive.current) setBusy(false);
     }
   }
@@ -560,10 +568,10 @@ function TaskEditor({
         {editor.conflict && (
           <section aria-label="Konflikt zadania">
             <h4>Konflikt wersji zadania</h4>
-            <div className="conflict-columns">
-              <pre>{JSON.stringify(draft, null, 2)}</pre>
-              <pre>{JSON.stringify(taskFields(editor.conflict), null, 2)}</pre>
-            </div>
+            <ConflictComparison
+              proposal={draft}
+              current={taskFields(editor.conflict)}
+            />
             <button
               type="button"
               onClick={() => {

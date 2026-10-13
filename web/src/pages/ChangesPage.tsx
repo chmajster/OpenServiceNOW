@@ -277,6 +277,23 @@ export function ChangeList({ cab = false }: { cab?: boolean } = {}) {
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
+        <label>
+          Kolejka
+          <select
+            aria-label="Kolejka"
+            value={params.get("view") ?? "all"}
+            onChange={(e) => {
+              const n = new URLSearchParams(params);
+              n.set("view", e.target.value);
+              first(n);
+            }}
+          >
+            <option value="all">Wszystkie dostępne</option>
+            <option value="mine">Przypisane do mnie</option>
+            <option value="my_group">Moje grupy</option>
+            <option value="unassigned">Bez wykonawcy</option>
+          </select>
+        </label>
         <button className="button">Zastosuj wyszukiwanie</button>
         <button type="button" className="button" onClick={p.reload}>
           Odśwież listę
@@ -564,7 +581,13 @@ function Editor({ initial }: { initial: Change }) {
     n.set("tab", key);
     setParams(n);
   }
-  const blocked = editor.busy || !!editor.conflict || editor.uncertain;
+  const relatedPending = !!(
+    retained.related_cis ||
+    retained.related_incidents ||
+    retained.related_problems
+  );
+  const blocked =
+    editor.busy || !!editor.conflict || editor.uncertain || relatedPending;
   return (
     <>
       <UnsavedGuard
@@ -758,7 +781,8 @@ function Editor({ initial }: { initial: Change }) {
                   version: r.version,
                   state: target,
                   reason,
-                  override: target === "SCHEDULED" && override,
+                  override:
+                    ["SCHEDULED", "IMPLEMENT"].includes(target) && override,
                 })
               ) {
                 setReason("");
@@ -795,7 +819,7 @@ function Editor({ initial }: { initial: Change }) {
                 onChange={(e) => setReason(e.target.value)}
               />
             </label>
-            {target === "SCHEDULED" &&
+            {["SCHEDULED", "IMPLEMENT"].includes(target) &&
               hasPermission("change.schedule_override") && (
                 <label className="checkbox-label">
                   <input
@@ -823,19 +847,21 @@ function Editor({ initial }: { initial: Change }) {
       <section hidden={tab !== "activity"}>
         <CommunicationPanel record={r} apiBase={path} retain={retain} />
       </section>
-      {tab === "related" && (
-        <section className="panel">
+      {(tab === "related" || relatedPending) && (
+        <section className="panel" hidden={tab !== "related"}>
           {dirty ? (
             <PageState title="Zapisz lub odrzuć edycję przed zmianą powiązań" />
           ) : (
             <>
               <ChangeProblems
+                retain={retain}
                 record={r}
                 onChanged={() => save(path, undefined, "GET").then(() => {})}
               />
               {(hasPermission("cmdb.read") ||
                 hasPermission("cmdb.read_own")) && (
                 <RecordCIPanel
+                  retain={retain}
                   kind="changes"
                   id={r.id}
                   onChanged={() => save(path, undefined, "GET").then(() => {})}

@@ -1,3 +1,4 @@
+import { ConflictComparison } from "../components/ConflictComparison";
 import { useState } from "react";
 import { flushSync } from "react-dom";
 import { Link, useSearchParams } from "react-router-dom";
@@ -463,14 +464,10 @@ function Editor({
               Twoja definicja pozostaje w formularzu. Aktualny szkic:{" "}
               {ed.conflict.version}.
             </p>
-            <details>
-              <summary>Aktualny szkic</summary>
-              <pre>{JSON.stringify(ed.conflict.draft, null, 2)}</pre>
-            </details>
-            <details>
-              <summary>Lokalna propozycja</summary>
-              <pre>{JSON.stringify(draft, null, 2)}</pre>
-            </details>
+            <ConflictComparison
+              proposal={workflowComparison(draft)}
+              current={workflowComparison(ed.conflict.draft)}
+            />
             <button
               type="button"
               className="button button--secondary"
@@ -866,4 +863,9 @@ function NodeForm({
       </button>
     </fieldset>
   );
+}
+
+function workflowComparison(definition: Config) {
+  const { nodes, ...fields } = definition;
+  return { ...fields, nodes: Object.fromEntries(nodes.map((n) => [n.id, n])) };
 }

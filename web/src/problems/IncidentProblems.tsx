@@ -1,3 +1,4 @@
+import { useRetainedCommand } from "../components/useRetainedCommand";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, ApiError, jsonBody } from "../api/client";
@@ -10,9 +11,11 @@ import { errorText, labels, type Problem } from "./contracts";
 export function IncidentProblems({
   record,
   onChanged,
+  retain,
 }: {
   record: { id: string; version: string };
   onChanged: () => Promise<void>;
+  retain?: (tab: string, needed: boolean) => void;
 }) {
   const { hasPermission } = useAuth(),
     p = useRemotePage<Problem>(
@@ -40,8 +43,11 @@ export function IncidentProblems({
       controller.current?.abort();
     };
   }, []);
+  useRetainedCommand(retain, "related_problems", busy || uncertain);
+  const inFlight = useRef(false);
   async function change(problem: Problem | undefined, remove: boolean) {
-    if (busy || (!problem && !operation.current)) return;
+    if (inFlight.current || (!problem && !operation.current)) return;
+    inFlight.current = true;
     setBusy(true);
     setError("");
     const c = new AbortController();
@@ -79,6 +85,7 @@ export function IncidentProblems({
         setUncertain(!(e instanceof ApiError) || e.status >= 500);
       }
     } finally {
+      inFlight.current = false;
       if (alive.current) setBusy(false);
     }
   }
