@@ -14,7 +14,7 @@ import (
 
 var ListSorts = []string{"newest", "oldest", "title", "updated"}
 var ListGroups = []string{"state", "impact", "assignment_group_id", "risk", "change_type"}
-var ListColumns = []string{"number", "title", "state", "impact", "reporter", "assigned", "group", "risk", "change_type", "planned_start", "updated_at"}
+var ListColumns = []string{"number", "title", "state", "impact", "reporter", "assigned", "group", "risk", "change_type", "approval", "cab_review", "planned_start", "updated_at"}
 
 type GroupCount struct {
 	Value string `json:"value"`

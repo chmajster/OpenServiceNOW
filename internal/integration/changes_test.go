@@ -338,6 +338,13 @@ func TestChangeVersionedApprovalsSchedulingAndTemplates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	readRule, ruleErr := s.Rule(ctx, admin, rule.ID)
+	if ruleErr != nil || readRule.Version != rule.Version {
+		t.Fatal("rule conflict read", readRule, ruleErr)
+	}
+	if _, ruleErr = s.Rule(ctx, operator, rule.ID); !errors.Is(ruleErr, changes.ErrForbidden) {
+		t.Fatal("rule permission", ruleErr)
+	}
 	check, err := s.Collisions(ctx, operator, unscheduled.ID)
 	if err != nil || !check.Blackout {
 		t.Fatal("blackout", check, err)

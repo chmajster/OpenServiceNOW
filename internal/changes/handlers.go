@@ -43,6 +43,7 @@ func RegisterRoutes(r chi.Router, h *Handler, m *identity.Middleware) {
 		r.Get("/source-problems/{problemID}", h.source)
 		r.Get("/calendar", h.calendar)
 		r.Get("/calendar-rules", h.rules)
+		r.Get("/calendar-rules/{ruleID}", h.ruleGet)
 		r.With(m.RequireCSRF).Post("/calendar-rules", h.ruleSave)
 		r.With(m.RequireCSRF).Put("/calendar-rules/{ruleID}", h.ruleSave)
 		r.Get("/templates", h.templates)

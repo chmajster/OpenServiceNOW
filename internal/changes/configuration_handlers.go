@@ -221,3 +221,12 @@ func (h *Handler) approvalProcess(w http.ResponseWriter, r *http.Request) {
 	config, version, err := h.service.ApprovalProcess(r.Context(), actor(r), id)
 	respond(w, r, 200, map[string]any{"config": config, "version": version}, err)
 }
+
+func (h *Handler) ruleGet(w http.ResponseWriter, r *http.Request) {
+	id, err := childID(r, "ruleID")
+	var out CalendarRule
+	if err == nil {
+		out, err = h.service.Rule(r.Context(), actor(r), id)
+	}
+	respond(w, r, 200, out, err)
+}

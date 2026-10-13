@@ -255,3 +255,15 @@ func (s *Service) Calendar(ctx context.Context, a Actor, from, to time.Time) (Ca
 	}
 	return out, rows.Err()
 }
+
+func (s *Service) Rule(ctx context.Context, a Actor, id uint64) (CalendarRule, error) {
+	if !a.Has("change.calendar") {
+		return CalendarRule{}, ErrForbidden
+	}
+	out, err := rule(ctx, s.db, a.TenantID, id)
+	if err == nil && out.CIID != nil {
+		service := cmdb.NewService(s.db, nil, nil)
+		_, err = service.GetInTx(ctx, s.db, a, *out.CIID, false)
+	}
+	return out, err
+}
