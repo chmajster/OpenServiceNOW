@@ -75,6 +75,22 @@ const ProblemsPage = lazy(() =>
 const CmdbPage = lazy(() =>
   import("./pages/CmdbPage").then((m) => ({ default: m.CmdbPage })),
 );
+const ChangesPage = lazy(() =>
+  import("./pages/ChangesPage").then((m) => ({ default: m.ChangesPage })),
+);
+const CabPage = lazy(() =>
+  import("./pages/ChangesPage").then((m) => ({ default: m.CabPage })),
+);
+const ChangeCalendarPage = lazy(() =>
+  import("./pages/ChangeCalendarPage").then((m) => ({
+    default: m.ChangeCalendarPage,
+  })),
+);
+const ChangeTemplatesPage = lazy(() =>
+  import("./pages/ChangeTemplatesPage").then((m) => ({
+    default: m.ChangeTemplatesPage,
+  })),
+);
 const ApprovalsPage = lazy(() =>
   import("./pages/ApprovalsPage").then((m) => ({ default: m.ApprovalsPage })),
 );
@@ -134,6 +150,19 @@ const router = createBrowserRouter(
               <NotificationAdminPage />
             </RequirePermission>
           }
+        />
+        <Route path="changes" element={<ChangesPage />} />
+        <Route path="changes/:changeID" element={<ChangesPage />} />
+        <Route path="cab" element={<CabPage />} />
+        <Route path="change-calendar" element={<ChangeCalendarPage />} />
+        <Route
+          path="change-calendar/rules/:ruleID"
+          element={<ChangeCalendarPage />}
+        />
+        <Route path="change-templates" element={<ChangeTemplatesPage />} />
+        <Route
+          path="change-templates/:templateID"
+          element={<ChangeTemplatesPage />}
         />
         <Route path="problems" element={<ProblemsPage />} />
         <Route path="problems/:problemID" element={<ProblemsPage />} />

@@ -52,6 +52,30 @@ const navigation: NavItem[] = [
     anyPermissions: ["problem.read", "problem.read_own"],
   },
   {
+    to: "/changes",
+    label: "Zmiany",
+    section: "Praca",
+    anyPermissions: ["change.read", "change.read_own"],
+  },
+  {
+    to: "/cab",
+    label: "CAB — ocena zmian",
+    section: "Praca",
+    anyPermissions: ["change.read", "change.read_own"],
+  },
+  {
+    to: "/change-calendar",
+    label: "Kalendarz zmian",
+    section: "Praca",
+    anyPermissions: ["change.read", "change.read_own", "change.calendar"],
+  },
+  {
+    to: "/change-templates",
+    label: "Szablony zmian",
+    section: "Administracja",
+    anyPermissions: ["change.template_author", "change.template_approve"],
+  },
+  {
     to: "/cmdb",
     label: "CMDB",
     section: "Usługi",
