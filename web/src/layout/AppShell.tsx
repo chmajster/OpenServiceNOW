@@ -46,7 +46,16 @@ const navigation: NavItem[] = [
     permission: "workflow.approve",
   },
   {
-    to:"/cmdb", label:"CMDB", section:"Usługi", anyPermissions:["cmdb.read","cmdb.read_own"],
+    to: "/problems",
+    label: "Problemy",
+    section: "Praca",
+    anyPermissions: ["problem.read", "problem.read_own"],
+  },
+  {
+    to: "/cmdb",
+    label: "CMDB",
+    section: "Usługi",
+    anyPermissions: ["cmdb.read", "cmdb.read_own"],
   },
   {
     to: "/catalog",

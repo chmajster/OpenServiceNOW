@@ -49,6 +49,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     const controller = new AbortController();
     const paths: Record<string, string> = {
+      problems: "problems",
       cmdb: "cmdb/cis",
       incidents: "incidents",
       requests: "requests",
@@ -105,7 +106,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
   }, []);
   useEffect(() => {
     if (
-      /^\/(incidents|requests|fulfillment|catalog|approvals|cmdb)$/.test(
+      /^\/(incidents|requests|fulfillment|catalog|approvals|cmdb|problems)$/.test(
         location.pathname,
       )
     )

@@ -166,11 +166,9 @@ function Options({
   const url = new URL(endpoint, window.location.origin);
   url.searchParams.set("limit", "50");
   url.searchParams.set("q", search);
-  const page = useRemotePage<Role | Group | TenantUser>(
-    `${url.pathname}${url.search}`,
-    collection ?? kind,
-    cursor,
-  );
+  const page = useRemotePage<
+    Role | Group | TenantUser | { id: string; title: string; number: string }
+  >(`${url.pathname}${url.search}`, collection ?? kind, cursor);
   const options: Choice[] = page.items.map((item) =>
     "email" in item
       ? {
@@ -181,7 +179,10 @@ function Options({
           disabled:
             !allowInactive && (!item.user_active || !item.membership_active),
         }
-      : { id: item.id, label: item.name },
+      : {
+          id: item.id,
+          label: "title" in item ? `${item.number} · ${item.title}` : item.name,
+        },
   );
   const active = Math.min(index, options.length - 1);
   useEffect(() => {

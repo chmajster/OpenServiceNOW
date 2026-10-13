@@ -27,6 +27,7 @@ import {
 } from "./hooks";
 
 import { CommunicationPanel } from "./CommunicationPanel";
+import { IncidentProblems } from "../problems/IncidentProblems";
 import { RecordCIPanel } from "../cmdb/components";
 import { ParticipantsPanel } from "./ParticipantsPanel";
 import { UnsavedGuard } from "./UnsavedGuard";
@@ -116,7 +117,17 @@ export function IncidentWorkspace({
   }
   const tab = params.get("tab") ?? "info";
   const tabs = [
-    { value: "cmdb", label:"Elementy konfiguracji", available:hasPermission("cmdb.read")||hasPermission("cmdb.read_own") },
+    {
+      value: "problems",
+      label: "Problemy",
+      available:
+        hasPermission("problem.read") || hasPermission("problem.read_own"),
+    },
+    {
+      value: "cmdb",
+      label: "Elementy konfiguracji",
+      available: hasPermission("cmdb.read") || hasPermission("cmdb.read_own"),
+    },
     { value: "info", label: "Informacje", available: true },
     {
       value: "edit",
@@ -320,7 +331,16 @@ export function IncidentWorkspace({
       <div hidden={activeTab !== "communication"} className="panel">
         <CommunicationPanel record={record} retain={retain} />
       </div>
-      {activeTab === "cmdb" && <div className="panel"><RecordCIPanel kind="incidents" id={record.id} onChanged={refresh}/></div>}
+      {activeTab === "problems" && (
+        <section className="panel">
+          <IncidentProblems record={record} onChanged={refresh} />
+        </section>
+      )}
+      {activeTab === "cmdb" && (
+        <div className="panel">
+          <RecordCIPanel kind="incidents" id={record.id} onChanged={refresh} />
+        </div>
+      )}
       {activeTab === "participants" && (
         <div className="panel">
           <ParticipantsPanel record={record} />

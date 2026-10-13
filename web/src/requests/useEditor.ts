@@ -10,7 +10,12 @@ export function useEditor<T extends { version: string }>(
     [busy, setBusy] = useState(false),
     [error, setError] = useState<string>(),
     [notice, setNotice] = useState<string>(),
-    [conflict, setConflict] = useState<T>();
+    [conflict, setConflict] = useState<T>(),
+    [uncertain, setUncertain] = useState(false);
+  const pending = useRef<
+    | { path: string; body: unknown; method: string; headers?: HeadersInit }
+    | undefined
+  >(undefined);
   const alive = useRef(true),
     controller = useRef<AbortController | undefined>(undefined);
   useEffect(() => {
@@ -27,6 +32,11 @@ export function useEditor<T extends { version: string }>(
     headers?: HeadersInit,
   ) {
     if (busy || conflict) return false;
+    if (method !== "GET") {
+      if (uncertain && pending.current) {
+        ({ path, body, method, headers } = pending.current);
+      } else pending.current = { path, body, method, headers };
+    }
     setBusy(true);
     setError(undefined);
     const c = new AbortController();
@@ -39,6 +49,10 @@ export function useEditor<T extends { version: string }>(
         signal: c.signal,
       });
       if (alive.current) {
+        if (method !== "GET") {
+          setUncertain(false);
+          pending.current = undefined;
+        }
         setRecord(saved);
         setNotice(
           method === "GET"
@@ -50,6 +64,11 @@ export function useEditor<T extends { version: string }>(
     } catch (e) {
       if (alive.current && !c.signal.aborted) {
         setError(message(e));
+        if (method !== "GET") {
+          setUncertain(!(e instanceof ApiError) || e.status >= 500);
+          if (e instanceof ApiError && e.status < 500)
+            pending.current = undefined;
+        }
         if (e instanceof ApiError && e.status === 409) {
           try {
             const current = await api<T>(readPath, { signal: c.signal });
@@ -70,6 +89,7 @@ export function useEditor<T extends { version: string }>(
     error,
     notice,
     conflict,
+    uncertain,
     save,
     setRecord,
     resolve: () => {

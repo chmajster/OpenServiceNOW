@@ -2,6 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, jsonBody } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import {
+  auditChanges,
+  displayValue,
+  fieldLabel,
+} from "../components/auditPresentation";
 import { RemoteCombobox, type Choice } from "../components/RemoteCombobox";
 import { useRemotePage } from "../components/useRemotePage";
 import { PageState } from "../components/PageState";
@@ -85,7 +90,14 @@ export function InventoryHistory({ path }: { path: string }) {
     actor_name: string;
     summary: string;
     event_time: string;
-    data: unknown;
+    type?: string;
+    data: {
+      before?: unknown;
+      after?: unknown;
+      body?: string;
+      visibility?: string;
+      state?: string;
+    };
   };
   const p = useRemotePage<Entry>(path + "?limit=25", "entries", "before_id");
   return (
@@ -109,8 +121,30 @@ export function InventoryHistory({ path }: { path: string }) {
             <p>
               {e.actor_name} · {new Date(e.event_time).toLocaleString("pl-PL")}
             </p>
+            <p className="muted">
+              Źródło:{" "}
+              {e.type?.startsWith("problem.")
+                ? "Proces Problem"
+                : e.type?.startsWith("ci.")
+                  ? "CMDB"
+                  : "Rekord"}
+              {e.data?.visibility === "INTERNAL" ? " · Wewnętrzne" : ""}
+            </p>
+            {e.data?.body && <p className="preserve-lines">{e.data.body}</p>}
+            {Boolean(e.data?.before || e.data?.after) && (
+              <dl>
+                {auditChanges(e.data.before, e.data.after).map((c) => (
+                  <div key={c.field}>
+                    <dt>{fieldLabel(c.field)}</dt>
+                    <dd>
+                      {displayValue(c.before)} → {displayValue(c.after)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
             <details>
-              <summary>Zmiany i szczegóły techniczne</summary>
+              <summary>Dane zdarzenia</summary>
               <pre>{JSON.stringify(e.data, null, 2)}</pre>
             </details>
           </li>
@@ -517,11 +551,14 @@ export function LinkedRecords({ id }: { id: string }) {
       <h3>Powiązane zgłoszenia</h3>
       <p>
         Wyniki obejmują wyłącznie zgłoszenia, do których masz dostęp. Powiązania
-        dodasz na szczegółach incydentu lub wniosku.
+        dodasz na szczegółach powiązanego rekordu.
       </p>
       {(hasPermission("incident.read") ||
         hasPermission("incident.read_own")) && (
         <RecordList id={id} kind="incidents" />
+      )}
+      {["problem.read", "problem.read_own"].some(hasPermission) && (
+        <RecordList id={id} kind="problems" />
       )}
       {["request.read_own", "request.manage", "request.fulfill"].some(
         hasPermission,
@@ -534,7 +571,7 @@ function RecordList({
   kind,
 }: {
   id: string;
-  kind: "incidents" | "requests";
+  kind: "incidents" | "requests" | "problems";
 }) {
   const p = useRemotePage<Reference>(
     `/api/v1/cmdb/cis/${id}/records/${kind}`,
@@ -543,7 +580,13 @@ function RecordList({
   );
   return (
     <>
-      <h4>{kind === "incidents" ? "Incydenty" : "Wnioski"}</h4>
+      <h4>
+        {kind === "incidents"
+          ? "Incydenty"
+          : kind === "problems"
+            ? "Problemy"
+            : "Wnioski"}
+      </h4>
       <PageFeedback
         loading={p.loading}
         error={p.error}
@@ -569,7 +612,7 @@ export function RecordCIPanel({
   id,
   onChanged,
 }: {
-  kind: "incidents" | "requests";
+  kind: "incidents" | "requests" | "problems";
   id: string;
   onChanged: () => void | Promise<void>;
 }) {
@@ -591,7 +634,7 @@ function RecordCIEditor({
   id,
   onChanged,
 }: {
-  kind: "incidents" | "requests";
+  kind: "incidents" | "requests" | "problems";
   id: string;
   onChanged: () => void | Promise<void>;
 }) {

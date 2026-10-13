@@ -1,4 +1,12 @@
 const labels: Record<string, string> = {
+  problem: "Problem",
+  symptoms: "Objawy",
+  analysis: "Wyniki analizy",
+  root_cause: "Przyczyna źródłowa",
+  workaround: "Obejście",
+  solution_plan: "Plan trwałego rozwiązania",
+  verification: "Wynik weryfikacji",
+  known_error: "Known Error",
   incident: "Incydent",
   id: "Identyfikator",
   number: "Numer",

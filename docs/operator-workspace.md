@@ -127,13 +127,55 @@ archive/reload preserving relations, paginated list and keyboard tabs. The flow
 was repeated with CI/relation IDs above JavaScript's safe integer range. CI forms
 and graphs were visually inspected at 1366, 1920 and mobile widths.
 
+## Problem Management
+
+Migrations 85–89 add Problems, analytical tasks, explicit incident/CI link tables
+and domain permissions. PRB and PRBTASK use the existing transactional allocator.
+The Problem module has server-filtered/shared-view lists, typed forms, analytical
+narratives, documented Known Error, controlled assessment/analysis/fix/resolution/
+closure/cancellation/reopening, current tenant/object RBAC and optimistic versions.
+Resolution/closure requires verification and completed required analytical tasks.
+Assignments reuse work_assignments and validate active tenant users/groups.
+
+Incidents provide an explicit authorized public-field transfer preview. Creation
+and the incident link/touch commit atomically; private messages/files are never
+copied. Related lists and CMDB links apply each domain's access independently.
+A resolved/closed Problem never changes any incident's state. The remedial Change
+creation action is part of the next Change stage and is not exposed prematurely.
+
+Messages and files reuse shared storage/repositories/reservations. problem.notes
+is checked after object access and before INTERNAL messages, files or source-event
+history are returned. Audit excludes message bodies; the activity worker projects
+privacy-tagged events with author/time and actual field differences. Files have
+message-derived visibility, safe downloads and durable cleanup. Retry keys,
+business changes, parent/child versions, audit and outbox are transactional.
+
+Forms preserve drafts on refresh and compare current records on version conflict.
+The shared editor now retries an uncertain mutation using the exact original body,
+path, method and key. New Problem forms and analytical tasks hold their drafts in
+memory; no private communication is persisted in browser storage. Navigation,
+workspace tabs and access revalidation include Problems.
+
+Problem validation: Go unit/OpenAPI tests, vet/build/race passed; frontend 26 tests,
+typecheck and production build passed. Full isolated MySQL integration through
+schema 89 passed (80.051s), including fresh installation, rollback/re-upgrade,
+existing workflows, concurrent edits, permission revocation, foreign-tenant access,
+private messages/files, Known Error, required-task gates and unchanged incidents.
+An initial run had an invalid incident fixture and a migration test timeout; the
+fixture was fixed, and the unchanged migration test subsequently passed in 39/36s.
+Desktop/mobile browser flows passed through creation-response loss, public incident
+preview, bidirectional incident/CI links, analytical work, private note, verification,
+closure/reload, history and multi-page list counts. Repeated with PRB/task identifiers
+above the JavaScript safe integer range. Screenshots inspected at 1366/1920/mobile.
+
 ## Remaining implementation
 
-1. Deliver Problem lifecycle, tasks, communication, links and Known Error.
-2. Deliver Change domain adapter, version-bound approval, tasks, controlled
-   lifecycle, templates, conflict-safe scheduling and time-window policies.
-3. Extend authorized search/context, add operational reports and execute the
-   complete ITSM scenario and installer/runtime/regression checks.
+1. Deliver Change domain adapter, version-bound approval/invalidation, tasks,
+   Normal/Standard/Emergency lifecycle, versioned templates, concurrent safe
+   scheduling, windows/blackouts/calendar and CAB. Add Problem → remedial Change
+   creation and bidirectional links when the actual Change process is implemented.
+2. Extend authorized search/context and reference previews, add operational reports
+   and execute the complete ITSM scenario and installer/runtime/regression checks.
 
-This checkpoint does not claim that stages D–F or the complete ITSM acceptance
-scenario are done. Reference selectors will be extended for the new domains.
+This checkpoint does not claim that stage E/F or the complete ITSM acceptance
+scenario is done. No automatic merge is authorized.

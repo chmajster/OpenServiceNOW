@@ -43,6 +43,9 @@ export function CommunicationPanel({
   retain: (tab: string, needed: boolean) => void;
   apiBase?: string;
 }) {
+  const replyLabel = apiBase?.startsWith("/api/v1/problems/")
+    ? "Odpowiedź publiczna"
+    : "Odpowiedź dla zgłaszającego";
   const base = apiBase ?? `/api/v1/incidents/${record.id}`;
   const access = useIncidentQuery<Access>(`${base}/communication-access`);
   const [params, setParams] = useSearchParams();
@@ -223,7 +226,7 @@ export function CommunicationPanel({
         });
         if (mounted.current) {
           files.reload();
-          setNotice("Plik usunięty z incydentu.");
+          setNotice("Plik usunięty z rekordu.");
         }
       } else
         await download(
@@ -279,7 +282,7 @@ export function CommunicationPanel({
                 disabled={busy || !!messageRetry || !!fileRetry}
                 onClick={() => selectKind("COMMENT")}
               >
-                Odpowiedź dla zgłaszającego
+                {replyLabel}
               </button>
             )}
             {access.data.write_notes && (
@@ -316,7 +319,7 @@ export function CommunicationPanel({
           <p className="muted">
             {kind === "WORK_NOTE"
               ? "Tę treść odczytają wyłącznie operatorzy z uprawnieniem do notatek."
-              : "Ta treść jest dostępna dla zgłaszającego i osób mających dostęp do incydentu."}
+              : "Ta treść jest dostępna dla osób mających dostęp do rekordu."}
           </p>
           {messageRetry && (
             <p className="notice">
@@ -357,13 +360,11 @@ export function CommunicationPanel({
       ) : !messages.data?.messages.length ? (
         <PageState title="Brak dostępnych wiadomości" />
       ) : (
-        <ol className="incident-timeline" aria-label="Wiadomości incydentu">
+        <ol className="incident-timeline" aria-label="Wiadomości rekordu">
           {messages.data.messages.map((m) => (
             <li key={m.id}>
               <h4>
-                {m.type === "WORK_NOTE"
-                  ? "Notatka wewnętrzna"
-                  : "Odpowiedź dla zgłaszającego"}
+                {m.type === "WORK_NOTE" ? "Notatka wewnętrzna" : replyLabel}
               </h4>
               <p className="muted">
                 {m.author_name} · {dateLabel(m.created_at)}
