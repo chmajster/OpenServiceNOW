@@ -17,6 +17,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/audit"
 	"github.com/chmajster/OpenServiceNOW/internal/events"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
+	"github.com/chmajster/OpenServiceNOW/internal/recordlists"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 )
 
@@ -351,7 +352,27 @@ func validateFilter(f Filter) error {
 	if f.Limit < 1 || f.Limit > 100 || !validText(f.Query, 0, 200) || f.Priority < 0 || f.Priority > 5 {
 		return ErrInvalid
 	}
-	if f.Sort != "newest" && f.Sort != "oldest" && f.Sort != "priority" {
+	if _, _, err := recordlists.Compile(f.Expression, ListSchema(1)); err != nil {
+		return ErrInvalid
+	}
+	if f.GroupBy != "" {
+		if _, err := groupColumn(f.GroupBy); err != nil {
+			return err
+		}
+	}
+	if f.Sort == "title" || f.Sort == "state" || f.Sort == "updated" {
+		if f.AfterID > 0 && !validText(f.AfterValue, 1, 200) {
+			return ErrInvalid
+		}
+		if f.AfterID > 0 && f.Sort == "updated" {
+			if _, err := time.Parse(time.RFC3339Nano, f.AfterValue); err != nil {
+				return ErrInvalid
+			}
+		}
+	} else if f.AfterValue != "" {
+		return ErrInvalid
+	}
+	if f.Sort != "newest" && f.Sort != "oldest" && f.Sort != "priority" && f.Sort != "title" && f.Sort != "state" && f.Sort != "updated" {
 		return ErrInvalid
 	}
 	if f.View != "all" && f.View != "mine" && f.View != "my_group" && f.View != "unassigned" && f.View != "assigned" {

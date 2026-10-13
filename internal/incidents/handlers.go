@@ -12,6 +12,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/httpapi"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/requestinfo"
+	"github.com/chmajster/OpenServiceNOW/internal/recordlists"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -241,7 +242,12 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	f := Filter{Query: q.Get("q"), State: q.Get("state"), Category: q.Get("category"), View: q.Get("view"), Sort: q.Get("sort"), AfterID: after, Limit: limit, Active: q.Get("active") == "true", SLARisk: q.Get("sla_risk") == "true"}
+	expression, err := recordlists.Decode(q.Get("filter"))
+	if err != nil {
+		writeError(w, r, ErrInvalid)
+		return
+	}
+	f := Filter{Expression: expression, GroupBy: q.Get("group_by"), AfterValue: q.Get("after_value"), Query: q.Get("q"), State: q.Get("state"), Category: q.Get("category"), View: q.Get("view"), Sort: q.Get("sort"), AfterID: after, Limit: limit, Active: q.Get("active") == "true", SLARisk: q.Get("sla_risk") == "true"}
 	if f.View == "" {
 		f.View = "all"
 	}
@@ -283,6 +289,19 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+	}
+	if q.Get("format") == "csv" {
+		f.AfterID = 0
+		f.AfterPriority = 0
+		f.AfterValue = ""
+		f.GroupBy = ""
+		items, err := h.service.Export(r.Context(), actor(r), f)
+		writeCSV(w, r, items, err)
+		return
+	}
+	if q.Get("format") != "" {
+		writeError(w, r, ErrInvalid)
+		return
 	}
 	result, err := h.service.List(r.Context(), actor(r), f)
 	respond(w, r, 200, result, err)

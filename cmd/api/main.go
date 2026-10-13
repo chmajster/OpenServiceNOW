@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"encoding/json"
 	"github.com/chmajster/OpenServiceNOW/internal/activity"
 	"github.com/chmajster/OpenServiceNOW/internal/attachments"
 	"github.com/chmajster/OpenServiceNOW/internal/audit"
@@ -27,6 +28,8 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/platform/ratelimit"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/requestinfo"
 	"github.com/chmajster/OpenServiceNOW/internal/rbac"
+	"github.com/chmajster/OpenServiceNOW/internal/recordlists"
+	"github.com/chmajster/OpenServiceNOW/internal/recordviews"
 	"github.com/chmajster/OpenServiceNOW/internal/requests"
 	"github.com/chmajster/OpenServiceNOW/internal/sla"
 	"github.com/chmajster/OpenServiceNOW/internal/tenants"
@@ -118,6 +121,21 @@ func main() {
 	requestHandler := requests.NewHandler(requestService, catalog.NewService(db), identityService)
 	workflowService := workflow.NewService(db, requestService)
 	workflowHandler := workflow.NewHandler(workflowService, identityService)
+	requestViewDomain := func(tasks bool) recordviews.Domain {
+		return recordviews.Domain{Read: func(a workrecords.Principal) bool {
+			return a.Has("request.manage") || a.Has("request.fulfill") || (!tasks && a.Has("request.read_own"))
+		}, Validate: func(a workrecords.Principal, raw json.RawMessage) error {
+			_, err := recordlists.ValidateConfig(raw, requests.ListSchema(a.UserID, tasks), requests.ListSorts, requests.ListGroups(tasks), requests.ListColumns(tasks))
+			return err
+		}}
+	}
+	viewHandler := &recordviews.Handler{Permissions: identityService, Service: &recordviews.Service{DB: db, Domains: map[string]recordviews.Domain{
+		"requests": requestViewDomain(false), "fulfillment": requestViewDomain(true),
+		"incidents": {Read: func(a workrecords.Principal) bool { return a.Has("incident.read") || a.Has("incident.read_own") }, Validate: func(a workrecords.Principal, raw json.RawMessage) error {
+			_, err := recordlists.ValidateConfig(raw, incidents.ListSchema(a.UserID), incidents.ListSorts, incidents.ListGroups, incidents.ListColumns)
+			return err
+		}},
+	}}}
 	workspaceHandler := &workspace.Handler{Service: &workspace.Service{Incidents: incidentService, Requests: requestService, Workflow: workflowService}, Permissions: identityService}
 	notificationHandler := notifications.NewHandler(notifications.NewService(db, cfg.NotificationKey, cfg.SMTPAllowInsecure), outboxRepo)
 
@@ -159,6 +177,7 @@ func main() {
 			func(r chi.Router) { requests.RegisterRoutes(r, requestHandler, identityMiddleware) },
 			func(r chi.Router) { workflow.RegisterRoutes(r, workflowHandler, identityMiddleware) },
 			func(r chi.Router) { workspace.RegisterRoutes(r, workspaceHandler, identityMiddleware) },
+			func(r chi.Router) { recordviews.RegisterRoutes(r, viewHandler, identityMiddleware) },
 			func(r chi.Router) {
 				sla.RegisterRoutes(r, sla.NewHandler(sla.NewService(db), identityService), identityMiddleware)
 			},

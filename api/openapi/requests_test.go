@@ -29,7 +29,7 @@ func TestCatalogRequestContracts(t *testing.T) {
 			}
 		}
 	}
-	if count != 27 {
+	if count != 30 {
 		t.Fatal("missing request routes", count)
 	}
 	schemas := root["components"].(map[string]any)["schemas"].(map[string]any)

@@ -9,7 +9,9 @@ import (
 	"strings"
 
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
+	"github.com/chmajster/OpenServiceNOW/internal/recordlists"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
+	"time"
 )
 
 type Repository struct{ db *sql.DB }
@@ -169,6 +171,21 @@ func (r *Repository) List(ctx context.Context, a Actor, f Filter) (Page, error) 
 	query := "SELECT " + columns + recordJoins + where
 	if f.AfterID > 0 {
 		switch f.Sort {
+		case "title", "state", "updated":
+			col, op := "i.title", ">"
+			if f.Sort == "state" {
+				col = "i.state"
+			}
+			if f.Sort == "updated" {
+				col = "i.updated_at"
+				op = "<"
+			}
+			var value any = f.AfterValue
+			if f.Sort == "updated" {
+				value, _ = time.Parse(time.RFC3339Nano, f.AfterValue)
+			}
+			query += " AND (" + col + op + "? OR (" + col + "=? AND i.id<?))"
+			args = append(args, value, value, f.AfterID)
 		case "oldest":
 			query += " AND i.id>?"
 			args = append(args, f.AfterID)
@@ -181,6 +198,12 @@ func (r *Repository) List(ctx context.Context, a Actor, f Filter) (Page, error) 
 		}
 	}
 	switch f.Sort {
+	case "title":
+		query += " ORDER BY i.title ASC,i.id DESC"
+	case "state":
+		query += " ORDER BY i.state ASC,i.id DESC"
+	case "updated":
+		query += " ORDER BY i.updated_at DESC,i.id DESC"
 	case "oldest":
 		query += " ORDER BY i.id ASC"
 	case "priority":
@@ -195,7 +218,7 @@ func (r *Repository) List(ctx context.Context, a Actor, f Filter) (Page, error) 
 		return Page{}, err
 	}
 	defer rows.Close()
-	page := Page{Incidents: []Summary{}}
+	page := Page{Incidents: []Summary{}, Groups: []GroupCount{}}
 	for rows.Next() {
 		item, err := scanRecord(rows)
 		if err != nil {
@@ -209,9 +232,30 @@ func (r *Repository) List(ctx context.Context, a Actor, f Filter) (Page, error) 
 	if len(page.Incidents) > f.Limit {
 		page.Incidents = page.Incidents[:f.Limit]
 		last := page.Incidents[f.Limit-1]
+		switch f.Sort {
+		case "title":
+			page.NextValue = last.Title
+		case "state":
+			page.NextValue = last.State
+		case "updated":
+			page.NextValue = last.UpdatedAt.UTC().Format(time.RFC3339Nano)
+		}
 		page.NextAfterID = last.ID
 		if f.Sort == "priority" {
 			page.NextPriority = last.Priority
+		}
+	}
+	if err = rows.Close(); err != nil {
+		return Page{}, err
+	}
+	page.Total, err = r.Count(ctx, a, f)
+	if err != nil {
+		return Page{}, err
+	}
+	if f.GroupBy != "" {
+		page.Groups, err = r.Groups(ctx, a, f)
+		if err != nil {
+			return Page{}, err
 		}
 	}
 	return page, nil
@@ -257,6 +301,15 @@ func listWhere(a Actor, f Filter) (string, []any) {
 		escaped := strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(f.Query)
 		args = append(args, "%"+escaped+"%", "%"+escaped+"%")
 	}
+	if f.Expression != nil {
+		sql, values, err := recordlists.Compile(f.Expression, ListSchema(a.UserID))
+		if err != nil {
+			query += " AND FALSE"
+		} else {
+			query += " AND (" + sql + ")"
+			args = append(args, values...)
+		}
+	}
 	if f.Active {
 		query += " AND i.state NOT IN ('RESOLVED','CLOSED','CANCELLED')"
 	}
@@ -271,4 +324,26 @@ func (r *Repository) Count(ctx context.Context, a Actor, f Filter) (uint64, erro
 	var n uint64
 	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*)"+recordJoins+where, args...).Scan(&n)
 	return n, err
+}
+
+func (r *Repository) Groups(ctx context.Context, a Actor, f Filter) ([]GroupCount, error) {
+	col, err := groupColumn(f.GroupBy)
+	if err != nil {
+		return nil, err
+	}
+	where, args := listWhere(a, f)
+	rows, err := r.db.QueryContext(ctx, "SELECT COALESCE("+col+",''),COUNT(*)"+recordJoins+where+" GROUP BY "+col+" ORDER BY "+col, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []GroupCount{}
+	for rows.Next() {
+		var group GroupCount
+		if err = rows.Scan(&group.Value, &group.Count); err != nil {
+			return nil, err
+		}
+		out = append(out, group)
+	}
+	return out, rows.Err()
 }

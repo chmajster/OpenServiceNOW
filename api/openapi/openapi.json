@@ -81,7 +81,12 @@
           "Authentication"
         ],
         "operationId": "login",
-        "security": [],
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -176,7 +181,6 @@
         "security": [
           {
             "sessionCookie": [],
-            "csrfCookie": [],
             "csrfHeader": []
           }
         ],
@@ -240,7 +244,6 @@
         "security": [
           {
             "sessionCookie": [],
-            "csrfCookie": [],
             "csrfHeader": []
           }
         ],
@@ -364,7 +367,6 @@
         "security": [
           {
             "sessionCookie": [],
-            "csrfCookie": [],
             "csrfHeader": []
           }
         ],
@@ -418,7 +420,6 @@
         "security": [
           {
             "sessionCookie": [],
-            "csrfCookie": [],
             "csrfHeader": []
           }
         ],
@@ -581,7 +582,6 @@
         "security": [
           {
             "sessionCookie": [],
-            "csrfCookie": [],
             "csrfHeader": []
           }
         ],
@@ -635,7 +635,6 @@
         "security": [
           {
             "sessionCookie": [],
-            "csrfCookie": [],
             "csrfHeader": []
           }
         ],
@@ -760,7 +759,6 @@
         "security": [
           {
             "sessionCookie": [],
-            "csrfCookie": [],
             "csrfHeader": []
           }
         ],
@@ -814,7 +812,6 @@
         "security": [
           {
             "sessionCookie": [],
-            "csrfCookie": [],
             "csrfHeader": []
           }
         ],
@@ -860,7 +857,6 @@
         "security": [
           {
             "sessionCookie": [],
-            "csrfCookie": [],
             "csrfHeader": []
           }
         ],
@@ -908,7 +904,6 @@
         "security": [
           {
             "sessionCookie": [],
-            "csrfCookie": [],
             "csrfHeader": []
           }
         ],
@@ -954,7 +949,6 @@
         "security": [
           {
             "sessionCookie": [],
-            "csrfCookie": [],
             "csrfHeader": []
           }
         ],
@@ -1002,7 +996,6 @@
         "security": [
           {
             "sessionCookie": [],
-            "csrfCookie": [],
             "csrfHeader": []
           }
         ],
@@ -1047,7 +1040,6 @@
         "security": [
           {
             "sessionCookie": [],
-            "csrfCookie": [],
             "csrfHeader": []
           }
         ],
@@ -1218,7 +1210,6 @@
         "security": [
           {
             "sessionCookie": [],
-            "csrfCookie": [],
             "csrfHeader": []
           }
         ],
@@ -1509,8 +1500,8 @@
         "description": "Creates the first organization, local administrator, membership, platform_admin role and audit event in one transaction. Permanently closes installation. Requires same-origin JSON and matching cookie/header tokens from GET /api/v1/setup. Existing accounts cannot be replaced. Concurrent/replayed attempts return 409. No login session is created; sign in afterward.",
         "security": [
           {
-            "setupCookie": [],
-            "setupHeader": []
+            "sessionCookie": [],
+            "csrfHeader": []
           }
         ],
         "requestBody": {
@@ -1677,7 +1668,6 @@
         "security": [
           {
             "sessionCookie": [],
-            "csrfCookie": [],
             "csrfHeader": []
           }
         ],
@@ -1747,7 +1737,6 @@
         "security": [
           {
             "sessionCookie": [],
-            "csrfCookie": [],
             "csrfHeader": []
           }
         ],
@@ -1912,7 +1901,6 @@
         "security": [
           {
             "sessionCookie": [],
-            "csrfCookie": [],
             "csrfHeader": []
           }
         ],
@@ -1966,7 +1954,6 @@
         "security": [
           {
             "sessionCookie": [],
-            "csrfCookie": [],
             "csrfHeader": []
           }
         ],
@@ -2043,6 +2030,11 @@
                 "schema": {
                   "$ref": "#/components/schemas/IncidentPage"
                 }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
               }
             }
           },
@@ -2077,6 +2069,9 @@
           },
           "504": {
             "$ref": "#/components/responses/RequestTimeout"
+          },
+          "413": {
+            "description": "Export exceeds 10000 rows; narrow filters"
           }
         },
         "x-any-read-permissions": [
@@ -2150,9 +2145,11 @@
               "enum": [
                 "newest",
                 "oldest",
-                "priority"
-              ],
-              "default": "newest"
+                "priority",
+                "title",
+                "state",
+                "updated"
+              ]
             }
           },
           {
@@ -2260,6 +2257,50 @@
               "default": false
             },
             "description": "Warning or breach on an ACTIVE/PAUSED SLA according to the durable worker checkpoint."
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 16384
+            },
+            "description": "JSON RecordFilter; applied inside authorized record scope."
+          },
+          {
+            "name": "group_by",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "state",
+                "priority",
+                "category",
+                "group_id",
+                "assigned_to"
+              ]
+            },
+            "description": "Whole filtered dataset counts, independent of row pagination."
+          },
+          {
+            "name": "after_value",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "description": "Additional keyset value returned for text/time sorts."
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "csv"
+              ]
+            },
+            "description": "Complete authorized filtered CSV; up to 10000 rows, page cursor ignored, formula prefixes neutralized."
           }
         ]
       },
@@ -2272,7 +2313,6 @@
         "security": [
           {
             "sessionCookie": [],
-            "csrfCookie": [],
             "csrfHeader": []
           }
         ],
@@ -2659,7 +2699,6 @@
         "security": [
           {
             "sessionCookie": [],
-            "csrfCookie": [],
             "csrfHeader": []
           }
         ],
@@ -2773,7 +2812,6 @@
         "security": [
           {
             "sessionCookie": [],
-            "csrfCookie": [],
             "csrfHeader": []
           }
         ],
@@ -2887,7 +2925,6 @@
         "security": [
           {
             "sessionCookie": [],
-            "csrfCookie": [],
             "csrfHeader": []
           }
         ],
@@ -3001,7 +3038,6 @@
         "security": [
           {
             "sessionCookie": [],
-            "csrfCookie": [],
             "csrfHeader": []
           }
         ],
@@ -3431,7 +3467,8 @@
         "operationId": "incidentAddMessage",
         "security": [
           {
-            "sessionCookie": []
+            "sessionCookie": [],
+            "csrfHeader": []
           }
         ],
         "description": "Backend session supplies tenant and actor. Incident object read access is checked before resource reads/writes; CSRF protects mutations. Client object_type/object_id cannot select a different resource. COMMENT requires incident.communicate; WORK_NOTE requires incident.read + incident.notes.read + incident.notes.write. Immutable append-only messages; successful save can precede timeline projection.",
@@ -3674,7 +3711,8 @@
         "operationId": "incidentUpload",
         "security": [
           {
-            "sessionCookie": []
+            "sessionCookie": [],
+            "csrfHeader": []
           }
         ],
         "description": "Backend session supplies tenant and actor. Incident object read access is checked before resource reads/writes; CSRF protects mutations. Client object_type/object_id cannot select a different resource. incident.communicate for PUBLIC; operator read + notes.read + notes.write for INTERNAL. Message linkage is incident-checked and inherits COMMENT/PUBLIC or WORK_NOTE/INTERNAL regardless of requested category. MIME is sniffed from bytes. Files are privately stored on the persistent named volume.",
@@ -3959,7 +3997,8 @@
         "operationId": "incidentDeleteFile",
         "security": [
           {
-            "sessionCookie": []
+            "sessionCookie": [],
+            "csrfHeader": []
           }
         ],
         "description": "Backend session supplies tenant and actor. Incident object read access is checked before resource reads/writes; CSRF protects mutations. Client object_type/object_id cannot select a different resource. Uploader or incident.attachments.delete plus object/file-category access. Retry is harmless; metadata tombstone and audit/outbox commit together, bytes removed later by cleanup.",
@@ -4195,7 +4234,8 @@
         "operationId": "incidentWatch",
         "security": [
           {
-            "sessionCookie": []
+            "sessionCookie": [],
+            "csrfHeader": []
           }
         ],
         "description": "Backend session supplies tenant and actor. Incident object read access is checked before resource reads/writes; CSRF protects mutations. Client object_type/object_id cannot select a different resource. Self subscription, or incident.read + incident.update for another active member who already has incident read access. Maximum 100 per incident, idempotent membership.",
@@ -4282,7 +4322,8 @@
         "operationId": "incidentUnwatch",
         "security": [
           {
-            "sessionCookie": []
+            "sessionCookie": [],
+            "csrfHeader": []
           }
         ],
         "description": "Backend session supplies tenant and actor. Incident object read access is checked before resource reads/writes; CSRF protects mutations. Client object_type/object_id cannot select a different resource. Self removal or incident.read + incident.update; idempotent.",
@@ -4496,7 +4537,8 @@
         "operationId": "incidentAddRelation",
         "security": [
           {
-            "sessionCookie": []
+            "sessionCookie": [],
+            "csrfHeader": []
           }
         ],
         "description": "Backend session supplies tenant and actor. Incident object read access is checked before resource reads/writes; CSRF protects mutations. Client object_type/object_id cannot select a different resource. incident.read + incident.update and access to both incident ends. RELATED canonicalizes direction; PARENT means current record is parent. One parent per child, no cycles, max 100 links per incident; retry returns same relation.",
@@ -4622,7 +4664,8 @@
         "operationId": "incidentDeleteRelation",
         "security": [
           {
-            "sessionCookie": []
+            "sessionCookie": [],
+            "csrfHeader": []
           }
         ],
         "description": "Backend session supplies tenant and actor. Incident object read access is checked before resource reads/writes; CSRF protects mutations. Client object_type/object_id cannot select a different resource. incident.read + incident.update and authorization of both incident ends.",
@@ -4711,7 +4754,8 @@
         "operationId": "incidentBatch",
         "security": [
           {
-            "sessionCookie": []
+            "sessionCookie": [],
+            "csrfHeader": []
           }
         ],
         "description": "Backend session supplies tenant and actor. Incident object read access is checked before resource reads/writes; CSRF protects mutations. Client object_type/object_id cannot select a different resource. At most 50 unique records. Each item has its own object/action authorization, expected version, independent transaction and status. assign_self retains group and validates membership; start obeys lifecycle/active assignment. Never automatically repeats successful items; unknown transport outcome requires re-reading each record.",
@@ -8793,14 +8837,7 @@
             }
           },
           "413": {
-            "description": "Upload limit",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
+            "description": "Export exceeds 10000 rows; narrow filters"
           },
           "500": {
             "description": "Operation failed",
@@ -8828,6 +8865,11 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ServiceRequestPage"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -8886,6 +8928,61 @@
               "default": false
             },
             "description": "Exclude terminal states; tasks also require an active parent request."
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 16384
+            },
+            "description": "JSON RecordFilter; applied inside authorized record scope."
+          },
+          {
+            "name": "group_by",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "state",
+                "requester_id"
+              ]
+            },
+            "description": "Whole filtered dataset counts, independent of row pagination."
+          },
+          {
+            "name": "before_value",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "description": "Additional keyset value returned for text/time sorts."
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "csv"
+              ]
+            },
+            "description": "Complete authorized filtered CSV; up to 10000 rows, page cursor ignored, formula prefixes neutralized."
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "newest",
+                "oldest",
+                "number",
+                "updated"
+              ]
+            },
+            "description": "Stable keyset order, with id as tie-breaker."
           }
         ]
       },
@@ -10415,14 +10512,7 @@
             }
           },
           "413": {
-            "description": "Upload limit",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
+            "description": "Export exceeds 10000 rows; narrow filters"
           },
           "500": {
             "description": "Operation failed",
@@ -10450,6 +10540,11 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FulfillmentTaskPage"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -10508,6 +10603,62 @@
               "default": false
             },
             "description": "Exclude terminal states; tasks also require an active parent request."
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 16384
+            },
+            "description": "JSON RecordFilter; applied inside authorized record scope."
+          },
+          {
+            "name": "group_by",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "state",
+                "group_id",
+                "assigned_to"
+              ]
+            },
+            "description": "Whole filtered dataset counts, independent of row pagination."
+          },
+          {
+            "name": "before_value",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "description": "Additional keyset value returned for text/time sorts."
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "csv"
+              ]
+            },
+            "description": "Complete authorized filtered CSV; up to 10000 rows, page cursor ignored, formula prefixes neutralized."
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "newest",
+                "oldest",
+                "number",
+                "updated"
+              ]
+            },
+            "description": "Stable keyset order, with id as tie-breaker."
           }
         ]
       }
@@ -12587,6 +12738,567 @@
           }
         ]
       }
+    },
+    "/api/v1/record-views/": {
+      "get": {
+        "operationId": "recordViewsList",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "Permission/current group membership required"
+          },
+          "404": {
+            "description": "Object inaccessible"
+          },
+          "409": {
+            "description": "Version/name/key conflict"
+          },
+          "422": {
+            "description": "Invalid configuration"
+          },
+          "503": {
+            "description": "Commit unconfirmed; retry create with the same key or reread version"
+          },
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordViewPage"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "incidents",
+                "requests",
+                "fulfillment"
+              ]
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "recordViewCreate",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "Permission/current group membership required"
+          },
+          "404": {
+            "description": "Object inaccessible"
+          },
+          "409": {
+            "description": "Version/name/key conflict"
+          },
+          "422": {
+            "description": "Invalid configuration"
+          },
+          "503": {
+            "description": "Commit unconfirmed; retry create with the same key or reread version"
+          },
+          "201": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordView"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordViewInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/record-views/{id}": {
+      "get": {
+        "operationId": "recordViewGet",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "Permission/current group membership required"
+          },
+          "404": {
+            "description": "Object inaccessible"
+          },
+          "409": {
+            "description": "Version/name/key conflict"
+          },
+          "422": {
+            "description": "Invalid configuration"
+          },
+          "503": {
+            "description": "Commit unconfirmed; retry create with the same key or reread version"
+          },
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordView"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ]
+      },
+      "put": {
+        "operationId": "recordViewUpdate",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "Permission/current group membership required"
+          },
+          "404": {
+            "description": "Object inaccessible"
+          },
+          "409": {
+            "description": "Version/name/key conflict"
+          },
+          "422": {
+            "description": "Invalid configuration"
+          },
+          "503": {
+            "description": "Commit unconfirmed; retry create with the same key or reread version"
+          },
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordView"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordViewInput"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "recordViewDelete",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "Permission/current group membership required"
+          },
+          "404": {
+            "description": "Object inaccessible"
+          },
+          "409": {
+            "description": "Version/name/key conflict"
+          },
+          "422": {
+            "description": "Invalid configuration"
+          },
+          "503": {
+            "description": "Commit unconfirmed; retry create with the same key or reread version"
+          },
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/record-views/groups": {
+      "get": {
+        "operationId": "recordViewShareGroups",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "Permission/current group membership required"
+          },
+          "404": {
+            "description": "Object inaccessible"
+          },
+          "409": {
+            "description": "Version/name/key conflict"
+          },
+          "422": {
+            "description": "Invalid configuration"
+          },
+          "503": {
+            "description": "Commit unconfirmed; retry create with the same key or reread version"
+          },
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "description": "Current active membership and workspace.views.share required; bounded ascending id pagination."
+      }
+    },
+    "/api/v1/requests/lookups/{kind}": {
+      "get": {
+        "operationId": "requestsListReferences",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "Permission/current group membership required"
+          },
+          "404": {
+            "description": "Object inaccessible"
+          },
+          "409": {
+            "description": "Version/name/key conflict"
+          },
+          "422": {
+            "description": "Invalid configuration"
+          },
+          "503": {
+            "description": "Commit unconfirmed; retry create with the same key or reread version"
+          },
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "after_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "users",
+                "groups"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/fulfillment/lookups/{kind}": {
+      "get": {
+        "operationId": "fulfillmentListReferences",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "Permission/current group membership required"
+          },
+          "404": {
+            "description": "Object inaccessible"
+          },
+          "409": {
+            "description": "Version/name/key conflict"
+          },
+          "422": {
+            "description": "Invalid configuration"
+          },
+          "503": {
+            "description": "Commit unconfirmed; retry create with the same key or reread version"
+          },
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "after_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "users",
+                "groups"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/fulfillment/batch": {
+      "post": {
+        "operationId": "fulfillmentBatch",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "Permission/current group membership required"
+          },
+          "404": {
+            "description": "Object inaccessible"
+          },
+          "409": {
+            "description": "Version/name/key conflict"
+          },
+          "422": {
+            "description": "Invalid configuration"
+          },
+          "503": {
+            "description": "Commit unconfirmed; retry create with the same key or reread version"
+          },
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskBatchInput"
+              }
+            }
+          }
+        },
+        "description": "Per-record current permission, scope, version and domain rules; individual result statuses and partial success. Repeated stale versions do not repeat effects."
+      }
     }
   },
   "components": {
@@ -13464,10 +14176,26 @@
           "next_before_id": {
             "type": "string",
             "pattern": "^[1-9][0-9]*$"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordListGroup"
+            }
+          },
+          "next_before_value": {
+            "type": "string",
+            "maxLength": 200
           }
         },
         "required": [
-          "items"
+          "items",
+          "total",
+          "groups"
         ],
         "additionalProperties": false
       },
@@ -13484,10 +14212,26 @@
           "next_before_id": {
             "type": "string",
             "pattern": "^[1-9][0-9]*$"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordListGroup"
+            }
+          },
+          "next_before_value": {
+            "type": "string",
+            "maxLength": 200
           }
         },
         "required": [
-          "items"
+          "items",
+          "total",
+          "groups"
         ],
         "additionalProperties": false
       },
@@ -15560,7 +16304,9 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "incidents"
+          "incidents",
+          "total",
+          "groups"
         ],
         "properties": {
           "incidents": {
@@ -15576,6 +16322,20 @@
           "next_after_priority": {
             "type": "string",
             "pattern": "^[1-5]$"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordListGroup"
+            }
+          },
+          "next_after_value": {
+            "type": "string",
+            "maxLength": 200
           }
         },
         "description": "Bounded summaries, excluding large descriptions. Stable keyset order: newest=id DESC; oldest=id ASC; priority=priority ASC,id DESC. Priority pagination requires both returned cursor fields; no snapshot guarantee across concurrent edits."
@@ -17766,6 +18526,292 @@
           "limit_per_type": {
             "type": "integer",
             "const": 10
+          }
+        }
+      },
+      "RecordFilter": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "logic": {
+            "type": "string",
+            "enum": [
+              "AND",
+              "OR"
+            ]
+          },
+          "children": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 12,
+            "items": {
+              "$ref": "#/components/schemas/RecordFilter"
+            }
+          },
+          "field": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "operator": {
+            "type": "string",
+            "enum": [
+              "eq",
+              "ne",
+              "contains",
+              "starts_with",
+              "empty",
+              "not_empty",
+              "gt",
+              "gte",
+              "lt",
+              "lte"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "description": "Backend validates at most 40 nodes and 5 levels, rejects mixed leaf/group fields, and compiles only domain field/operator whitelists with bound values. Record authorization encloses the entire expression."
+      },
+      "RecordListConfig": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sort",
+          "columns"
+        ],
+        "properties": {
+          "filter": {
+            "$ref": "#/components/schemas/RecordFilter"
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "newest",
+              "oldest",
+              "priority",
+              "title",
+              "state",
+              "updated",
+              "number"
+            ]
+          },
+          "group_by": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "context": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "description": "Whitelisted basic query fields interpreted with the reader scope."
+          },
+          "columns": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "key",
+                "width"
+              ],
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "maxLength": 32
+                },
+                "width": {
+                  "type": "integer",
+                  "minimum": 80,
+                  "maximum": 600
+                }
+              }
+            }
+          }
+        }
+      },
+      "RecordViewInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "domain",
+          "name",
+          "configuration"
+        ],
+        "properties": {
+          "domain": {
+            "type": "string",
+            "enum": [
+              "incidents",
+              "requests",
+              "fulfillment"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "group_id": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "configuration": {
+            "$ref": "#/components/schemas/RecordListConfig"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "RecordView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "owner_user_id",
+          "domain",
+          "name",
+          "configuration",
+          "version",
+          "updated_at",
+          "can_edit"
+        ],
+        "properties": {
+          "domain": {
+            "type": "string",
+            "enum": [
+              "incidents",
+              "requests",
+              "fulfillment"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "group_id": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "configuration": {
+            "$ref": "#/components/schemas/RecordListConfig"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "owner_user_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "can_edit": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RecordViewPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordView"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      },
+      "RecordListGroup": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "count"
+        ],
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "count": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "TaskBatchInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation",
+          "records"
+        ],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "ASSIGN_SELF",
+              "START"
+            ]
+          },
+          "records": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "version"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
+                },
+                "version": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
+                }
+              }
+            }
           }
         }
       }

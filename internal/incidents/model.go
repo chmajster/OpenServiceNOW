@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/chmajster/OpenServiceNOW/internal/recordlists"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 )
 
@@ -97,6 +98,8 @@ type PriorityInput struct {
 	Reason   string `json:"reason"`
 }
 type Filter struct {
+	Expression                         *recordlists.Node
+	GroupBy, AfterValue                string
 	Active, SLARisk                    bool
 	Query, State, Category, View, Sort string
 	Priority                           int
@@ -107,9 +110,12 @@ type Filter struct {
 	Limit                              int
 }
 type Page struct {
-	Incidents    []Summary `json:"incidents"`
-	NextAfterID  uint64    `json:"next_after_id,string,omitempty"`
-	NextPriority int       `json:"next_after_priority,string,omitempty"`
+	Total        uint64       `json:"total,string"`
+	Groups       []GroupCount `json:"groups"`
+	NextValue    string       `json:"next_after_value,omitempty"`
+	Incidents    []Summary    `json:"incidents"`
+	NextAfterID  uint64       `json:"next_after_id,string,omitempty"`
+	NextPriority int          `json:"next_after_priority,string,omitempty"`
 }
 type Summary struct {
 	ID               uint64                 `json:"id,string"`

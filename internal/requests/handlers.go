@@ -81,6 +81,7 @@ func RegisterRoutes(r chi.Router, h *Handler, m *identity.Middleware) {
 		r.Use(m.Authenticate)
 		r.Use(h.context)
 		r.Get("/", h.List)
+		r.Get("/lookups/{kind}", h.listChoices)
 		r.With(m.RequireCSRF).Post("/", h.Create)
 		r.Get("/{id}", h.Get)
 		r.With(m.RequireCSRF).Post("/{id}/transition", h.Transition)
@@ -97,6 +98,8 @@ func RegisterRoutes(r chi.Router, h *Handler, m *identity.Middleware) {
 		r.Use(m.Authenticate)
 		r.Use(h.context)
 		r.Get("/", h.List)
+		r.With(m.RequireCSRF).Post("/batch", h.batch)
+		r.Get("/lookups/{kind}", h.listChoices)
 		r.Get("/{id}", h.Get)
 		r.Get("/{id}/users", h.TaskUsers)
 		r.With(m.RequireCSRF).Put("/{id}/assignment", h.TaskChange)
@@ -305,7 +308,20 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, ErrInvalid)
 		return
 	}
-	p, err := h.service.ListFiltered(r.Context(), actor(r), isTask(r), r.URL.Query().Get("q"), r.URL.Query().Get("state"), view, before, limit, r.URL.Query().Get("active") == "true")
+	o, err := parseListOptions(r.URL.Query().Get("filter"), r.URL.Query().Get("group_by"), r.URL.Query().Get("sort"), r.URL.Query().Get("before_value"))
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	if r.URL.Query().Get("format") == "csv" {
+		h.export(w, r, view, o)
+		return
+	}
+	if r.URL.Query().Get("format") != "" {
+		writeError(w, r, ErrInvalid)
+		return
+	}
+	p, err := h.service.ListFiltered(r.Context(), actor(r), isTask(r), r.URL.Query().Get("q"), r.URL.Query().Get("state"), view, before, limit, r.URL.Query().Get("active") == "true", o)
 	respond(w, r, 200, p, err)
 }
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {

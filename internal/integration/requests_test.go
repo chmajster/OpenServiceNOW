@@ -16,6 +16,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
+	"github.com/chmajster/OpenServiceNOW/internal/recordlists"
 	"github.com/chmajster/OpenServiceNOW/internal/requests"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 	"github.com/go-chi/chi/v5"
@@ -226,6 +227,24 @@ func TestCatalogRequestFulfillment(t *testing.T) {
 	if len(tasks) != 3 {
 		t.Fatal("not actual tasks", tasks)
 	}
+	advanced := requests.ListOptions{Sort: "number", GroupBy: "state", Expression: &recordlists.Node{Field: "state", Operator: "eq", Value: "OPEN"}}
+	listed, err := service.ListFiltered(ctx, agent, true, "", "", "group", 0, 1, false, advanced)
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstPage := listed.(requests.TaskPage)
+	if firstPage.Total != 3 || len(firstPage.Items) != 1 || len(firstPage.Groups) != 1 || firstPage.Groups[0].Count != 3 || firstPage.NextValue == "" {
+		t.Fatalf("task list statistics %+v", firstPage)
+	}
+	advanced.AfterValue = firstPage.NextValue
+	listed, err = service.ListFiltered(ctx, agent, true, "", "", "group", firstPage.Next, 25, false, advanced)
+	if err != nil || len(listed.(requests.TaskPage).Items) != 2 {
+		t.Fatal("task cursor", listed, err)
+	}
+	exported, err := service.Export(ctx, agent, true, "", "", "group", false, requests.ListOptions{})
+	if err != nil || len(exported) != 3 {
+		t.Fatal("task export", exported, err)
+	}
 	if _, err := service.Transition(ctx, admin, r.ID, requests.Change{Version: r.Version, State: "FULFILLED"}); !errors.Is(err, requests.ErrTransition) {
 		t.Fatal("closed without required work", err)
 	}
@@ -334,6 +353,43 @@ func TestCatalogRequestFulfillment(t *testing.T) {
 	var remaining int
 	if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM fulfillment_tasks WHERE tenant_id=? AND request_id=? AND state<>'CANCELLED'", root.TenantID, pending.ID).Scan(&remaining); err != nil || remaining != 0 {
 		t.Fatal("uncancelled required child", remaining, err)
+	}
+	bulkRequest, _, err := service.Create(ctx, reporter, newInput, "request-bulk-"+suffix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bulkPage, err := service.List(ctx, agent, true, "", "", "group", 0, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	batchRecords := []requests.BatchRecord{}
+	for _, task := range bulkPage.(requests.TaskPage).Items {
+		if task.RequestID == bulkRequest.ID {
+			batchRecords = append(batchRecords, requests.BatchRecord{ID: task.ID, Version: task.Version})
+		}
+	}
+	if len(batchRecords) < 2 {
+		t.Fatal("bulk fixture", batchRecords)
+	}
+	submitted := append(append([]requests.BatchRecord{}, batchRecords[:2]...), requests.BatchRecord{ID: 99999999, Version: 1})
+	results, err := service.Batch(ctx, agent, requests.BatchInput{Operation: "ASSIGN_SELF", Records: submitted})
+	if err != nil || results[0].Status != 200 || results[1].Status != 200 || results[2].Status != 404 {
+		t.Fatal("bulk partial assignment", results, err)
+	}
+	stale, err := service.Batch(ctx, agent, requests.BatchInput{Operation: "ASSIGN_SELF", Records: submitted[:2]})
+	if err != nil || stale[0].Status != 409 || stale[1].Status != 409 {
+		t.Fatal("bulk duplicate execution", stale, err)
+	}
+	for i, record := range submitted[:2] {
+		task, err := service.Task(ctx, agent, record.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		submitted[i].Version = task.Version
+	}
+	results, err = service.Batch(ctx, agent, requests.BatchInput{Operation: "START", Records: submitted[:2]})
+	if err != nil || results[0].Status != 200 || results[1].Status != 200 {
+		t.Fatal("bulk start", results, err)
 	}
 	// Audience revocation hides both directory branches and direct publication.
 	item.Draft.AudienceGroupID = uint64(gid)

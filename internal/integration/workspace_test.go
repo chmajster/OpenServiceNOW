@@ -4,6 +4,8 @@ package integration
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/chmajster/OpenServiceNOW/internal/activity"
 	"github.com/chmajster/OpenServiceNOW/internal/audit"
@@ -12,6 +14,8 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/incidents"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
+	"github.com/chmajster/OpenServiceNOW/internal/recordlists"
+	"github.com/chmajster/OpenServiceNOW/internal/recordviews"
 	"github.com/chmajster/OpenServiceNOW/internal/requests"
 	"github.com/chmajster/OpenServiceNOW/internal/workflow"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
@@ -89,8 +93,102 @@ func TestWorkspaceCountsAndSearchScope(t *testing.T) {
 		t.Fatal("missing own metric")
 	}
 	page, err := is.List(ctx, a, incidents.Filter{View: "assigned", Sort: "newest", Limit: 25, Active: true})
-	if err != nil || len(page.Incidents) != 25 || page.NextAfterID == 0 {
+	if err != nil || len(page.Incidents) != 25 || page.NextAfterID == 0 || page.Total != 31 {
 		t.Fatalf("page=%+v err=%v", page, err)
+	}
+	expression := &recordlists.Node{Logic: "AND", Children: []recordlists.Node{{Field: "active", Operator: "eq", Value: "true"}, {Logic: "OR", Children: []recordlists.Node{{Field: "priority", Operator: "eq", Value: "5"}, {Field: "title", Operator: "contains", Value: "does-not-exist"}}}}}
+	advanced := incidents.Filter{View: "all", Sort: "title", Limit: 10, Expression: expression, GroupBy: "state"}
+	seen := map[uint64]bool{}
+	for {
+		result, err := is.List(ctx, a, advanced)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result.Total != 31 || len(result.Groups) != 1 || result.Groups[0].Count != 31 {
+			t.Fatalf("whole dataset count/group: %+v", result)
+		}
+		for _, record := range result.Incidents {
+			if seen[record.ID] {
+				t.Fatal("duplicate cursor record", record.ID)
+			}
+			seen[record.ID] = true
+		}
+		if result.NextAfterID == 0 {
+			break
+		}
+		advanced.AfterID = result.NextAfterID
+		advanced.AfterValue = result.NextValue
+	}
+	if len(seen) != 31 {
+		t.Fatalf("pagination lost records: %d", len(seen))
+	}
+	foreignActor := a
+	foreignActor.UserID += 999999
+	foreignActor.Permissions = map[string]bool{"incident.read_own": true}
+	result, err := is.List(ctx, foreignActor, incidents.Filter{View: "all", Sort: "newest", Limit: 10, Expression: expression, GroupBy: "state"})
+	if err != nil || result.Total != 0 || len(result.Groups) != 0 {
+		t.Fatalf("group/query access leak %+v %v", result, err)
+	}
+	configRaw := json.RawMessage(`{"sort":"title","group_by":"state","columns":[{"key":"number","width":160},{"key":"title","width":250}]}`)
+	vs := recordviews.Service{DB: db, Domains: map[string]recordviews.Domain{"incidents": {Read: func(p workrecords.Principal) bool { return p.Has("incident.read") || p.Has("incident.read_own") }, Validate: func(p workrecords.Principal, raw json.RawMessage) error {
+		_, err := recordlists.ValidateConfig(raw, incidents.ListSchema(p.UserID), incidents.ListSorts, incidents.ListGroups, incidents.ListColumns)
+		return err
+	}}}}
+	input := recordviews.Input{Domain: "incidents", Name: "Private view", Configuration: configRaw}
+	view, err := vs.Save(ctx, p, 0, input, "view-create-"+suffix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retry, err := vs.Save(ctx, p, 0, input, "view-create-"+suffix)
+	if err != nil || retry.ID != view.ID {
+		t.Fatalf("duplicate retry %+v %v", retry, err)
+	}
+	input.Name = "Changed request"
+	if _, err = vs.Save(ctx, p, 0, input, "view-create-"+suffix); !errors.Is(err, workrecords.ErrOperationConflict) {
+		t.Fatal("key mismatch", err)
+	}
+	input.Name = "New name"
+	input.Version = view.Version
+	view, err = vs.Save(ctx, p, view.ID, input, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = vs.Save(ctx, p, view.ID, input, ""); !errors.Is(err, recordviews.ErrConflict) {
+		t.Fatal("stale view overwritten", err)
+	}
+	foreign := p
+	foreign.TenantID += 99999
+	if _, err = vs.Get(ctx, foreign, view.ID); !errors.Is(err, recordviews.ErrNotFound) {
+		t.Fatal("foreign view", err)
+	}
+	resultGroup, err := db.ExecContext(ctx, "INSERT INTO `groups`(tenant_id,name) VALUES(?,?)", b.TenantID, "View group "+suffix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	groupNumber, err := resultGroup.LastInsertId()
+	if err != nil {
+		t.Fatal(err)
+	}
+	groupID := uint64(groupNumber)
+	input.Name = "Shared view"
+	input.GroupID = &groupID
+	input.Version = 0
+	if _, err = vs.Save(ctx, p, 0, input, "view-not-member-"+suffix); !errors.Is(err, workrecords.ErrForbidden) {
+		t.Fatal("shared outside group", err)
+	}
+	if _, err = db.ExecContext(ctx, "INSERT INTO group_memberships(tenant_id,group_id,user_id) VALUES(?,?,?)", b.TenantID, groupID, b.UserID); err != nil {
+		t.Fatal(err)
+	}
+	shared, err := vs.Save(ctx, p, 0, input, "view-shared-"+suffix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, _, err := vs.List(ctx, p, "incidents", 0, 50)
+	if err != nil || len(items) != 2 {
+		t.Fatal("saved views", items, err)
+	}
+	if err = vs.Delete(ctx, p, shared.ID, shared.Version); err != nil {
+		t.Fatal(err)
 	}
 	results, err := ws.Search(ctx, p, first.Number)
 	if err != nil || len(results) == 0 || results[0].ID != first.ID || !results[0].Exact {

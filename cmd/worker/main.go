@@ -134,6 +134,10 @@ func main() {
 		logger.Error("register incident activity handlers", "error", err)
 		os.Exit(1)
 	}
+	if err := dispatcher.Register("record_view.changed", projector.Handler("record_view.changed", "Zmieniono konfigurację widoku")); err != nil {
+		logger.Error("register view event handler", "error", err)
+		os.Exit(1)
+	}
 	if err := requests.RegisterEventHandlers(dispatcher, projector); err != nil {
 		logger.Error("register request activity handlers", "error", err)
 		os.Exit(1)

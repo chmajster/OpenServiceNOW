@@ -291,7 +291,7 @@ func (s *Service) ChangeTask(ctx context.Context, a Actor, id uint64, in Change,
 func (s *Service) List(ctx context.Context, a Actor, tasks bool, q, state, view string, before uint64, limit int) (any, error) {
 	return s.ListFiltered(ctx, a, tasks, q, state, view, before, limit, false)
 }
-func (s *Service) ListFiltered(ctx context.Context, a Actor, tasks bool, q, state, view string, before uint64, limit int, active bool) (any, error) {
+func (s *Service) ListFiltered(ctx context.Context, a Actor, tasks bool, q, state, view string, before uint64, limit int, active bool, options ...ListOptions) (any, error) {
 	if limit < 1 || limit > 100 {
 		return nil, ErrInvalid
 	}
@@ -299,20 +299,30 @@ func (s *Service) ListFiltered(ctx context.Context, a Actor, tasks bool, q, stat
 	if err != nil {
 		return nil, err
 	}
+	o := ListOptions{Sort: "newest"}
+	if len(options) > 0 {
+		o = options[0]
+	}
+	where, args, err = listScope(a, tasks, where, args, o)
+	if err != nil {
+		return nil, err
+	}
+	statsArgs := append([]any{}, args...)
 	alias := "r"
 	if tasks {
 		alias = "t"
+	}
+	order, orderArgs, err := listOrder(alias, o, before)
+	if err != nil {
+		return nil, err
 	}
 	query := "SELECT r.id,r.number,r.requester_id,u.display_name,r.state,r.reason,r.version,r.created_at,r.updated_at FROM service_requests r JOIN users u ON u.id=r.requester_id"
 	if tasks {
 		query = "SELECT " + taskColumns + taskJoins
 	}
 	query += where
-	if before > 0 {
-		query += " AND " + alias + ".id<?"
-		args = append(args, before)
-	}
-	query += " ORDER BY " + alias + ".id DESC LIMIT ?"
+	query += order + " LIMIT ?"
+	args = append(args, orderArgs...)
 	args = append(args, limit+1)
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -331,8 +341,16 @@ func (s *Service) ListFiltered(ctx context.Context, a Actor, tasks bool, q, stat
 		if len(out.Items) > limit {
 			out.Items = out.Items[:limit]
 			out.Next = out.Items[limit-1].ID
+			out.NextValue = nextValue(out.Items[limit-1].Number, out.Items[limit-1].UpdatedAt, o.Sort)
 		}
-		return out, rows.Err()
+		if err = rows.Err(); err != nil {
+			return nil, err
+		}
+		if err = rows.Close(); err != nil {
+			return nil, err
+		}
+		out.Total, out.Groups, err = s.listStats(ctx, tasks, where, statsArgs, o.GroupBy)
+		return out, err
 	}
 	out := RequestPage{Items: []Request{}}
 	for rows.Next() {
@@ -346,8 +364,16 @@ func (s *Service) ListFiltered(ctx context.Context, a Actor, tasks bool, q, stat
 	if len(out.Items) > limit {
 		out.Items = out.Items[:limit]
 		out.Next = out.Items[limit-1].ID
+		out.NextValue = nextValue(out.Items[limit-1].Number, out.Items[limit-1].UpdatedAt, o.Sort)
 	}
-	return out, rows.Err()
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	if err = rows.Close(); err != nil {
+		return nil, err
+	}
+	out.Total, out.Groups, err = s.listStats(ctx, tasks, where, statsArgs, o.GroupBy)
+	return out, err
 }
 func (s *Service) History(ctx context.Context, a Actor, id, before uint64, limit int) (activity.Page, error) {
 	if _, err := s.Get(ctx, a, id); err != nil {
@@ -375,7 +401,7 @@ func listWhere(a Actor, tasks bool, q, state, view string, active bool) (string,
 	if tasks && !a.Has("request.manage") && !a.Has("request.fulfill") || !tasks && !a.Has("request.manage") && !a.Has("request.fulfill") && !a.Has("request.read_own") {
 		return "", nil, ErrForbidden
 	}
-	if state != "" && !contains([]string{"SUBMITTED", "IN_PROGRESS", "FULFILLED", "CLOSED", "CANCELLED", "OPEN", "ON_HOLD", "COMPLETED"}, state) {
+	if state != "" && !contains(ListSchema(a.UserID, tasks)["state"].Values, state) {
 		return "", nil, ErrInvalid
 	}
 	alias := "r"

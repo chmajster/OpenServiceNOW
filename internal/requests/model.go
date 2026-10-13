@@ -75,10 +75,16 @@ type Change struct {
 	AssignedTo *uint64 `json:"assigned_to,string,omitempty"`
 }
 type RequestPage struct {
-	Items []Request `json:"items"`
-	Next  uint64    `json:"next_before_id,string,omitempty"`
+	Total     uint64       `json:"total,string"`
+	Groups    []GroupCount `json:"groups"`
+	NextValue string       `json:"next_before_value,omitempty"`
+	Items     []Request    `json:"items"`
+	Next      uint64       `json:"next_before_id,string,omitempty"`
 }
 type TaskPage struct {
-	Items []Task `json:"items"`
-	Next  uint64 `json:"next_before_id,string,omitempty"`
+	Total     uint64       `json:"total,string"`
+	Groups    []GroupCount `json:"groups"`
+	NextValue string       `json:"next_before_value,omitempty"`
+	Items     []Task       `json:"items"`
+	Next      uint64       `json:"next_before_id,string,omitempty"`
 }
