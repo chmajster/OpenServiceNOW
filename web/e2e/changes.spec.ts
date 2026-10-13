@@ -38,7 +38,7 @@ async function transition(p: Page, state: string, label: string) {
     .click();
   await expect(p.locator(".record-facts")).toContainText(label);
 }
-test("Change UI joins Problem and CI, pins another person's decision, executes tasks and shows calendar", async ({
+test("Integrated ITSM workspace retains incident privacy through Problem, approved Change and verification", async ({
   page,
   browser,
   request,
@@ -93,6 +93,8 @@ test("Change UI joins Problem and CI, pins another person's decision, executes t
     const context = await browser.newContext({
         baseURL: process.env.E2E_BASE_URL,
         viewport: page.viewportSize() ?? undefined,
+        isMobile: info.project.name === "mobile-chromium",
+        hasTouch: info.project.name === "mobile-chromium",
       }),
       p = await context.newPage();
     p.setDefaultTimeout(12000);
@@ -150,21 +152,78 @@ test("Change UI joins Problem and CI, pins another person's decision, executes t
           })
         ).status(),
       ).toBe(204);
-    const ciResponse = await request.post("/api/v1/cmdb/cis", {
-      headers: await keyed(request),
-      data: {
-        identifier: `change-db-${suffix}`,
-        name: `Baza ${suffix}`,
-        class: "DATABASE",
-        status: "ACTIVE",
-        environment: "PROD",
-        owner_id: me.user.id,
-        attributes: { engine: "PostgreSQL" },
-      },
-    });
-    expect(ciResponse.status()).toBe(200);
-    const ci = await ciResponse.json();
     await page.context().addCookies((await request.storageState()).cookies);
+    async function screens(target: Page, name: string) {
+      await expect(target.locator(".page-heading h1")).toBeVisible();
+      const original = target.viewportSize();
+      for (const width of info.project.name === "chromium"
+        ? [1366, 1920]
+        : [412]) {
+        await target.setViewportSize({ width, height: 900 });
+        expect(
+          await target.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth,
+          ),
+        ).toBe(true);
+        await target.evaluate(() => {
+          (document.activeElement as HTMLElement)?.blur();
+          window.scrollTo(0, 0);
+        });
+        await target.screenshot({
+          path: info.outputPath(`${name}-${width}.png`),
+          fullPage: true,
+        });
+      }
+      if (original) await target.setViewportSize(original);
+    }
+    await page.goto("/cmdb/new");
+    await page.getByLabel("Klasa CI", { exact: true }).selectOption("DATABASE");
+    await page
+      .getByLabel("Identyfikator CI", { exact: true })
+      .fill(`change-db-${suffix}`);
+    await page.getByLabel("Nazwa CI", { exact: true }).fill(`Baza ${suffix}`);
+    await page
+      .getByLabel("Stan operacyjny", { exact: true })
+      .selectOption("ACTIVE");
+    await page
+      .getByLabel("Etap cyklu życia", { exact: true })
+      .selectOption("OPERATE");
+    await page.getByLabel("Silnik bazy", { exact: true }).fill("PostgreSQL");
+    await choose(page, "Grupa wsparcia", teamName);
+    await page.getByRole("button", { name: "Utwórz CI", exact: true }).click();
+    await expect(page).toHaveURL(/\/cmdb\/[0-9]+$/);
+    const ciID = new URL(page.url()).pathname.split("/").at(-1)!;
+    const ci = await (await request.get(`/api/v1/cmdb/cis/${ciID}`)).json();
+    await screens(page, "ci");
+    await page.goto("/cmdb/new");
+    await page.getByLabel("Klasa CI", { exact: true }).selectOption("SERVICE");
+    await page
+      .getByLabel("Identyfikator CI", { exact: true })
+      .fill(`business-service-${suffix}`);
+    await page
+      .getByLabel("Nazwa CI", { exact: true })
+      .fill(`Usługa biznesowa ${suffix}`);
+    await page
+      .getByLabel("Stan operacyjny", { exact: true })
+      .selectOption("ACTIVE");
+    await page.getByRole("button", { name: "Utwórz CI", exact: true }).click();
+    await expect(page).toHaveURL(/\/cmdb\/[0-9]+$/);
+    const serviceID = new URL(page.url()).pathname.split("/").at(-1)!;
+    await page.getByRole("tab", { name: "Zależności", exact: true }).click();
+    await choose(page, "Docelowy CI", ci.name);
+    await page
+      .getByLabel("Typ zależności", { exact: true })
+      .selectOption("DEPENDS_ON");
+    await page
+      .getByRole("button", { name: "Dodaj zależność", exact: true })
+      .click();
+    await expect(page.locator("table")).toContainText(ci.name);
+    const graph = await (
+      await request.get(`/api/v1/cmdb/cis/${serviceID}/graph`)
+    ).json();
+    expect(graph.nodes).toHaveLength(2);
+    expect(graph.edges[0].source_id).toBe(serviceID);
+    expect(graph.edges[0].target_id).toBe(ci.id);
     await page.goto("/workflow");
     await page
       .getByRole("button", { name: "Nowy proces", exact: true })
@@ -187,25 +246,124 @@ test("Change UI joins Problem and CI, pins another person's decision, executes t
     await expect(page.getByText(/opublikowana wersja 1/)).toBeVisible();
     const p = op.page,
       r = op.context.request;
-    const problemResponse = await r.post("/api/v1/problems/", {
-      headers: await keyed(r),
-      data: {
-        title: `Naprawa ${suffix}`,
-        description: "Powtarzalna awaria połączeń",
-        impact: "HIGH",
-        symptoms: "Timeout",
-        analysis: "Odtworzono awarię pod obciążeniem",
-        root_cause: "Wyczerpana pula połączeń",
-        workaround: "Ograniczenie ruchu",
-        solution_plan: "Zwiększenie puli i test obciążenia",
-        verification: "",
-        known_error: true,
-        assignment_group_id: team,
-        assigned_to: op.id,
-      },
-    });
-    expect(problemResponse.status()).toBe(200);
-    let problem = await problemResponse.json();
+    const incidentTitle = `Naprawa ${suffix}`;
+    await p.goto("/incidents/new");
+    await p.getByLabel("Tytuł", { exact: true }).fill(incidentTitle);
+    await p
+      .getByLabel("Opis", { exact: true })
+      .fill("Powtarzalna awaria połączeń bazy");
+    await p.getByLabel("Kategoria", { exact: true }).selectOption("software");
+    await p
+      .getByLabel("Podkategoria", { exact: true })
+      .selectOption("application");
+    await p.getByLabel("Wpływ", { exact: true }).selectOption("1");
+    await p.getByLabel("Pilność", { exact: true }).selectOption("2");
+    await p
+      .getByRole("button", { name: "Utwórz incydent", exact: true })
+      .click();
+    await p.getByRole("link", { name: /^Otwórz INC/ }).click();
+    await expect(p).toHaveURL(/\/incidents\/[0-9]+$/);
+    const incidentID = new URL(p.url()).pathname.split("/").at(-1)!;
+    let incident = await (
+      await r.get(`/api/v1/incidents/${incidentID}`)
+    ).json();
+    await p.goto(`/incidents/${incidentID}?tab=cmdb`);
+    await choose(p, "Element konfiguracji", ci.name);
+    await p.getByRole("button", { name: "Powiąż CI", exact: true }).click();
+    await expect(
+      p.getByRole("status").filter({ hasText: "Zapisano powiązanie CI." }),
+    ).toBeVisible();
+    await p.goto(
+      `/incidents?q=${encodeURIComponent(incident.number)}&view=all`,
+    );
+    await expect(p.locator(".record-table")).toContainText(incident.number);
+    await screens(p, "incident-list");
+    await p.getByRole("link", { name: incident.number, exact: true }).click();
+    await screens(p, "incident");
+    await p.goto(`/incidents/${incidentID}?tab=communication`);
+    await p
+      .getByRole("button", { name: "Notatka wewnętrzna", exact: true })
+      .click();
+    const privateNote = `Poufne dane incydentu ${suffix}`;
+    await p
+      .getByLabel("Treść notatki wewnętrznej", { exact: true })
+      .fill(privateNote);
+    await p
+      .getByRole("button", { name: "Zapisz notatkę wewnętrzną", exact: true })
+      .click();
+    await expect(p.getByText(privateNote, { exact: true })).toBeVisible();
+    await p.goto(`/incidents/${incidentID}?tab=problems`);
+    await p
+      .getByRole("link", { name: "Utwórz problem z incydentu", exact: true })
+      .click();
+    await expect(
+      p.getByRole("heading", { name: "Podgląd informacji z incydentu" }),
+    ).toBeVisible();
+    await expect(p.locator("main")).not.toContainText(privateNote);
+    await p
+      .getByRole("button", {
+        name: "Użyj pokazanych informacji i powiąż incydent",
+        exact: true,
+      })
+      .click();
+    await choose(p, "Grupa odpowiedzialna", teamName);
+    await choose(p, "Przypisany analityk", op.name);
+    await p
+      .getByRole("button", { name: "Utwórz problem", exact: true })
+      .click();
+    await expect(p).toHaveURL(/\/problems\/[0-9]+$/);
+    const problemID = new URL(p.url()).pathname.split("/").at(-1)!;
+    let problem = await (await r.get(`/api/v1/problems/${problemID}`)).json();
+    expect(
+      (await (await r.get(`/api/v1/problems/${problemID}/messages`)).json())
+        .messages,
+    ).toHaveLength(0);
+    async function problemTransition(state: string, label: string) {
+      await p
+        .getByLabel("Przejście procesu", { exact: true })
+        .selectOption(state);
+      await p
+        .getByRole("button", { name: "Wykonaj przejście", exact: true })
+        .click();
+      await expect(p.locator(".record-facts")).toContainText(label);
+    }
+    await problemTransition("ASSESS", "Ocena");
+    await p
+      .getByLabel("Objawy", { exact: true })
+      .fill("Timeout pod obciążeniem");
+    await p
+      .getByRole("button", { name: "Zapisz problem", exact: true })
+      .click();
+    await expect(
+      p.getByRole("button", { name: "Zapisz problem", exact: true }),
+    ).toBeDisabled();
+    await problemTransition("ROOT_CAUSE", "Analiza przyczyny");
+    for (const [label, value] of [
+      ["Wyniki analizy", "Odtworzono awarię pod obciążeniem"],
+      ["Przyczyna źródłowa", "Wyczerpana pula połączeń"],
+      ["Obejście", "Ograniczenie ruchu"],
+      ["Plan trwałego rozwiązania", "Zwiększenie puli i test obciążenia"],
+    ]) {
+      await p.getByLabel(label, { exact: true }).fill(value);
+    }
+    await p.getByLabel("Known Error", { exact: false }).check();
+    await p
+      .getByRole("button", { name: "Zapisz problem", exact: true })
+      .click();
+    await expect(
+      p.getByRole("button", { name: "Zapisz problem", exact: true }),
+    ).toBeDisabled();
+    await problemTransition("FIX_IN_PROGRESS", "Przygotowanie rozwiązania");
+    await screens(p, "problem");
+    await p
+      .getByRole("tab", { name: "Powiązane rekordy", exact: true })
+      .click();
+    await choose(p, "Element konfiguracji", ci.name);
+    await p.getByRole("button", { name: "Powiąż CI", exact: true }).click();
+    await expect(
+      p.getByRole("status").filter({ hasText: "Zapisano powiązanie CI." }),
+    ).toBeVisible();
+    problem = await (await r.get(`/api/v1/problems/${problemID}`)).json();
     const note = await r.post(`/api/v1/problems/${problem.id}/messages`, {
       headers: await keyed(r),
       data: { type: "WORK_NOTE", body: `Poufna analiza ${suffix}` },
@@ -297,6 +455,16 @@ test("Change UI joins Problem and CI, pins another person's decision, executes t
       },
     );
     await p.getByRole("button", { name: "Powiąż CI", exact: true }).click();
+    await expect(
+      p.getByRole("button", {
+        name: "Potwierdź wynik powiązania CI",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await p.getByRole("tab", { name: "Szczegóły", exact: true }).click();
+    await p
+      .getByRole("tab", { name: "Powiązane rekordy", exact: true })
+      .click();
     await p
       .getByRole("button", {
         name: "Potwierdź wynik powiązania CI",
@@ -401,6 +569,7 @@ test("Change UI joins Problem and CI, pins another person's decision, executes t
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     ).toBe(true);
+    await screens(page, "calendar");
     await page.screenshot({
       path: info.outputPath("change-calendar.png"),
       fullPage: true,
@@ -505,6 +674,50 @@ test("Change UI joins Problem and CI, pins another person's decision, executes t
     await expect(
       p.getByRole("link", { name: new RegExp(record.number) }).first(),
     ).toBeVisible();
+    await p.goto(`/problems/${problem.id}`);
+    await p
+      .getByLabel("Wynik weryfikacji", { exact: true })
+      .fill("Po zmianie wykonano test obciążenia; brak wyczerpania puli");
+    await p
+      .getByRole("button", { name: "Zapisz problem", exact: true })
+      .click();
+    await expect(
+      p.getByRole("button", { name: "Zapisz problem", exact: true }),
+    ).toBeDisabled();
+    await problemTransition("RESOLVED", "Rozwiązany");
+    await problemTransition("CLOSED", "Zamknięty");
+    await p.reload();
+    await expect(p.locator(".record-facts")).toContainText("Zamknięty");
+    incident = await (await r.get(`/api/v1/incidents/${incidentID}`)).json();
+    expect(incident.state).toBe("NEW");
+    await p.goto(`/incidents/${incidentID}?tab=problems`);
+    await expect(
+      p.getByRole("link", { name: new RegExp(problem.number) }).first(),
+    ).toBeVisible();
+    await p.goto(`/problems/${problem.id}?tab=history`);
+    await expect
+      .poll(
+        async () =>
+          (
+            await (await r.get(`/api/v1/problems/${problem.id}/history`)).json()
+          ).entries.some(
+            (e: { data: { after?: { state?: string } } }) =>
+              e.data.after?.state === "CLOSED",
+          ),
+        { timeout: 20000 },
+      )
+      .toBe(true);
+    await p
+      .getByRole("button", { name: "Odśwież historię", exact: true })
+      .click();
+    await expect(p.locator(".timeline")).toContainText("CLOSED");
+    await p.goto(`/changes/${id}`);
+    await screens(p, "change");
+    await p.goto("/");
+    await expect(
+      p.getByRole("heading", { name: "Mój obszar pracy", exact: true }),
+    ).toBeVisible();
+    await screens(p, "workspace");
     for (let n = 0; n < 26; n++) {
       const response = await r.post("/api/v1/changes/", {
         headers: await keyed(r),

@@ -186,6 +186,17 @@ test("authorized global references, task URLs, context and real report drilldown
   });
   expect(changeResponse.status()).toBe(200);
   const change = await changeResponse.json();
+  await p.goto("/");
+  await expect(
+    p.getByRole("link", { name: "Moje aktywne problemy: 31", exact: true }),
+  ).toBeVisible();
+  await p
+    .getByRole("link", { name: "Moje aktywne problemy: 31", exact: true })
+    .click();
+  await expect(p.getByLabel("Kolejka", { exact: true })).toHaveValue("mine");
+  await expect(
+    p.getByRole("region", { name: "Konfiguracja listy" }),
+  ).toContainText("Dostępnych rekordów: 31");
   await p.goto("/reports?domain=problem");
   await expect(
     p.getByRole("heading", { name: "Raporty operacyjne", exact: true }),
