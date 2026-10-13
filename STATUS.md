@@ -4,9 +4,32 @@ Last updated: 2026-10-13
 
 ## Current phase
 
-Durable workflow and approvals for catalog requests, following service catalog fulfillment and incident SLA.
+Connected operator workspace, typed CMDB and full first-scope Problem/Change Management with authorized search and operational reports.
 
 The repository includes the administration foundation, durable MySQL jobs/worker, scheduler, work-record infrastructure and the core Incident Management API/UI. The full application is deployed through DevBox with real MySQL/Redis readiness. This delivery does not declare every Phase 3 extension or later roadmap phase complete.
+
+## Connected ITSM workspace delivery (Draft PR #24)
+
+Schema 72–98 adds shared record views, six typed CI classes, directed dependencies,
+Problem/analytical tasks, Change/execution tasks, independent immutable Standard
+templates, explicit existing-workflow Change subjects, calendar rules and RBAC.
+Historical migrations, credentials and existing catalog workflows are preserved.
+The existing AppShell integrates real scoped work queues, record/list context,
+favorites/history, eleven-type search, reference previews, connected activity/
+related lists and operational reports with definitions/source drilldowns.
+
+Current verification: Go/OpenAPI unit tests, race, vet/build and frontend 31 tests,
+typecheck/build passed. The full fresh MySQL integration through schema 98 passed
+(63.231s), including migration rollback/reupgrade, first-run installer, preserved
+Request workflows and new process/security cases. The combined desktop browser
+acceptance passed (2.7m), with actual API/worker/scheduler restart during pending
+approval: saved execution/deadline continued; one required task was executed;
+Change and Problem were closed after review/verification; the incident remained
+open. All five CMDB/Problem/Change/template/report touch-mobile flows passed (1.9m).
+The full existing desktop/mobile browser regression, standalone native/Docker
+runtime checks and final screenshot review are still in progress. PR remains draft
+and no automatic merge is authorized. Exact continuation state is maintained in
+[docs/operator-workspace.md](docs/operator-workspace.md).
 
 ## Workflow and approvals delivery (PR #22)
 

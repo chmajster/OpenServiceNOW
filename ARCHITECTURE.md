@@ -2,9 +2,42 @@
 
 ## Status
 
-Phase 0 established the target architecture and module boundaries. The implemented stack contains API, migration/bootstrap, worker and scheduler executables, MySQL schema through migration 71, Redis-backed controls, identity/RBAC/audit services, the first-run installer, React administration and own-account UI.
+Phase 0 established the target architecture and module boundaries. The implemented stack contains API, migration/bootstrap, worker and scheduler executables, MySQL schema through migration 98, Redis-backed controls, identity/RBAC/audit services, the first-run installer, React administration and own-account UI.
 
 Shared work-record, jobs, outbox, activity and attachment libraries are implemented and integration-tested. The scheduler enqueues durable session- and attachment-cleanup jobs; the worker executes them and dispatches activity events. Incident Management consumes shared numbering, assignments, messages, watchers, relations, attachments and activity through domain-authorized API/UI. Generic work/job-management and arbitrary-object attachment APIs/UI remain future stages. Existing routes/screens cover setup, authentication, own accounts, tenant/user/RBAC/audit administration, incidents, catalog/requests/fulfillment, workflow/approvals and notifications/delivery administration. The remaining sections distinguish implemented foundations from target business capabilities; see STATUS.md and TODO.md for verified progress.
+
+## Connected ITSM domain boundaries
+
+`internal/cmdb` owns typed CI classes, directed relation rules, bounded graph
+traversal and archived history. Record adapters call each domain's current read
+and mutation policy; links never grant access to either endpoint.
+`internal/problems` owns PRB/analytical tasks, controlled transitions, documented
+Known Error and explicit public incident transfer. `internal/changes` owns
+CHG/execution tasks, independent immutable Standard-template approvals and
+calendar rules/reservations. Both reuse work-record allocation/assignment,
+communication/files, optimistic versions, atomic audit/outbox and retry receipts.
+
+Workflow subjects explicitly distinguish REQUEST and CHANGE. The existing engine
+uses a Change adapter with a frozen public snapshot/version/revision; publication
+validates each domain's allowed steps. Material scope edits invalidate prior stamps
+and pending executions while retaining decisions. Request catalog execution is
+preserved. Scheduling and actual start use the common tenant transaction lock to
+check current shared-CI overlap, service windows and blackouts; exceptional actions
+have their own current permission, justification and audit.
+
+`internal/workspace` reads minimal references from SQL scopes constructed by the
+domains. Search, batched metadata, context targets, report aggregation and source
+pagination apply those same current ACL predicates before returning text/counts.
+Expressions are validated allowlisted ASTs; scopes never contain caller SQL.
+Reports use bounded repeatable-read transactions, UTC half-open time ranges and
+exact decimal count/identifier/version contracts. Private messages and catalog
+form values are excluded from global references.
+
+The existing AppShell hosts compact shared tables/forms, record tabs and a bounded
+context panel. Drafts and uncertain commands remain in memory. Related-list editors
+retain the exact command/key across tab changes, and navigation has one owning
+record blocker. Tenant/session changes clear context; current batched metadata
+removes inaccessible tab/history/favorite labels without loading private records.
 
 ## Architectural goals
 
@@ -14,7 +47,7 @@ Manual submission creates the Request, snapshot items, numbered tasks, shared as
 
 The implemented `internal/incidents` domain owns incident fields, object authorization, lifecycle rules and business versioning. It calls shared `workrecords.Allocator.NextInTx` and `workrecords.Service.SetAssignmentInTx` using the same `database.Executor` as incident persistence, audit and outbox; no nested transaction commits independently. Creation idempotency is scoped to the backend actor and organization, while INC uniqueness is enforced per organization and numbering uses the shared row-locked sequence.
 
-Nine incident event types have production handlers registered by `cmd/worker`. Payloads contain complete business before/after snapshots, decimal incident version and mutation-time `occurred_at`; shared activity uses that timestamp and source-event pagination, so delayed/out-of-order projection cannot redefine business time. History reports pending outbox work independently of durable synchronous writes. The implemented SLA consumer reads business occurrence/version, not delivery time. Incident communication/file mutations emit the existing shared work events through the same transaction; production work handlers project them into activity without duplicating replayed events. CMDB remains a later domain integration requiring a real provider.
+Nine incident event types have production handlers registered by `cmd/worker`. Payloads contain complete business before/after snapshots, decimal incident version and mutation-time `occurred_at`; shared activity uses that timestamp and source-event pagination, so delayed/out-of-order projection cannot redefine business time. History reports pending outbox work independently of durable synchronous writes. The implemented SLA consumer reads business occurrence/version, not delivery time. Incident communication/file mutations emit the existing shared work events through the same transaction; production work handlers project them into activity without duplicating replayed events. CMDB is a separate authorized domain with deliberate manual inventory and links; Discovery remains outside the delivered scope.
 
 OpenServiceNOW is an enterprise ITSM / IT Operations platform inspired by the functional class of products such as ServiceNow, while using its own implementation, UX, data model, naming, and architecture.
 

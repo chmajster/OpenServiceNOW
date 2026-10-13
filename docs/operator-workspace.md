@@ -256,13 +256,42 @@ preview, independently readable CI/Change context, report source drilldown and
 absence of invented Change SLA. A mobile aggregate-table width issue was found
 and fixed; the repeat mobile flow passed and its screenshot was inspected.
 
+## Combined acceptance and policy review
+
+The shared review corrected retained uncertain related-list commands, readable
+Problem/task/Request/workflow comparisons and the Request CI tab. The owner has
+one navigation blocker; exact retry bodies/keys survive another record tab. My
+workspace now includes current-assignee and active-own-group Problem/Change queues
+whose counts match domain-filtered lists. Implementation rechecks current CI,
+workflow/template and calendar policy under the tenant lock. A new blackout after
+reservation blocks without changing state/version/timestamps; a separate current
+permission and audited reason can override it. MySQL verifies denied and allowed
+exceptions plus replay.
+
+Full fresh isolated MySQL integration passed through schema 98 (63.231s), including
+installer/migration lifecycle, retained Request workflow, current queues, all domain
+privacy/concurrency/retry gates and the new execution policy. Go unit/OpenAPI, race,
+vet/build and frontend 31 tests/typecheck/build passed.
+
+The combined desktop acceptance passed (2.7m): administrator used real forms to
+create CI and Business Service and a dependency; operators received scoped roles;
+an operator created an incident, opened it from its queue, linked CI and added a
+private note; public preview created a Problem with recorded analysis; a remedial
+Change pinned another person's actual decision; a required task was executed,
+reviewed and closed; the Problem was verified and closed; the incident stayed NEW.
+API, worker and scheduler actually restarted while approval waited. The same
+execution/deadline survived and no duplicate task/effect appeared. Five CMDB,
+Problem, Change, Standard/Emergency and report touch-mobile flows passed (1.9m).
+
+An early combined test expected incident creation to redirect and looked for a
+message in the history selector. It was corrected to open the actual confirmation
+link and assert the real message. Screenshot review then found a queue definition
+that did not wrap and a Change capture before lazy loading completed; wrapping and
+capture readiness were corrected. Final screenshot inspection remains pending.
+
 ## Remaining implementation
 
-1. Finish the shared form/related-list review, particularly retained uncertain
-   commands, human-readable conflicts and current calendar conditions.
-2. Execute the full combined ITSM acceptance, final screenshots at 1366/1920/mobile
-   and all applicable installer/runtime/migration/regression checks.
-3. Update final project documentation and PR with actual results and limitations.
-
-Core stage F flows passed; combined acceptance and final regression are pending.
-No automatic merge is authorized.
+1. Finish the 38-scenario existing desktop/mobile browser regression.
+2. Complete isolated native/Docker installer update/lifecycle checks, final screenshots
+   at 1366/1920/mobile, review final diffs and update all verification summaries.
+3. Push the final accurate PR/documentation state. No automatic merge is authorized.

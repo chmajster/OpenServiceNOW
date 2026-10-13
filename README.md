@@ -4,7 +4,7 @@ OpenServiceNOW is an enterprise ITSM / IT Operations platform implemented indepe
 
 ## Current state
 
-The administration foundation, shared work platform and core Incident Management process are implemented. Further business modules continue according to the roadmap; an internal library does not imply an available HTTP endpoint or UI screen.
+The shared operator workspace connects incidents, catalog requests/tasks, approvals, CMDB, Problems and Changes. These modules have domain persistence, authorized APIs and functioning screens. Broader roadmap capabilities remain separate from this delivered scope.
 
 Implemented foundation capabilities:
 
@@ -51,7 +51,34 @@ Durable MySQL-backed jobs, worker/scheduler execution and shared work-record inf
 | Incident SLA | Versioned policies/calendars, durable business-time checkpoints, scheduler/worker and idempotent thresholds | Organization administration, authorized batch summaries and history | Policy/calendar forms, incident list/details/history |
 | Workflow and approvals | Immutable versions, durable steps/decisions/deadlines, transactional commands and real jobs | Publication, object-authorized decisions/state/repair | Process form editor, approval inbox, visual state and attempt history |
 | Service catalog and requests | Immutable publications, declarative forms, Request/Requested Item/Task, atomic audit/outbox, idempotency and CAS | Audience-filtered catalog, own requests, scoped fulfillment and request-bound collaboration | Catalog administration/designer/templates, portal, own requests and fulfillment queue |
+| Operator workspace and reporting | Authorized multi-domain metadata/search/context, whole-set filters/counts, current assignment queues and operational reports | Documented `/api/v1/workspace` and record-view routes | Record tabs, favorites/history, saved lists, reference previews and source drilldowns |
+| CMDB | Six typed classes, directed relations, bounded graphs, archive history and bidirectional incident/request/Problem/Change links | Documented `/api/v1/cmdb` routes | Lists, forms, dependencies and related records |
+| Problem Management | Controlled PRB lifecycle, Known Error, analytical tasks and private collaboration | Documented `/api/v1/problems` routes | Public incident transfer, analysis, verification and remedial Change creation |
+| Change Management | Normal/Standard/Emergency, versioned templates, existing durable workflow adapter, safe calendar reservation/execution and CHGTASK | Documented `/api/v1/changes` routes | Change forms, actual decisions, tasks, CAB and windows/blackouts |
 | Other roadmap business modules | Remaining roadmap work | Not available | Not available |
+
+## Connected operator work
+
+The Polish UI reuses AppShell and shared list/form components. Navigate through
+**Mój obszar pracy**, Incydenty, Wnioski/Zadania, Akceptacje, Problemy, Zmiany,
+CMDB, Katalog usług and Raporty, according to current permissions. Search supports
+eleven object types and exact numbers, including stable parent/task/item links.
+Reports describe their snapshot/time range and reopen independently authorized
+source records. SLA is displayed only for the implemented incident SLA domain.
+
+Schema 72–98 extends existing data without rewriting historical migrations or
+seeding business objects. CI classes distinguish Business Service from catalog
+items and purchasing assets. Problem and Change closure never automatically
+closes incidents. Change approvals pin an immutable evaluated revision; material
+edits require reassessment. Scheduling and implementation recheck calendar/CI
+policy under the tenant lock; exceptional execution requires a separate current
+permission, reason and audit. Standard uses an independently approved immutable
+scope/template plus an actual instance decision; Emergency retains explicit
+urgent authorization. These records document operator work, not infrastructure
+provisioning or Discovery.
+
+See [operator workspace delivery and verification](docs/operator-workspace.md)
+for the implemented boundaries and current PR verification checkpoint.
 
 ## Workflow and approvals
 

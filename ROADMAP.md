@@ -182,7 +182,7 @@ Exit criteria:
 
 ## Phase 3 — Incident Management
 
-Core process delivered in PR #17: model/migrations, create/read/update/list, active assignment, category/subcategory catalog, explicit priority matrix/override, backend lifecycle, object RBAC/read-own, idempotency/versioning and agent/reporting UI with real worker history. This is the first complete business process, not completion of every extension below. PR #18 extends the process with public replies/internal notes, files, filtered activity, observers, related/parent-child records and two controlled operator batch actions. CMDB/service fields wait for a real data source; templates and major-incident orchestration remain future work. This does not mark all advanced bulk/workflow capabilities delivered. Verification evidence is maintained in STATUS.md.
+Core process delivered in PR #17: model/migrations, create/read/update/list, active assignment, category/subcategory catalog, explicit priority matrix/override, backend lifecycle, object RBAC/read-own, idempotency/versioning and agent/reporting UI with real worker history. This is the first complete business process, not completion of every extension below. PR #18 extends the process with public replies/internal notes, files, filtered activity, observers, related/parent-child records and two controlled operator batch actions. Manually managed typed CI/service links are delivered in PR #24; templates and major-incident orchestration remain future work. This does not mark all advanced bulk/workflow capabilities delivered. Verification evidence is maintained in STATUS.md.
 
 Goal: production-capable incident lifecycle.
 
@@ -304,6 +304,8 @@ Exit criteria:
 
 ## Phase 7 — Change and Problem Management
 
+PR #24 delivers the first complete controlled Problem/Change scope: PRB/CHG/tasks, incident/CI links, Known Error, remedial change, real durable decisions, independently approved Standard templates, Emergency, CAB and protected calendar reservations/execution. Broad automation and infrastructure provisioning are not included. See docs/operator-workspace.md for verification.
+
 Change:
 
 - STANDARD/NORMAL/EMERGENCY,
@@ -332,6 +334,8 @@ Exit criteria:
 - conflicts and relationships are tenant-safe.
 
 ## Phase 8 — CMDB and Asset Management
+
+PR #24 delivers six typed CI classes, directed rules, independently authorized record links, bounded dependency graphs and archive history. Business Services and catalog items remain distinct. Existing asset/import backend stays tested; no unfinished asset/import or Discovery UI is exposed.
 
 CMDB:
 
@@ -452,6 +456,8 @@ Exit criteria:
 - retries are idempotency-aware.
 
 ## Phase 12 — Reporting and Dashboards
+
+PR #24 delivers operational workspace reports with ACL-before-aggregation, definitions, snapshot/UTC time ranges, real incident SLA risk, Problem incident ranking and planned/closed Change source drilldowns. Custom report authoring and a data warehouse are separate future scope.
 
 Deliverables:
 
