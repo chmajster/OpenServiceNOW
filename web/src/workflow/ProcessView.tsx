@@ -5,6 +5,7 @@ import { useIncidentQuery } from "../incidents/hooks";
 import { LoadState } from "../requests/LoadState";
 import { useEditor } from "../requests/useEditor";
 import { UnsavedGuard } from "../incidents/UnsavedGuard";
+import { useWorkspaceRecord } from "../workspace/WorkspaceContext";
 import { labels, errors, type Execution } from "./contracts";
 
 export function RequestProcesses({ requestID }: { requestID: string }) {
@@ -59,6 +60,21 @@ function ProcessWorkspace({ initial }: { initial: Execution }) {
   const x = ed.record,
     [reason, setReason] = useState(""),
     [choice, setChoice] = useState("APPROVED");
+  useWorkspaceRecord(
+    {
+      number: `${x.request_number} · proces #${x.id}`,
+      title: x.name,
+      state: labels[x.state] ?? x.state,
+      type: "Proces i akceptacje",
+      links: [
+        {
+          url: `/requests/${x.request_id}`,
+          label: `Wniosek ${x.request_number}`,
+        },
+      ],
+    },
+    x.id,
+  );
   const pending = x.steps.find(
     (s) => s.node_id === x.current_node && s.can_decide,
   );

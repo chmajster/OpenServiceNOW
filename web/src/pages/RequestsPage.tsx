@@ -9,6 +9,10 @@ import { UnsavedGuard } from "../incidents/UnsavedGuard";
 import { LoadState } from "../requests/LoadState";
 import { useEditor } from "../requests/useEditor";
 import { states, type Request, type Task } from "../requests/contracts";
+import {
+  useWorkspace,
+  useWorkspaceRecord,
+} from "../workspace/WorkspaceContext";
 import { RequestProcesses } from "../workflow/ProcessView";
 export function RequestsPage({ tasks = false }: { tasks?: boolean }) {
   const { recordID } = useParams();
@@ -27,7 +31,7 @@ function Queue({ tasks }: { tasks: boolean }) {
     state = params.get("state") ?? "",
     view = params.get("view") ?? (tasks ? "group" : "mine");
   const page = useRemotePage<Request | Task>(
-    `/api/v1/${root}/?q=${encodeURIComponent(q)}&state=${state}&view=${view}&limit=25`,
+    `/api/v1/${root}/?q=${encodeURIComponent(q)}&state=${state}&view=${view}&active=${params.get("active") ?? "false"}&limit=25`,
     "items",
     "before_id",
   );
@@ -82,7 +86,8 @@ function Queue({ tasks }: { tasks: boolean }) {
           >
             {tasks ? (
               <>
-                <option value="group">Moich grup</option>
+                <option value="my_group">Moich grup</option>
+                <option value="group">Wszystkie dostępne</option>
                 <option value="mine">Przypisane do mnie</option>
                 <option value="unassigned">Nieprzypisane</option>
               </>
@@ -98,6 +103,17 @@ function Queue({ tasks }: { tasks: boolean }) {
           </select>
         </label>
       </div>
+      {params.get("active") === "true" && (
+        <p className="notice">
+          Aktywne rekordy{" "}
+          <button
+            className="button button--small button--secondary"
+            onClick={() => setParam("active", "false")}
+          >
+            Uwzględnij zakończone
+          </button>
+        </p>
+      )}
       <LoadState loading={page.loading} error={page.error} retry={page.retry} />
       {!page.loading && !page.error && !page.items.length ? (
         <p role="status">Brak wniosków lub zadań pasujących do filtrów.</p>
@@ -181,6 +197,29 @@ function Workspace({
   const { session } = useAuth();
   const editor = useEditor(initial, path);
   const r = editor.record;
+  const workspace = useWorkspace();
+  useWorkspaceRecord(
+    {
+      number: r.number,
+      title: "title" in r ? r.title : r.number,
+      state: states[r.state] ?? r.state,
+      type: tasks ? "Zadanie" : "Wniosek",
+      assignment:
+        "title" in r
+          ? [r.group_name, r.assigned_name].filter(Boolean).join(" · ")
+          : r.requester_name,
+      links:
+        "title" in r
+          ? [
+              {
+                url: `/requests/${r.request_id}`,
+                label: `Wniosek ${r.request_number}`,
+              },
+            ]
+          : undefined,
+    },
+    r.id,
+  );
   const heading = useIncidentTitleFocus(r.id);
   const [params, setParams] = useSearchParams();
   const selectedTab = params.get("tab");
@@ -276,7 +315,14 @@ function Workspace({
       <p>
         {states[r.state]} · Wersja {r.version}
       </p>
-      <Link to={`/${tasks ? "fulfillment" : "requests"}`}>Wróć do kolejki</Link>
+      <Link
+        to={
+          workspace?.listURL(`/${tasks ? "fulfillment" : "requests"}`) ??
+          `/${tasks ? "fulfillment" : "requests"}`
+        }
+      >
+        Wróć do kolejki
+      </Link>
       {!tasks ? <RequestProcesses requestID={requestID} /> : null}
       {tasks ? (
         <p>

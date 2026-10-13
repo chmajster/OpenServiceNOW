@@ -109,17 +109,17 @@ test("first-run installer creates the administrator and permanently closes setup
       await changeTemporaryPassword(page, password, permanentRootPassword);
       await page.goto("/");
     }
-    await expect(page.getByRole("heading", { name: "Przegląd", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Mój obszar pracy", exact: true })).toBeVisible();
     const me = await page.request.get("/api/v1/auth/me");
     expect(me.status()).toBe(200);
     expect((await me.json()).permissions).toContain("admin.users.manage");
     await page.reload();
-    await expect(page.getByRole("heading", { name: "Przegląd", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Mój obszar pracy", exact: true })).toBeVisible();
     await page.getByRole("navigation", { name: "Główna nawigacja" }).getByRole("link", { name: "Audyt" }).click();
     await page.locator(".audit-entry").filter({ hasText: "setup.platform_admin" }).getByText("Szczegóły techniczne").click();
     await expect(page.getByText("setup.platform_admin", { exact: true })).toBeVisible();
     await page.goto("/setup");
-    await expect(page.getByRole("heading", { name: "Przegląd", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Mój obszar pracy", exact: true })).toBeVisible();
   } finally {
     await oppositeContext.close();
   }

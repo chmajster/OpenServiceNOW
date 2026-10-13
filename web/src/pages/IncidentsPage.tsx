@@ -148,6 +148,7 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
         {[
           ["all", "Wszystkie dostępne"],
           ["mine", "Moje"],
+          ["assigned", "Przypisane do mnie"],
           ["my_group", "Mojej grupy"],
           ["unassigned", "Nieprzypisane"],
         ].map(([value, label]) => (
@@ -196,6 +197,28 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
             Wyczyść filtry
           </button>
         </form>
+        <div className="action-row">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={params.get("active") === "true"}
+              onChange={(e) =>
+                filter({ active: e.target.checked ? "true" : "" })
+              }
+            />
+            Tylko aktywne
+          </label>
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={params.get("sla_risk") === "true"}
+              onChange={(e) =>
+                filter({ sla_risk: e.target.checked ? "true" : "" })
+              }
+            />
+            Zagrożone SLA (stan workera)
+          </label>
+        </div>
         <div className="filter-grid">
           <label>
             Stan

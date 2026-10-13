@@ -28,6 +28,10 @@ import { CommunicationPanel } from "./CommunicationPanel";
 import { ParticipantsPanel } from "./ParticipantsPanel";
 import { UnsavedGuard } from "./UnsavedGuard";
 import { IncidentSLA } from "../sla/IncidentSLA";
+import {
+  useWorkspace,
+  useWorkspaceRecord,
+} from "../workspace/WorkspaceContext";
 
 type EditorProps = {
   record: Incident;
@@ -45,6 +49,19 @@ export function IncidentWorkspace({
   metadata: Metadata;
 }) {
   const [record, setRecord] = useState(initial);
+  const workspace = useWorkspace();
+  useWorkspaceRecord(
+    {
+      number: record.number,
+      title: record.title,
+      state: optionLabel(metadata.states, record.state),
+      type: "Incydent",
+      assignment: [record.group_name, record.assigned_name]
+        .filter(Boolean)
+        .join(" · "),
+    },
+    record.id,
+  );
   const [draftTabs, setDraftTabs] = useState<Record<string, boolean>>({});
   const retain = useCallback((tab: string, needed: boolean) => {
     setDraftTabs((current) =>
@@ -137,7 +154,9 @@ export function IncidentWorkspace({
   };
   const props = { record, metadata, busy, setBusy, saved, retain };
   const backSearch =
-    (location.state as { listSearch?: string } | null)?.listSearch ?? "";
+    (location.state as { listSearch?: string } | null)?.listSearch ??
+    workspace?.listURL("/incidents").split("?")[1] ??
+    "";
   return (
     <section className="page incident-page">
       <UnsavedGuard dirty={Object.values(draftTabs).some(Boolean)} />

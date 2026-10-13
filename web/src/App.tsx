@@ -9,21 +9,52 @@ import {
 import { AuthProvider } from "./auth/AuthContext";
 import { RequireAuth, RequirePermission } from "./auth/RouteGuards";
 import { AppShell } from "./layout/AppShell";
-import { AuditPage } from "./pages/AuditPage";
+
 import { LoginPage } from "./pages/LoginPage";
-import { OverviewPage } from "./pages/OverviewPage";
-import { RbacPage } from "./pages/RbacPage";
-import { TenantPage } from "./pages/TenantPage";
-import { UsersPage } from "./pages/UsersPage";
+
 import { SetupPage } from "./pages/SetupPage";
-import { DiagnosticsPage } from "./pages/DiagnosticsPage";
-import { AccountPage } from "./pages/AccountPage";
-import { IncidentsPage } from "./pages/IncidentsPage";
-import { NotificationsPage } from "./pages/NotificationsPage";
-import { NotificationAdminPage } from "./pages/NotificationAdminPage";
-import { SlaAdminPage } from "./pages/SlaAdminPage";
+
 import { lazy, Suspense } from "react";
 import { PageState } from "./components/PageState";
+const AuditPage = lazy(() =>
+  import("./pages/AuditPage").then((m) => ({ default: m.AuditPage })),
+);
+const OverviewPage = lazy(() =>
+  import("./pages/OverviewPage").then((m) => ({ default: m.OverviewPage })),
+);
+const RbacPage = lazy(() =>
+  import("./pages/RbacPage").then((m) => ({ default: m.RbacPage })),
+);
+const TenantPage = lazy(() =>
+  import("./pages/TenantPage").then((m) => ({ default: m.TenantPage })),
+);
+const UsersPage = lazy(() =>
+  import("./pages/UsersPage").then((m) => ({ default: m.UsersPage })),
+);
+const DiagnosticsPage = lazy(() =>
+  import("./pages/DiagnosticsPage").then((m) => ({
+    default: m.DiagnosticsPage,
+  })),
+);
+const AccountPage = lazy(() =>
+  import("./pages/AccountPage").then((m) => ({ default: m.AccountPage })),
+);
+const IncidentsPage = lazy(() =>
+  import("./pages/IncidentsPage").then((m) => ({ default: m.IncidentsPage })),
+);
+const NotificationsPage = lazy(() =>
+  import("./pages/NotificationsPage").then((m) => ({
+    default: m.NotificationsPage,
+  })),
+);
+const NotificationAdminPage = lazy(() =>
+  import("./pages/NotificationAdminPage").then((m) => ({
+    default: m.NotificationAdminPage,
+  })),
+);
+const SlaAdminPage = lazy(() =>
+  import("./pages/SlaAdminPage").then((m) => ({ default: m.SlaAdminPage })),
+);
 const CatalogPage = lazy(() =>
   import("./pages/CatalogPage").then((m) => ({ default: m.CatalogPage })),
 );

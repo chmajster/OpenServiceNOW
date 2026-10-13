@@ -142,7 +142,7 @@ async function login(page: Page, email = adminEmail, password = adminPassword) {
     await page.goto("/");
   }
   await expect(
-    page.getByRole("heading", { name: "Przegląd", exact: true }),
+    page.getByRole("heading", { name: "Mój obszar pracy", exact: true }),
   ).toBeVisible();
 }
 async function csrf(page: Page) {
@@ -206,8 +206,9 @@ test("login rejects invalid credentials, restores a session and confirms logout"
   await login(page);
   await page.reload();
   await expect(
-    page.getByRole("heading", { name: "Przegląd", exact: true }),
+    page.getByRole("heading", { name: "Mój obszar pracy", exact: true }),
   ).toBeVisible();
+  await page.locator(".user-menu summary").click();
   await page.getByRole("button", { name: "Wyloguj" }).first().click();
   await expect(
     page.getByRole("heading", { name: "Zaloguj się" }),
@@ -330,6 +331,7 @@ test("admin manages a least-privilege user, role, group and audit with the keybo
   await expect(
     page.getByRole("button", { name: `Usuń rolę ${roleName}` }),
   ).toBeEnabled();
+  await page.locator(".user-menu summary").click();
   await page.getByRole("button", { name: "Wyloguj" }).first().click();
   await login(page, email, operatorPassword);
   await expect(
@@ -347,6 +349,7 @@ test("admin manages a least-privilege user, role, group and audit with the keybo
   await page.goto("/tenant");
   await expect(page.getByText("Tryb tylko do odczytu")).toBeVisible();
   await expect(page.getByLabel("Nazwa organizacji")).toBeDisabled();
+  await page.locator(".user-menu summary").click();
   await page.getByRole("button", { name: "Wyloguj" }).first().click();
   await login(page);
   await page.goto(
@@ -766,6 +769,7 @@ test("editing own permissions refreshes navigation and backend access", async ({
       )
     ).status(),
   ).toBe(204);
+  await page.locator(".user-menu summary").click();
   await page.getByRole("button", { name: "Wyloguj" }).first().click();
   await login(page, email, operatorPassword);
   await detail(page, "roles", roleID, "permissions");
