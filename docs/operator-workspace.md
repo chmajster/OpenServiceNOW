@@ -141,7 +141,8 @@ Incidents provide an explicit authorized public-field transfer preview. Creation
 and the incident link/touch commit atomically; private messages/files are never
 copied. Related lists and CMDB links apply each domain's access independently.
 A resolved/closed Problem never changes any incident's state. The remedial Change
-creation action is part of the next Change stage and is not exposed prematurely.
+creation action opens an explicit authorized public-field preview; both related
+lists retain independent object access checks.
 
 Messages and files reuse shared storage/repositories/reservations. problem.notes
 is checked after object access and before INTERNAL messages, files or source-event
@@ -204,15 +205,38 @@ collision details, boundaries/windows/blackouts, task execution/review/closure,
 Standard/Emergency rules, private notes and revoked permissions. A prior run
 encountered leftover fixtures from a failed test; the rollback correctly refused
 to discard Change executions, and the successful full run used a fresh disposable
-test schema. Actual process-restart browser acceptance remains pending.
+test schema. Actual API, worker and scheduler restart was verified during a pending approval;
+the execution identity and deadline survived and one task was executed.
+
+## Change operator screens
+
+The shared workspace exposes Changes, CAB, the bounded month/week calendar,
+service windows/blackouts, versioned Standard templates and typed approval
+configuration. Forms use real domain commands, frozen retry keys, preserved
+conflicting drafts and human-readable comparisons. Problem-to-Change transfer
+shows public fields before creation; CI and Problem links are bidirectional.
+Calendar forms resolve IANA gaps/ambiguities explicitly rather than guessing UTC.
+CAB loads actual decisions/collisions/history when a row is expanded.
+
+Validation: frontend 31 tests, typecheck and production build passed. Targeted
+Change MySQL integration passed (6.195s). Normal desktop and mobile browser flows
+passed through public Problem preview, lost creation/link responses, assessment,
+independent approval, scheduling, required task execution, review, closure,
+worker history, related links and real calendar-rule create/deactivation. The
+mobile flow also verified whole-set counts and pagination on 26 additional rows.
+Standard/Emergency desktop and mobile flows passed: independently approved
+immutable template, exact CI scope, real instance approval and emergency rejection.
+Identifiers exceed JavaScript's safe integer range. A pending Normal approval was
+held while all three actual processes restarted; the same execution/deadline
+continued without duplicate tasks. A later history assertion in that run was
+corrected and the complete browser flow subsequently passed.
 
 ## Remaining implementation
 
-1. Finish the Change UI: forms, approval integration, calendar/rules/templates,
-   CAB, Problem → remedial Change action and bidirectional related lists. Verify
-   the real browser flow, BIGINT, restart and negative paths before exposing it.
-2. Extend authorized search/context and reference previews, add operational reports
-   and execute the complete ITSM scenario and installer/runtime/regression checks.
+1. Extend authorized global search, bounded workspace metadata/context and reference
+   previews; implement operational reports with definitions and source drilldown.
+2. Execute the full combined ITSM acceptance, final screenshots at 1366/1920/mobile
+   and all applicable installer/runtime/migration/regression checks.
 
-This checkpoint does not claim that stage E/F or the complete ITSM acceptance
-scenario is done. No automatic merge is authorized.
+Stage F and the complete combined ITSM acceptance are pending. No automatic merge
+is authorized.
