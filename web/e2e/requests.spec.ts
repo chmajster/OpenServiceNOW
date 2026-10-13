@@ -313,7 +313,7 @@ test("published service creates once, retains snapshot and fulfills scoped tasks
   await operator
     .getByRole("button", { name: "Zapisz stan", exact: true })
     .click();
-  await expect(operator.getByText(/W realizacji · Wersja/)).toBeVisible();
+  await expect(operator.locator(".record-facts")).toContainText("W realizacji");
   await operator
     .getByRole("tab", { name: "Komunikacja i pliki", exact: true })
     .click();
@@ -409,7 +409,7 @@ test("published service creates once, retains snapshot and fulfills scoped tasks
   await operator
     .getByRole("button", { name: "Zapisz stan", exact: true })
     .click();
-  await expect(operator.getByText(/Ukończone · Wersja/)).toBeVisible();
+  await expect(operator.locator(".record-facts")).toContainText("Ukończone");
   await operator.goto(`/requests/${committed}`);
   await operator.getByRole("tab", { name: "Realizacja", exact: true }).click();
   await operator.getByLabel("Nowy stan").selectOption("FULFILLED");
@@ -420,9 +420,9 @@ test("published service creates once, retains snapshot and fulfills scoped tasks
   await operator
     .getByRole("button", { name: "Zapisz stan", exact: true })
     .click();
-  await expect(operator.getByText(/Zamknięty · Wersja/)).toBeVisible();
+  await expect(operator.locator(".record-facts")).toContainText("Zamknięty");
   await portal.reload();
-  await expect(portal.getByText(/Zamknięty · Wersja/)).toBeVisible();
+  await expect(portal.locator(".record-facts")).toContainText("Zamknięty");
   await portal.getByRole("tab", { name: "Historia", exact: true }).click();
   await expect
     .poll(
@@ -616,6 +616,6 @@ test("catalog and task conflicts retain the local proposal and require an explic
     })
     .click();
   await page.getByRole("button", { name: "Zapisz stan", exact: true }).click();
-  await expect(page.getByText(/W realizacji · Wersja/)).toBeVisible();
+  await expect(page.locator(".record-facts")).toContainText("W realizacji");
   await noOverflow(page);
 });

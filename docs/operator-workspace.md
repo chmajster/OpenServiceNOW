@@ -83,8 +83,9 @@ Validation at this checkpoint: Go unit/OpenAPI tests, vet, build and race tests
 passed; frontend 25 tests, typecheck and production build passed. New desktop
 and mobile browser coverage passed for full-dataset filtering, grouping,
 sort pagination, column order, saved views, authorized preview, formula-safe
-CSV and group access revocation. Full integration and browser regressions are
-being repeated on separate disposable databases. An initial combined run was
+CSV and group access revocation. Full integration passed on a separate database (47.369s), including rollback
+and re-upgrade. Browser regression passed: 24 foundation/incident/workspace/list
+cases plus four request/conflict cases across desktop and mobile. An initial combined run was
 invalid because its rollback test reset browser fixtures and the running worker
 consumed test events; this result is not counted as a passing regression.
 
