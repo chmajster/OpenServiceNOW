@@ -28,6 +28,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/platform/httpserver"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/ratelimit"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/requestinfo"
+	"github.com/chmajster/OpenServiceNOW/internal/problems"
 	"github.com/chmajster/OpenServiceNOW/internal/rbac"
 	"github.com/chmajster/OpenServiceNOW/internal/recordlists"
 	"github.com/chmajster/OpenServiceNOW/internal/recordviews"
@@ -120,7 +121,9 @@ func main() {
 	incidentHandler := incidents.NewHandler(incidentService, identityService)
 	requestService := requests.NewService(db, files)
 	requestHandler := requests.NewHandler(requestService, catalog.NewService(db), identityService)
-	cmdbService := cmdb.NewService(db, files, map[string]cmdb.RecordDomain{"incidents": incidents.NewCMDBDomain(incidentService), "requests": requests.NewCMDBDomain(requestService)})
+	problemService := problems.NewService(db, files, incidents.NewProblemDomain(incidentService))
+	problemHandler := problems.NewHandler(problemService, identityService)
+	cmdbService := cmdb.NewService(db, files, map[string]cmdb.RecordDomain{"incidents": incidents.NewCMDBDomain(incidentService), "requests": requests.NewCMDBDomain(requestService), "problems": problems.NewCMDBDomain(problemService)})
 	cmdbHandler := cmdb.NewHandler(cmdbService, identityService)
 	workflowService := workflow.NewService(db, requestService)
 	workflowHandler := workflow.NewHandler(workflowService, identityService)
@@ -133,6 +136,10 @@ func main() {
 		}}
 	}
 	viewHandler := &recordviews.Handler{Permissions: identityService, Service: &recordviews.Service{DB: db, Domains: map[string]recordviews.Domain{
+		"problems": {Read: func(a workrecords.Principal) bool { return a.Has("problem.read") || a.Has("problem.read_own") }, Validate: func(a workrecords.Principal, raw json.RawMessage) error {
+			_, err := recordlists.ValidateConfig(raw, problems.ListSchema(), problems.ListSorts, problems.ListGroups, problems.ListColumns)
+			return err
+		}},
 		"requests": requestViewDomain(false), "fulfillment": requestViewDomain(true),
 		"cmdb": {Read: func(a workrecords.Principal) bool { return a.Has("cmdb.read") || a.Has("cmdb.read_own") }, Validate: func(a workrecords.Principal, raw json.RawMessage) error {
 			_, err := recordlists.ValidateConfig(raw, cmdb.ListSchema(), cmdb.ListSorts, cmdb.ListGroups, cmdb.ListColumns)
@@ -184,6 +191,7 @@ func main() {
 			func(r chi.Router) { requests.RegisterRoutes(r, requestHandler, identityMiddleware) },
 			func(r chi.Router) { workflow.RegisterRoutes(r, workflowHandler, identityMiddleware) },
 			func(r chi.Router) { workspace.RegisterRoutes(r, workspaceHandler, identityMiddleware) },
+			func(r chi.Router) { problems.RegisterRoutes(r, problemHandler, identityMiddleware) },
 			func(r chi.Router) { cmdb.RegisterRoutes(r, cmdbHandler, identityMiddleware) },
 			func(r chi.Router) { recordviews.RegisterRoutes(r, viewHandler, identityMiddleware) },
 			func(r chi.Router) {

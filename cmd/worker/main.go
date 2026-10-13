@@ -23,6 +23,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/notifications"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
+	"github.com/chmajster/OpenServiceNOW/internal/problems"
 	"github.com/chmajster/OpenServiceNOW/internal/requests"
 	"github.com/chmajster/OpenServiceNOW/internal/sla"
 	"github.com/chmajster/OpenServiceNOW/internal/systemjobs"
@@ -145,6 +146,10 @@ func main() {
 			logger.Error("register CMDB activity failed")
 			os.Exit(1)
 		}
+	}
+	if err := problems.RegisterActivityHandlers(dispatcher, projector); err != nil {
+		logger.Error("register Problem activity failed")
+		os.Exit(1)
 	}
 	if err := incidents.RegisterEventHandlers(dispatcher, incidents.NewRepository(db), projector); err != nil {
 		logger.Error("register incident activity handlers", "error", err)

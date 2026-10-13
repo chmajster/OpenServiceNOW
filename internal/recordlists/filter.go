@@ -235,7 +235,7 @@ func ValidateConfig(raw json.RawMessage, fields Schema, sorts, groups, columns [
 			field, op = "created_at", "lte"
 		}
 		switch key {
-		case "state", "category", "priority", "assigned_to", "group_id", "reporter_id", "from", "to", "active", "sla_risk", "class", "status", "environment", "location", "owner_id", "support_group_id", "archived", "criticality", "lifecycle":
+		case "state", "category", "priority", "assigned_to", "group_id", "reporter_id", "from", "to", "active", "sla_risk", "class", "status", "environment", "location", "owner_id", "support_group_id", "archived", "criticality", "lifecycle", "impact", "known_error", "assignment_group_id":
 		default:
 			return c, ErrInvalid
 		}
