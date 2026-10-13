@@ -69,6 +69,7 @@ const RequestsPage = lazy(() =>
 const WorkflowPage = lazy(() =>
   import("./pages/WorkflowPage").then((m) => ({ default: m.WorkflowPage })),
 );
+const CmdbPage = lazy(() => import("./pages/CmdbPage").then(m=>({default:m.CmdbPage})));
 const ApprovalsPage = lazy(() =>
   import("./pages/ApprovalsPage").then((m) => ({ default: m.ApprovalsPage })),
 );
@@ -129,6 +130,8 @@ const router = createBrowserRouter(
             </RequirePermission>
           }
         />
+        <Route path="cmdb" element={<CmdbPage />} />
+        <Route path="cmdb/:ciID" element={<CmdbPage />} />
         <Route path="incidents" element={<IncidentsPage />} />
         <Route path="incidents/:incidentID" element={<IncidentsPage />} />
         <Route

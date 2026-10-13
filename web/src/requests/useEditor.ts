@@ -20,7 +20,12 @@ export function useEditor<T extends { version: string }>(
       controller.current?.abort();
     };
   }, []);
-  async function save(path: string, body: unknown, method = "POST") {
+  async function save(
+    path: string,
+    body: unknown,
+    method = "POST",
+    headers?: HeadersInit,
+  ) {
     if (busy || conflict) return false;
     setBusy(true);
     setError(undefined);
@@ -29,6 +34,7 @@ export function useEditor<T extends { version: string }>(
     try {
       const saved = await api<T>(path, {
         method,
+        headers,
         body: jsonBody(body),
         signal: c.signal,
       });

@@ -222,8 +222,16 @@ function NodeEditor({
         (field.endpoint ? (
           <RemoteCombobox
             label="Wartość referencji"
-            kind={field.key === "group_id" ? "groups" : "users"}
+            kind={
+              field.collection
+                ? "groups"
+                : field.key === "group_id"
+                  ? "groups"
+                  : "users"
+            }
             endpoint={field.endpoint}
+            collection={field.collection}
+            cursor={field.collection ? "before_id" : "after_id"}
             value={node.value ? { id: node.value, label: node.value } : null}
             onChange={(c) => update({ ...node, value: c?.id ?? "" })}
           />

@@ -1,0 +1,51 @@
+.cmdb-graph {
+  overflow: auto;
+  max-height: 30rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  margin-block: 1rem;
+}
+.cmdb-graph svg {
+  max-width: none;
+  display: block;
+  color: #516b81;
+}
+.cmdb-graph line {
+  stroke: #687f8c;
+  stroke-width: 1.5;
+}
+.cmdb-graph rect {
+  fill: #edf4f7;
+  stroke: #bdcdd5;
+}
+.cmdb-graph text {
+  font-size: 12px;
+  fill: #203a49;
+}
+.cmdb-node-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  list-style: none;
+  padding: 0;
+}
+.conflict-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.conflict-columns pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 24rem;
+  overflow: auto;
+  font-size: 12px;
+}
+.form-fields {
+  min-width: 0;
+}
+@media (max-width: 760px) {
+  .conflict-columns {
+    grid-template-columns: 1fr;
+  }
+}

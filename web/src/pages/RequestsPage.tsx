@@ -17,6 +17,7 @@ import {
   useWorkspace,
   useWorkspaceRecord,
 } from "../workspace/WorkspaceContext";
+import { RecordCIPanel } from "../cmdb/components";
 import { RequestProcesses } from "../workflow/ProcessView";
 export function RequestsPage({ tasks = false }: { tasks?: boolean }) {
   const { recordID } = useParams();
@@ -547,7 +548,10 @@ function Workspace({
         </p>
       ) : null}
       <div className="tabs" role="tablist" aria-label="Szczegóły wniosku">
-        {["info", "actions", "communication", "history"].map((t) => (
+        {(tasks
+          ? ["info", "actions", "communication", "history"]
+          : ["info", "actions", "communication", "cmdb", "history"]
+        ).map((t) => (
           <button
             key={t}
             role="tab"
@@ -558,7 +562,9 @@ function Workspace({
             className="button button--secondary"
             onClick={() => changeTab(t)}
             onKeyDown={(event) => {
-              const tabs = ["info", "actions", "communication", "history"];
+              const tabs = tasks
+                ? ["info", "actions", "communication", "history"]
+                : ["info", "actions", "communication", "cmdb", "history"];
               const index = tabs.indexOf(t);
               const next =
                 event.key === "ArrowRight"
@@ -583,12 +589,22 @@ function Workspace({
                 info: "Informacje",
                 actions: "Realizacja",
                 communication: "Komunikacja i pliki",
+                cmdb: "Elementy konfiguracji",
                 history: "Historia",
               }[t as "info"]
             }
           </button>
         ))}
       </div>
+      {tab === "cmdb" && !tasks && (
+        <RecordCIPanel
+          kind="requests"
+          id={r.id}
+          onChanged={() =>
+            editor.save(path, undefined, "GET").then(() => undefined)
+          }
+        />
+      )}
       {editor.notice ? <p role="status">{editor.notice}</p> : null}
       {editor.error ? <p role="alert">{editor.error}</p> : null}
       {editor.conflict ? (

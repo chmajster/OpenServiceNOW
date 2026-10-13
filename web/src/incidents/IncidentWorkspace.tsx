@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 import { RecordHeader } from "../components/RecordHeader";
 import { PageState } from "../components/PageState";
 import { RemoteCombobox, type Choice } from "../components/RemoteCombobox";
@@ -26,6 +27,7 @@ import {
 } from "./hooks";
 
 import { CommunicationPanel } from "./CommunicationPanel";
+import { RecordCIPanel } from "../cmdb/components";
 import { ParticipantsPanel } from "./ParticipantsPanel";
 import { UnsavedGuard } from "./UnsavedGuard";
 import { IncidentSLA } from "../sla/IncidentSLA";
@@ -50,6 +52,7 @@ export function IncidentWorkspace({
   metadata: Metadata;
 }) {
   const [record, setRecord] = useState(initial);
+  const { hasPermission } = useAuth();
   const workspace = useWorkspace();
   useWorkspaceRecord(
     {
@@ -113,6 +116,7 @@ export function IncidentWorkspace({
   }
   const tab = params.get("tab") ?? "info";
   const tabs = [
+    { value: "cmdb", label:"Elementy konfiguracji", available:hasPermission("cmdb.read")||hasPermission("cmdb.read_own") },
     { value: "info", label: "Informacje", available: true },
     {
       value: "edit",
@@ -316,6 +320,7 @@ export function IncidentWorkspace({
       <div hidden={activeTab !== "communication"} className="panel">
         <CommunicationPanel record={record} retain={retain} />
       </div>
+      {activeTab === "cmdb" && <div className="panel"><RecordCIPanel kind="incidents" id={record.id} onChanged={refresh}/></div>}
       {activeTab === "participants" && (
         <div className="panel">
           <ParticipantsPanel record={record} />

@@ -89,14 +89,51 @@ cases plus four request/conflict cases across desktop and mobile. An initial com
 invalid because its rollback test reset browser fixtures and the running worker
 consumed test events; this result is not counted as a passing regression.
 
+## CMDB integration
+
+The original unfinished CMDB/asset backend was copied into this worktree; its
+source directory remains untouched. Its unpublished migrations are renumbered
+74–82 after shared views. Migrations 83–84 add database class, support group,
+criticality, lifecycle and containment. Historical migrations 1–73 are unchanged.
+Every migration contains one SQL statement, matching the existing migration
+runner. DATABASE and PART_OF data block a downgrade that would reject those
+records; there is no automatic deletion to make a downgrade succeed.
+
+The CMDB screen has a real list, server filter/sort/group/count, shared views,
+CSV, authorized previews, a typed six-class form, version conflict comparison,
+archive/restore reason and projected history. CI is distinct from business-service
+class, catalog offering and financial Asset. The copied asset/import backend is
+retained and tested; no incomplete standalone asset/import screen is published.
+
+Directed edges validate class pairs. PART_OF is acyclic containment under the
+existing tenant write lock; DEPENDS_ON can contain cycles. Both endpoints require
+read access before lists/graphs expose metadata. Graphs cap depth at 5, nodes at
+100 and edges at 200. Reverse relation names are shown explicitly. Creation and
+link/relation retries use the shared operation reservation mechanism, audit and
+outbox in one transaction. Archive preserves existing links and history.
+
+Incident and request details have CI linking with a fresh authorized target
+preview. CI related records apply each domain's own access predicate before
+pagination; linking grants no read permission. CI references are added to
+workspace tabs and permission revalidation.
+
+CMDB validation: Go unit/OpenAPI tests, vet, build and race passed. Full MySQL
+integration through schema 84 passed (52.403s), including migration rollback and
+re-upgrade, existing catalog workflow, imports, tenant/owner isolation, graph
+cycles/limits, typed database fields, support group, retry and containment.
+Desktop/mobile browser flow passed for lost creation response, retained draft
+on refresh/conflict, service dependency, incident link in both directions,
+archive/reload preserving relations, paginated list and keyboard tabs. The flow
+was repeated with CI/relation IDs above JavaScript's safe integer range. CI forms
+and graphs were visually inspected at 1366, 1920 and mobile widths.
+
 ## Remaining implementation
 
-1. Integrate and finish CMDB, incident links and bounded dependency graph.
-2. Deliver Problem lifecycle, tasks, communication, links and Known Error.
-3. Deliver Change domain adapter, version-bound approval, tasks, controlled
+1. Deliver Problem lifecycle, tasks, communication, links and Known Error.
+2. Deliver Change domain adapter, version-bound approval, tasks, controlled
    lifecycle, templates, conflict-safe scheduling and time-window policies.
-4. Extend authorized search/context, add operational reports and execute the
+3. Extend authorized search/context, add operational reports and execute the
    complete ITSM scenario and installer/runtime/regression checks.
 
-This checkpoint does not claim that stages C–F or the complete ITSM acceptance
+This checkpoint does not claim that stages D–F or the complete ITSM acceptance
 scenario are done. Reference selectors will be extended for the new domains.

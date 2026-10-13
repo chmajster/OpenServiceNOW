@@ -118,7 +118,9 @@ function Preview({
   const query = useIncidentQuery<{
     number: string;
     title?: string;
-    state: string;
+    name?: string;
+    state?: string;
+    status?: string;
     version: string;
     updated_at: string;
     assigned_name?: string;
@@ -130,10 +132,21 @@ function Preview({
       onKeyDown={(e) => {
         if (e.key === "Escape") close();
         if (e.key === "Tab") {
-          const items = Array.from(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled),a[href]') ?? []);
-          const first = items[0], last = items.at(-1);
-          if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
-          if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+          const items = Array.from(
+            dialog.current?.querySelectorAll<HTMLElement>(
+              "button:not(:disabled),a[href]",
+            ) ?? [],
+          );
+          const first = items[0],
+            last = items.at(-1);
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last?.focus();
+          }
+          if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first?.focus();
+          }
         }
       }}
     >
@@ -146,10 +159,7 @@ function Preview({
       >
         <div className="panel-heading">
           <h2>Podgląd {record.number}</h2>
-          <button
-            className="button button--secondary"
-            onClick={close}
-          >
+          <button className="button button--secondary" onClick={close}>
             Zamknij podgląd
           </button>
         </div>
@@ -164,10 +174,10 @@ function Preview({
           </div>
         ) : query.data ? (
           <>
-            <h3>{query.data.title ?? query.data.number}</h3>
+            <h3>{query.data.title ?? query.data.name ?? query.data.number}</h3>
             <dl>
               <dt>Stan</dt>
-              <dd>{stateLabel(query.data.state)}</dd>
+              <dd>{stateLabel(query.data.state ?? query.data.status ?? "")}</dd>
               <dt>Wersja</dt>
               <dd>{query.data.version}</dd>
               <dt>Przypisanie</dt>

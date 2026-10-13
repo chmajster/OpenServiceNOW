@@ -16,3 +16,5 @@ createRoot(root).render(
 );
 
 import "./recordlists/recordlists.css";
+
+import "./cmdb/cmdb.css";

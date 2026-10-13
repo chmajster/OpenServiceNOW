@@ -27,6 +27,8 @@ const contextKeys = [
   "to",
   "active",
   "sla_risk",
+  "class", "status", "environment", "location", "owner_id",
+  "support_group_id", "archived", "criticality", "lifecycle",
 ];
 export function ListToolbar({
   domain,
@@ -74,6 +76,7 @@ export function ListToolbar({
       "after_priority",
       "after_value",
       "before_id",
+      "before_value",
     ])
       next.delete(key);
     for (const [k, v] of Object.entries(values)) {
@@ -212,11 +215,15 @@ export function ListToolbar({
         "after_priority",
         "after_value",
         "before_id",
+        "before_value",
         "queue",
       ])
         query.delete(key);
       query.set("format", "csv");
-      await download(`${apiRoot}/?${query}`, `${domain}.csv`);
+      await download(
+        `${apiRoot}${domain === "cmdb" ? "" : "/"}?${query}`,
+        `${domain}.csv`,
+      );
       setNotice("Eksport został pobrany.");
     } catch (cause) {
       setError(
