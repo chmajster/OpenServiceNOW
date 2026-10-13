@@ -101,8 +101,9 @@ records; there is no automatic deletion to make a downgrade succeed.
 
 The CMDB screen has a real list, server filter/sort/group/count, shared views,
 CSV, authorized previews, a typed six-class form, version conflict comparison,
-archive/restore reason and projected history. CI is distinct from business-service
-class, catalog offering and financial Asset. The copied asset/import backend is
+archive/restore reason and projected history. BUSINESS_SERVICE is a typed CI class;
+its service meaning is distinct from ordinary infrastructure CI, catalog offerings
+and financial Assets. The copied asset/import backend is
 retained and tested; no incomplete standalone asset/import screen is published.
 
 Directed edges validate class pairs. PART_OF is acyclic containment under the
@@ -283,15 +284,89 @@ API, worker and scheduler actually restarted while approval waited. The same
 execution/deadline survived and no duplicate task/effect appeared. Five CMDB,
 Problem, Change, Standard/Emergency and report touch-mobile flows passed (1.9m).
 
-An early combined test expected incident creation to redirect and looked for a
-message in the history selector. It was corrected to open the actual confirmation
-link and assert the real message. Screenshot review then found a queue definition
-that did not wrap and a Change capture before lazy loading completed; wrapping and
-capture readiness were corrected. Final screenshot inspection remains pending.
+Final review fixed current-parent task conflict recovery, read-only task previews
+and the adopted completed-task baseline. A concurrent analyst completing a child
+no longer leaves stale transition options or a false discard warning. Retained
+proposals stay readable if the new task state or permissions prohibit saving.
+Both Problem conflict cases and both Change/report preview cases passed in actual
+desktop/mobile browsers. Both workspace tests passed with a sticky mobile global
+bar and 44 px touch controls.
 
-## Remaining implementation
+## Final verification
 
-1. Finish the 38-scenario existing desktop/mobile browser regression.
-2. Complete isolated native/Docker installer update/lifecycle checks, final screenshots
-   at 1366/1920/mobile, review final diffs and update all verification summaries.
-3. Push the final accurate PR/documentation state. No automatic merge is authorized.
+The applicable commands were read from package.json and foundation-ci.yml.
+Verification uses isolated fixture data; it does not reset the original database
+or write demonstration business data during production startup.
+
+| Check | Command / actual verification | Result |
+| --- | --- | --- |
+| Go / OpenAPI | `go test ./...`, `go test -race ./...`, `go vet ./...`, `go build ./...` | Passed |
+| Module / formatting / shell | `go mod tidy` with unchanged manifests, `gofmt -l .`, `shellcheck -x -P SCRIPTDIR install.sh docker/*.sh tests/*.sh` | Passed |
+| MySQL | `go test -tags=integration ./internal/integration -count=1 -v` against a fresh disposable schema | Passed, 63.231s, through schema 98 and rollback/reupgrade |
+| Frontend | `npm run test`, `npm run build` (includes all three TypeScript projects) | Passed, 31 tests / 14 files |
+| Full browser regression | `npm run e2e`, desktop + touch mobile, `E2E_BIGINT=1` and `E2E_ASSERT_BIGINT=1` | In progress: 50 scenarios after final task/touch fixes |
+| Prior domain regression | Incidents, requests, workflow, workspace, CMDB, Problem, Change and reports on both viewports | Passed, 18 scenarios / 12.1m |
+| Installer ownership / locking | `bash tests/installer_test.sh` | Passed: argument/state, port, foreign PID/reuse and lifecycle lock checks |
+| Native lifecycle | `bash tests/local_runtime_test.sh` | Passed: fresh install, real job, status/restart, failed-build update preservation, credentials/session/data retention |
+| Docker Engine / Compose | `bash tests/docker_engine_test.sh` | Passed: real fresh installs, idempotent updates and volume retention on Ubuntu 26.04 and Debian Bookworm |
+| Docker lifecycle | `bash tests/local_docker_test.sh` | Passed: fresh install, real jobs, attachment byte equality, proxy/IP change, updates, partial cleanup, port fallback/exhaustion and data retention |
+| DevBox composition | Actual root `compose.yaml` plus an isolated provider/test-port override | Passed: DB_* bindings, migration 98, authenticated API through frontend, private non-root services, real job and three-process restart retaining session/record |
+| Visual / input review | Workspace, incident list/form, CI, Problem, Change, calendar and reports at 1366/1920/412 px | Passed; keyboard flow, visible actions, mobile 44 px controls, no document overflow |
+
+The native/Docker lifecycle suites ran in disposable source copies. Host default
+ports were occupied, so only the test copies translated the frontend candidate
+range 8080?8100 to 28080?28100 and MySQL 23306 to 24306. Go 1.27 was explicitly
+selected for native compilation. Application defaults remain unchanged. The
+Docker fixture also passes its isolated Redis port through every Compose call.
+The root DevBox composition was verified locally; this work does not claim a new
+remote deployment.
+
+BIGINT fixture counters were raised non-destructively in the disposable browser
+schema, including users/groups, work records, CI/relations, PRB/tasks, CHG/tasks,
+workflow definitions/executions and jobs. Existing records were retained. Lists
+were checked beyond one page, and browser commands preserve identifiers/versions
+as decimal strings. Lost creation/link responses use real committed API effects
+and frozen retry keys; they do not replace persistence with mocks.
+
+The actual mandatory restart proof stopped and restarted API, worker and scheduler
+while a Change approval waited. The saved execution identity/deadline survived;
+the second person's decision and one required execution task continued. The full
+connected flow retained private incident notes, independent target access and an
+open incident after Problem/Change closure.
+
+All final mobile captures use viewport screenshots. In the installed Playwright
+version a full-page capture turned off pointer:coarse/maxTouchPoints; the fixture
+was corrected across existing and new suites. Touch emulation is asserted before
+and after workspace capture. Long queue definitions and record tabs are bounded,
+mobile navigation opens explicitly, and the global bar remains at y=0 after
+scrolling. Desktop full-page and mobile top/bottom captures were visually checked.
+
+## Delivery limits and handoff
+
+The delivered scope is the connected first CMDB/Problem/Change workspace, not full
+ServiceNow compatibility. Discovery and infrastructure provisioning are outside
+scope. CI relations are managed explicitly. Asset/import backend functionality is
+retained and tested; no unfinished standalone screen is exposed. Change tasks
+record operator execution; they do not claim to deploy infrastructure. Change
+workflow configuration has an explicit domain allowlist and no arbitrary-record
+mutation. Wider workflow constructs remain separate roadmap work.
+
+SLA is implemented only for incidents. CSV exports cap at 10000 authorized rows;
+filters cap at 16 KiB, 40 nodes and depth 5; CI graphs cap at depth 5, 100 nodes and
+200 edges; calendars cap at 93 days/1000 records; reports cap at 366 days/1000
+aggregate groups and source pages at 100. These limits return explicit errors or
+bounded results. Shared views and relationships never grant additional record
+access. Downgrades refuse incompatible retained data rather than deleting it.
+
+GitHub Actions jobs cannot start while the account billing/spending-limit
+restriction persists. Run [691](https://github.com/chmajster/OpenServiceNOW/actions/runs/38445966741)
+failed before executing any job step; the earlier annotation explicitly identified
+failed payments or a spending limit. Local verification is independent evidence,
+not a declaration of successful hosted CI.
+
+Remaining work: finish the currently running complete 50-scenario browser pass,
+update its result here and in STATUS/PR, then push the final documentation. Once
+the GitHub owner restores runner availability, rerun foundation-ci on the final
+head and inspect all six jobs. Keep [PR #24](https://github.com/chmajster/OpenServiceNOW/pull/24)
+draft while external CI is blocked. No automatic merge is authorized. The original
+feat/cmdb-assets working directory and its unfinished files remain untouched.

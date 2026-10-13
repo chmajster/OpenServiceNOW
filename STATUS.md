@@ -18,17 +18,30 @@ The existing AppShell integrates real scoped work queues, record/list context,
 favorites/history, eleven-type search, reference previews, connected activity/
 related lists and operational reports with definitions/source drilldowns.
 
-Current verification: Go/OpenAPI unit tests, race, vet/build and frontend 31 tests,
-typecheck/build passed. The full fresh MySQL integration through schema 98 passed
-(63.231s), including migration rollback/reupgrade, first-run installer, preserved
-Request workflows and new process/security cases. The combined desktop browser
-acceptance passed (2.7m), with actual API/worker/scheduler restart during pending
-approval: saved execution/deadline continued; one required task was executed;
-Change and Problem were closed after review/verification; the incident remained
-open. All five CMDB/Problem/Change/template/report touch-mobile flows passed (1.9m).
-The full existing desktop/mobile browser regression, standalone native/Docker
-runtime checks and final screenshot review are still in progress. PR remains draft
-and no automatic merge is authorized. Exact continuation state is maintained in
+Local verification: Go/OpenAPI unit tests, race, vet/build, stable module
+manifests, formatting and installer static checks passed. All 31 frontend tests,
+typecheck and production build passed. Full fresh MySQL integration through schema
+98 passed (63.231s), including rollback/reupgrade, first-run installation, retained
+Request workflows and domain security/concurrency cases. The mandatory combined
+acceptance passed with an actual API/worker/scheduler restart during pending
+approval: execution/deadline were preserved and the effect occurred once. Change
+and Problem closed after execution/review/verification; the incident stayed open.
+The final 18-scenario domain regression passed with explicit BIGINT assertions.
+Latest Problem concurrent-child completion, Change/report read-only task previews
+and workspace touch/sticky-header checks passed on desktop and mobile. The complete
+50-scenario desktop/mobile browser pass is in progress after these final fixes.
+
+Native/Docker installation, update, restart, failed-build recovery and data/session
+preservation checks passed. Fresh Docker Engine/Compose installation and idempotent
+update passed in disposable Ubuntu/Debian containers. The actual root DevBox
+composition passed locally with DB_* provider bindings, schema 98, private non-root
+runtimes, real worker/scheduler execution and three-process restart. Screenshots at
+1366/1920 and touch mobile were inspected; mobile controls are 44 px and document
+width remains within the viewport.
+
+GitHub Actions could not start its jobs because of account billing/spending-limit
+restrictions. This external CI blocker keeps PR #24 draft; no automatic merge is
+authorized. Detailed evidence, limits and the continuation state are maintained in
 [docs/operator-workspace.md](docs/operator-workspace.md).
 
 ## Workflow and approvals delivery (PR #22)
