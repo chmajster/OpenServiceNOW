@@ -415,7 +415,7 @@ test("incident communication protects notes/files and supports watchers, relatio
     ).toBe(true);
     await page.screenshot({
       path: info.outputPath("collaboration-history.png"),
-      fullPage: true,
+      fullPage: info.project.name !== "mobile-chromium",
     });
   } finally {
     await reporterContext.close();

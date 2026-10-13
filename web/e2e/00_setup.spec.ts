@@ -49,7 +49,7 @@ test("first-run installer creates the administrator and permanently closes setup
     for (const [screen, name] of [[page, "installer-primary"], [stale, "installer-opposite-viewport"]] as const) {
       expect(await screen.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       const path = testInfo.outputPath(`${name}.png`);
-      await screen.screenshot({ path, fullPage: true });
+      await screen.screenshot({ path, fullPage: testInfo.project.name !== "mobile-chromium" });
       await testInfo.attach(name, { path, contentType: "image/png" });
     }
     await page.reload();

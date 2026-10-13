@@ -183,7 +183,7 @@ test("workflow approval preserves proposal, pins version and creates exactly one
     ).toBe(true);
     await page.screenshot({
       path: info.outputPath("workflow-definition.png"),
-      fullPage: true,
+      fullPage: info.project.name !== "mobile-chromium",
     });
     const cat = await request.post("/api/v1/catalog/admin/catalogs", {
       headers: { ...headers, "Idempotency-Key": `workflow-catalog-${scope}` },
@@ -340,7 +340,7 @@ test("workflow approval preserves proposal, pins version and creates exactly one
     ).toHaveValue("LOCAL DECISION MUST SURVIVE CONFLICT");
     await approver.page.screenshot({
       path: info.outputPath("approval-conflict.png"),
-      fullPage: true,
+      fullPage: info.project.name !== "mobile-chromium",
     });
     // A confirmed backend decision cannot create a second task on retry.
     expect(
@@ -429,7 +429,7 @@ test("workflow approval preserves proposal, pins version and creates exactly one
     ).toBe(true);
     await reporter.page.screenshot({
       path: info.outputPath("workflow-completed.png"),
-      fullPage: true,
+      fullPage: info.project.name !== "mobile-chromium",
     });
     await expect
       .poll(
@@ -470,7 +470,7 @@ test("workflow approval preserves proposal, pins version and creates exactly one
     ).toBeVisible();
     await page.screenshot({
       path: info.outputPath("workflow-attempts.png"),
-      fullPage: true,
+      fullPage: info.project.name !== "mobile-chromium",
     });
     // Diagnose a real stopped worker step, restore its identity and resume in UI.
     const second = await reporter.context.request.post("/api/v1/requests/", {
@@ -607,7 +607,7 @@ test("workflow approval preserves proposal, pins version and creates exactly one
     ).toBe("SUBMITTED");
     await page.screenshot({
       path: info.outputPath("workflow-repaired-and-cancelled.png"),
-      fullPage: true,
+      fullPage: info.project.name !== "mobile-chromium",
     });
   } finally {
     try {

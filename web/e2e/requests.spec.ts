@@ -167,7 +167,7 @@ test("published service creates once, retains snapshot and fulfills scoped tasks
   await noOverflow(page);
   await page.screenshot({
     path: info.outputPath("catalog-administration.png"),
-    fullPage: true,
+    fullPage: info.project.name !== "mobile-chromium",
   });
   async function actorPage(email: string) {
     const context = await browser.newContext({
@@ -199,7 +199,7 @@ test("published service creates once, retains snapshot and fulfills scoped tasks
     .selectOption("Opcja 1");
   await portal.screenshot({
     path: info.outputPath("catalog-order.png"),
-    fullPage: true,
+    fullPage: info.project.name !== "mobile-chromium",
   });
   let committed = "",
     number = "",
@@ -449,11 +449,11 @@ test("published service creates once, retains snapshot and fulfills scoped tasks
   await noOverflow(operator);
   await portal.screenshot({
     path: info.outputPath("request-history.png"),
-    fullPage: true,
+    fullPage: info.project.name !== "mobile-chromium",
   });
   await operator.screenshot({
     path: info.outputPath("request-fulfillment.png"),
-    fullPage: true,
+    fullPage: info.project.name !== "mobile-chromium",
   });
   await reporting.context.close();
   await operating.context.close();

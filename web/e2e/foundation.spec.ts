@@ -304,7 +304,7 @@ test("admin manages a least-privilege user, role, group and audit with the keybo
     page.getByRole("button", { name: "Usuń członka Operator E2E" }),
   ).toBeEnabled();
   const memberImage = testInfo.outputPath("group-members.png");
-  await page.screenshot({ path: memberImage, fullPage: true });
+  await page.screenshot({ path: memberImage, fullPage: testInfo.project.name !== "mobile-chromium" });
   await testInfo.attach("group-members", {
     path: memberImage,
     contentType: "image/png",
@@ -389,7 +389,7 @@ test("admin manages a least-privilege user, role, group and audit with the keybo
     page.getByRole("navigation", { name: "Ścieżka nawigacji" }),
   ).toBeVisible();
   const auditImage = testInfo.outputPath("audit-details.png");
-  await page.screenshot({ path: auditImage, fullPage: true });
+  await page.screenshot({ path: auditImage, fullPage: testInfo.project.name !== "mobile-chromium" });
   await testInfo.attach("audit-details", {
     path: auditImage,
     contentType: "image/png",

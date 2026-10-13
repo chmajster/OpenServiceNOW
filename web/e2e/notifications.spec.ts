@@ -193,7 +193,7 @@ test("independent incident notifications, preferences, current access and real S
     ).toBeVisible();
     await reporter.screenshot({
       path: info.outputPath("notification-inbox.png"),
-      fullPage: true,
+      fullPage: info.project.name !== "mobile-chromium",
     });
     await reporter
       .getByRole("link", { name: `Otwórz incydent #${incident}`, exact: true })
@@ -289,7 +289,7 @@ test("independent incident notifications, preferences, current access and real S
     ).toBe(true);
     await page.screenshot({
       path: info.outputPath("notification-deliveries.png"),
-      fullPage: true,
+      fullPage: info.project.name !== "mobile-chromium",
     });
     if (!process.env.E2E_SMTP_PORT) {
       await page

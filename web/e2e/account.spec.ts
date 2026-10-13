@@ -47,7 +47,7 @@ test("own account enforces temporary passwords, keeps conflicts and revokes sess
   request,
 }, info) => {
   test.setTimeout(180_000);
-  const email = `own-account-${info.project.name}-${info.retry}@example.test`;
+  const email = `own-account-${info.project.name}-${Date.now()}-${info.retry}@example.test`;
   expect(
     (
       await loginAPI(request, {
@@ -213,7 +213,7 @@ test("own account enforces temporary passwords, keeps conflicts and revokes sess
       page.getByRole("button", { name: "Zapisz profil", exact: true }),
     ).toBeFocused();
     const path = info.outputPath("own-account.png");
-    await page.screenshot({ path, fullPage: true });
+    await page.screenshot({ path, fullPage: info.project.name !== "mobile-chromium" });
     await info.attach("own-account", { path, contentType: "image/png" });
   } finally {
     await context.close();

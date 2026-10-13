@@ -547,7 +547,7 @@ test("incident UI creates once, assigns, handles, resolves and closes with durab
     await expect(agent).toHaveURL(/tab=history/);
     await noOverflow(agent);
     const path = info.outputPath("incident-history.png");
-    await agent.screenshot({ path, fullPage: true });
+    await agent.screenshot({ path, fullPage: info.project.name !== "mobile-chromium" });
     await info.attach("incident-history", { path, contentType: "image/png" });
     await page.goto(`/incidents/${committedID}`);
     await expect(page.getByText("Zamknięty", { exact: true })).toBeVisible();
