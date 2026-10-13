@@ -4,15 +4,22 @@ import { useBlocker } from "react-router-dom";
 export function UnsavedGuard({
   dirty,
   includeSearch = false,
+  searchKeys = [],
 }: {
   dirty: boolean;
   includeSearch?: boolean;
+  searchKeys?: string[];
 }) {
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       dirty &&
       (currentLocation.pathname !== nextLocation.pathname ||
-        (includeSearch && currentLocation.search !== nextLocation.search)),
+        (includeSearch && currentLocation.search !== nextLocation.search) ||
+        searchKeys.some(
+          (key) =>
+            new URLSearchParams(currentLocation.search).get(key) !==
+            new URLSearchParams(nextLocation.search).get(key),
+        )),
   );
   const stay = useRef<HTMLButtonElement>(null);
   useEffect(() => {

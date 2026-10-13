@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { Group, Role, TenantUser } from "../api/types";
+import { useIncidentQuery } from "../incidents/hooks";
 import { useRemotePage } from "./useRemotePage";
 
 export type Choice = { id: string; label: string; disabled?: boolean };
@@ -29,6 +30,7 @@ export function RemoteCombobox({
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
+  const [preview, setPreview] = useState(false);
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [index, setIndex] = useState(-1);
@@ -128,6 +130,28 @@ export function RemoteCombobox({
           }}
         />
       ) : null}
+      {value &&
+        kind !== "roles" &&
+        (!endpoint ||
+          /\/lookups\/(users|groups)(\?|$)|\/fulfillment\/\d+\/users(\?|$)/.test(
+            endpoint,
+          )) && (
+          <details
+            className="reference-choice-preview"
+            onToggle={(e) => setPreview(e.currentTarget.open)}
+          >
+            <summary>Podgląd: {label}</summary>
+            {preview && (
+              <ChoicePreview
+                key={`${endpoint ?? kind}:${value.id}`}
+                kind={kind}
+                choiceID={value.id}
+                endpoint={endpoint}
+                collection={collection}
+              />
+            )}
+          </details>
+        )}
       {open && value ? (
         <small className="muted">Wybrano: {value.label}</small>
       ) : null}
@@ -277,5 +301,73 @@ function Options({
         </button>
       ) : null}
     </div>
+  );
+}
+
+type PreviewChoice = {
+  id: string;
+  name?: string;
+  display_name?: string;
+  user_active?: boolean;
+  membership_active?: boolean;
+  active?: boolean;
+};
+function ChoicePreview({
+  kind,
+  choiceID,
+  endpoint,
+  collection,
+}: {
+  kind: ChoiceKind;
+  choiceID: string;
+  endpoint?: string;
+  collection?: string;
+}) {
+  const url = new URL(
+    endpoint ?? `/api/v1/workspace/directory/${kind}/${choiceID}`,
+    window.location.origin,
+  );
+  if (endpoint) {
+    url.searchParams.set("id", choiceID);
+    url.searchParams.set("limit", "1");
+    url.searchParams.delete("q");
+    url.searchParams.delete("after_id");
+    url.searchParams.delete("before_id");
+  }
+  const q = useIncidentQuery<PreviewChoice | Record<string, PreviewChoice[]>>(
+    `${url.pathname}${url.search}`,
+  );
+  if (q.loading) return <p role="status">Odczyt podglądu…</p>;
+  if (q.error)
+    return (
+      <div role="alert">
+        <p>{q.error}</p>
+        <button type="button" onClick={q.reload}>
+          Ponów odczyt podglądu
+        </button>
+      </div>
+    );
+  const item = endpoint
+    ? (q.data as Record<string, PreviewChoice[]> | null)?.[
+        collection ?? kind
+      ]?.find((v) => v.id === choiceID)
+    : (q.data as PreviewChoice | null);
+  if (!item)
+    return (
+      <p role="status">
+        Wybrany obiekt jest obecnie niedostępny w tym selektorze.
+      </p>
+    );
+  const active = item.active ?? item.user_active ?? true,
+    membership = item.membership_active ?? true;
+  return (
+    <dl>
+      <dt>{kind === "users" ? "Użytkownik" : "Grupa"}</dt>
+      <dd>{item.display_name ?? item.name}</dd>
+      <dt>Stan w organizacji</dt>
+      <dd>{active && membership ? "Aktywny" : "Nieaktywny"}</dd>
+      <dt>Identyfikator</dt>
+      <dd>{item.id}</dd>
+    </dl>
   );
 }

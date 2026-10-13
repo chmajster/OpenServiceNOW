@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { NotificationBadge } from "../notifications/NotificationBadge";
 import { WorkspaceProvider, useWorkspace } from "../workspace/WorkspaceContext";
+import { RecordContext } from "../workspace/RecordContext";
 import { GlobalSearch } from "../workspace/GlobalSearch";
 
 type NavItem = {
@@ -20,6 +21,22 @@ type NavItem = {
   anyPermissions?: string[];
 };
 const navigation: NavItem[] = [
+  {
+    to: "/reports",
+    label: "Raporty operacyjne",
+    section: "Praca",
+    anyPermissions: [
+      "incident.read",
+      "incident.read_own",
+      "request.read_own",
+      "request.fulfill",
+      "request.manage",
+      "problem.read",
+      "problem.read_own",
+      "change.read",
+      "change.read_own",
+    ],
+  },
   { to: "/", label: "Mój obszar pracy", section: "Praca" },
   {
     to: "/incidents",
@@ -500,6 +517,10 @@ function ShellContents() {
                     <Link to={workspace.listURL(root)}>Wróć do kolejki</Link>
                   </p>
                 )}
+                <RecordContext
+                  key={currentRecord.key}
+                  recordKey={currentRecord.key}
+                />
                 {currentRecord.links?.map((link) => (
                   <p key={link.url}>
                     <Link to={link.url}>{link.label}</Link>

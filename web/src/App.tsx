@@ -19,6 +19,12 @@ import { PageState } from "./components/PageState";
 const AuditPage = lazy(() =>
   import("./pages/AuditPage").then((m) => ({ default: m.AuditPage })),
 );
+const ReportsPage = lazy(() =>
+  import("./pages/ReportsPage").then((m) => ({ default: m.ReportsPage })),
+);
+const ReportSourcesPage = lazy(() =>
+  import("./pages/ReportsPage").then((m) => ({ default: m.ReportSourcesPage })),
+);
 const OverviewPage = lazy(() =>
   import("./pages/OverviewPage").then((m) => ({ default: m.OverviewPage })),
 );
@@ -116,6 +122,8 @@ const router = createBrowserRouter(
         }
       >
         <Route index element={<OverviewPage />} />
+        <Route path="reports" element={<ReportsPage />} />
+        <Route path="reports/sources" element={<ReportSourcesPage />} />
         <Route path="account" element={<AccountPage />} />
         <Route path="catalog" element={<CatalogPage />} />
         <Route path="catalog/:itemID" element={<CatalogPage />} />

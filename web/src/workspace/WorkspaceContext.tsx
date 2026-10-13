@@ -8,9 +8,10 @@ import {
   useState,
   type PropsWithChildren,
 } from "react";
-import { api, ApiError } from "../api/client";
+import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useLocation } from "react-router-dom";
+import { type Reference, referenceState } from "./references";
 
 export type WorkRecord = {
   key: string;
@@ -48,37 +49,49 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
   ];
   useEffect(() => {
     const controller = new AbortController();
-    const paths: Record<string, string> = {
-      problems: "problems",
-      changes: "changes",
-      cmdb: "cmdb/cis",
-      incidents: "incidents",
-      requests: "requests",
-      fulfillment: "fulfillment",
-      approvals: "workflow/executions",
-    };
+    const keys = known.current
+      .map((r) => r.key)
+      .filter((key) =>
+        /^\/(incidents|requests|fulfillment|problems|changes|cmdb|catalog|approvals)\/[1-9]\d*$/.test(
+          key,
+        ),
+      );
+    const batches = Array.from(
+      { length: Math.ceil(keys.length / 150) },
+      (_, i) => keys.slice(i * 150, (i + 1) * 150),
+    );
     void Promise.allSettled(
-      known.current.map(async (record) => {
-        const domain = paths[record.key.split("/")[1] ?? ""];
-        if (!domain) return;
-        try {
-          await api(`/api/v1/${domain}/${record.key.split("/")[2]}`, {
-            signal: controller.signal,
-          });
-        } catch (cause) {
-          if (
-            !controller.signal.aborted &&
-            cause instanceof ApiError &&
-            [401, 403, 404].includes(cause.status)
-          ) {
-            setRecords((items) => items.filter((r) => r.key !== record.key));
-            setHistory((items) => items.filter((r) => r.key !== record.key));
-            setFavorites((items) => items.filter((key) => key !== record.key));
-            setDenied((items) =>
-              [...new Set([...items, record.key])].slice(-200),
-            );
-          }
-        }
+      batches.map(async (batch) => {
+        const params = new URLSearchParams();
+        batch.forEach((key) => params.append("key", key));
+        const result = await api<{
+          items: { key: string; record: Reference }[];
+        }>(`/api/v1/workspace/metadata?${params}`, {
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted) return;
+        const allowed = new Map(
+          result.items.map((item) => [item.key, item.record]),
+        );
+        const removed = new Set(batch.filter((key) => !allowed.has(key)));
+        const update = (items: WorkRecord[]) =>
+          items
+            .filter((r) => !removed.has(r.key))
+            .map((r) => {
+              const current = allowed.get(r.key);
+              return current
+                ? {
+                    ...r,
+                    number: current.number,
+                    title: current.title,
+                    state: referenceState(current),
+                  }
+                : r;
+            });
+        setRecords(update);
+        setHistory(update);
+        setFavorites((items) => items.filter((key) => !removed.has(key)));
+        setDenied((items) => [...new Set([...items, ...removed])].slice(-250));
       }),
     );
     return () => controller.abort();

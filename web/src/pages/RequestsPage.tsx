@@ -829,10 +829,25 @@ function Workspace({
   );
 }
 function Items({ record }: { record: Request }) {
+  const [params] = useSearchParams(),
+    selected = params.get("item_id");
+  useEffect(() => {
+    if (selected)
+      document
+        .getElementById(`requested-item-${selected}`)
+        ?.scrollIntoView({ block: "start" });
+  }, [selected, record.id]);
   return (
     <>
+      {selected && !record.items.some((i) => i.id === selected) && (
+        <p role="alert">Wskazana pozycja nie jest dostępna w tym wniosku.</p>
+      )}
       {record.items.map((i) => (
-        <section key={i.id}>
+        <section
+          key={i.id}
+          id={`requested-item-${i.id}`}
+          className={selected === i.id ? "selected-request-item" : undefined}
+        >
           <h2>
             {i.number} · {i.snapshot.title}
           </h2>

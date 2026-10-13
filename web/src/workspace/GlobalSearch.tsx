@@ -2,20 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useIncidentQuery } from "../incidents/hooks";
 
-type Reference = {
-  id: string;
-  type: string;
-  number: string;
-  title: string;
-  state: string;
-  url: string;
-  exact: boolean;
-};
-const types: Record<string, string> = {
-  incident: "Incydent",
-  request: "Wniosek",
-  fulfillment_task: "Zadanie",
-};
+import { type Reference, referenceType, referenceState } from "./references";
 export function GlobalSearch() {
   const [query, setQuery] = useState("");
   const [submitted, setSubmitted] = useState("");
@@ -98,11 +85,19 @@ export function GlobalSearch() {
               {results.data.items.map((r) => (
                 <li key={`${r.type}:${r.id}`}>
                   <Link to={r.url} onClick={() => setOpen(false)}>
-                    <span className="muted">{types[r.type] ?? r.type}</span>{" "}
+                    <span className="muted">{referenceType(r)}</span>{" "}
                     <strong>{r.number}</strong>
-                    {r.exact && <span className="tag">Dokładny numer</span>}
+                    {r.exact && (
+                      <span className="tag">
+                        {["ci", "catalog_item", "workflow_execution"].includes(
+                          r.type,
+                        )
+                          ? "Dokładny identyfikator"
+                          : "Dokładny numer"}
+                      </span>
+                    )}
                     <span>{r.title}</span>
-                    <small>{r.state}</small>
+                    <small>{referenceState(r)}</small>
                   </Link>
                 </li>
               ))}

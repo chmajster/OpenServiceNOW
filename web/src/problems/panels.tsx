@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api, ApiError, jsonBody } from "../api/client";
 import { InventoryChoice, More, PageFeedback } from "../cmdb/components";
 import { useRemotePage } from "../components/useRemotePage";
@@ -199,10 +199,39 @@ export function ProblemTasks({
       "items",
       "before_id",
     ),
-    [selected, setSelected] = useState<AnalyticalTask | "new">();
+    [manual, setSelected] = useState<AnalyticalTask | "new">();
+  const [params, setParams] = useSearchParams(),
+    requested = params.get("task_id");
+  const target = useIncidentQuery<AnalyticalTask>(
+    requested && /^[1-9]\d*$/.test(requested)
+      ? `/api/v1/problems/${record.id}/tasks/${requested}`
+      : null,
+  );
+  const selected =
+    manual ?? (requested ? (target.data ?? undefined) : undefined);
+  function closeTarget() {
+    setSelected(undefined);
+    if (requested) {
+      const n = new URLSearchParams(params);
+      n.delete("task_id");
+      setParams(n, { replace: true });
+    }
+    retain("tasks", false);
+  }
+
   return (
     <section>
       <h3>Zadania analityczne</h3>
+      {requested &&
+        (target.loading ? (
+          <p role="status">Odczyt wskazanego zadania…</p>
+        ) : target.error || !/^[1-9]\d*$/.test(requested) ? (
+          <div role="alert">
+            <p>{target.error || "Nieprawidłowy identyfikator zadania."}</p>
+            <button onClick={target.reload}>Ponów odczyt zadania</button>
+            <button onClick={closeTarget}>Wróć do listy zadań</button>
+          </div>
+        ) : null)}
       <div className="action-row">
         <button disabled={!!selected} onClick={p.reload}>
           Odśwież zadania
@@ -256,23 +285,45 @@ export function ProblemTasks({
         </table>
       </div>
       <More loading={p.loading} next={p.next} load={p.more} />
+      {requested && !manual && target.data?.can_edit && (
+        <button
+          disabled={blocked}
+          onClick={() => {
+            const task = target.data!;
+            const n = new URLSearchParams(params);
+            n.delete("task_id");
+            setParams(n, { replace: true });
+            setSelected(task);
+          }}
+        >
+          Edytuj wskazane zadanie
+        </button>
+      )}
       {selected && (
         <TaskEditor
-          key={selected === "new" ? "new" : selected.id}
+          key={
+            selected === "new"
+              ? "new"
+              : `${manual ? "edit" : "preview"}:${selected.id}`
+          }
           record={record}
-          initial={selected === "new" ? undefined : selected}
+          initial={
+            selected === "new"
+              ? undefined
+              : manual
+                ? selected
+                : { ...selected, can_edit: false }
+          }
           disabled={blocked}
           retain={retain}
           refresh={onChanged}
           close={() => {
-            setSelected(undefined);
-            retain("tasks", false);
+            closeTarget();
           }}
           saved={async () => {
             await onChanged();
             p.reload();
-            setSelected(undefined);
-            retain("tasks", false);
+            closeTarget();
           }}
         />
       )}

@@ -557,3 +557,116 @@
 .operator-shell .form-grid > div {
   min-width: 0;
 }
+
+.operator-shell .workspace-content button:not([class]) {
+  font: inherit;
+  min-height: var(--work-control);
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--work-radius);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.operator-shell .workspace-content button:not([class]):hover:not(:disabled) {
+  background: var(--work-selected);
+}
+.operator-shell .workspace-content button:not([class]):disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.operational-reports {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--work-space);
+}
+.operational-reports h2 {
+  font-size: 1rem;
+  margin-top: 0;
+}
+.record-context-relations section {
+  border-top: 1px solid var(--border);
+  margin-top: var(--work-space);
+  padding-top: var(--work-space);
+}
+.record-context-relations ul {
+  padding-left: 1rem;
+}
+.record-context-relations li {
+  margin-bottom: 0.5rem;
+}
+.record-context-relations small {
+  display: block;
+}
+.record-context-relations p {
+  font-size: 0.8rem;
+}
+@media (max-width: 1000px) {
+  .operational-reports {
+    grid-template-columns: 1fr;
+  }
+}
+@media (pointer: coarse) {
+  .operator-shell .workspace-content button:not([class]),
+  .operator-shell summary {
+    min-height: 2.75rem;
+  }
+}
+
+.selected-request-item {
+  outline: 2px solid var(--work-accent);
+  padding: var(--work-space);
+  scroll-margin-top: var(--global-height);
+}
+.reference-choice-preview dl {
+  margin-block: 0.5rem;
+}
+
+.operator-shell .filter-bar {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--work-space);
+  margin-block: var(--work-space);
+}
+.operator-shell .filter-bar label {
+  flex: 1 1 12rem;
+  margin: 0;
+  min-width: 0;
+}
+.operator-shell .filter-bar button {
+  flex: 0 0 auto;
+}
+.operator-shell
+  .workspace-content
+  .button:not(.button--primary):not(.button--secondary):not(.button--ghost) {
+  background: var(--work-accent);
+  border-color: var(--work-accent);
+  color: #fff;
+}
+.operational-reports .record-table {
+  min-width: 0;
+  width: 100%;
+  table-layout: fixed;
+}
+.operational-reports .record-table th:last-child,
+.operational-reports .record-table td:last-child {
+  width: 5rem;
+}
+.operational-reports .table-scroll {
+  max-height: none;
+}
+.operational-reports .record-table th {
+  position: static;
+}
+@media (pointer: coarse) {
+  .operational-reports td > a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+  }
+  .operator-shell .reference-choice-preview summary {
+    display: flex;
+    align-items: center;
+  }
+}

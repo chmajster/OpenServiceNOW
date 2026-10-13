@@ -464,6 +464,7 @@ function Editor({ initial }: { initial: Problem }) {
   return (
     <>
       <UnsavedGuard
+        searchKeys={retained.tasks ? ["task_id"] : []}
         dirty={
           dirty ||
           !!reason ||
