@@ -334,6 +334,7 @@ function TaskEditor({
       ["g:" + base.assignment_group_id]: base.group_name,
     }),
     operation = useRef<{ body: string; key: string } | undefined>(undefined);
+  const [readError, setReadError] = useState("");
   const dirty = JSON.stringify(draft) !== JSON.stringify(taskFields(base));
   useEffect(
     () => retain("tasks", dirty || creation.uncertain || editor.uncertain),
@@ -480,19 +481,24 @@ function TaskEditor({
             Wymagane przed rozwiązaniem problemu
           </label>
         </fieldset>
-        {(editor.error || creation.error) && (
+        {(editor.error || creation.error || readError) && (
           <>
-            <p role="alert">{editor.error ?? creation.error}</p>
+            <p role="alert">{readError || editor.error || creation.error}</p>
             {!uncertain && !editor.conflict && (
               <button
                 type="button"
                 disabled={busy}
                 onClick={async () => {
-                  const current = await api<Problem>(
-                    `/api/v1/problems/${record.id}`,
-                  );
-                  await refresh();
-                  setParentVersion(current.version);
+                  setReadError("");
+                  try {
+                    const current = await api<Problem>(
+                      `/api/v1/problems/${record.id}`,
+                    );
+                    await refresh();
+                    setParentVersion(current.version);
+                  } catch (e) {
+                    setReadError(errorText(e));
+                  }
                 }}
               >
                 Odczytaj aktualny problem i zachowaj szkic zadania

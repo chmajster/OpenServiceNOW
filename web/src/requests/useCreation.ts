@@ -6,6 +6,7 @@ export function useCreation<T>() {
       { key: string; body: string; path: string } | undefined
     >(undefined),
     alive = useRef(true),
+    inFlight = useRef(false),
     controller = useRef<AbortController | undefined>(undefined);
   const [busy, setBusy] = useState(false),
     [uncertain, setUncertain] = useState(false),
@@ -18,7 +19,8 @@ export function useCreation<T>() {
     };
   }, []);
   async function create(path: string, input: unknown) {
-    if (busy) return;
+    if (inFlight.current) return;
+    inFlight.current = true;
     const body = jsonBody(input);
     if (
       !uncertain &&
@@ -52,6 +54,7 @@ export function useCreation<T>() {
       }
       return;
     } finally {
+      inFlight.current = false;
       if (alive.current) setBusy(false);
     }
   }

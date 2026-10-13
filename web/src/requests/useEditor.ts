@@ -13,9 +13,10 @@ export function useEditor<T extends { version: string }>(
     [conflict, setConflict] = useState<T>(),
     [uncertain, setUncertain] = useState(false);
   const pending = useRef<
-    | { path: string; body: unknown; method: string; headers?: HeadersInit }
+    | { path: string; body?: string; method: string; headers: Headers }
     | undefined
   >(undefined);
+  const inFlight = useRef(false);
   const alive = useRef(true),
     controller = useRef<AbortController | undefined>(undefined);
   useEffect(() => {
@@ -31,11 +32,20 @@ export function useEditor<T extends { version: string }>(
     method = "POST",
     headers?: HeadersInit,
   ) {
-    if (busy || conflict) return false;
+    if (inFlight.current || conflict) return false;
+    inFlight.current = true;
+    let serialized = method === "GET" ? undefined : jsonBody(body);
     if (method !== "GET") {
       if (uncertain && pending.current) {
-        ({ path, body, method, headers } = pending.current);
-      } else pending.current = { path, body, method, headers };
+        ({ path, method, headers } = pending.current);
+        serialized = pending.current.body;
+      } else
+        pending.current = {
+          path,
+          body: serialized,
+          method,
+          headers: new Headers(headers),
+        };
     }
     setBusy(true);
     setError(undefined);
@@ -45,7 +55,7 @@ export function useEditor<T extends { version: string }>(
       const saved = await api<T>(path, {
         method,
         headers,
-        body: jsonBody(body),
+        body: serialized,
         signal: c.signal,
       });
       if (alive.current) {
@@ -80,6 +90,7 @@ export function useEditor<T extends { version: string }>(
       }
       return false;
     } finally {
+      inFlight.current = false;
       if (alive.current) setBusy(false);
     }
   }
@@ -91,6 +102,11 @@ export function useEditor<T extends { version: string }>(
     conflict,
     uncertain,
     save,
+    retry: async () => {
+      const proposal = pending.current;
+      if (!proposal || !uncertain) return false;
+      return save(proposal.path, undefined, proposal.method, proposal.headers);
+    },
     setRecord,
     resolve: () => {
       if (conflict) {

@@ -24,17 +24,16 @@ it("reconciles a lost write response with the exact original command and key", a
   const root = createRoot(document.createElement("div"));
   try {
     await act(async () => root.render(<Screen />));
+    const proposal = { version: "9007199254740993", state: "ASSESS" },
+      headers = { "Idempotency-Key": "original-key" };
     await act(async () => {
       expect(
-        await ed.save(
-          "/problems/1/transition",
-          { version: "9007199254740993", state: "ASSESS" },
-          "POST",
-          { "Idempotency-Key": "original-key" },
-        ),
+        await ed.save("/problems/1/transition", proposal, "POST", headers),
       ).toBe(false);
     });
     expect(ed.uncertain).toBe(true);
+    proposal.state = "CLOSED";
+    headers["Idempotency-Key"] = "mutated-key";
     await act(async () => {
       expect(
         await ed.save("/problems/1", { title: "different" }, "PUT", {
@@ -49,6 +48,10 @@ it("reconciles a lost write response with the exact original command and key", a
       new Headers(fetch.mock.calls[1]?.[1]?.headers).get("Idempotency-Key"),
     ).toBe("original-key");
     expect(ed.uncertain).toBe(false);
+    await act(async () => {
+      expect(await ed.retry()).toBe(false);
+    });
+    expect(fetch).toHaveBeenCalledTimes(2);
   } finally {
     await act(async () => root.unmount());
   }
