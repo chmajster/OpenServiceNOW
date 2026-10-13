@@ -115,6 +115,7 @@ test("first-run installer creates the administrator and permanently closes setup
     expect((await me.json()).permissions).toContain("admin.users.manage");
     await page.reload();
     await expect(page.getByRole("heading", { name: "Mój obszar pracy", exact: true })).toBeVisible();
+    if (testInfo.project.name === "mobile-chromium") await page.getByRole("button", { name: "Otwórz nawigację" }).click();
     await page.getByRole("navigation", { name: "Główna nawigacja" }).getByRole("link", { name: "Audyt" }).click();
     await page.locator(".audit-entry").filter({ hasText: "setup.platform_admin" }).getByText("Szczegóły techniczne").click();
     await expect(page.getByText("setup.platform_admin", { exact: true })).toBeVisible();

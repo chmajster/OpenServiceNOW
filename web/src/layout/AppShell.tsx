@@ -381,7 +381,24 @@ function ShellContents() {
           </p>
         )}
         <div className="workspace-content">
-          <Outlet />
+          {workspace.denied.includes(location.pathname) ? (
+            <section className="panel" role="alert">
+              <h1>Dostęp do rekordu został cofnięty</h1>
+              <p>
+                Serwer ponownie sprawdził uprawnienia. Wybierz inną kolejkę lub
+                ponownie otwórz dostępny rekord.
+              </p>
+              <Link
+                to={workspace.listURL(
+                  location.pathname.split("/").slice(0, 2).join("/"),
+                )}
+              >
+                Wróć do kolejki
+              </Link>
+            </section>
+          ) : (
+            <Outlet />
+          )}
         </div>
       </main>
       {contextOpen && (

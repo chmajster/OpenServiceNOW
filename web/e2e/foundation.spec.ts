@@ -10,13 +10,14 @@ const tenant = process.env.E2E_TENANT ?? "e2e";
 let adminEmail = process.env.E2E_ADMIN_EMAIL ?? "admin@example.test";
 let adminPassword = requireEnv("E2E_ADMIN_PASSWORD");
 const operatorPassword = requireEnv("E2E_OPERATOR_PASSWORD");
+const runID = Date.now();
 function requireEnv(name: string) {
   const value = process.env[name];
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
   return value;
 }
 function scope() {
-  return `${test.info().project.name}-${test.info().retry}`.replace(
+  return `${test.info().project.name}-${test.info().retry}-${runID}`.replace(
     /[^a-z0-9-]/gi,
     "",
   );
@@ -144,6 +145,11 @@ async function login(page: Page, email = adminEmail, password = adminPassword) {
   await expect(
     page.getByRole("heading", { name: "Mój obszar pracy", exact: true }),
   ).toBeVisible();
+  const expand = page.getByRole("button", {
+    name: "Rozwiń nawigację",
+    exact: true,
+  });
+  if (await expand.isVisible()) await expand.click();
 }
 async function csrf(page: Page) {
   return {
@@ -408,6 +414,7 @@ test("tenant conflict preserves local work and requires an explicit decision", a
     await a.goto("/tenant");
     await b.goto("/tenant");
     const original = await a.getByLabel("Nazwa organizacji").inputValue();
+    await expect(b.getByLabel("Nazwa organizacji")).toHaveValue(original);
     const remote = `Organizacja równoległa ${scope()}`;
     const local = `Moja propozycja ${scope()}`;
     await a.getByLabel("Nazwa organizacji").fill(remote);
@@ -786,12 +793,22 @@ test("editing own permissions refreshes navigation and backend access", async ({
   expect((await page.request.get("/api/v1/admin/users/")).status()).toBe(403);
   await checkbox(page, "admin.users.manage").check();
   await page.getByRole("button", { name: "Zapisz uprawnienia" }).click();
+  const expandNavigation = page.getByRole("button", {
+    name: "Rozwiń nawigację",
+    exact: true,
+  });
+  const wasCollapsed = await expandNavigation.isVisible();
+  if (wasCollapsed) await expandNavigation.click();
   await expect(
     page
       .locator(".navigation")
       .getByRole("link", { name: "Użytkownicy", exact: true }),
   ).toBeVisible();
   expect((await page.request.get("/api/v1/admin/users/")).status()).toBe(200);
+  if (wasCollapsed)
+    await page
+      .getByRole("button", { name: "Zwiń nawigację", exact: true })
+      .click();
   await checkbox(page, "admin.rbac.manage").uncheck();
   await page.getByRole("button", { name: "Zapisz uprawnienia" }).click();
   await expect(page.getByText("Brak uprawnień", { exact: true })).toBeVisible();

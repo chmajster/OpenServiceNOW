@@ -56,16 +56,46 @@ record numbers and permitted titles, excludes communication and submitted form
 values, prioritizes exact numbers, and returns at most ten results of each type.
 Input is bounded and wildcard characters are escaped for SQL LIKE.
 
+## Shared record lists and forms
+
+Incidents, requests and fulfillment tasks use a common record table and toolbar.
+Columns can be hidden, reordered and resized; URL state includes presentation,
+filters and sorting. A recursive AND/OR editor sends a strictly validated filter
+structure with whitelisted fields/operators, bound SQL values, and depth/node
+limits. Counts and grouping apply object access to the complete filtered dataset
+before pagination. Keyset cursors support the selected sort.
+
+Private views belong to their creator. Group views require current membership
+and workspace.views.share to publish. Sharing only grants view configuration,
+never record access. Creating a view uses operation reservations; updates and
+removal require the owner's current version. Conflicts preserve the proposal and
+require an explicit choice. Migrations 72–73 add the views and sharing permission.
+
+Exports use current filters/access, cap at 10000 rows, omit private communication
+and submitted form values, protect spreadsheet formulas, and preserve BIGINT as
+text. Incident batch commands retain their domain validation. Task batches call
+the existing assignment/transition command per selected version and report each
+result. Requests and incidents share a record header and authorized row preview.
+Keyboard focus stays in the preview and returns to its trigger. Task form refresh
+keeps the draft's original version until a conflict is explicitly resolved.
+
+Validation at this checkpoint: Go unit/OpenAPI tests, vet, build and race tests
+passed; frontend 25 tests, typecheck and production build passed. New desktop
+and mobile browser coverage passed for full-dataset filtering, grouping,
+sort pagination, column order, saved views, authorized preview, formula-safe
+CSV and group access revocation. Full integration and browser regressions are
+being repeated on separate disposable databases. An initial combined run was
+invalid because its rollback test reset browser fixtures and the running worker
+consumed test events; this result is not counted as a passing regression.
+
 ## Remaining implementation
 
-1. Complete common record lists, saved private/group views, validated nested
-   filters, server grouping, safe export and reusable record presentation.
-2. Integrate and finish CMDB, incident links and bounded dependency graph.
-3. Deliver Problem lifecycle, tasks, communication, links and Known Error.
-4. Deliver Change domain adapter, version-bound approval, tasks, controlled
+1. Integrate and finish CMDB, incident links and bounded dependency graph.
+2. Deliver Problem lifecycle, tasks, communication, links and Known Error.
+3. Deliver Change domain adapter, version-bound approval, tasks, controlled
    lifecycle, templates, conflict-safe scheduling and time-window policies.
-5. Extend authorized search/context, add operational reports and execute the
+4. Extend authorized search/context, add operational reports and execute the
    complete ITSM scenario and installer/runtime/regression checks.
 
-This document describes implemented workspace foundations and remaining work;
-it does not claim that stages B–F or the complete acceptance scenario are done.
+This checkpoint does not claim that stages C–F or the complete ITSM acceptance
+scenario are done. Reference selectors will be extended for the new domains.

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
+import { RecordHeader } from "../components/RecordHeader";
 import { PageState } from "../components/PageState";
 import { RemoteCombobox, type Choice } from "../components/RemoteCombobox";
 import {
@@ -160,36 +161,39 @@ export function IncidentWorkspace({
   return (
     <section className="page incident-page">
       <UnsavedGuard dirty={Object.values(draftTabs).some(Boolean)} />
-      <div className="page-heading">
-        <div>
-          <p className="eyebrow">{record.number}</p>
-          <h1 ref={heading} tabIndex={-1}>
-            {record.title}
-          </h1>
-          <p>
-            <strong>{optionLabel(metadata.states, record.state)}</strong> ·{" "}
-            <span className={`incident-priority priority-${record.priority}`}>
-              P{record.priority}
-            </span>{" "}
-            · Wersja {record.version}
-          </p>
-        </div>
-        <div className="action-row">
-          <Link
-            className="button button--secondary"
-            to={`/incidents?${backSearch}`}
-          >
-            Wróć do listy
-          </Link>
-          <button
-            className="button button--secondary"
-            disabled={busy}
-            onClick={() => void refresh()}
-          >
-            Odśwież incydent
-          </button>
-        </div>
-      </div>
+      <RecordHeader
+        headingRef={heading}
+        number={record.number}
+        title={record.title}
+        type="Incydent"
+        state={optionLabel(metadata.states, record.state)}
+        version={record.version}
+        assignment={[record.group_name, record.assigned_name]
+          .filter(Boolean)
+          .join(" · ")}
+        severity={
+          <span className={`incident-priority priority-${record.priority}`}>
+            P{record.priority}
+          </span>
+        }
+        actions={
+          <>
+            <Link
+              className="button button--secondary"
+              to={`/incidents?${backSearch}`}
+            >
+              Wróć do listy
+            </Link>
+            <button
+              className="button button--secondary"
+              disabled={busy}
+              onClick={() => void refresh()}
+            >
+              Odśwież incydent
+            </button>
+          </>
+        }
+      />
       {notice && (
         <p className="notice" role="status">
           {notice}

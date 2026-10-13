@@ -13,6 +13,7 @@ import {
   type FieldDraft,
   type Incident,
   type IncidentPage,
+  type IncidentSummary,
   type Metadata,
 } from "../incidents/contracts";
 import {
@@ -22,6 +23,9 @@ import {
 } from "../incidents/QueueActions";
 import { IncidentWorkspace } from "../incidents/IncidentWorkspace";
 import { SLASummary } from "../sla/IncidentSLA";
+import { ListToolbar, columnConfig } from "../recordlists/ListToolbar";
+import { RecordTable, type RecordColumn } from "../recordlists/RecordTable";
+import type { FilterField } from "../recordlists/contracts";
 import type { InstancePage } from "../sla/contracts";
 
 export function IncidentsPage() {
@@ -81,6 +85,124 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
     slaIDs ? `/api/v1/sla/incidents?ids=${slaIDs}` : null,
     result.data?.incidents.map((r) => `${r.id}:${r.version}`).join(",") ?? "",
   );
+  const fields: FilterField[] = [
+    { key: "title", label: "Opis skrócony", kind: "text" },
+    { key: "number", label: "Numer", kind: "text" },
+    { key: "state", label: "Stan", kind: "enum", options: metadata.states },
+    { key: "priority", label: "Priorytet", kind: "number" },
+    {
+      key: "category",
+      label: "Kategoria",
+      kind: "enum",
+      options: metadata.categories,
+    },
+    { key: "active", label: "Aktywne", kind: "boolean" },
+    {
+      key: "my_groups",
+      label: "Grupa przypisania to moje grupy",
+      kind: "boolean",
+    },
+    { key: "assigned_to_me", label: "Przypisane do mnie", kind: "boolean" },
+    { key: "sla_risk", label: "SLA zagrożone", kind: "boolean" },
+    {
+      key: "group_id",
+      label: "Grupa przypisania",
+      kind: "id",
+      nullable: true,
+      endpoint: "/api/v1/incidents/lookups/groups",
+    },
+    {
+      key: "assigned_to",
+      label: "Osoba przypisana",
+      kind: "id",
+      nullable: true,
+      endpoint: "/api/v1/incidents/lookups/users?purpose=affected",
+    },
+    {
+      key: "reporter_id",
+      label: "Zgłaszający",
+      kind: "id",
+      endpoint: "/api/v1/incidents/lookups/users?purpose=affected",
+    },
+    { key: "created_at", label: "Utworzono", kind: "time" },
+    { key: "updated_at", label: "Aktualizacja", kind: "time" },
+  ];
+  const columns: RecordColumn<IncidentSummary>[] = [
+    {
+      key: "number",
+      label: "Numer",
+      width: 150,
+      render: (r) => (
+        <Link
+          to={`/incidents/${r.id}`}
+          state={{ listSearch: params.toString() }}
+        >
+          <strong>{r.number}</strong>
+        </Link>
+      ),
+    },
+    {
+      key: "title",
+      label: "Opis skrócony",
+      width: 250,
+      render: (r) => r.title,
+    },
+    {
+      key: "state",
+      label: "Stan",
+      width: 120,
+      render: (r) => optionLabel(metadata.states, r.state),
+    },
+    {
+      key: "priority",
+      label: "Priorytet",
+      width: 90,
+      render: (r) => (
+        <span className={`incident-priority priority-${r.priority}`}>
+          P{r.priority}
+        </span>
+      ),
+    },
+    {
+      key: "reporter_name",
+      label: "Zgłaszający",
+      width: 170,
+      render: (r) => r.reporter_name,
+    },
+    {
+      key: "group_name",
+      label: "Grupa",
+      width: 150,
+      render: (r) => r.group_name || "Bez grupy",
+    },
+    {
+      key: "assigned_name",
+      label: "Osoba przypisana",
+      width: 170,
+      render: (r) => r.assigned_name || "Nieprzypisany",
+    },
+    {
+      key: "updated_at",
+      label: "Aktualizacja",
+      width: 160,
+      render: (r) => dateLabel(r.updated_at),
+    },
+    {
+      key: "sla",
+      label: "SLA",
+      width: 180,
+      render: (r) =>
+        sla.loading ? (
+          "Ładowanie SLA…"
+        ) : sla.error ? (
+          "SLA chwilowo niedostępne"
+        ) : (
+          <SLASummary
+            items={sla.data?.items.filter((i) => i.incident_id === r.id) ?? []}
+          />
+        ),
+    },
+  ];
   const view = params.get("view") ?? "all";
   const operator =
     hasPermission("incident.read") &&
@@ -98,6 +220,7 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
     const next = new URLSearchParams(params);
     next.delete("after_id");
     next.delete("after_priority");
+    next.delete("after_value");
     for (const [key, value] of Object.entries(values)) {
       if (value) next.set(key, value);
       else next.delete(key);
@@ -275,6 +398,9 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
               <option value="newest">Najnowsze</option>
               <option value="oldest">Najstarsze</option>
               <option value="priority">Najwyższy priorytet</option>
+              <option value="title">Opis A–Z</option>
+              <option value="state">Stan A–Z</option>
+              <option value="updated">Ostatnia aktualizacja</option>
             </select>
           </label>
           <label>
@@ -355,6 +481,29 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
           </div>
         </details>
       </div>
+      <ListToolbar
+        domain="incidents"
+        fields={fields}
+        columns={columns}
+        apiRoot="/api/v1/incidents"
+        total={result.data?.total}
+        counts={result.data?.groups}
+        sorts={[
+          { value: "newest", label: "Najnowsze" },
+          { value: "oldest", label: "Najstarsze" },
+          { value: "priority", label: "Najwyższy priorytet" },
+          { value: "title", label: "Opis A–Z" },
+          { value: "state", label: "Stan A–Z" },
+          { value: "updated", label: "Ostatnia aktualizacja" },
+        ]}
+        groups={[
+          { value: "state", label: "Stan" },
+          { value: "priority", label: "Priorytet" },
+          { value: "category", label: "Kategoria" },
+          { value: "group_id", label: "Grupa" },
+          { value: "assigned_to", label: "Osoba przypisana" },
+        ]}
+      />
       <div className="panel">
         {operator && (
           <Link
@@ -402,110 +551,57 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
         ) : !result.data?.incidents.length ? (
           <PageState title="Brak incydentów dla wybranych filtrów" />
         ) : (
-          <div className="table-scroll">
-            <table>
-              <caption className="sr-only">
-                Incydenty dostępne w bieżącej organizacji
-              </caption>
-              <thead>
-                <tr>
-                  {queue && (
-                    <th scope="col">
-                      <input
-                        type="checkbox"
-                        disabled={queueBusy}
-                        aria-label="Wybierz wszystkie incydenty na stronie"
-                        checked={
-                          !!result.data?.incidents.length &&
-                          result.data.incidents.every((r) => !!selection[r.id])
-                        }
-                        onChange={(event) =>
-                          select(
-                            event.target.checked
-                              ? Object.fromEntries(
-                                  result.data!.incidents.map((r) => [
-                                    r.id,
-                                    selectedRecord(r),
-                                  ]),
-                                )
-                              : {},
+          <RecordTable
+            records={result.data.incidents}
+            columns={columns}
+            selected={columnConfig(params, columns)}
+            apiRoot="/api/v1/incidents"
+            stateLabel={(state) => optionLabel(metadata.states, state)}
+            url={(r) => `/incidents/${r.id}`}
+            selectionHeader={
+              queue ? (
+                <input
+                  type="checkbox"
+                  disabled={queueBusy}
+                  aria-label="Wybierz wszystkie incydenty na stronie"
+                  checked={
+                    !!result.data.incidents.length &&
+                    result.data.incidents.every((r) => !!selection[r.id])
+                  }
+                  onChange={(e) =>
+                    select(
+                      e.target.checked
+                        ? Object.fromEntries(
+                            result.data!.incidents.map((r) => [
+                              r.id,
+                              selectedRecord(r),
+                            ]),
                           )
-                        }
-                      />
-                    </th>
-                  )}
-                  <th scope="col">Numer i tytuł</th>
-                  <th scope="col">Stan</th>
-                  <th scope="col">Priorytet</th>
-                  <th scope="col">Przypisanie</th>
-                  <th scope="col">Zgłaszający</th>
-                  <th scope="col">Utworzono</th>
-                  <th scope="col">SLA</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.data.incidents.map((r) => (
-                  <tr key={r.id}>
-                    {queue && (
-                      <td>
-                        <input
-                          type="checkbox"
-                          disabled={queueBusy}
-                          aria-label={`Wybierz ${r.number}`}
-                          checked={!!selection[r.id]}
-                          onChange={(event) => {
-                            const next = { ...selection };
-                            if (event.target.checked)
-                              next[r.id] = selectedRecord(r);
-                            else delete next[r.id];
-                            select(next);
-                          }}
-                        />
-                      </td>
-                    )}
-                    <td className="wrap-cell">
-                      <Link
-                        to={`/incidents/${r.id}`}
-                        state={{ listSearch: params.toString() }}
-                      >
-                        <strong>{r.number}</strong>
-                      </Link>
-                      <div>{r.title}</div>
-                    </td>
-                    <td>{optionLabel(metadata.states, r.state)}</td>
-                    <td>
-                      <span
-                        className={`incident-priority priority-${r.priority}`}
-                      >
-                        P{r.priority}
-                      </span>
-                    </td>
-                    <td className="wrap-cell">
-                      {r.assigned_name || "Nieprzypisany"}
-                      <div className="muted">{r.group_name || "Bez grupy"}</div>
-                    </td>
-                    <td className="wrap-cell">{r.reporter_name}</td>
-                    <td>{dateLabel(r.created_at)}</td>
-                    <td className="wrap-cell">
-                      {sla.loading ? (
-                        "Ładowanie SLA…"
-                      ) : sla.error ? (
-                        "SLA chwilowo niedostępne"
-                      ) : (
-                        <SLASummary
-                          items={
-                            sla.data?.items.filter(
-                              (i) => i.incident_id === r.id,
-                            ) ?? []
-                          }
-                        />
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                        : {},
+                    )
+                  }
+                />
+              ) : undefined
+            }
+            selectionCell={
+              queue
+                ? (r) => (
+                    <input
+                      type="checkbox"
+                      disabled={queueBusy}
+                      aria-label={`Wybierz ${r.number}`}
+                      checked={!!selection[r.id]}
+                      onChange={(e) => {
+                        const next = { ...selection };
+                        if (e.target.checked) next[r.id] = selectedRecord(r);
+                        else delete next[r.id];
+                        select(next);
+                      }}
+                    />
+                  )
+                : undefined
+            }
+          />
         )}
         <div className="action-row">
           {params.has("after_id") && (
@@ -524,6 +620,9 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
               onClick={() => {
                 const next = new URLSearchParams(params);
                 next.set("after_id", result.data!.next_after_id!);
+                if (result.data!.next_after_value)
+                  next.set("after_value", result.data!.next_after_value);
+                else next.delete("after_value");
                 if (result.data?.next_after_priority)
                   next.set("after_priority", result.data.next_after_priority);
                 else next.delete("after_priority");

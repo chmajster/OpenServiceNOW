@@ -12,5 +12,7 @@ if (!root) {
 createRoot(root).render(
   <StrictMode>
     <App />
-  </StrictMode>
+  </StrictMode>,
 );
+
+import "./recordlists/recordlists.css";

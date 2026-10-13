@@ -1,8 +1,12 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { RecordHeader } from "../components/RecordHeader";
 import { RemoteCombobox, type Choice } from "../components/RemoteCombobox";
-import { useRemotePage } from "../components/useRemotePage";
+import { TaskBatch } from "../recordlists/TaskBatch";
+import { ListToolbar, columnConfig } from "../recordlists/ListToolbar";
+import { RecordTable, type RecordColumn } from "../recordlists/RecordTable";
+import type { FilterField } from "../recordlists/contracts";
 import { CommunicationPanel } from "../incidents/CommunicationPanel";
 import { useIncidentQuery, useIncidentTitleFocus } from "../incidents/hooks";
 import { UnsavedGuard } from "../incidents/UnsavedGuard";
@@ -26,20 +30,146 @@ function Queue({ tasks }: { tasks: boolean }) {
   const heading = useIncidentTitleFocus(String(tasks));
   const { hasPermission } = useAuth();
   const [params, set] = useSearchParams();
+  const [batchBusy, setBatchBusy] = useState(false);
+  const [picked, setPicked] = useState<{
+    scope: string;
+    items: Record<string, { id: string; version: string }>;
+  }>({ scope: "", items: {} });
+  const selection = picked.scope === params.toString() ? picked.items : {};
+  const select = (items: Record<string, { id: string; version: string }>) =>
+    setPicked({ scope: params.toString(), items });
   const root = tasks ? "fulfillment" : "requests";
   const q = params.get("q") ?? "",
     state = params.get("state") ?? "",
     view = params.get("view") ?? (tasks ? "group" : "mine");
-  const page = useRemotePage<Request | Task>(
-    `/api/v1/${root}/?q=${encodeURIComponent(q)}&state=${state}&view=${view}&active=${params.get("active") ?? "false"}&limit=25`,
-    "items",
-    "before_id",
-  );
+  const queryParams = new URLSearchParams(params);
+  queryParams.set("view", view);
+  queryParams.set("limit", params.get("limit") ?? "25");
+  const query = useIncidentQuery<{
+    items: (Request | Task)[];
+    total: string;
+    groups: { value: string; count: string }[];
+    next_before_id?: string;
+    next_before_value?: string;
+  }>(`/api/v1/${root}/?${queryParams}`);
+  const page = {
+    ...query,
+    items: query.data?.items ?? [],
+    next: query.data?.next_before_id,
+    retry: query.reload,
+    more: () => {
+      const next = new URLSearchParams(params);
+      next.set("before_id", query.data!.next_before_id!);
+      if (query.data?.next_before_value)
+        next.set("before_value", query.data.next_before_value);
+      set(next);
+    },
+  };
+  const columns: RecordColumn<Request | Task>[] = [
+    {
+      key: "number",
+      label: "Numer",
+      width: 160,
+      render: (r) => (
+        <Link to={`/${root}/${r.id}`} state={{ listSearch: params.toString() }}>
+          {r.number}
+        </Link>
+      ),
+    },
+    ...(tasks
+      ? [
+          {
+            key: "title",
+            label: "Opis zadania",
+            width: 280,
+            render: (r: Request | Task) => ("title" in r ? r.title : ""),
+          },
+          {
+            key: "group_name",
+            label: "Grupa",
+            width: 170,
+            render: (r: Request | Task) => ("title" in r ? r.group_name : ""),
+          },
+          {
+            key: "assigned_name",
+            label: "Osoba przypisana",
+            width: 170,
+            render: (r: Request | Task) =>
+              "title" in r ? r.assigned_name || "Nieprzypisane" : "",
+          },
+        ]
+      : [
+          {
+            key: "requester_name",
+            label: "Zgłaszający",
+            width: 220,
+            render: (r: Request | Task) =>
+              "requester_name" in r ? r.requester_name : "",
+          },
+          {
+            key: "created_at",
+            label: "Data złożenia",
+            width: 180,
+            render: (r: Request | Task) =>
+              "created_at" in r
+                ? new Date(r.created_at).toLocaleString("pl-PL")
+                : "",
+          },
+        ]),
+    { key: "state", label: "Stan", width: 150, render: (r) => states[r.state] },
+    {
+      key: "updated_at",
+      label: "Aktualizacja",
+      width: 180,
+      render: (r) => new Date(r.updated_at).toLocaleString("pl-PL"),
+    },
+  ];
   const options = tasks
     ? ["OPEN", "IN_PROGRESS", "ON_HOLD", "COMPLETED", "CANCELLED"]
     : ["SUBMITTED", "IN_PROGRESS", "FULFILLED", "CLOSED", "CANCELLED"];
+  const fields: FilterField[] = [
+    { key: "number", label: "Numer", kind: "text" },
+    {
+      key: "state",
+      label: "Stan",
+      kind: "enum",
+      options: options.map((v) => ({ value: v, label: states[v]! })),
+    },
+    { key: "active", label: "Aktywne", kind: "boolean" },
+    { key: "updated_at", label: "Aktualizacja", kind: "time" },
+    ...(tasks
+      ? [
+          { key: "title", label: "Opis zadania", kind: "text" as const },
+          { key: "my_groups", label: "Moje grupy", kind: "boolean" as const },
+          {
+            key: "group_id",
+            label: "Grupa przypisania",
+            kind: "id" as const,
+            nullable: true,
+            endpoint: "/api/v1/fulfillment/lookups/groups",
+          },
+          {
+            key: "assigned_to",
+            label: "Osoba przypisana",
+            kind: "id" as const,
+            nullable: true,
+            endpoint: "/api/v1/fulfillment/lookups/users",
+          },
+        ]
+      : [
+          { key: "created_at", label: "Data złożenia", kind: "time" as const },
+          {
+            key: "requester_id",
+            label: "Zgłaszający",
+            kind: "id" as const,
+            endpoint: "/api/v1/requests/lookups/users",
+          },
+        ]),
+  ];
   const setParam = (key: string, v: string) => {
     const p = new URLSearchParams(params);
+    p.delete("before_id");
+    p.delete("before_value");
     p.set(key, v);
     set(p, { replace: true });
   };
@@ -114,49 +244,112 @@ function Queue({ tasks }: { tasks: boolean }) {
           </button>
         </p>
       )}
+      <ListToolbar
+        key={root}
+        domain={root}
+        fields={fields}
+        columns={columns}
+        apiRoot={`/api/v1/${root}`}
+        total={query.data?.total}
+        counts={query.data?.groups}
+        sorts={[
+          { value: "newest", label: "Najnowsze" },
+          { value: "oldest", label: "Najstarsze" },
+          { value: "number", label: "Numer A–Z" },
+          { value: "updated", label: "Ostatnia aktualizacja" },
+        ]}
+        groups={
+          tasks
+            ? [
+                { value: "state", label: "Stan" },
+                { value: "group_id", label: "Grupa" },
+                { value: "assigned_to", label: "Osoba przypisana" },
+              ]
+            : [
+                { value: "state", label: "Stan" },
+                { value: "requester_id", label: "Zgłaszający" },
+              ]
+        }
+      />
       <LoadState loading={page.loading} error={page.error} retry={page.retry} />
       {!page.loading && !page.error && !page.items.length ? (
         <p role="status">Brak wniosków lub zadań pasujących do filtrów.</p>
       ) : null}
-      <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Numer</th>
-              <th>{tasks ? "Zadanie" : "Zgłaszający"}</th>
-              <th>Stan</th>
-              <th>{tasks ? "Przypisanie" : "Data złożenia"}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {page.items.map((r) => (
-              <tr key={r.id}>
-                <td>
-                  <Link
-                    to={`/${root}/${r.id}`}
-                    state={{ listSearch: params.toString() }}
-                  >
-                    {r.number}
-                  </Link>
-                </td>
-                <td>{"title" in r ? r.title : r.requester_name}</td>
-                <td>{states[r.state]}</td>
-                <td>
-                  {"title" in r ? (
-                    <>
-                      {r.group_name}
-                      <br />
-                      {r.assigned_name || "Nieprzypisane"}
-                    </>
-                  ) : (
-                    new Date(r.created_at).toLocaleString("pl-PL")
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {tasks && (
+        <TaskBatch
+          selection={Object.values(selection)}
+          clear={() => select({})}
+          refresh={page.retry}
+          busy={batchBusy || page.loading}
+          setBusy={setBatchBusy}
+        />
+      )}
+      <RecordTable
+        stateLabel={(state) => states[state] ?? state}
+        selectionHeader={
+          tasks ? (
+            <input
+              type="checkbox"
+              aria-label="Wybierz wszystkie zadania na stronie"
+              disabled={batchBusy || page.loading}
+              checked={
+                page.items.length > 0 &&
+                page.items.every((r) => !!selection[r.id])
+              }
+              onChange={(e) =>
+                select(
+                  e.target.checked
+                    ? Object.fromEntries(
+                        page.items.map((r) => [
+                          r.id,
+                          { id: r.id, version: r.version },
+                        ]),
+                      )
+                    : {},
+                )
+              }
+            />
+          ) : undefined
+        }
+        selectionCell={
+          tasks
+            ? (r) => (
+                <input
+                  type="checkbox"
+                  aria-label={`Wybierz ${r.number}`}
+                  disabled={batchBusy || page.loading}
+                  checked={!!selection[r.id]}
+                  onChange={(e) => {
+                    const next = { ...selection };
+                    if (e.target.checked)
+                      next[r.id] = { id: r.id, version: r.version };
+                    else delete next[r.id];
+                    select(next);
+                  }}
+                />
+              )
+            : undefined
+        }
+        records={page.items}
+        columns={columns}
+        selected={columnConfig(params, columns)}
+        apiRoot={`/api/v1/${root}`}
+        url={(r) => `/${root}/${r.id}`}
+      />
+
+      {params.has("before_id") && (
+        <button
+          className="button button--secondary"
+          onClick={() => {
+            const next = new URLSearchParams(params);
+            next.delete("before_id");
+            next.delete("before_value");
+            set(next);
+          }}
+        >
+          Pierwsza strona
+        </button>
+      )}
       {page.next ? (
         <button
           className="button button--secondary"
@@ -237,6 +430,10 @@ function Workspace({
     ),
     [assignmentDirty, setAssignmentDirty] = useState(false),
     [draftTabs, setDraftTabs] = useState<Record<string, boolean>>({});
+  const [proposalVersion, setProposalVersion] = useState(initial.version);
+  useEffect(() => {
+    if (!state && !reason && !assignmentDirty) setProposalVersion(r.version);
+  }, [r.version, state, reason, assignmentDirty]);
   const retain = useCallback(
     (key: string, needed: boolean) =>
       setDraftTabs((p) => (p[key] === needed ? p : { ...p, [key]: needed })),
@@ -268,7 +465,7 @@ function Workspace({
   };
   async function transition() {
     const success = await editor.save(`${path}/transition`, {
-      version: r.version,
+      version: proposalVersion,
       state,
       reason,
     });
@@ -282,7 +479,7 @@ function Workspace({
     if (!("title" in r)) return;
     const success = await editor.save(
       `${path}/assignment`,
-      { version: r.version, assigned_to: assigned?.id ?? null },
+      { version: proposalVersion, assigned_to: assigned?.id ?? null },
       "PUT",
     );
     if (success) setAssignmentDirty(false);
@@ -293,7 +490,7 @@ function Workspace({
     setAssignmentDirty(true);
     const success = await editor.save(
       `${path}/assignment`,
-      { version: r.version, assigned_to: session.user.id },
+      { version: proposalVersion, assigned_to: session.user.id },
       "PUT",
     );
     if (success) setAssignmentDirty(false);
@@ -308,21 +505,39 @@ function Workspace({
           Object.values(draftTabs).some(Boolean)
         }
       />
-      <h1 ref={heading} tabIndex={-1}>
-        {r.number}
-        {"title" in r ? ` · ${r.title}` : ""}
-      </h1>
-      <p>
-        {states[r.state]} · Wersja {r.version}
-      </p>
-      <Link
-        to={
-          workspace?.listURL(`/${tasks ? "fulfillment" : "requests"}`) ??
-          `/${tasks ? "fulfillment" : "requests"}`
+      <RecordHeader
+        headingRef={heading}
+        number={r.number}
+        title={"title" in r ? `${r.number} · ${r.title}` : r.number}
+        type={tasks ? "Zadanie realizacji" : "Wniosek"}
+        state={states[r.state] ?? r.state}
+        version={r.version}
+        assignment={
+          "title" in r
+            ? [r.group_name, r.assigned_name].filter(Boolean).join(" · ")
+            : r.requester_name
         }
-      >
-        Wróć do kolejki
-      </Link>
+        actions={
+          <>
+            <Link
+              className="button button--secondary"
+              to={
+                workspace?.listURL(`/${tasks ? "fulfillment" : "requests"}`) ??
+                `/${tasks ? "fulfillment" : "requests"}`
+              }
+            >
+              Wróć do kolejki
+            </Link>
+            <button
+              className="button button--secondary"
+              disabled={editor.busy}
+              onClick={() => void editor.save(path, undefined, "GET")}
+            >
+              Odśwież rekord
+            </button>
+          </>
+        }
+      />
       {!tasks ? <RequestProcesses requestID={requestID} /> : null}
       {tasks ? (
         <p>
@@ -388,7 +603,13 @@ function Workspace({
             <summary>Aktualny rekord</summary>
             <pre>{JSON.stringify(editor.conflict, null, 2)}</pre>
           </details>
-          <button className="button button--secondary" onClick={editor.resolve}>
+          <button
+            className="button button--secondary"
+            onClick={() => {
+              setProposalVersion(editor.conflict!.version);
+              editor.resolve();
+            }}
+          >
             Zachowaj propozycję i użyj aktualnej wersji
           </button>
         </section>

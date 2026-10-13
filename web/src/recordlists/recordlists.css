@@ -1,0 +1,118 @@
+.list-toolbar {
+  display: grid;
+  gap: var(--work-space);
+}
+.record-facts {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+  color: var(--muted);
+}
+.record-facts strong {
+  color: var(--text);
+}
+.list-toolbar .action-row label {
+  min-width: 9rem;
+}
+.filter-group {
+  border: 1px solid var(--border);
+  padding: 0.6rem;
+  margin: 0.6rem 0;
+  min-width: 0;
+}
+.filter-child {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+.filter-child > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.filter-condition {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.filter-condition label {
+  min-width: 0;
+}
+.column-editor {
+  display: grid;
+  gap: 0.5rem;
+}
+.column-editor > div {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  padding: 0.4rem 0;
+}
+.column-editor label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.column-editor input[type="range"] {
+  width: 9rem;
+}
+.group-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.active-filter {
+  overflow-wrap: anywhere;
+}
+.record-table {
+  table-layout: fixed;
+  min-width: max-content;
+}
+.row-menu {
+  position: relative;
+}
+.row-menu summary {
+  cursor: pointer;
+  white-space: nowrap;
+  list-style: none;
+  padding: 0.15rem 0.6rem;
+}
+.row-menu > div {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 10rem;
+  padding: 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.record-preview {
+  width: min(40rem, 95vw);
+  max-height: 85vh;
+  overflow: auto;
+}
+.record-preview dd {
+  margin: 0.25rem 0 1rem;
+}
+.list-toolbar pre {
+  max-height: 15rem;
+  overflow: auto;
+  background: var(--surface-subtle);
+  padding: 0.5rem;
+}
+@media (max-width: 800px) {
+  .filter-condition {
+    grid-template-columns: 1fr;
+  }
+  .filter-child {
+    flex-wrap: wrap;
+  }
+  .column-editor label {
+    flex-wrap: wrap;
+  }
+  .list-toolbar fieldset {
+    min-width: 0;
+  }
+}

@@ -54,6 +54,9 @@ export type Incident = IncidentSummary & {
   };
 };
 export type IncidentPage = {
+  total: string;
+  groups?: { value: string; count: string }[];
+  next_after_value?: string;
   incidents: IncidentSummary[];
   next_after_id?: string;
   next_after_priority?: string;

@@ -26,6 +26,7 @@ type Workspace = {
   records: WorkRecord[];
   history: WorkRecord[];
   favorites: string[];
+  denied: string[];
   register: (record: WorkRecord) => void;
   remove: (key: string) => void;
   favorite: (key: string) => void;
@@ -38,6 +39,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
   const [records, setRecords] = useState<WorkRecord[]>([]);
   const [history, setHistory] = useState<WorkRecord[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [denied, setDenied] = useState<string[]>([]);
   const favoritesRef = useRef(favorites);
   favoritesRef.current = favorites;
   const known = useRef<WorkRecord[]>([]);
@@ -69,6 +71,9 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             setRecords((items) => items.filter((r) => r.key !== record.key));
             setHistory((items) => items.filter((r) => r.key !== record.key));
             setFavorites((items) => items.filter((key) => key !== record.key));
+            setDenied((items) =>
+              [...new Set([...items, record.key])].slice(-200),
+            );
           }
         }
       }),
@@ -77,6 +82,11 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
   }, [session]);
   const lists = useRef(new Map<string, string>());
   const register = useCallback((record: WorkRecord) => {
+    setDenied((items) =>
+      items.includes(record.key)
+        ? items.filter((key) => key !== record.key)
+        : items,
+    );
     const update = (items: WorkRecord[]) => {
       const found = items.find((r) => r.key === record.key);
       if (found && JSON.stringify(found) === JSON.stringify(record))
@@ -105,6 +115,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
       records,
       history,
       favorites,
+      denied,
       register,
       remove: (key: string) =>
         setRecords((items) => items.filter((r) => r.key !== key)),
@@ -116,7 +127,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         ),
       listURL: (root: string) => lists.current.get(root) ?? root,
     }),
-    [records, history, favorites, register],
+    [records, history, favorites, denied, register],
   );
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
