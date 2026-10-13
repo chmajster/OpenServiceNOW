@@ -109,7 +109,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	f := Filter{Before: before, Limit: limit, Query: q.Get("q"), State: q.Get("state"), Impact: q.Get("impact"), Active: q.Get("active"), KnownError: q.Get("known_error"), Expression: node, Sort: q.Get("sort"), GroupBy: q.Get("group_by"), BeforeValue: q.Get("before_value"), IncidentID: incident}
+	f := Filter{View: q.Get("view"), Before: before, Limit: limit, Query: q.Get("q"), State: q.Get("state"), Impact: q.Get("impact"), Active: q.Get("active"), KnownError: q.Get("known_error"), Expression: node, Sort: q.Get("sort"), GroupBy: q.Get("group_by"), BeforeValue: q.Get("before_value"), IncidentID: incident}
 	if q.Get("format") == "csv" {
 		h.export(w, r, actor(r), f)
 		return

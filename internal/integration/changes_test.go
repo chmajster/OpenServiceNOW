@@ -452,7 +452,33 @@ func TestChangeVersionedApprovalsSchedulingAndTemplates(t *testing.T) {
 			t.Fatal(ctx.Err())
 		}
 	}
-	taskChange = transition(taskChange, "IMPLEMENT", "change-implement")
+	// A new blackout after reservation must be enforced at actual start.
+	lateRule, err := s.SaveRule(ctx, admin, 0, changes.CalendarRule{Kind: "BLACKOUT", Title: "Late execution prohibition", StartsAt: taskStart, EndsAt: taskEnd, TimeZone: "UTC", Active: true, CIID: &ci.ID}, "change-late-blackout")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.Transition(ctx, operator, taskChange.ID, changes.TransitionInput{Version: taskChange.Version, State: "IMPLEMENT"}, "change-late-blocked"); !errors.Is(err, changes.ErrCollision) {
+		t.Fatal("late blackout bypass", err)
+	}
+	unchanged, _ := s.Get(ctx, operator, taskChange.ID)
+	if unchanged.State != "SCHEDULED" || unchanged.ActualStart != nil || unchanged.Version != taskChange.Version {
+		t.Fatal("blocked execution mutated record", unchanged)
+	}
+	if _, err = s.Transition(ctx, operator, taskChange.ID, changes.TransitionInput{Version: taskChange.Version, State: "IMPLEMENT", Override: true, Reason: "Unauthorized exception"}, "change-late-unauthorized"); !errors.Is(err, changes.ErrForbidden) {
+		t.Fatal("override permission", err)
+	}
+	implement := changes.TransitionInput{Version: taskChange.Version, State: "IMPLEMENT", Override: true, Reason: "Explicitly authorized recovery during blackout"}
+	taskChange, err = s.Transition(ctx, admin, taskChange.ID, implement, "change-implement")
+	if err != nil {
+		t.Fatal("late audited override", err)
+	}
+	if replay, e := s.Transition(ctx, admin, taskChange.ID, implement, "change-implement"); e != nil || replay.Version != taskChange.Version {
+		t.Fatal("implementation replay", replay, e)
+	}
+	lateRule.Active = false
+	if _, err = s.SaveRule(ctx, admin, lateRule.ID, lateRule, "change-late-blackout-disable"); err != nil {
+		t.Fatal(err)
+	}
 	taskInput.ChangeVersion = taskChange.Version
 	task, err = s.SaveTask(ctx, operator, taskChange.ID, task.ID, taskInput, "change-task-start")
 	if err != nil {
@@ -555,6 +581,29 @@ func TestChangeVersionedApprovalsSchedulingAndTemplates(t *testing.T) {
 		if err != nil {
 			t.Fatal("cross-domain context", kind, contextRecord, err)
 		}
+	}
+	summary, err := metadataService.Summary(ctx, operator)
+	if err != nil {
+		t.Fatal("new domain queues", err)
+	}
+	for _, m := range summary.Metrics {
+		view := ""
+		if m.Key == "mine_changes" {
+			view = "mine"
+		}
+		if m.Key == "my_group_changes" {
+			view = "my_group"
+		}
+		if view == "" {
+			continue
+		}
+		page, e := s.List(ctx, operator, changes.Filter{View: view, Active: "true", Limit: 25})
+		if e != nil || m.Count != page.Total || m.URL != "/changes?active=true&view="+view {
+			t.Fatal("queue/list consistency", m, page, e)
+		}
+	}
+	if _, e := s.List(ctx, operator, changes.Filter{View: "invalid", Limit: 25}); !errors.Is(e, changes.ErrInvalid) {
+		t.Fatal("invalid queue", e)
 	}
 	searchResults, err := metadataService.Search(ctx, operator, task.Number)
 	if err != nil || len(searchResults) == 0 || searchResults[0].Type != "change_task" || !searchResults[0].Exact || searchResults[0].URL != fmt.Sprintf("/changes/%d?tab=tasks&task_id=%d", taskChange.ID, task.ID) {

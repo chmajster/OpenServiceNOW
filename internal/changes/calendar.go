@@ -101,6 +101,9 @@ func (s *Service) reserveSchedule(ctx context.Context, e database.Executor, a Ac
 	if r.PlannedStart == nil || !r.PlannedStart.After(time.Now().UTC()) {
 		return fmt.Errorf("%w: planowany początek musi być w przyszłości", ErrTransition)
 	}
+	return s.checkSchedule(ctx, e, a, r, override, reason, "change.schedule.override")
+}
+func (s *Service) checkSchedule(ctx context.Context, e database.Executor, a Actor, r Record, override bool, reason, auditAction string) error {
 	c, err := s.collisions(ctx, e, a, r)
 	if err != nil {
 		return err
@@ -112,7 +115,7 @@ func (s *Service) reserveSchedule(ctx context.Context, e database.Executor, a Ac
 		if !catalog.Text(reason, 1, 10000) {
 			return ErrInvalid
 		}
-		return catalog.Audit(ctx, e, a, "change.schedule.override", "change", r.ID, map[string]any{"reason": reason, "restricted_conflict": c.RestrictedConflict, "blackout": c.Blackout, "outside_window": c.OutsideWindow})
+		return catalog.Audit(ctx, e, a, auditAction, "change", r.ID, map[string]any{"reason": reason, "restricted_conflict": c.RestrictedConflict, "blackout": c.Blackout, "outside_window": c.OutsideWindow})
 	}
 	if c.blocked() {
 		return ErrCollision

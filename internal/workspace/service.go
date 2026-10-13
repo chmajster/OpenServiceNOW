@@ -69,9 +69,9 @@ func (s *Service) Summary(ctx context.Context, a workrecords.Principal) (Summary
 	}
 	if a.Has("request.fulfill") || a.Has("request.manage") {
 		for _, v := range []struct{ key, label, view, definition string }{
-			{"my_tasks", "Moje aktywne zadania", "mine", "Otwarte, realizowane i wstrzymane zadania przypisane do mnie w aktywnych wnioskach."},
-			{"group_tasks", "Zadania moich grup", "my_group", "Dostępne zadania aktywnych wniosków w aktywnych grupach, do których należę."},
-			{"unassigned_tasks", "Nieprzypisane zadania", "unassigned", "Dostępne aktywne zadania bez wykonawcy w aktywnych wnioskach."},
+			{"my_tasks", "Moje aktywne zadania wniosków", "mine", "Otwarte, realizowane i wstrzymane zadania przypisane do mnie w aktywnych wnioskach."},
+			{"group_tasks", "Zadania wniosków moich grup", "my_group", "Dostępne zadania aktywnych wniosków w aktywnych grupach, do których należę."},
+			{"unassigned_tasks", "Nieprzypisane zadania wniosków", "unassigned", "Dostępne aktywne zadania bez wykonawcy w aktywnych wnioskach."},
 		} {
 			n, err := s.Requests.Count(ctx, a, true, v.view, true)
 			if err != nil {
@@ -86,6 +86,33 @@ func (s *Service) Summary(ctx context.Context, a workrecords.Principal) (Summary
 			return Summary{}, err
 		}
 		add("my_requests", "Moje aktywne wnioski", "/requests?active=true&view=mine", "Moje wnioski w stanie Złożony lub W realizacji.", n)
+	}
+	if s.DB != nil {
+		scopes, err := s.scopes(a)
+		if err != nil {
+			return Summary{}, err
+		}
+		for _, domain := range []struct{ kind, root, label string }{{"problem", "problems", "problemy"}, {"change", "changes", "zmiany"}} {
+			scope, ok := scopes[domain.kind]
+			if !ok {
+				continue
+			}
+			for _, view := range []struct{ key, label, description string }{{"mine", "Moje aktywne ", "Aktywne dostępne rekordy przypisane do mnie."}, {"my_group", "Aktywne ", "Aktywne dostępne rekordy przypisane do aktualnie aktywnych grup, do których należę."}} {
+				filtered, err := workrecords.AssignmentView(scope.Restricted(scope.Active), a, view.key)
+				if err != nil {
+					return Summary{}, err
+				}
+				n, err := countScope(ctx, s.DB, filtered)
+				if err != nil {
+					return Summary{}, err
+				}
+				label := view.label + domain.label
+				if view.key == "my_group" {
+					label += " moich grup"
+				}
+				add(view.key+"_"+domain.root, label, "/"+domain.root+"?active=true&view="+view.key, view.description, n)
+			}
+		}
 	}
 	if a.Has("workflow.approve") {
 		n, err := s.Workflow.PendingCount(ctx, a)

@@ -17431,6 +17431,20 @@
                 "csv"
               ]
             }
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "mine",
+                "my_group",
+                "unassigned"
+              ]
+            },
+            "description": "Narrows the independently authorized set by current assignment and active group membership; applies to counts, grouping, export and pagination."
           }
         ],
         "responses": {
@@ -20495,6 +20509,20 @@
                 "EMERGENCY"
               ]
             }
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "mine",
+                "my_group",
+                "unassigned"
+              ]
+            },
+            "description": "Narrows the independently authorized set by current assignment and active group membership; applies to counts, grouping, export and pagination."
           }
         ],
         "responses": {

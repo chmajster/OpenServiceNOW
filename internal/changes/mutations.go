@@ -204,7 +204,7 @@ func (s *Service) Transition(ctx context.Context, a Actor, id uint64, in Transit
 		if !contains(r.Actions, in.State) {
 			return ErrTransition
 		}
-		if in.Override && in.State != "SCHEDULED" {
+		if in.Override && in.State != "SCHEDULED" && in.State != "IMPLEMENT" {
 			return ErrInvalid
 		}
 		if contains([]string{"NEW", "ASSESS", "CANCELLED"}, in.State) && in.Reason == "" {
@@ -252,6 +252,14 @@ func (s *Service) Transition(ctx context.Context, a Actor, id uint64, in Transit
 			now := time.Now().UTC()
 			if now.Before(*r.PlannedStart) || !now.Before(*r.PlannedEnd) {
 				return fmt.Errorf("%w: wykonanie można rozpocząć w zaplanowanym przedziale", ErrTransition)
+			}
+			// Calendar/CI policy may change after reservation. Recheck under the
+			// tenant lock; an earlier override does not authorize a new exception.
+			if err = s.ready(ctx, e, a, r); err != nil {
+				return err
+			}
+			if err = s.checkSchedule(ctx, e, a, r, in.Override, in.Reason, "change.implement.override"); err != nil {
+				return err
 			}
 			if _, err = e.ExecContext(ctx, "UPDATE changes SET actual_start=UTC_TIMESTAMP(6) WHERE tenant_id=? AND id=?", a.TenantID, id); err != nil {
 				return err

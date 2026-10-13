@@ -100,3 +100,19 @@ func References(ctx context.Context, db database.Executor, s ReferenceScope, f R
 	}
 	return out, rows.Err()
 }
+
+// AssignmentView narrows an already authorized scope; it never grants read access.
+func AssignmentView(s ReferenceScope, a Principal, view string) (ReferenceScope, error) {
+	switch view {
+	case "", "all":
+		return s, nil
+	case "mine":
+		return s.Restricted(s.AssignedTo+"=?", a.UserID), nil
+	case "my_group":
+		return s.Restricted("EXISTS(SELECT 1 FROM group_memberships queue_gm JOIN `groups` queue_g ON queue_g.tenant_id=queue_gm.tenant_id AND queue_g.id=queue_gm.group_id AND queue_g.active=TRUE WHERE queue_gm.tenant_id=? AND queue_gm.group_id="+s.GroupID+" AND queue_gm.user_id=?)", a.TenantID, a.UserID), nil
+	case "unassigned":
+		return s.Restricted(s.AssignedTo + " IS NULL"), nil
+	default:
+		return s, ErrInvalid
+	}
+}

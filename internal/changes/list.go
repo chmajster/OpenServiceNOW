@@ -21,10 +21,10 @@ type GroupCount struct {
 	Count uint64 `json:"count,string"`
 }
 type Filter struct {
-	Query, State, Impact, Active, Risk, Type, Sort, GroupBy, BeforeValue string
-	Before, ProblemID                                                    uint64
-	Limit                                                                int
-	Expression                                                           *recordlists.Node
+	View, Query, State, Impact, Active, Risk, Type, Sort, GroupBy, BeforeValue string
+	Before, ProblemID                                                          uint64
+	Limit                                                                      int
+	Expression                                                                 *recordlists.Node
 }
 type Page struct {
 	Items     []Record     `json:"items"`
@@ -75,7 +75,11 @@ func listWhere(a Actor, f Filter) (string, []any, error) {
 		where += " AND (" + sql + ")"
 		args = append(args, values...)
 	}
-	return where, args, nil
+	scope, err := workrecords.AssignmentView(workrecords.ReferenceScope{Where: where, Args: args, AssignedTo: "wa.assigned_to", GroupID: "wa.assignment_group_id"}, a, f.View)
+	if err != nil {
+		return "", nil, ErrInvalid
+	}
+	return scope.Where, scope.Args, nil
 }
 func listOrder(f Filter) (string, string, []any, error) {
 	col, op, dir := "p.id", "<", "DESC"
