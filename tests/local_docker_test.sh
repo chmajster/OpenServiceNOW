@@ -59,7 +59,7 @@ installer() {
 compose() {
   local port=8080
   if [[ -f "$checkout/.opensnow/run/docker-port" ]]; then port=$(cat "$checkout/.opensnow/run/docker-port"); fi
-  OPENSNOW_DOCKER_PORT="$port" docker compose --project-directory "$checkout" -p "$project" -f "$checkout/docker-compose.yml" -f "$checkout/docker/compose.local.yaml" "$@"
+  REDIS_PORT=26379 OPENSNOW_DOCKER_PORT="$port" docker compose --project-directory "$checkout" -p "$project" -f "$checkout/docker-compose.yml" -f "$checkout/docker/compose.local.yaml" "$@"
 }
 sql() { compose exec -T -e MYSQL_PWD=docker-test-mysql mysql mysql -u opensnow opensnow -N -e "$1"; }
 occupy_ports() {
