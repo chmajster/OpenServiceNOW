@@ -134,3 +134,41 @@ it("does not report a late decision as successful after changing the execution",
     await act(async () => root.unmount());
   }
 });
+
+it("keeps a domain rejection actionable without inventing a version conflict", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const fetch = vi
+    .fn()
+    .mockResolvedValue(
+      response(
+        {
+          error: { code: "INVALID_TRANSITION", message: "Podaj uzasadnienie" },
+        },
+        409,
+      ),
+    );
+  vi.stubGlobal("fetch", fetch);
+  let ed!: ReturnType<typeof useEditor<{ version: string }>>;
+  function Screen() {
+    ed = useEditor({ version: "2" }, "/changes/1");
+    return null;
+  }
+  const root = createRoot(document.createElement("div"));
+  try {
+    await act(async () => root.render(<Screen />));
+    await act(async () => {
+      expect(
+        await ed.save("/changes/1/transition", {
+          version: "2",
+          state: "ASSESS",
+        }),
+      ).toBe(false);
+    });
+    expect(ed.error).toBe("Podaj uzasadnienie");
+    expect(ed.conflict).toBeUndefined();
+    expect(ed.uncertain).toBe(false);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});

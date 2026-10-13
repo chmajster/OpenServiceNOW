@@ -11,6 +11,7 @@ import { useEditor } from "../requests/useEditor";
 import { useCreation } from "../requests/useCreation";
 import {
   blank,
+  blankChange,
   labels,
   errors,
   type Config,
@@ -116,7 +117,7 @@ export function WorkflowPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Wniosek</th>
+                  <th>Rekord</th>
                   <th>Proces</th>
                   <th>Krok</th>
                   <th>Stan</th>
@@ -127,7 +128,9 @@ export function WorkflowPage() {
                 {runs.items.map((x) => (
                   <tr key={x.id}>
                     <td>
-                      <Link to={`/approvals/${x.id}`}>{x.request_number}</Link>
+                      <Link to={`/approvals/${x.id}`}>
+                        {x.change_number || x.request_number}
+                      </Link>
                     </td>
                     <td>
                       {x.name} · {x.definition_version}
@@ -325,9 +328,12 @@ function Editor({
           zachowują swoją wersję.
         </p>
         <p>
-          Wykonawca musi mieć workflow.execute, request.fulfill i aktywne
-          członkostwo w grupie realizacji. Edycja procesu nie nadaje tych
-          uprawnień.
+          Wykonawca musi mieć workflow.execute,{" "}
+          {draft.domain === "CHANGE"
+            ? "change.execute oraz odczyt przypisanej zmiany"
+            : "request.fulfill"}{" "}
+          i aktywne członkostwo w grupie realizacji. Edycja procesu nie nadaje
+          tych uprawnień.
         </p>
         <fieldset disabled={locked || !has("workflow.author")}>
           <label>
@@ -339,6 +345,43 @@ function Editor({
               onChange={(e) => edit({ name: e.target.value })}
             />
           </label>
+          <label>
+            Domena procesu
+            <select
+              value={draft.domain ?? "REQUEST"}
+              onChange={(e) => {
+                const next = e.target.value === "CHANGE" ? blankChange : blank;
+                edit({
+                  ...structuredClone(next),
+                  name: draft.name,
+                  executor_id: draft.executor_id,
+                  group_id: draft.group_id,
+                });
+              }}
+            >
+              <option value="REQUEST">Wniosek katalogowy REQ/RITM</option>
+              <option value="CHANGE">Zmiana CHG</option>
+            </select>
+          </label>
+          <p>
+            Zmiana domeny zastąpi szkic kroków jej schematem. Opublikowane
+            wykonania zachowują wcześniejszą wersję.
+          </p>
+          {draft.domain === "CHANGE" && (
+            <label>
+              Typ ocenianej zmiany
+              <select
+                value={draft.change_type}
+                onChange={(e) => edit({ change_type: e.target.value })}
+              >
+                {["NORMAL", "STANDARD", "EMERGENCY"].map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <Identity
             kind="users"
             label="Tożsamość wykonawcza"
@@ -354,6 +397,7 @@ function Editor({
           <label>
             Akceptacja własnego wniosku
             <select
+              disabled={draft.domain === "CHANGE"}
               value={draft.self_approval}
               onChange={(e) => edit({ self_approval: e.target.value })}
             >
@@ -371,6 +415,9 @@ function Editor({
           </p>
           {draft.nodes.map((n, i) => (
             <NodeForm
+              changeType={
+                draft.domain === "CHANGE" ? draft.change_type : undefined
+              }
               key={i}
               node={n}
               nodes={draft.nodes}
@@ -397,8 +444,8 @@ function Editor({
                   {
                     id,
                     label: "Nowy krok",
-                    type: "WAIT_TIMER",
-                    seconds: 60,
+                    type: draft.domain === "CHANGE" ? "END" : "WAIT_TIMER",
+                    ...(draft.domain !== "CHANGE" ? { seconds: 60 } : {}),
                   },
                 ],
               });
@@ -508,11 +555,13 @@ function Identity({
   );
 }
 function NodeForm({
+  changeType,
   node: n,
   nodes,
   change,
   remove,
 }: {
+  changeType?: string;
   node: ProcessNode;
   nodes: ProcessNode[];
   change: (n: ProcessNode) => void;
@@ -587,7 +636,10 @@ function NodeForm({
                   ? { target_type: "GROUP", target_id: "0", policy: "ANY" }
                   : {}),
                 ...(type === "UPDATE_RECORD"
-                  ? { state: "IN_PROGRESS", reason: "" }
+                  ? {
+                      state: changeType ? "AUTHORIZED" : "IN_PROGRESS",
+                      reason: "",
+                    }
                   : {}),
               });
             }}
@@ -602,11 +654,17 @@ function NodeForm({
               "UPDATE_RECORD",
               "NOTIFY",
               "END",
-            ].map((t) => (
-              <option key={t} value={t}>
-                {labels[t]}
-              </option>
-            ))}
+            ]
+              .filter(
+                (t) =>
+                  !changeType ||
+                  !["CREATE_TASK", "WAIT_TASK", "WAIT_TIMER"].includes(t),
+              )
+              .map((t) => (
+                <option key={t} value={t}>
+                  {labels[t]}
+                </option>
+              ))}
           </select>
         </label>
         {n.type !== "END"
@@ -723,7 +781,13 @@ function NodeForm({
               type="number"
               required
               min={1}
-              max={n.type === "APPROVAL" ? 7776000 : 31536000}
+              max={
+                changeType === "EMERGENCY"
+                  ? 86400
+                  : n.type === "APPROVAL"
+                    ? 7776000
+                    : 31536000
+              }
               value={n.seconds ?? 60}
               onChange={(e) => edit({ seconds: Number(e.target.value) })}
             />
@@ -764,10 +828,21 @@ function NodeForm({
                 value={n.state ?? "IN_PROGRESS"}
                 onChange={(e) => edit({ state: e.target.value })}
               >
-                <option value="IN_PROGRESS">W realizacji</option>
-                <option value="FULFILLED">Zrealizowany</option>
-                <option value="CLOSED">Zamknięty</option>
-                <option value="CANCELLED">Anulowany</option>
+                {changeType ? (
+                  <>
+                    <option value="AUTHORIZED">
+                      Autoryzuj oceniany zakres
+                    </option>
+                    <option value="REJECTED">Odrzuć oceniany zakres</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="IN_PROGRESS">W realizacji</option>
+                    <option value="FULFILLED">Zrealizowany</option>
+                    <option value="CLOSED">Zamknięty</option>
+                    <option value="CANCELLED">Anulowany</option>
+                  </>
+                )}
               </select>
             </label>
             <label>

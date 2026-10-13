@@ -46,7 +46,7 @@ function Inbox() {
             <table>
               <thead>
                 <tr>
-                  <th>Wniosek</th>
+                  <th>Rekord</th>
                   <th>Proces</th>
                   <th>Krok</th>
                 </tr>
@@ -55,7 +55,9 @@ function Inbox() {
                 {p.items.map((x) => (
                   <tr key={x.id}>
                     <td>
-                      <Link to={`/approvals/${x.id}`}>{x.request_number}</Link>
+                      <Link to={`/approvals/${x.id}`}>
+                        {x.change_number || x.request_number}
+                      </Link>
                     </td>
                     <td>
                       {x.name} · wersja {x.definition_version}

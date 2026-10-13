@@ -79,7 +79,11 @@ export function useEditor<T extends { version: string }>(
           if (e instanceof ApiError && e.status < 500)
             pending.current = undefined;
         }
-        if (e instanceof ApiError && e.status === 409) {
+        if (
+          e instanceof ApiError &&
+          e.status === 409 &&
+          ["VERSION_CONFLICT", "WORKFLOW_CONFLICT"].includes(e.code)
+        ) {
           try {
             const current = await api<T>(readPath, { signal: c.signal });
             if (alive.current) setConflict(current);

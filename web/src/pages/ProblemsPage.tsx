@@ -21,6 +21,7 @@ import {
 import { ListToolbar } from "../recordlists/ListToolbar";
 import { RecordTable, type RecordColumn } from "../recordlists/RecordTable";
 import { columnsFrom, type FilterField } from "../recordlists/contracts";
+import { ProblemChanges } from "../changes/ProblemChanges";
 import { ProblemForm } from "../problems/ProblemForm";
 import { ProblemIncidents, ProblemTasks } from "../problems/panels";
 import {
@@ -675,6 +676,7 @@ function Editor({ initial }: { initial: Problem }) {
             <PageState title="Zapisz lub odrzuć edycję przed zmianą powiązań" />
           ) : (
             <>
+              <ProblemChanges id={r.id} canLink={r.can_edit} />
               <ProblemIncidents
                 record={r}
                 onChanged={() => save(path, undefined, "GET").then(() => {})}

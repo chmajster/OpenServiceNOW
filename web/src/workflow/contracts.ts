@@ -21,6 +21,8 @@ export type ProcessNode = {
   audience?: string;
 };
 export type Config = {
+  domain?: "REQUEST" | "CHANGE";
+  change_type?: string;
   name: string;
   executor_id: string;
   group_id: string;
@@ -53,6 +55,24 @@ export type Step = {
   }[];
 };
 export type Execution = {
+  domain?: string;
+  change_id?: string;
+  change_number?: string;
+  subject_version?: string;
+  subject_revision?: string;
+  subject_snapshot?: {
+    number: string;
+    version: string;
+    assessment_revision: string;
+    fields: import("../changes/contracts").ChangeFields;
+    cis: {
+      id: string;
+      identifier: string;
+      name: string;
+      class: string;
+      version: string;
+    }[];
+  };
   id: string;
   definition_id: string;
   definition_version: string;
@@ -89,7 +109,7 @@ export const labels: Record<string, string> = {
   CREATE_TASK: "Utwórz zadanie",
   WAIT_TASK: "Oczekuj na zadanie",
   WAIT_TIMER: "Oczekuj na termin",
-  UPDATE_RECORD: "Zmień stan wniosku",
+  UPDATE_RECORD: "Komenda domeny",
   NOTIFY: "Powiadom zgłaszającego",
   END: "Koniec",
   READY: "Gotowy do wykonania",
@@ -175,5 +195,51 @@ export const blank: Config = {
       next: "notify",
     },
     { id: "end", label: "Koniec", type: "END" },
+  ],
+};
+
+export const blankChange: Config = {
+  domain: "CHANGE",
+  change_type: "NORMAL",
+  name: "",
+  executor_id: "0",
+  group_id: "0",
+  self_approval: "DENY",
+  nodes: [
+    {
+      id: "start",
+      label: "Zgłoszenie do oceny",
+      type: "START",
+      next: "approval",
+    },
+    {
+      id: "approval",
+      label: "Ocena CAB",
+      type: "APPROVAL",
+      target_type: "GROUP",
+      target_id: "0",
+      policy: "ALL",
+      seconds: 86400,
+      next: "authorize",
+      rejected: "reject",
+      timeout: "reject",
+    },
+    {
+      id: "authorize",
+      label: "Autoryzacja zakresu",
+      type: "UPDATE_RECORD",
+      state: "AUTHORIZED",
+      reason: "Uprawnieni uczestnicy zaakceptowali oceniany zakres",
+      next: "end",
+    },
+    {
+      id: "reject",
+      label: "Powrót do oceny",
+      type: "UPDATE_RECORD",
+      state: "REJECTED",
+      reason: "Odrzucenie lub upływ terminu oceny",
+      next: "end",
+    },
+    { id: "end", label: "Koniec oceny", type: "END" },
   ],
 };

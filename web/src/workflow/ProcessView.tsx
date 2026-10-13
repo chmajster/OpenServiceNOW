@@ -62,14 +62,17 @@ function ProcessWorkspace({ initial }: { initial: Execution }) {
     [choice, setChoice] = useState("APPROVED");
   useWorkspaceRecord(
     {
-      number: `${x.request_number} · proces #${x.id}`,
+      number: `${x.change_number || x.request_number} · proces #${x.id}`,
       title: x.name,
       state: labels[x.state] ?? x.state,
       type: "Proces i akceptacje",
       links: [
         {
-          url: `/requests/${x.request_id}`,
-          label: `Wniosek ${x.request_number}`,
+          url:
+            x.domain === "CHANGE"
+              ? `/changes/${x.change_id}`
+              : `/requests/${x.request_id}`,
+          label: `${x.domain === "CHANGE" ? "Zmiana" : "Wniosek"} ${x.change_number || x.request_number}`,
         },
       ],
     },
@@ -95,12 +98,12 @@ function ProcessWorkspace({ initial }: { initial: Execution }) {
     });
     if (ok) setReason("");
   }
-  const disabled = ed.busy || !!ed.conflict;
+  const disabled = ed.busy || !!ed.conflict || ed.uncertain;
   return (
     <>
-      <UnsavedGuard dirty={!!reason} />
+      <UnsavedGuard dirty={!!reason || ed.uncertain} />
       <h1>
-        {x.name} · {x.request_number}
+        {x.name} · {x.change_number || x.request_number}
       </h1>
       <p>
         Wersja procesu {x.definition_version} · {labels[x.state]} · krok{" "}
@@ -130,6 +133,21 @@ function ProcessWorkspace({ initial }: { initial: Execution }) {
       </button>
       <LoadState error={ed.error} />
       {ed.notice ? <p role="status">{ed.notice}</p> : null}
+      {ed.uncertain && (
+        <p role="status">
+          Nie potwierdzono zapisu decyzji lub operacji. Ponowienie zachowa
+          poprzednią propozycję.{" "}
+          <button
+            disabled={ed.busy}
+            onClick={async () => {
+              if (await ed.retry()) setReason("");
+            }}
+          >
+            Potwierdź wynik ostatniej operacji
+          </button>
+        </p>
+      )}
+
       {x.error_code ? (
         <p role="alert">{errors[x.error_code] ?? x.error_code}</p>
       ) : null}
@@ -150,7 +168,7 @@ function ProcessWorkspace({ initial }: { initial: Execution }) {
           </button>
         </section>
       ) : null}
-      {x.snapshot ? (
+      {x.domain !== "CHANGE" && x.snapshot ? (
         <section className="panel">
           <h2>{x.snapshot.title}</h2>
           <dl>
@@ -165,6 +183,64 @@ function ProcessWorkspace({ initial }: { initial: Execution }) {
           </dl>
         </section>
       ) : null}
+      {x.domain === "CHANGE" && x.subject_snapshot && (
+        <section className="panel">
+          <h2>Oceniany zakres zmiany {x.subject_snapshot.number}</h2>
+          <p>
+            Wersja rekordu {x.subject_version} · Wersja zakresu{" "}
+            {x.subject_revision}. Decyzja dotyczy tego zapisanego zakresu.
+          </p>
+          <dl className="record-summary">
+            {Object.entries(x.subject_snapshot.fields)
+              .filter(
+                ([key]) =>
+                  ![
+                    "assigned_to",
+                    "assignment_group_id",
+                    "template_id",
+                    "template_version",
+                    "workflow_id",
+                    "workflow_version",
+                  ].includes(key),
+              )
+              .map(([key, value]) => (
+                <div key={key}>
+                  <dt>
+                    {(
+                      {
+                        title: "Opis skrócony",
+                        description: "Opis",
+                        change_type: "Typ zmiany",
+                        impact: "Wpływ",
+                        risk: "Ryzyko",
+                        justification: "Uzasadnienie",
+                        scope: "Zakres",
+                        implementation_plan: "Plan wdrożenia",
+                        test_plan: "Plan testów",
+                        rollback_plan: "Plan wycofania",
+                        emergency_reason: "Uzasadnienie pilności",
+                        planned_start: "Planowany początek UTC",
+                        planned_end: "Planowany koniec UTC",
+                        time_zone: "Strefa IANA",
+                        review_outcome: "Wynik przeglądu",
+                        review_result: "Opis przeglądu",
+                      } as Record<string, string>
+                    )[key] ?? key}
+                  </dt>
+                  <dd className="preserve-lines">{value ?? "Nie podano"}</dd>
+                </div>
+              ))}
+          </dl>
+          <h3>CI i usługi w ocenianym zakresie</h3>
+          <ul>
+            {x.subject_snapshot.cis.map((ci) => (
+              <li key={ci.id}>
+                {ci.identifier} · {ci.name} · {ci.class} · Wersja {ci.version}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <ol className="workflow-steps" aria-label="Stan procesu">
         {x.steps.map((s) => (
           <li
@@ -246,7 +322,7 @@ function ProcessWorkspace({ initial }: { initial: Execution }) {
                   if (
                     a === "CANCEL" &&
                     !window.confirm(
-                      "Zatrzymać proces? Nie zamknie to automatycznie wniosku ani jego zadań.",
+                      "Zatrzymać proces? Nie zamknie to automatycznie powiązanego rekordu ani jego zadań.",
                     )
                   )
                     return;

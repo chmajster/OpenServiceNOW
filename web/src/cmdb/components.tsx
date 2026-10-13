@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { api, jsonBody } from "../api/client";
+import { api, ApiError, jsonBody } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import {
   auditChanges,
@@ -125,9 +125,11 @@ export function InventoryHistory({ path }: { path: string }) {
               Źródło:{" "}
               {e.type?.startsWith("problem.")
                 ? "Proces Problem"
-                : e.type?.startsWith("ci.")
-                  ? "CMDB"
-                  : "Rekord"}
+                : e.type?.startsWith("change.")
+                  ? "Proces Change"
+                  : e.type?.startsWith("ci.")
+                    ? "CMDB"
+                    : "Rekord"}
               {e.data?.visibility === "INTERNAL" ? " · Wewnętrzne" : ""}
             </p>
             {e.data?.body && <p className="preserve-lines">{e.data.body}</p>}
@@ -560,6 +562,9 @@ export function LinkedRecords({ id }: { id: string }) {
       {["problem.read", "problem.read_own"].some(hasPermission) && (
         <RecordList id={id} kind="problems" />
       )}
+      {["change.read", "change.read_own"].some(hasPermission) && (
+        <RecordList id={id} kind="changes" />
+      )}
       {["request.read_own", "request.manage", "request.fulfill"].some(
         hasPermission,
       ) && <RecordList id={id} kind="requests" />}
@@ -571,7 +576,7 @@ function RecordList({
   kind,
 }: {
   id: string;
-  kind: "incidents" | "requests" | "problems";
+  kind: "incidents" | "requests" | "problems" | "changes";
 }) {
   const p = useRemotePage<Reference>(
     `/api/v1/cmdb/cis/${id}/records/${kind}`,
@@ -585,7 +590,9 @@ function RecordList({
           ? "Incydenty"
           : kind === "problems"
             ? "Problemy"
-            : "Wnioski"}
+            : kind === "changes"
+              ? "Zmiany"
+              : "Wnioski"}
       </h4>
       <PageFeedback
         loading={p.loading}
@@ -612,7 +619,7 @@ export function RecordCIPanel({
   id,
   onChanged,
 }: {
-  kind: "incidents" | "requests" | "problems";
+  kind: "incidents" | "requests" | "problems" | "changes";
   id: string;
   onChanged: () => void | Promise<void>;
 }) {
@@ -634,7 +641,7 @@ function RecordCIEditor({
   id,
   onChanged,
 }: {
-  kind: "incidents" | "requests" | "problems";
+  kind: "incidents" | "requests" | "problems" | "changes";
   id: string;
   onChanged: () => void | Promise<void>;
 }) {
@@ -645,13 +652,14 @@ function RecordCIEditor({
   const [choice, setChoice] = useState<Choice | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<string>(),
-    [notice, setNotice] = useState<string>();
+    [notice, setNotice] = useState<string>(),
+    [uncertain, setUncertain] = useState(false);
   const selected = useIncidentQuery<CI>(
     choice ? `/api/v1/cmdb/cis/${choice.id}` : null,
   );
-  const operation = useRef<{ body: string; key: string } | undefined>(
-    undefined,
-  );
+  const operation = useRef<
+    { path: string; method: string; body: string; key: string } | undefined
+  >(undefined);
   const alive = useRef(true),
     pending = useRef(false),
     controller = useRef<AbortController | undefined>(undefined);
@@ -663,26 +671,34 @@ function RecordCIEditor({
     };
   }, []);
   const { hasPermission } = useAuth();
-  async function change(ci: CI, remove: boolean) {
-    if (pending.current || !p.data) return;
+  async function change(ci: CI | undefined, remove: boolean) {
+    if (pending.current || !p.data || (!ci && !operation.current)) return;
     pending.current = true;
     setBusy(true);
     setError(undefined);
     const c = new AbortController();
     controller.current = c;
     try {
-      const body = jsonBody({
-        version: p.data.record.version,
-        ci_version: ci.version,
-      });
-      if (!operation.current || operation.current.body !== body)
-        operation.current = { body, key: crypto.randomUUID() };
-      await api(`${base}/${ci.id}`, {
-        method: remove ? "DELETE" : "PUT",
-        headers: { "Idempotency-Key": operation.current.key },
-        body,
+      const proposal =
+        uncertain && operation.current
+          ? operation.current
+          : {
+              path: `${base}/${ci!.id}`,
+              method: remove ? "DELETE" : "PUT",
+              body: jsonBody({
+                version: p.data.record.version,
+                ci_version: ci!.version,
+              }),
+              key: crypto.randomUUID(),
+            };
+      operation.current = proposal;
+      await api(proposal.path, {
+        method: proposal.method,
+        headers: { "Idempotency-Key": proposal.key },
+        body: proposal.body,
         signal: c.signal,
       });
+      setUncertain(false);
       operation.current = undefined;
       if (alive.current) {
         setChoice(null);
@@ -691,11 +707,10 @@ function RecordCIEditor({
         void onChanged();
       }
     } catch (e) {
-      if (alive.current && !c.signal.aborted)
-        setError(
-          text(e) +
-            " Odśwież aktualny stan przed ponowieniem; wybrany CI pozostaje w formularzu.",
-        );
+      if (alive.current && !c.signal.aborted) {
+        setUncertain(!(e instanceof ApiError) || e.status >= 500);
+        setError(text(e) + " Wybrany CI pozostaje w formularzu.");
+      }
     } finally {
       pending.current = false;
       if (alive.current) setBusy(false);
@@ -716,9 +731,18 @@ function RecordCIEditor({
           tone="error"
         />
       )}
+      {uncertain && (
+        <p role="status">
+          Nie potwierdzono powiązania. Ponowienie zachowa wybrany rekord, CI,
+          treść i klucz operacji.{" "}
+          <button disabled={busy} onClick={() => void change(undefined, false)}>
+            Potwierdź wynik powiązania CI
+          </button>
+        </p>
+      )}
       {notice && <PageState title={notice} tone="success" />}
       <button
-        disabled={busy || p.loading}
+        disabled={busy || uncertain || p.loading}
         onClick={() => {
           p.reload();
           selected.reload();
@@ -736,7 +760,7 @@ function RecordCIEditor({
             {ci.archived ? " · Archiwum" : ""}
             {hasPermission("cmdb.link") && p.data?.record.can_link && (
               <button
-                disabled={busy || p.loading}
+                disabled={busy || uncertain || p.loading}
                 onClick={() => void change(ci, true)}
               >
                 Odłącz CI
@@ -757,7 +781,7 @@ function RecordCIEditor({
             value={choice}
             onChange={setChoice}
             endpoint="/api/v1/cmdb/cis?archived=false"
-            disabled={busy || p.loading}
+            disabled={busy || uncertain || p.loading}
           />
           <PageFeedback
             loading={!!choice && selected.loading}
@@ -774,7 +798,11 @@ function RecordCIEditor({
           )}
           <button
             disabled={
-              busy || p.loading || !selected.data || selected.data.archived
+              busy ||
+              uncertain ||
+              p.loading ||
+              !selected.data ||
+              selected.data.archived
             }
           >
             Powiąż CI

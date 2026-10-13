@@ -38,6 +38,9 @@ const contextKeys = [
   "lifecycle",
   "impact",
   "known_error",
+  "risk",
+  "change_type",
+
   "assignment_group_id",
 ];
 export function ListToolbar({
