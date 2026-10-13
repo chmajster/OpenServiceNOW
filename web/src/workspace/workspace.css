@@ -30,6 +30,8 @@
   grid-template-columns: minmax(0, 1fr) var(--context-width);
 }
 .operator-shell .global-bar {
+  position: sticky;
+  top: 0;
   grid-column: 1 / -1;
   grid-row: 1;
   height: var(--global-height);

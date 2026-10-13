@@ -63,6 +63,14 @@ test("operator workspace connects real queues, search, tabs and session context"
       .getByRole("searchbox", { name: "Wyszukaj rekordy" })
       .boundingBox();
     expect(size?.height).toBeGreaterThanOrEqual(44);
+    await page.evaluate(() =>
+      window.scrollTo(0, document.documentElement.scrollHeight),
+    );
+    expect(await page.evaluate(() => scrollY)).toBeGreaterThan(0);
+    await expect
+      .poll(async () => (await page.locator(".global-bar").boundingBox())?.y)
+      .toBe(0);
+    await page.evaluate(() => window.scrollTo(0, 0));
   }
   const summary = await (
     await page.request.get("/api/v1/workspace/summary")
@@ -171,8 +179,16 @@ test("operator workspace connects real queues, search, tabs and session context"
       ),
     ).toBe(true);
     const path = info.outputPath(`workspace-${width}.png`);
-    await page.screenshot({ path, fullPage: true });
+    await page.screenshot({
+      path,
+      fullPage: info.project.name !== "mobile-chromium",
+    });
     await info.attach(`workspace-${width}`, { path, contentType: "image/png" });
+  }
+  if (info.project.name === "mobile-chromium") {
+    expect(
+      await page.evaluate(() => matchMedia("(pointer: coarse)").matches),
+    ).toBe(true);
   }
   await page.locator(".user-menu summary").click();
   await page.getByRole("button", { name: "Wyloguj", exact: true }).click();
