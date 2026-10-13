@@ -16,6 +16,8 @@ export type Definition = {
   group_id: string;
   audience_group_id?: string;
   steps: { title: string; instructions: string; required: boolean }[];
+  workflow_id?: string;
+  workflow_version?: string;
 };
 export type Item = {
   id: string;

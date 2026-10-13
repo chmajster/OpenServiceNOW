@@ -34,9 +34,13 @@ export function useEditor<T extends { version: string }>(
       });
       if (alive.current) {
         setRecord(saved);
-        setNotice("Zapisano. Historia zostanie uzupełniona przez worker.");
+        setNotice(
+          method === "GET"
+            ? "Odświeżono aktualny stan."
+            : "Zapisano. Historia zostanie uzupełniona przez worker.",
+        );
       }
-      return true;
+      return alive.current && !c.signal.aborted;
     } catch (e) {
       if (alive.current && !c.signal.aborted) {
         setError(message(e));

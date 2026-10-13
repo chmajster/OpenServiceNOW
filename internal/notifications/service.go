@@ -14,6 +14,8 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
 	"github.com/chmajster/OpenServiceNOW/internal/incidents"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
+	"github.com/chmajster/OpenServiceNOW/internal/workflow"
+	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 )
 
 type Service struct {
@@ -42,7 +44,7 @@ func (s *Service) currentActor(ctx context.Context, e database.Executor, tenant,
 	return a, err
 }
 func (s *Service) Register(d *events.Dispatcher) error {
-	for _, kind := range []string{"incident.assigned", "work.comment.added", "work.work_note.added", "incident.state.changed", "incident.reopened", "incident.resolved", "incident.closed", "incident.cancelled", "sla.warning", "sla.breached"} {
+	for _, kind := range []string{"incident.assigned", "work.comment.added", "work.work_note.added", "incident.state.changed", "incident.reopened", "incident.resolved", "incident.closed", "incident.cancelled", "sla.warning", "sla.breached", "workflow.approval.requested", "workflow.notification"} {
 		if err := d.RegisterConsumer(ConsumerID, kind, s.HandleEvent); err != nil {
 			return err
 		}
@@ -77,6 +79,9 @@ func kindEnabled(p Preference, kind string) bool {
 func (s *Service) HandleEvent(ctx context.Context, event events.Event) error {
 	if !event.NotificationEligible {
 		return nil
+	}
+	if event.Type == "workflow.approval.requested" || event.Type == "workflow.notification" {
+		return s.handleWorkflow(ctx, event)
 	}
 	id, err := strconv.ParseUint(event.AggregateID, 10, 64)
 	if err != nil || id == 0 || event.AggregateType != "incident" || event.TenantID == 0 || event.Version != 1 {
@@ -234,7 +239,7 @@ func (s *Service) SavePreference(ctx context.Context, tenant, user uint64, p Pre
 // Filtering is performed before pagination and counting. A notification is not
 // an access grant; current permissions apply to every later read or mutation.
 func notificationAccess(a incidents.Actor) (string, []any) {
-	clause := ` n.tenant_id=? AND n.user_id=? AND n.in_app_enabled=TRUE AND i.tenant_id=n.tenant_id `
+	clause := ` n.tenant_id=? AND n.user_id=? AND n.in_app_enabled=TRUE AND ((n.incident_id IS NOT NULL AND i.tenant_id=n.tenant_id `
 	args := []any{a.TenantID, a.UserID}
 	if !a.Has("read") {
 		if !a.Has("read_own") {
@@ -247,8 +252,14 @@ func notificationAccess(a incidents.Actor) (string, []any) {
 	if !incidents.CanReadNotes(a) {
 		clause += ` AND n.visibility='PUBLIC' `
 	}
+	p, pa := workflow.AccessSQL(workrecords.Principal{Actor: workrecords.Actor{TenantID: a.TenantID, UserID: a.UserID}, Permissions: a.Permissions}, "x")
+	clause += ") OR (n.execution_id IS NOT NULL AND x.tenant_id=n.tenant_id AND " + p + "))"
+	args = append(args, pa...)
 	return clause, args
 }
+
+const notificationJoins = ` FROM notifications n LEFT JOIN incidents i ON i.id=n.incident_id LEFT JOIN workflow_executions x ON x.tenant_id=n.tenant_id AND x.id=n.execution_id `
+
 func (s *Service) List(ctx context.Context, tenant, user, before uint64, limit int) (Page, error) {
 	if limit < 1 || limit > 100 {
 		return Page{}, ErrInvalid
@@ -259,10 +270,10 @@ func (s *Service) List(ctx context.Context, tenant, user, before uint64, limit i
 	}
 	clause, args := notificationAccess(a)
 	p := Page{Notifications: []Notification{}}
-	if err = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM notifications n JOIN incidents i ON i.id=n.incident_id WHERE `+clause+` AND n.read_at IS NULL`, args...).Scan(&p.Unread); err != nil {
+	if err = s.db.QueryRowContext(ctx, `SELECT COUNT(*)`+notificationJoins+` WHERE `+clause+` AND n.read_at IS NULL`, args...).Scan(&p.Unread); err != nil {
 		return p, err
 	}
-	query := `SELECT n.id,n.source_event_id,n.incident_id,n.kind,n.summary,n.occurred_at,n.read_at FROM notifications n JOIN incidents i ON i.id=n.incident_id WHERE ` + clause
+	query := `SELECT n.id,n.source_event_id,COALESCE(n.incident_id,0),COALESCE(n.execution_id,0),n.kind,n.summary,n.occurred_at,n.read_at` + notificationJoins + ` WHERE ` + clause
 	if before > 0 {
 		query += ` AND n.id<?`
 		args = append(args, before)
@@ -277,7 +288,7 @@ func (s *Service) List(ctx context.Context, tenant, user, before uint64, limit i
 	for rows.Next() {
 		var n Notification
 		var read sql.NullTime
-		if err = rows.Scan(&n.ID, &n.SourceEventID, &n.IncidentID, &n.Kind, &n.Summary, &n.OccurredAt, &read); err != nil {
+		if err = rows.Scan(&n.ID, &n.SourceEventID, &n.IncidentID, &n.ExecutionID, &n.Kind, &n.Summary, &n.OccurredAt, &read); err != nil {
 			return p, err
 		}
 		if read.Valid {
@@ -307,14 +318,14 @@ func (s *Service) MarkRead(ctx context.Context, tenant, user, id uint64) error {
 	// A repeat is successful when the accessible row already has read_at.
 	var exists bool
 	if id > 0 {
-		if err = s.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM notifications n JOIN incidents i ON i.id=n.incident_id WHERE `+clause+`)`, args...).Scan(&exists); err != nil {
+		if err = s.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1`+notificationJoins+` WHERE `+clause+`)`, args...).Scan(&exists); err != nil {
 			return err
 		}
 		if !exists {
 			return ErrNotFound
 		}
 	}
-	_, err = s.db.ExecContext(ctx, `UPDATE notifications n JOIN incidents i ON i.id=n.incident_id SET n.read_at=COALESCE(n.read_at,UTC_TIMESTAMP(6)) WHERE `+clause, args...)
+	_, err = s.db.ExecContext(ctx, `UPDATE notifications n LEFT JOIN incidents i ON i.id=n.incident_id LEFT JOIN workflow_executions x ON x.tenant_id=n.tenant_id AND x.id=n.execution_id SET n.read_at=COALESCE(n.read_at,UTC_TIMESTAMP(6)) WHERE `+clause, args...)
 	return err
 }
 func auditChange(ctx context.Context, e database.Executor, tenant, user uint64, action string, id uint64) error {

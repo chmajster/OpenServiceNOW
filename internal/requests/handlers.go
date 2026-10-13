@@ -9,6 +9,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/httpapi"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/requestinfo"
+	"github.com/chmajster/OpenServiceNOW/internal/workflow"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -151,9 +152,9 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 	}
 	status, code, message := 500, "REQUEST_FAILED", "Nie udało się wykonać operacji."
 	switch {
-	case errors.Is(err, ErrInvalid), errors.Is(err, workrecords.ErrInvalid), errors.Is(err, attachments.ErrInvalid):
+	case errors.Is(err, ErrInvalid), errors.Is(err, workflow.ErrInvalid), errors.Is(err, workrecords.ErrInvalid), errors.Is(err, attachments.ErrInvalid):
 		status, code, message = 400, "INVALID_REQUEST", err.Error()
-	case errors.Is(err, ErrNotFound), errors.Is(err, attachments.ErrNotFound), errors.Is(err, workrecords.ErrNotFound):
+	case errors.Is(err, ErrNotFound), errors.Is(err, workflow.ErrNotFound), errors.Is(err, attachments.ErrNotFound), errors.Is(err, workrecords.ErrNotFound):
 		status, code, message = 404, "NOT_FOUND", "Nie znaleziono dostępnego rekordu."
 	case errors.Is(err, ErrForbidden):
 		status, code, message = 403, "FORBIDDEN", "Brak uprawnień do operacji."

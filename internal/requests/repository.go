@@ -114,11 +114,21 @@ func (s *Service) get(ctx context.Context, e database.Executor, a Actor, id uint
 				complete = complete && i.Required == i.RequiredCompleted
 			}
 			if complete {
-				r.Actions = append(r.Actions, "FULFILLED")
+				gate := workflowGate(ctx, e, a.TenantID, id, 0)
+				if gate == nil {
+					r.Actions = append(r.Actions, "FULFILLED")
+				} else if !errors.Is(gate, ErrTransition) {
+					return r, gate
+				}
 			}
 		}
 		if r.State == "FULFILLED" {
-			r.Actions = append(r.Actions, "CLOSED")
+			gate := workflowGate(ctx, e, a.TenantID, id, 0)
+			if gate == nil {
+				r.Actions = append(r.Actions, "CLOSED")
+			} else if !errors.Is(gate, ErrTransition) {
+				return r, gate
+			}
 		}
 	}
 	return r, nil

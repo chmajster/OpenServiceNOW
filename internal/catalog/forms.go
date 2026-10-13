@@ -68,13 +68,23 @@ func ValidateDefinition(d Definition, publishing bool) error {
 			return invalid("nieprawidłowy krok realizacji")
 		}
 	}
-	if d.Method != "" && d.Method != "MANUAL_TASKS" {
-		return invalid("obsługiwany sposób realizacji: MANUAL_TASKS")
+	if d.Method != "" && d.Method != "MANUAL_TASKS" && d.Method != "WORKFLOW" {
+		return invalid("obsługiwany sposób realizacji: MANUAL_TASKS lub WORKFLOW")
 	}
-	if publishing && (d.Method != "MANUAL_TASKS" || d.GroupID == 0 || len(d.Steps) == 0) {
+	if d.Method == "WORKFLOW" {
+		if len(d.Steps) > 0 {
+			return invalid("workflow tworzy zadania wyłącznie w krokach procesu")
+		}
+		if publishing && (d.GroupID == 0 || d.WorkflowID == 0 || d.WorkflowVersion == 0) {
+			return invalid("workflow wymaga grupy i konkretnej opublikowanej wersji procesu")
+		}
+	} else if d.WorkflowID != 0 || d.WorkflowVersion != 0 {
+		return invalid("wersja procesu jest dozwolona tylko dla WORKFLOW")
+	}
+	if publishing && d.Method != "WORKFLOW" && (d.Method != "MANUAL_TASKS" || d.GroupID == 0 || len(d.Steps) == 0) {
 		return invalid("publikacja wymaga sposobu realizacji, aktywnej grupy i zadań")
 	}
-	if publishing {
+	if publishing && d.Method != "WORKFLOW" {
 		required := false
 		for _, s := range d.Steps {
 			required = required || s.Required

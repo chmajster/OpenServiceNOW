@@ -39,6 +39,10 @@
     {
       "name": "Notifications",
       "description": "Authorized in-app effects and independent durable SMTP delivery. History is never implicitly mailed."
+    },
+    {
+      "name": "Workflow",
+      "description": "Durable catalog request workflows and decisions"
     }
   ],
   "paths": {
@@ -10988,6 +10992,1491 @@
           }
         }
       }
+    },
+    "/api/v1/workflow/definitions": {
+      "get": {
+        "tags": [
+          "Workflow"
+        ],
+        "operationId": "getWorkflowfinitions",
+        "summary": "workflow.author / workflow.publish / admin.catalog.manage",
+        "description": "Session organization and actor; current object permissions. Durable sequential execution, immutable published version, no scripts/forks. Group approvals freeze participants then recheck membership/permission at decision; ANY/ALL, explicit self approval, deadline. Decisions serialize with timeout and use step version; identical accepted decision retry returns current execution. Domain command errors stop at the same node. Cancel stops the execution; request cancellation is a separate authorized domain action.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "after_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowDefinitions"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid configuration/graph/input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission/CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Object absent or inaccessible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, decision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Commit outcome uncertain; reconcile current state or retry identical keyed creation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Workflow"
+        ],
+        "operationId": "postWorkflowfinitions",
+        "summary": "workflow.author",
+        "description": "Session organization and actor; current object permissions. Durable sequential execution, immutable published version, no scripts/forks. Group approvals freeze participants then recheck membership/permission at decision; ANY/ALL, explicit self approval, deadline. Decisions serialize with timeout and use step version; identical accepted decision retry returns current execution. Domain command errors stop at the same node. Cancel stops the execution; request cancellation is a separate authorized domain action.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowDefinition"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid configuration/graph/input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission/CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Object absent or inaccessible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, decision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Commit outcome uncertain; reconcile current state or retry identical keyed creation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowDefinitionInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow/definitions/{id}": {
+      "get": {
+        "tags": [
+          "Workflow"
+        ],
+        "operationId": "getWorkflowfinitions{Id}",
+        "summary": "workflow.author / workflow.publish",
+        "description": "Session organization and actor; current object permissions. Durable sequential execution, immutable published version, no scripts/forks. Group approvals freeze participants then recheck membership/permission at decision; ANY/ALL, explicit self approval, deadline. Decisions serialize with timeout and use step version; identical accepted decision retry returns current execution. Domain command errors stop at the same node. Cancel stops the execution; request cancellation is a separate authorized domain action.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowDefinition"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid configuration/graph/input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission/CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Object absent or inaccessible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, decision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Commit outcome uncertain; reconcile current state or retry identical keyed creation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Workflow"
+        ],
+        "operationId": "putWorkflowfinitions{Id}",
+        "summary": "workflow.author",
+        "description": "Session organization and actor; current object permissions. Durable sequential execution, immutable published version, no scripts/forks. Group approvals freeze participants then recheck membership/permission at decision; ANY/ALL, explicit self approval, deadline. Decisions serialize with timeout and use step version; identical accepted decision retry returns current execution. Domain command errors stop at the same node. Cancel stops the execution; request cancellation is a separate authorized domain action.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowDefinition"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid configuration/graph/input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission/CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Object absent or inaccessible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, decision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Commit outcome uncertain; reconcile current state or retry identical keyed creation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowDefinitionInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow/definitions/{id}/publish": {
+      "post": {
+        "tags": [
+          "Workflow"
+        ],
+        "operationId": "postWorkflowfinitions{Id}Publish",
+        "summary": "workflow.publish; verified execution identity",
+        "description": "Session organization and actor; current object permissions. Durable sequential execution, immutable published version, no scripts/forks. Group approvals freeze participants then recheck membership/permission at decision; ANY/ALL, explicit self approval, deadline. Decisions serialize with timeout and use step version; identical accepted decision retry returns current execution. Domain command errors stop at the same node. Cancel stops the execution; request cancellation is a separate authorized domain action.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowDefinition"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid configuration/graph/input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission/CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Object absent or inaccessible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, decision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Commit outcome uncertain; reconcile current state or retry identical keyed creation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowPublish"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow/versions/{id}/{version}": {
+      "get": {
+        "tags": [
+          "Workflow"
+        ],
+        "operationId": "getWorkflowrsions{Id}{Version}",
+        "summary": "workflow.author / workflow.publish / admin.catalog.manage",
+        "description": "Session organization and actor; current object permissions. Durable sequential execution, immutable published version, no scripts/forks. Group approvals freeze participants then recheck membership/permission at decision; ANY/ALL, explicit self approval, deadline. Decisions serialize with timeout and use step version; identical accepted decision retry returns current execution. Domain command errors stop at the same node. Cancel stops the execution; request cancellation is a separate authorized domain action.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowConfig"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid configuration/graph/input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission/CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Object absent or inaccessible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, decision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Commit outcome uncertain; reconcile current state or retry identical keyed creation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow/lookups/{kind}": {
+      "get": {
+        "tags": [
+          "Workflow"
+        ],
+        "operationId": "getWorkflowokups{Kind}",
+        "summary": "workflow.author / workflow.publish / admin.catalog.manage; active tenant users/groups",
+        "description": "Session organization and actor; current object permissions. Durable sequential execution, immutable published version, no scripts/forks. Group approvals freeze participants then recheck membership/permission at decision; ANY/ALL, explicit self approval, deadline. Decisions serialize with timeout and use step version; identical accepted decision retry returns current execution. Domain command errors stop at the same node. Cancel stops the execution; request cancellation is a separate authorized domain action.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "after_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowLookups"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid configuration/graph/input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission/CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Object absent or inaccessible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, decision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Commit outcome uncertain; reconcile current state or retry identical keyed creation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow/executions": {
+      "get": {
+        "tags": [
+          "Workflow"
+        ],
+        "operationId": "getWorkflowecutions",
+        "summary": "Current own/group/participant authorization; approvals requires workflow.approve",
+        "description": "Session organization and actor; current object permissions. Durable sequential execution, immutable published version, no scripts/forks. Group approvals freeze participants then recheck membership/permission at decision; ANY/ALL, explicit self approval, deadline. Decisions serialize with timeout and use step version; identical accepted decision retry returns current execution. Domain command errors stop at the same node. Cancel stops the execution; request cancellation is a separate authorized domain action.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "request_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "READY",
+                "WAITING",
+                "ERROR",
+                "COMPLETED",
+                "CANCELLED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowExecutions"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid configuration/graph/input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission/CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Object absent or inaccessible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, decision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Commit outcome uncertain; reconcile current state or retry identical keyed creation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow/approvals": {
+      "get": {
+        "tags": [
+          "Workflow"
+        ],
+        "operationId": "getWorkflowprovals",
+        "summary": "Current own/group/participant authorization; approvals requires workflow.approve",
+        "description": "Session organization and actor; current object permissions. Durable sequential execution, immutable published version, no scripts/forks. Group approvals freeze participants then recheck membership/permission at decision; ANY/ALL, explicit self approval, deadline. Decisions serialize with timeout and use step version; identical accepted decision retry returns current execution. Domain command errors stop at the same node. Cancel stops the execution; request cancellation is a separate authorized domain action.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "request_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "READY",
+                "WAITING",
+                "ERROR",
+                "COMPLETED",
+                "CANCELLED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowExecutions"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid configuration/graph/input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission/CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Object absent or inaccessible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, decision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Commit outcome uncertain; reconcile current state or retry identical keyed creation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow/executions/{id}": {
+      "get": {
+        "tags": [
+          "Workflow"
+        ],
+        "operationId": "getWorkflowecutions{Id}",
+        "summary": "Current own/group/participant authorization; attempt diagnostics require workflow.manage",
+        "description": "Session organization and actor; current object permissions. Durable sequential execution, immutable published version, no scripts/forks. Group approvals freeze participants then recheck membership/permission at decision; ANY/ALL, explicit self approval, deadline. Decisions serialize with timeout and use step version; identical accepted decision retry returns current execution. Domain command errors stop at the same node. Cancel stops the execution; request cancellation is a separate authorized domain action.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowExecution"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid configuration/graph/input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission/CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Object absent or inaccessible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, decision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Commit outcome uncertain; reconcile current state or retry identical keyed creation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow/executions/{id}/decisions/{node}": {
+      "post": {
+        "tags": [
+          "Workflow"
+        ],
+        "operationId": "postWorkflowecutions{Id}Decisions{Node}",
+        "summary": "workflow.approve and current eligible snapshotted participant",
+        "description": "Session organization and actor; current object permissions. Durable sequential execution, immutable published version, no scripts/forks. Group approvals freeze participants then recheck membership/permission at decision; ANY/ALL, explicit self approval, deadline. Decisions serialize with timeout and use step version; identical accepted decision retry returns current execution. Domain command errors stop at the same node. Cancel stops the execution; request cancellation is a separate authorized domain action.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "node",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowExecution"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid configuration/graph/input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission/CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Object absent or inaccessible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, decision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Commit outcome uncertain; reconcile current state or retry identical keyed creation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowDecisionInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow/executions/{id}/repair": {
+      "post": {
+        "tags": [
+          "Workflow"
+        ],
+        "operationId": "postWorkflowecutions{Id}Repair",
+        "summary": "workflow.manage; resume ERROR only, cancel READY/WAITING/ERROR",
+        "description": "Session organization and actor; current object permissions. Durable sequential execution, immutable published version, no scripts/forks. Group approvals freeze participants then recheck membership/permission at decision; ANY/ALL, explicit self approval, deadline. Decisions serialize with timeout and use step version; identical accepted decision retry returns current execution. Domain command errors stop at the same node. Cancel stops the execution; request cancellation is a separate authorized domain action.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowExecution"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid configuration/graph/input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission/CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Object absent or inaccessible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, decision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Commit outcome uncertain; reconcile current state or retry identical keyed creation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowRepair"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -11169,7 +12658,8 @@
             "type": "string",
             "enum": [
               "",
-              "MANUAL_TASKS"
+              "MANUAL_TASKS",
+              "WORKFLOW"
             ]
           },
           "group_id": {
@@ -11186,6 +12676,14 @@
               "$ref": "#/components/schemas/CatalogStep"
             },
             "maxItems": 20
+          },
+          "workflow_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "workflow_version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
           }
         },
         "required": [
@@ -11196,7 +12694,8 @@
           "group_id",
           "steps"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "MANUAL_TASKS creates direct independent tasks. WORKFLOW requires steps=[] and a pinned published workflow_id/workflow_version with the same active group; submission atomically creates execution, not tasks."
       },
       "CatalogNode": {
         "type": "object",
@@ -11383,6 +12882,7 @@
       },
       "RequestSubmission": {
         "type": "object",
+        "description": "One workflow catalog item per request; 1–10 items remain supported for manual fulfillment. Workflow submission atomically creates its pinned execution and initial durable job, without direct tasks.",
         "properties": {
           "items": {
             "type": "array",
@@ -14905,7 +16405,7 @@
           },
           "incident_id": {
             "type": "string",
-            "pattern": "^[1-9][0-9]*$"
+            "pattern": "^(0|[1-9][0-9]*)$"
           },
           "source_event_id": {
             "type": "string",
@@ -14916,7 +16416,8 @@
               "assignment",
               "reply",
               "state",
-              "resolution"
+                "resolution",
+                "approval"
             ]
           },
           "summary": {
@@ -14930,6 +16431,10 @@
           "read_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "execution_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
           }
         },
         "required": [
@@ -15374,6 +16879,676 @@
         "required": [
           "delivery_id"
         ],
+        "additionalProperties": false
+      },
+      "WorkflowNode": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,47}$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "START",
+              "CONDITION",
+              "APPROVAL",
+              "CREATE_TASK",
+              "WAIT_TASK",
+              "WAIT_TIMER",
+              "UPDATE_RECORD",
+              "NOTIFY",
+              "END"
+            ]
+          },
+          "next": {
+            "type": "string"
+          },
+          "otherwise": {
+            "type": "string"
+          },
+          "rejected": {
+            "type": "string"
+          },
+          "timeout": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          },
+          "task_ref": {
+            "type": "string"
+          },
+          "equals": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "target_type": {
+            "type": "string",
+            "enum": [
+              "USER",
+              "GROUP"
+            ]
+          },
+          "target_id": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "policy": {
+            "type": "string",
+            "enum": [
+              "ANY",
+              "ALL"
+            ]
+          },
+          "seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 31536000
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "instructions": {
+            "type": "string",
+            "maxLength": 10000
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "IN_PROGRESS",
+              "FULFILLED",
+              "CLOSED",
+              "CANCELLED"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 10000
+          },
+          "audience": {
+            "type": "string",
+            "enum": [
+              "REQUESTER"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "type"
+        ],
+        "additionalProperties": false
+      },
+      "WorkflowConfig": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "executor_id": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "group_id": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "self_approval": {
+            "type": "string",
+            "enum": [
+              "DENY",
+              "ALLOW"
+            ]
+          },
+          "nodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowNode"
+            },
+            "maxItems": 50,
+            "minItems": 2
+          }
+        },
+        "required": [
+          "name",
+          "executor_id",
+          "group_id",
+          "self_approval",
+          "nodes"
+        ],
+        "additionalProperties": false
+      },
+      "WorkflowDefinition": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "published_version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "draft": {
+            "$ref": "#/components/schemas/WorkflowConfig"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "draft"
+        ],
+        "additionalProperties": false
+      },
+      "WorkflowDefinitionInput": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "draft": {
+            "$ref": "#/components/schemas/WorkflowConfig"
+          }
+        },
+        "required": [
+          "version",
+          "draft"
+        ],
+        "additionalProperties": false
+      },
+      "WorkflowDefinitionSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "published_version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "draft": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "executor_id": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "group_id": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "self_approval": {
+                "type": "string"
+              },
+              "nodes": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "$ref": "#/components/schemas/WorkflowNode"
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "draft"
+        ],
+        "additionalProperties": false
+      },
+      "WorkflowDefinitions": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowDefinitionSummary"
+            },
+            "maxItems": 100
+          },
+          "next_after_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "WorkflowDecision": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "APPROVED",
+              "REJECTED"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "decided_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "user_id",
+          "name",
+          "decision",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "WorkflowDecisionInput": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "APPROVED",
+              "REJECTED"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "version",
+          "decision",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "WorkflowStep": {
+        "type": "object",
+        "properties": {
+          "node_id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "NOT_STARTED",
+              "WAITING",
+              "COMPLETED",
+              "CANCELLED"
+            ]
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "type": "string"
+              },
+              "task_id": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              }
+            },
+            "required": [],
+            "additionalProperties": false
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deadline": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "decisions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowDecision"
+            },
+            "maxItems": 100
+          },
+          "can_decide": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "node_id",
+          "label",
+          "type",
+          "state",
+          "version",
+          "can_decide"
+        ],
+        "additionalProperties": false
+      },
+      "WorkflowAttempt": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "execution_version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "WAITING",
+              "COMPLETED",
+              "ERROR"
+            ]
+          },
+          "error_code": {
+            "type": "string"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "node_id",
+          "execution_version",
+          "outcome",
+          "occurred_at"
+        ],
+        "additionalProperties": false
+      },
+      "WorkflowExecution": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "definition_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "definition_version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "request_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "requested_item_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "executor_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "group_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "current_node": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "READY",
+              "WAITING",
+              "ERROR",
+              "COMPLETED",
+              "CANCELLED"
+            ]
+          },
+          "approved": {
+            "type": "boolean"
+          },
+          "error_code": {
+            "type": "string"
+          },
+          "next_check_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "name": {
+            "type": "string"
+          },
+          "request_number": {
+            "type": "string"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/CatalogPublication"
+          },
+          "values": {
+            "type": "object",
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "boolean"
+              ]
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStep"
+            },
+            "maxItems": 50
+          },
+          "attempts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowAttempt"
+            },
+            "maxItems": 100
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "RESUME",
+                "CANCEL"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "definition_id",
+          "definition_version",
+          "request_id",
+          "requested_item_id",
+          "executor_id",
+          "group_id",
+          "version",
+          "current_node",
+          "state",
+          "approved",
+          "created_at",
+          "updated_at",
+          "name",
+          "request_number",
+          "steps",
+          "actions"
+        ],
+        "additionalProperties": false
+      },
+      "WorkflowExecutions": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowExecution"
+            },
+            "maxItems": 100
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "WorkflowRepair": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "RESUME",
+              "CANCEL"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "version",
+          "action",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "WorkflowPublish": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "WorkflowChoice": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "WorkflowLookups": {
+        "type": "object",
+        "properties": {
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowChoice"
+            },
+            "maxItems": 100
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowChoice"
+            },
+            "maxItems": 100
+          },
+          "next_after_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "required": [],
         "additionalProperties": false
       }
     },

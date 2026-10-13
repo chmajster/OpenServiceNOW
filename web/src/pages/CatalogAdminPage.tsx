@@ -9,6 +9,7 @@ import { UnsavedGuard } from "../incidents/UnsavedGuard";
 import { LoadState } from "../requests/LoadState";
 import { useEditor } from "../requests/useEditor";
 import { useCreation } from "../requests/useCreation";
+import { WorkflowPicker } from "../workflow/WorkflowPicker";
 import {
   message,
   type Condition,
@@ -580,6 +581,7 @@ function ItemEditor({
           <RemoteCombobox
             kind="groups"
             label="Grupa realizująca"
+            disabled={draft.method === "WORKFLOW"}
             endpoint="/api/v1/catalog/lookups/groups"
             value={group}
             onChange={(g) => {
@@ -637,85 +639,130 @@ function ItemEditor({
           >
             Dodaj pole
           </button>
-          <h3>Jawna realizacja przez zadania</h3>
-          <p>
-            Każde zadanie trafia do wybranej grupy. Co najmniej jedno musi być
-            wymagane.
-          </p>
-          {draft.steps.map((s, index) => (
-            <fieldset key={index}>
-              <legend>Zadanie {index + 1}</legend>
-              <label>
-                Tytuł zadania
-                <input
-                  required
-                  maxLength={200}
-                  value={s.title}
-                  onChange={(e) =>
-                    edit({
-                      steps: draft.steps.map((v, i) =>
-                        i === index ? { ...v, title: e.target.value } : v,
-                      ),
-                    })
-                  }
-                />
-              </label>
-              <label>
-                Instrukcja wewnętrzna
-                <textarea
-                  maxLength={10000}
-                  value={s.instructions}
-                  onChange={(e) =>
-                    edit({
-                      steps: draft.steps.map((v, i) =>
-                        i === index
-                          ? { ...v, instructions: e.target.value }
-                          : v,
-                      ),
-                    })
-                  }
-                />
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={s.required}
-                  onChange={(e) =>
-                    edit({
-                      steps: draft.steps.map((v, i) =>
-                        i === index ? { ...v, required: e.target.checked } : v,
-                      ),
-                    })
-                  }
-                />{" "}
-                Wymagane przed zamknięciem
-              </label>
+          <label>
+            Sposób realizacji
+            <select
+              value={draft.method}
+              onChange={(e) =>
+                edit({
+                  method: e.target.value,
+                  steps:
+                    e.target.value === "WORKFLOW"
+                      ? []
+                      : [
+                          {
+                            title: "Realizacja usługi",
+                            instructions: "",
+                            required: true,
+                          },
+                        ],
+                  workflow_id: undefined,
+                  workflow_version: undefined,
+                })
+              }
+            >
+              <option value="MANUAL_TASKS">Niezależne zadania ręczne</option>
+              <option value="WORKFLOW">Workflow z akceptacją</option>
+            </select>
+          </label>
+          {draft.method === "WORKFLOW" ? (
+            <WorkflowPicker
+              id={draft.workflow_id}
+              version={draft.workflow_version}
+              change={(id, version, group) => {
+                setGroup({ id: group, label: `Grupa #${group}` });
+                edit({
+                  workflow_id: id,
+                  workflow_version: version,
+                  group_id: group,
+                });
+              }}
+            />
+          ) : (
+            <>
+              <h3>Jawna realizacja przez zadania</h3>
+              <p>
+                Każde zadanie trafia do wybranej grupy. Co najmniej jedno musi
+                być wymagane.
+              </p>
+              {draft.steps.map((s, index) => (
+                <fieldset key={index}>
+                  <legend>Zadanie {index + 1}</legend>
+                  <label>
+                    Tytuł zadania
+                    <input
+                      required
+                      maxLength={200}
+                      value={s.title}
+                      onChange={(e) =>
+                        edit({
+                          steps: draft.steps.map((v, i) =>
+                            i === index ? { ...v, title: e.target.value } : v,
+                          ),
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    Instrukcja wewnętrzna
+                    <textarea
+                      maxLength={10000}
+                      value={s.instructions}
+                      onChange={(e) =>
+                        edit({
+                          steps: draft.steps.map((v, i) =>
+                            i === index
+                              ? { ...v, instructions: e.target.value }
+                              : v,
+                          ),
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={s.required}
+                      onChange={(e) =>
+                        edit({
+                          steps: draft.steps.map((v, i) =>
+                            i === index
+                              ? { ...v, required: e.target.checked }
+                              : v,
+                          ),
+                        })
+                      }
+                    />{" "}
+                    Wymagane przed zamknięciem
+                  </label>
+                  <button
+                    type="button"
+                    className="button button--secondary"
+                    onClick={() =>
+                      edit({ steps: draft.steps.filter((_, i) => i !== index) })
+                    }
+                  >
+                    Usuń zadanie {index + 1}
+                  </button>
+                </fieldset>
+              ))}
               <button
                 type="button"
                 className="button button--secondary"
+                disabled={draft.steps.length >= 20}
                 onClick={() =>
-                  edit({ steps: draft.steps.filter((_, i) => i !== index) })
+                  edit({
+                    steps: [
+                      ...draft.steps,
+                      { title: "", instructions: "", required: true },
+                    ],
+                  })
                 }
               >
-                Usuń zadanie {index + 1}
+                Dodaj zadanie
               </button>
-            </fieldset>
-          ))}
-          <button
-            type="button"
-            className="button button--secondary"
-            disabled={draft.steps.length >= 20}
-            onClick={() =>
-              edit({
-                steps: [
-                  ...draft.steps,
-                  { title: "", instructions: "", required: true },
-                ],
-              })
-            }
-          >
-            Dodaj zadanie
-          </button>
+            </>
+          )}
         </fieldset>
         <LoadState error={error ?? editor.error ?? creation.error} />
         {creation.uncertain ? (

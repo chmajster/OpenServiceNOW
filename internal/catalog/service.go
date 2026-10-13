@@ -10,6 +10,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/audit"
 	"github.com/chmajster/OpenServiceNOW/internal/events"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
+	"github.com/chmajster/OpenServiceNOW/internal/workflow"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 	"strings"
 	"time"
@@ -348,6 +349,30 @@ func (s *Service) Publish(ctx context.Context, a Actor, id, version uint64, with
 			}
 			if err := ActiveGroup(ctx, e, a.TenantID, item.Draft.GroupID); err != nil {
 				return err
+			}
+			if item.Draft.Method == "WORKFLOW" {
+				config, err := workflow.Published(ctx, e, a.TenantID, item.Draft.WorkflowID, item.Draft.WorkflowVersion)
+				if err != nil {
+					return invalid("wybierz opublikowaną wersję procesu w tej organizacji")
+				}
+				if config.GroupID != item.Draft.GroupID {
+					return invalid("grupa realizacji musi odpowiadać wersji procesu")
+				}
+				fields := map[string]Field{}
+				for _, f := range item.Draft.Fields {
+					fields[f.Key] = f
+				}
+				for _, n := range config.Nodes {
+					if n.Type == "CONDITION" {
+						f, ok := fields[n.Field]
+						if !ok {
+							return invalid("warunek procesu wskazuje nieistniejące pole: " + n.Field)
+						}
+						if _, err = validateValue(f, n.Equals, false); err != nil {
+							return invalid("wartość warunku procesu nie pasuje do formularza")
+						}
+					}
+				}
 			}
 			if item.Draft.AudienceGroupID > 0 {
 				if err := ActiveGroup(ctx, e, a.TenantID, item.Draft.AudienceGroupID); err != nil {

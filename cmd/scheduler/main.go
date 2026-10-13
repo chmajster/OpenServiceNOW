@@ -16,6 +16,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
 	"github.com/chmajster/OpenServiceNOW/internal/sla"
 	"github.com/chmajster/OpenServiceNOW/internal/systemjobs"
+	"github.com/chmajster/OpenServiceNOW/internal/workflow"
 )
 
 func main() {
@@ -41,6 +42,7 @@ func main() {
 
 	jobRepo := jobs.NewRepository(db)
 	slaService := sla.NewService(db)
+	workflowService := workflow.NewService(db, nil)
 	run := func(ctx context.Context, now time.Time) error {
 		bucket := now.UTC().Truncate(cfg.Session.CleanupInterval)
 		key := "session-cleanup:" + bucket.Format("20060102T150405.000000000Z")
@@ -66,6 +68,9 @@ func main() {
 			return err
 		}
 		_, err = slaService.Schedule(ctx, now)
+		if err == nil {
+			_, err = workflowService.Schedule(ctx, now)
+		}
 		return err
 	}
 

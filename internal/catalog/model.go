@@ -47,6 +47,8 @@ type Definition struct {
 	GroupID         uint64  `json:"group_id,string"`
 	AudienceGroupID uint64  `json:"audience_group_id,string,omitempty"`
 	Steps           []Step  `json:"steps"`
+	WorkflowID      uint64  `json:"workflow_id,string,omitempty"`
+	WorkflowVersion uint64  `json:"workflow_version,string,omitempty"`
 }
 type Item struct {
 	ID               uint64     `json:"id,string"`
