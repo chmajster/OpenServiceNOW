@@ -396,8 +396,25 @@ function TaskEditor({
   const [readError, setReadError] = useState("");
   const dirty = JSON.stringify(draft) !== JSON.stringify(taskFields(base));
   useEffect(
-    () => retain("tasks", dirty || creation.uncertain || editor.uncertain),
-    [dirty, creation.uncertain, editor.uncertain, retain],
+    () =>
+      retain(
+        "tasks",
+        dirty ||
+          creation.busy ||
+          creation.uncertain ||
+          editor.busy ||
+          !!editor.conflict ||
+          editor.uncertain,
+      ),
+    [
+      dirty,
+      creation.busy,
+      creation.uncertain,
+      editor.busy,
+      editor.conflict,
+      editor.uncertain,
+      retain,
+    ],
   );
   useEffect(() => () => retain("tasks", false), [retain]);
   const busy = editor.busy || creation.busy,
@@ -405,6 +422,24 @@ function TaskEditor({
     readonly = disabled || !record.can_tasks || base.state === "COMPLETED";
   function set(key: keyof typeof draft, value: unknown) {
     setDraft((d) => ({ ...d, [key]: value }));
+  }
+  const [conflictLoading, setConflictLoading] = useState(false);
+  async function resolveTaskConflict(keepProposal: boolean) {
+    if (!editor.conflict || conflictLoading) return;
+    setConflictLoading(true);
+    setReadError("");
+    try {
+      const parent = await api<Problem>(`/api/v1/problems/${record.id}`);
+      await refresh();
+      if (!keepProposal) setDraft(taskFields(editor.conflict));
+      setVersion(editor.conflict.version);
+      setParentVersion(parent.version);
+      editor.resolve();
+    } catch (e) {
+      setReadError(errorText(e));
+    } finally {
+      setConflictLoading(false);
+    }
   }
   async function submit() {
     const body = {
@@ -574,22 +609,15 @@ function TaskEditor({
             />
             <button
               type="button"
-              onClick={() => {
-                setVersion(editor.conflict!.version);
-                setParentVersion(record.version);
-                editor.resolve();
-              }}
+              disabled={conflictLoading}
+              onClick={() => void resolveTaskConflict(true)}
             >
               Zachowaj propozycję zadania
             </button>
             <button
               type="button"
-              onClick={() => {
-                setDraft(taskFields(editor.conflict!));
-                setVersion(editor.conflict!.version);
-                setParentVersion(record.version);
-                editor.resolve();
-              }}
+              disabled={conflictLoading}
+              onClick={() => void resolveTaskConflict(false)}
             >
               Użyj aktualnego zadania
             </button>

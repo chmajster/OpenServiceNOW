@@ -278,6 +278,36 @@ test("Problem joins incidents, CI, private communication and controlled analytic
   await page
     .getByLabel("Stan zadania analitycznego", { exact: true })
     .selectOption("IN_PROGRESS");
+  const concurrentParent = await (
+    await page.request.get(`/api/v1/problems/${id}`)
+  ).json();
+  expect(
+    (
+      await page.request.put(`/api/v1/problems/${id}`, {
+        headers: keyed(),
+        data: {
+          ...Object.fromEntries(allowed.map((k) => [k, concurrentParent[k]])),
+          version: concurrentParent.version,
+          analysis: "Nowe ustalenie zapisane równolegle",
+        },
+      })
+    ).status(),
+  ).toBe(200);
+  await page
+    .getByRole("button", { name: "Zapisz zadanie", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Konflikt wersji zadania", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel("Stan zadania analitycznego", { exact: true }),
+  ).toHaveValue("IN_PROGRESS");
+  await page
+    .getByRole("button", { name: "Zachowaj propozycję zadania", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Konflikt wersji zadania", exact: true }),
+  ).toHaveCount(0);
   await page
     .getByRole("button", { name: "Zapisz zadanie", exact: true })
     .click();
@@ -327,7 +357,7 @@ test("Problem joins incidents, CI, private communication and controlled analytic
     });
     await page.screenshot({
       path: info.outputPath(`problem-${width}.png`),
-      fullPage: true,
+      fullPage: info.project.name !== "mobile-chromium",
     });
   }
   await page.getByRole("tab", { name: "Historia", exact: true }).click();
