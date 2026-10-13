@@ -235,6 +235,13 @@ test("authorized global references, task URLs, context and real report drilldown
   await expect(
     p.getByRole("heading", { name: task.number, exact: true }),
   ).toBeVisible();
+  await expect(p.getByLabel("Opis zadania", { exact: true })).toBeDisabled();
+  await expect(
+    p.getByRole("button", { name: "Zapisz zadanie", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    p.getByRole("button", { name: "Edytuj wskazane zadanie", exact: true }),
+  ).toBeVisible();
   await p.getByRole("button", { name: "Kontekst", exact: true }).click();
   const panel = p.locator(".context-panel");
   await expect(

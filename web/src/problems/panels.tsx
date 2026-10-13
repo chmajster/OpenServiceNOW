@@ -376,6 +376,7 @@ function TaskEditor({
     path = `/api/v1/problems/${record.id}/tasks`,
     editor = useEditor(base, `${path}/${base.id}`),
     creation = useCreation<AnalyticalTask>();
+  const current = editor.record;
   const taskFields = (t: AnalyticalTask) => ({
     title: t.title,
     instructions: t.instructions,
@@ -394,7 +395,7 @@ function TaskEditor({
     }),
     operation = useRef<{ body: string; key: string } | undefined>(undefined);
   const [readError, setReadError] = useState("");
-  const dirty = JSON.stringify(draft) !== JSON.stringify(taskFields(base));
+  const dirty = JSON.stringify(draft) !== JSON.stringify(taskFields(current));
   useEffect(
     () =>
       retain(
@@ -419,7 +420,21 @@ function TaskEditor({
   useEffect(() => () => retain("tasks", false), [retain]);
   const busy = editor.busy || creation.busy,
     uncertain = editor.uncertain || creation.uncertain,
-    readonly = disabled || !record.can_tasks || base.state === "COMPLETED";
+    readonly =
+      disabled ||
+      !record.can_tasks ||
+      !current.can_edit ||
+      current.state === "COMPLETED";
+  const allowedStates = [
+    current.state,
+    ...(current.state === "OPEN"
+      ? ["IN_PROGRESS", "CANCELLED"]
+      : current.state === "IN_PROGRESS"
+        ? ["COMPLETED", "CANCELLED"]
+        : current.state === "CANCELLED"
+          ? ["OPEN"]
+          : []),
+  ];
   function set(key: keyof typeof draft, value: unknown) {
     setDraft((d) => ({ ...d, [key]: value }));
   }
@@ -492,18 +507,14 @@ function TaskEditor({
                 value={draft.state}
                 onChange={(e) => set("state", e.target.value)}
               >
-                {[
-                  base.state,
-                  ...(base.state === "OPEN"
-                    ? ["IN_PROGRESS", "CANCELLED"]
-                    : base.state === "IN_PROGRESS"
-                      ? ["COMPLETED", "CANCELLED"]
-                      : base.state === "CANCELLED"
-                        ? ["OPEN"]
-                        : []),
-                ].map((v) => (
-                  <option key={v} value={v}>
+                {[...new Set([...allowedStates, draft.state])].map((v) => (
+                  <option
+                    key={v}
+                    value={v}
+                    disabled={!allowedStates.includes(v)}
+                  >
                     {labels[v]}
+                    {!allowedStates.includes(v) ? " (propozycja)" : ""}
                   </option>
                 ))}
               </select>
@@ -626,6 +637,18 @@ function TaskEditor({
         {uncertain && (
           <p role="status">Ponowienie zachowa treść i klucz ostatniej próby.</p>
         )}
+        {readonly && dirty && !editor.conflict && (
+          <section aria-label="Niezapisana propozycja zadania">
+            <p role="status">
+              Aktualny stan lub uprawnienia zadania nie pozwalają zapisać
+              propozycji. Możesz ją odczytać lub skopiować przed zamknięciem.
+            </p>
+            <ConflictComparison
+              proposal={draft}
+              current={taskFields(current)}
+            />
+          </section>
+        )}
         <div className="action-row">
           {!readonly && (
             <button
@@ -648,7 +671,7 @@ function TaskEditor({
           )}
           <button
             type="button"
-            disabled={busy || uncertain}
+            disabled={busy || uncertain || conflictLoading}
             onClick={() => {
               if (
                 !dirty ||

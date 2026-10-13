@@ -325,6 +325,106 @@ test("Problem joins incidents, CI, private communication and controlled analytic
     .getByRole("button", { name: "Zapisz zadanie", exact: true })
     .click();
   await expect(page.locator(".record-table")).toContainText("Ukończone");
+  await page
+    .getByRole("button", { name: "Nowe zadanie analityczne", exact: true })
+    .click();
+  await page
+    .getByLabel("Opis zadania", { exact: true })
+    .fill("Równoległa kontrola zakończenia");
+  await page
+    .getByLabel("Instrukcje analizy", { exact: true })
+    .fill("Weryfikacja przyjęcia aktualnego ukończonego zadania");
+  await page
+    .getByLabel("Wymagane przed rozwiązaniem problemu", { exact: true })
+    .uncheck();
+  await page
+    .getByRole("button", { name: "Utwórz zadanie analityczne", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Otwórz zadanie", exact: true })
+    .click();
+  await page
+    .getByLabel("Stan zadania analitycznego", { exact: true })
+    .selectOption("IN_PROGRESS");
+  await page
+    .getByLabel("Wynik zadania", { exact: true })
+    .fill("Moja zachowana propozycja wyniku");
+  const child = (
+    await (await page.request.get(`/api/v1/problems/${id}/tasks`)).json()
+  ).items.find(
+    (t: { title: string }) => t.title === "Równoległa kontrola zakończenia",
+  );
+  for (const state of ["IN_PROGRESS", "COMPLETED"]) {
+    const parent = await (
+      await page.request.get(`/api/v1/problems/${id}`)
+    ).json();
+    const current = await (
+      await page.request.get(`/api/v1/problems/${id}/tasks/${child.id}`)
+    ).json();
+    const response = await page.request.put(
+      `/api/v1/problems/${id}/tasks/${child.id}`,
+      {
+        headers: keyed(),
+        data: {
+          ...Object.fromEntries(
+            [
+              "title",
+              "instructions",
+              "required",
+              "assigned_to",
+              "assignment_group_id",
+            ].map((k) => [k, current[k]]),
+          ),
+          version: current.version,
+          problem_version: parent.version,
+          state,
+          result:
+            state === "COMPLETED"
+              ? "Wynik zapisany przez drugiego analityka"
+              : "",
+        },
+      },
+    );
+    expect(response.status()).toBe(200);
+  }
+  await page
+    .getByRole("button", { name: "Zapisz zadanie", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Konflikt wersji zadania", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "Wynik zadania", exact: true }),
+  ).toHaveValue("Moja zachowana propozycja wyniku");
+  await page
+    .getByRole("button", { name: "Użyj aktualnego zadania", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Stan zadania analitycznego", { exact: true }),
+  ).toHaveValue("COMPLETED");
+  await expect(
+    page.getByLabel("Stan zadania analitycznego", { exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("textbox", { name: "Wynik zadania", exact: true }),
+  ).toHaveValue("Wynik zapisany przez drugiego analityka");
+  await expect(
+    page.getByRole("button", { name: "Zapisz zadanie", exact: true }),
+  ).toHaveCount(0);
+  let discardPrompt = false;
+  const onDialog = async (dialog: import("@playwright/test").Dialog) => {
+    discardPrompt = true;
+    await dialog.dismiss();
+  };
+  page.on("dialog", onDialog);
+  await page
+    .getByRole("button", { name: "Zamknij formularz zadania", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: child.number, exact: true }),
+  ).toHaveCount(0);
+  expect(discardPrompt).toBe(false);
+  page.off("dialog", onDialog);
   await page.getByRole("tab", { name: "Szczegóły", exact: true }).click();
   await page
     .getByLabel("Wynik weryfikacji", { exact: true })

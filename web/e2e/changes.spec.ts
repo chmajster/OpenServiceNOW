@@ -590,6 +590,25 @@ test("Integrated ITSM workspace retains incident privacy through Problem, approv
     await expect(
       p.getByRole("row").filter({ hasText: "Wdrożenie parametrów puli" }),
     ).toBeVisible();
+    const manualTask = (
+      await (await r.get(`/api/v1/changes/${id}/tasks`)).json()
+    ).items.find(
+      (task: { title: string }) => task.title === "Wdrożenie parametrów puli",
+    );
+    await p.goto(`/changes/${id}?tab=tasks&task_id=${manualTask.id}`);
+    await expect(
+      p.getByRole("heading", { name: manualTask.number, exact: true }),
+    ).toBeVisible();
+    await expect(p.getByLabel("Opis zadania", { exact: true })).toBeDisabled();
+    await expect(
+      p.getByRole("button", { name: "Zapisz zadanie", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      p.getByRole("button", { name: "Edytuj wskazane zadanie", exact: true }),
+    ).toBeVisible();
+    await p
+      .getByRole("button", { name: "Zamknij formularz zadania", exact: true })
+      .click();
     await expect
       .poll(() => Date.now() >= start.getTime(), {
         timeout: 110000,
