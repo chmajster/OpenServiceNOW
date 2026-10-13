@@ -333,6 +333,11 @@ func (h *Handler) Repair(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, v, err)
 }
 func (h *Handler) Lookups(w http.ResponseWriter, r *http.Request) {
+	selected, e := workrecords.ChoiceID(r.URL.Query().Get("id"))
+	if e != nil {
+		fail(w, r, ErrInvalid)
+		return
+	}
 	a, err := h.actor(r)
 	if err != nil {
 		fail(w, r, err)
@@ -356,7 +361,12 @@ func (h *Handler) Lookups(w http.ResponseWriter, r *http.Request) {
 	if chi.URLParam(r, "kind") == "groups" {
 		query = "SELECT id,name FROM `groups` WHERE tenant_id=? AND active=TRUE AND id>? AND (?='' OR LOCATE(?,name)>0) ORDER BY id LIMIT ?"
 	}
-	rows, err := h.service.DB.QueryContext(r.Context(), query, a.TenantID, after, q, q, limit+1)
+	column := "u.id"
+	if chi.URLParam(r, "kind") == "groups" {
+		column = "id"
+	}
+	query, args := workrecords.RestrictChoice(query, []any{a.TenantID, after, q, q}, column, selected)
+	rows, err := h.service.DB.QueryContext(r.Context(), query, append(args, limit+1)...)
 	if err != nil {
 		fail(w, r, err)
 		return

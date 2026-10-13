@@ -2,7 +2,9 @@ package workspace
 
 import (
 	"context"
+	"database/sql"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -15,7 +17,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 )
 
-var ErrInvalid = errors.New("wpisz od 2 do 200 znaków, bez znaków sterujących")
+var ErrInvalid = errors.New("nieprawidłowe dane workspace")
 
 type Metric struct {
 	Key        string `json:"key"`
@@ -29,6 +31,7 @@ type Summary struct {
 	CalculatedAt time.Time `json:"calculated_at"`
 }
 type Service struct {
+	DB        *sql.DB
 	Incidents *incidents.Service
 	Requests  *requests.Service
 	Workflow  *workflow.Service
@@ -96,11 +99,11 @@ func (s *Service) Summary(ctx context.Context, a workrecords.Principal) (Summary
 
 func ValidateQuery(q string) error {
 	if !utf8.ValidString(q) || utf8.RuneCountInString(q) < 2 || utf8.RuneCountInString(q) > 200 {
-		return ErrInvalid
+		return fmt.Errorf("%w: wpisz od 2 do 200 znaków, bez znaków sterujących", ErrInvalid)
 	}
 	for _, c := range q {
 		if unicode.IsControl(c) {
-			return ErrInvalid
+			return fmt.Errorf("%w: wpisz od 2 do 200 znaków, bez znaków sterujących", ErrInvalid)
 		}
 	}
 	return nil
@@ -109,6 +112,26 @@ func (s *Service) Search(ctx context.Context, a workrecords.Principal, q string)
 	q = strings.TrimSpace(q)
 	if err := ValidateQuery(q); err != nil {
 		return nil, err
+	}
+	if s.DB != nil {
+		scopes, err := s.scopes(a)
+		if err != nil {
+			return nil, err
+		}
+		out := []workrecords.Reference{}
+		for _, kind := range referenceKinds {
+			scope, ok := scopes[kind]
+			if !ok {
+				continue
+			}
+			items, err := workrecords.References(ctx, s.DB, scope, workrecords.ReferenceSelection{Query: q, Limit: 10})
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, items...)
+		}
+		sort.SliceStable(out, func(i, j int) bool { return out[i].Exact && !out[j].Exact })
+		return out, nil
 	}
 	out := []workrecords.Reference{}
 	if a.Has("incident.read") || a.Has("incident.read_own") {

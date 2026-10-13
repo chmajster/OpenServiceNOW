@@ -170,9 +170,19 @@ func (h *Handler) handle(action string) http.HandlerFunc {
 			}
 			v = map[string]any{"classes": Classes, "ci_import_fields": ImportFields("CI"), "asset_import_fields": ImportFields("ASSET"), "max_csv_bytes": MaxCSVBytes, "max_csv_rows": MaxCSVRows, "max_csv_columns": MaxCSVColumns}
 		case "users":
-			v, err = h.users(ctx, a, q.Get("q"), before, limit)
+			selected, e := workrecords.ChoiceID(q.Get("id"))
+			if e != nil {
+				err = ErrInvalid
+				break
+			}
+			v, err = h.users(ctx, a, q.Get("q"), before, limit, selected)
 		case "groups":
-			v, err = h.groups(ctx, a, q.Get("q"), before, limit)
+			selected, e := workrecords.ChoiceID(q.Get("id"))
+			if e != nil {
+				err = ErrInvalid
+				break
+			}
+			v, err = h.groups(ctx, a, q.Get("q"), before, limit, selected)
 		case "ci.list":
 			var owner uint64
 			owner, err = number(q.Get("owner_id"), true)
@@ -367,7 +377,7 @@ func (h *Handler) upload(w http.ResponseWriter, r *http.Request, a Actor) (Impor
 	}
 	return h.service.CreateImport(r.Context(), a, config, header.Filename, r.Header.Get("Idempotency-Key"), file)
 }
-func (h *Handler) users(ctx context.Context, a Actor, q string, before uint64, limit int) (any, error) {
+func (h *Handler) users(ctx context.Context, a Actor, q string, before uint64, limit int, selected ...uint64) (any, error) {
 	if !a.Has("cmdb.read") && !a.Has("cmdb.read_own") && !assets.Writable(a) {
 		return nil, workrecords.ErrForbidden
 	}
@@ -387,6 +397,9 @@ func (h *Handler) users(ctx context.Context, a Actor, q string, before uint64, l
 	if before > 0 {
 		query += " AND u.id<?"
 		args = append(args, before)
+	}
+	if len(selected) > 0 {
+		query, args = workrecords.RestrictChoice(query, args, "u.id", selected[0])
 	}
 	query += " ORDER BY u.id DESC LIMIT ?"
 	args = append(args, limit+1)

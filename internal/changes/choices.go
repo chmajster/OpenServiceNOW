@@ -3,6 +3,7 @@ package changes
 import (
 	"context"
 	"github.com/chmajster/OpenServiceNOW/internal/catalog"
+	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 	"github.com/go-chi/chi/v5"
 	"net/http"
 )
@@ -16,7 +17,7 @@ type ChoicePage struct {
 	Next  uint64   `json:"next_before_id,string,omitempty"`
 }
 
-func (s *Service) Choices(ctx context.Context, a Actor, kind, q string, before uint64, limit int) (ChoicePage, error) {
+func (s *Service) Choices(ctx context.Context, a Actor, kind, q string, before uint64, limit int, selected ...uint64) (ChoicePage, error) {
 	out := ChoicePage{Items: []Choice{}}
 	if !a.Has("change.read") && !a.Has("change.read_own") {
 		return out, ErrForbidden
@@ -45,6 +46,9 @@ func (s *Service) Choices(ctx context.Context, a Actor, kind, q string, before u
 		query += " AND u.id<?"
 		args = append(args, before)
 	}
+	if len(selected) > 0 {
+		query, args = workrecords.RestrictChoice(query, args, "u.id", selected[0])
+	}
 	query += " ORDER BY u.id DESC LIMIT ?"
 	args = append(args, limit+1)
 	rows, err := s.db.QueryContext(ctx, query, args...)
@@ -66,6 +70,11 @@ func (s *Service) Choices(ctx context.Context, a Actor, kind, q string, before u
 	return out, rows.Err()
 }
 func (h *Handler) lookup(w http.ResponseWriter, r *http.Request) {
+	selected, e := workrecords.ChoiceID(r.URL.Query().Get("id"))
+	if e != nil {
+		writeError(w, r, ErrInvalid)
+		return
+	}
 	before, limit, err := pagination(r, 20, "before_id")
 	if err != nil {
 		writeError(w, r, err)
@@ -77,6 +86,6 @@ func (h *Handler) lookup(w http.ResponseWriter, r *http.Request) {
 		respond(w, r, 200, out, err)
 		return
 	}
-	out, err := h.service.Choices(r.Context(), actor(r), kind, r.URL.Query().Get("q"), before, limit)
+	out, err := h.service.Choices(r.Context(), actor(r), kind, r.URL.Query().Get("q"), before, limit, selected)
 	respond(w, r, 200, out, err)
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/requests"
 	"github.com/chmajster/OpenServiceNOW/internal/workflow"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
+	"github.com/chmajster/OpenServiceNOW/internal/workspace"
 	"strconv"
 	"sync"
 	"testing"
@@ -538,6 +539,62 @@ func TestChangeVersionedApprovalsSchedulingAndTemplates(t *testing.T) {
 		t.Fatal("CAS", saved, conflicts)
 	}
 	urgent, _ = s.Get(ctx, operator, urgent.ID)
+
+	metadataService := workspace.Service{DB: db}
+	keys := []string{fmt.Sprintf("/changes/%d", taskChange.ID), fmt.Sprintf("/problems/%d", prb.ID), fmt.Sprintf("/cmdb/%d", ci.ID), fmt.Sprintf("/approvals/%d", *taskChange.ExecutionID)}
+	metadata, err := metadataService.Metadata(ctx, operator, keys)
+	if err != nil || len(metadata.Items) != 4 {
+		t.Fatal("cross-domain metadata", metadata, err)
+	}
+	for _, kind := range []string{"changes", "cmdb"} {
+		id := taskChange.ID
+		if kind == "cmdb" {
+			id = ci.ID
+		}
+		contextRecord, err := metadataService.Context(ctx, operator, kind, id)
+		if err != nil {
+			t.Fatal("cross-domain context", kind, contextRecord, err)
+		}
+	}
+	searchResults, err := metadataService.Search(ctx, operator, task.Number)
+	if err != nil || len(searchResults) == 0 || searchResults[0].Type != "change_task" || !searchResults[0].Exact || searchResults[0].URL != fmt.Sprintf("/changes/%d?tab=tasks&task_id=%d", taskChange.ID, task.ID) {
+		t.Fatal("task reference", searchResults, err)
+	}
+	period := workspace.ReportPeriod{From: taskChange.ActualEnd.Add(-time.Hour), To: taskChange.ActualEnd.Add(time.Hour)}
+	reports, err := metadataService.Reports(ctx, admin, period)
+	if err != nil {
+		t.Fatal("Change reports", reports, err)
+	}
+	foundClosed := false
+	for _, report := range reports.Items {
+		if report.Key == "closed_changes" {
+			foundClosed = true
+			if report.Total != 1 {
+				t.Fatal("actual closed count", report)
+			}
+		}
+	}
+	if !foundClosed {
+		t.Fatal("missing closed report")
+	}
+	sourceFilter := workspace.ReportSourceFilter{Report: "closed_changes", Domain: "change", Period: period, Limit: 25}
+	sources, err := metadataService.ReportSources(ctx, admin, sourceFilter)
+	if err != nil || sources.Total != 1 || len(sources.Items) != 1 || sources.Items[0].ID != taskChange.ID {
+		t.Fatal("actual closed sources", sources, err)
+	}
+	sourceFilter.Period = workspace.ReportPeriod{From: taskChange.ActualEnd.Add(-time.Hour), To: *taskChange.ActualEnd}
+	sources, err = metadataService.ReportSources(ctx, admin, sourceFilter)
+	if err != nil || sources.Total != 0 {
+		t.Fatal("closed end must be exclusive", sources, err)
+	}
+	sourceFilter.Period = workspace.ReportPeriod{From: *taskChange.ActualEnd, To: taskChange.ActualEnd.Add(time.Hour)}
+	sources, err = metadataService.ReportSources(ctx, admin, sourceFilter)
+	if err != nil || sources.Total != 1 {
+		t.Fatal("closed start must be inclusive", sources, err)
+	}
+	if metadata, err = metadataService.Metadata(ctx, outsider, keys); err != nil || len(metadata.Items) != 0 {
+		t.Fatal("relationship metadata granted access", metadata, err)
+	}
 	// Revocation affects stale principals, not merely the frontend's permissions.
 	exec("UPDATE tenant_memberships SET active=FALSE WHERE tenant_id=? AND user_id=?", admin.TenantID, operator.UserID)
 	if _, err = s.Save(ctx, operator, urgent.ID, changes.Input{Version: urgent.Version, Fields: urgent.Fields}, "change-revoked-write"); !errors.Is(err, workrecords.ErrForbidden) {

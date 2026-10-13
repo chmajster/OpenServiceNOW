@@ -213,6 +213,11 @@ func (h *Handler) History(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 200, result, err)
 }
 func (h *Handler) Choices(w http.ResponseWriter, r *http.Request) {
+	selected, e := workrecords.ChoiceID(r.URL.Query().Get("id"))
+	if e != nil {
+		writeError(w, r, ErrInvalid)
+		return
+	}
 	after, limit, err := pagination(r, 50, "after_id")
 	if err != nil {
 		writeError(w, r, err)
@@ -226,7 +231,7 @@ func (h *Handler) Choices(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	result, err := h.service.Choices(r.Context(), actor(r), chi.URLParam(r, "kind"), r.URL.Query().Get("purpose"), r.URL.Query().Get("q"), after, group, limit)
+	result, err := h.service.Choices(r.Context(), actor(r), chi.URLParam(r, "kind"), r.URL.Query().Get("purpose"), r.URL.Query().Get("q"), after, group, limit, selected)
 	respond(w, r, 200, result, err)
 }
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {

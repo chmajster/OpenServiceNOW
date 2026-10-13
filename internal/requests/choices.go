@@ -2,6 +2,7 @@ package requests
 
 import (
 	"github.com/chmajster/OpenServiceNOW/internal/catalog"
+	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 	"net/http"
 )
 
@@ -40,6 +41,11 @@ func (h *Handler) TaskUsers(w http.ResponseWriter, r *http.Request) {
 	h.choices(w, r, *t.Assignment.AssignmentGroupID)
 }
 func (h *Handler) choices(w http.ResponseWriter, r *http.Request, group uint64) {
+	selected, e := workrecords.ChoiceID(r.URL.Query().Get("id"))
+	if e != nil {
+		writeError(w, r, ErrInvalid)
+		return
+	}
 	after, limit, err := pagination(r, 25, "after_id")
 	q := r.URL.Query().Get("q")
 	if err != nil || !catalog.Text(q, 0, 200) {
@@ -53,6 +59,12 @@ func (h *Handler) choices(w http.ResponseWriter, r *http.Request, group uint64) 
 		query = "SELECT u.id,u.display_name,u.email FROM users u JOIN tenant_memberships tm ON tm.user_id=u.id JOIN group_memberships gm ON gm.tenant_id=tm.tenant_id AND gm.user_id=u.id JOIN `groups` g ON g.tenant_id=gm.tenant_id AND g.id=gm.group_id AND g.active=TRUE WHERE tm.tenant_id=? AND gm.group_id=? AND u.id>? AND u.active=TRUE AND tm.active=TRUE AND (?='' OR LOCATE(?,u.display_name)>0 OR LOCATE(?,u.email)>0) ORDER BY u.id LIMIT ?"
 		args = []any{a.TenantID, group, after, q, q, q, limit + 1}
 	}
+	column := "id"
+	if group > 0 {
+		column = "u.id"
+	}
+	query, args = workrecords.RestrictChoice(query, args[:len(args)-1], column, selected)
+	args = append(args, limit+1)
 	rows, err := h.service.db.QueryContext(r.Context(), query, args...)
 	if err != nil {
 		writeError(w, r, err)

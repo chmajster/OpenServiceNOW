@@ -2,6 +2,7 @@ package incidents
 
 import (
 	"context"
+	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 	"strings"
 )
 
@@ -19,7 +20,7 @@ type Choices struct {
 	NextAfterID uint64   `json:"next_after_id,string,omitempty"`
 }
 
-func (s *Service) Choices(ctx context.Context, a Actor, kind, purpose, q string, after, group uint64, limit int) (Choices, error) {
+func (s *Service) Choices(ctx context.Context, a Actor, kind, purpose, q string, after, group uint64, limit int, selected ...uint64) (Choices, error) {
 	if !a.Has("read") && !a.Has("read_own") {
 		return Choices{}, ErrForbidden
 	}
@@ -73,6 +74,10 @@ func (s *Service) Choices(ctx context.Context, a Actor, kind, purpose, q string,
 		query += " ORDER BY g.id"
 	default:
 		return Choices{}, ErrInvalid
+	}
+	if len(selected) > 0 {
+		column := map[string]string{"users": "u.id", "groups": "g.id", "incidents": "i.id"}[kind]
+		query, args = workrecords.RestrictChoice(query, args, column, selected[0])
 	}
 	query += " LIMIT ?"
 	args = append(args, limit+1)

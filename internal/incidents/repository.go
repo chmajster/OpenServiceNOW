@@ -332,7 +332,7 @@ func (r *Repository) Groups(ctx context.Context, a Actor, f Filter) ([]GroupCoun
 		return nil, err
 	}
 	where, args := listWhere(a, f)
-	rows, err := r.db.QueryContext(ctx, "SELECT COALESCE("+col+",''),COUNT(*)"+recordJoins+where+" GROUP BY "+col+" ORDER BY "+col, args...)
+	rows, err := r.db.QueryContext(ctx, "SELECT COALESCE("+col+",''),COUNT(*)"+recordJoins+where+" GROUP BY "+col+" ORDER BY "+col+" LIMIT 1001", args...)
 	if err != nil {
 		return nil, err
 	}
@@ -342,6 +342,9 @@ func (r *Repository) Groups(ctx context.Context, a Actor, f Filter) ([]GroupCoun
 		var group GroupCount
 		if err = rows.Scan(&group.Value, &group.Count); err != nil {
 			return nil, err
+		}
+		if len(out) >= 1000 {
+			return nil, fmt.Errorf("%w: zbyt wiele grup, zawęź filtr", ErrInvalid)
 		}
 		out = append(out, group)
 	}

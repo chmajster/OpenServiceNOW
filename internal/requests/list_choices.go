@@ -2,12 +2,18 @@ package requests
 
 import (
 	"github.com/chmajster/OpenServiceNOW/internal/catalog"
+	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 	"github.com/go-chi/chi/v5"
 	"net/http"
 	"strconv"
 )
 
 func (h *Handler) listChoices(w http.ResponseWriter, r *http.Request) {
+	selected, e := workrecords.ChoiceID(r.URL.Query().Get("id"))
+	if e != nil {
+		writeError(w, r, ErrInvalid)
+		return
+	}
 	a := actor(r)
 	kind := chi.URLParam(r, "kind")
 	if kind != "users" && kind != "groups" {
@@ -52,6 +58,7 @@ func (h *Handler) listChoices(w http.ResponseWriter, r *http.Request) {
 			args = append(args, a.UserID, a.UserID)
 		}
 	}
+	query, args = workrecords.RestrictChoice(query, args, alias+".id", selected)
 	query += " ORDER BY " + alias + ".id LIMIT 51"
 	rows, err := h.service.db.QueryContext(r.Context(), query, args...)
 	if err != nil {

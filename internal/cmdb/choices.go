@@ -7,7 +7,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 )
 
-func (h *Handler) groups(ctx context.Context, a Actor, q string, before uint64, limit int) (any, error) {
+func (h *Handler) groups(ctx context.Context, a Actor, q string, before uint64, limit int, selected ...uint64) (any, error) {
 	if !a.Has("cmdb.read") && !a.Has("cmdb.read_own") {
 		return nil, workrecords.ErrForbidden
 	}
@@ -27,6 +27,9 @@ func (h *Handler) groups(ctx context.Context, a Actor, q string, before uint64, 
 	if before > 0 {
 		sql += " AND g.id<?"
 		args = append(args, before)
+	}
+	if len(selected) > 0 {
+		sql, args = workrecords.RestrictChoice(sql, args, "g.id", selected[0])
 	}
 	sql += " ORDER BY g.id DESC LIMIT ?"
 	args = append(args, limit+1)

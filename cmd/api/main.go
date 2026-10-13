@@ -157,7 +157,7 @@ func main() {
 			return err
 		}},
 	}}}
-	workspaceHandler := &workspace.Handler{Service: &workspace.Service{Incidents: incidentService, Requests: requestService, Workflow: workflowService}, Permissions: identityService}
+	workspaceHandler := &workspace.Handler{Service: &workspace.Service{DB: db, Incidents: incidentService, Requests: requestService, Workflow: workflowService}, Permissions: identityService}
 	notificationHandler := notifications.NewHandler(notifications.NewService(db, cfg.NotificationKey, cfg.SMTPAllowInsecure), outboxRepo)
 
 	healthHandler := health.New(

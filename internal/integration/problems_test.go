@@ -19,6 +19,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
 	"github.com/chmajster/OpenServiceNOW/internal/problems"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
+	"github.com/chmajster/OpenServiceNOW/internal/workspace"
 	"io"
 	"strings"
 	"sync"
@@ -315,6 +316,50 @@ func TestProblemProcessPrivacyRelationsAndRetries(t *testing.T) {
 	}
 	if success != 1 || conflict != 1 {
 		t.Fatal(success, conflict)
+	}
+
+	metadataService := workspace.Service{DB: db}
+	searchResults, err := metadataService.Search(ctx, operator, task.Number)
+	if err != nil || len(searchResults) == 0 || searchResults[0].Type != "problem_task" || !searchResults[0].Exact || searchResults[0].URL != fmt.Sprintf("/problems/%d?tab=tasks&task_id=%d", r.ID, task.ID) {
+		t.Fatal("analytical task reference", searchResults, err)
+	}
+	if _, err = metadataService.Context(ctx, operator, "problems", r.ID); err != nil {
+		t.Fatal("Problem context", err)
+	}
+	period := workspace.ReportPeriod{From: time.Now().UTC().Add(-time.Hour), To: time.Now().UTC().Add(time.Hour)}
+	reports, err := metadataService.Reports(ctx, operator, period)
+	if err != nil {
+		t.Fatal("Problem reports", err)
+	}
+	ranked := false
+	for _, report := range reports.Items {
+		if report.Key == "problem_incidents" {
+			ranked = true
+			if report.Total != 1 || len(report.Items) != 1 || report.Items[0].Count != 1 || report.Items[0].Record.ID != r.ID {
+				t.Fatal("visible incidents ranking", report)
+			}
+		}
+	}
+	if !ranked {
+		t.Fatal("ranking missing")
+	}
+	sources, err := metadataService.ReportSources(ctx, operator, workspace.ReportSourceFilter{Report: "problem_incidents", Domain: "incident", ProblemID: r.ID, Period: period, Limit: 25})
+	if err != nil || sources.Total != 1 || sources.Items[0].ID != incident.ID {
+		t.Fatal("ranking sources", sources, err)
+	}
+	hidden := publicReader
+	hidden.Permissions["incident.read_own"] = true
+	reports, err = metadataService.Reports(ctx, hidden, period)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, report := range reports.Items {
+		if report.Key == "problem_incidents" && report.Total != 0 {
+			t.Fatal("inaccessible incident counted", report)
+		}
+	}
+	if _, err = metadataService.Context(ctx, reader, "problems", r.ID); !errors.Is(err, workrecords.ErrNotFound) {
+		t.Fatal("relation grants context", err)
 	}
 	// Stored permissions on the caller cannot override revoked server membership.
 	exec("DELETE FROM group_memberships WHERE tenant_id=? AND group_id=? AND user_id=?", admin.TenantID, gid, operator.UserID)

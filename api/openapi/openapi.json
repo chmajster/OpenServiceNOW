@@ -2500,7 +2500,7 @@
           "Incident Management"
         ],
         "operationId": "incidentChoices",
-        "description": "Organization and actor come only from the backend session. incident.read reads records in that organization; incident.read_own reads records reported by or affecting the actor. ACLs apply before results are returned; writes require read access plus the action permission. Temporary-password sessions are denied. Active organization members/groups only. Affected-user lookup is self-only with read_own. Assignment purpose additionally requires incident.assign; group_id limits users to members of the active group. Read-own group lookup without assign exposes only actor groups.",
+        "description": "Organization and actor come only from the backend session. incident.read reads records in that organization; incident.read_own reads records reported by or affecting the actor. ACLs apply before results are returned; writes require read access plus the action permission. Temporary-password sessions are denied. Active organization members/groups only. Affected-user lookup is self-only with read_own. Assignment purpose additionally requires incident.assign; group_id limits users to members of the active group. Read-own group lookup without assign exposes only actor groups. Optional id restricts this authorized selector to one exact decimal identifier; it does not grant directory access.",
         "security": [
           {
             "sessionCookie": []
@@ -2612,6 +2612,15 @@
           },
           {
             "name": "after_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "id",
             "in": "query",
             "required": false,
             "schema": {
@@ -7765,7 +7774,7 @@
             "sessionCookie": []
           }
         ],
-        "description": "Organization and actor come from the backend session. Object authorization and visibility filtering precede response/pagination. admin.catalog.manage; only active groups in this organization.",
+        "description": "Organization and actor come from the backend session. Object authorization and visibility filtering precede response/pagination. admin.catalog.manage; only active groups in this organization. Optional id restricts this authorized selector to one exact decimal identifier; it does not grant directory access.",
         "responses": {
           "400": {
             "description": "Invalid input",
@@ -7885,6 +7894,15 @@
             "required": false,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
             }
           }
         ]
@@ -10795,7 +10813,7 @@
             "sessionCookie": []
           }
         ],
-        "description": "Organization and actor come from the backend session. Object authorization and visibility filtering precede response/pagination. Scoped task authorization before directory query; only active members of its responsible group, bounded searchable cursor.",
+        "description": "Organization and actor come from the backend session. Object authorization and visibility filtering precede response/pagination. Scoped task authorization before directory query; only active members of its responsible group, bounded searchable cursor. Optional id restricts this authorized selector to one exact decimal identifier; it does not grant directory access.",
         "responses": {
           "400": {
             "description": "Invalid input",
@@ -10924,6 +10942,15 @@
             "required": false,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
             }
           }
         ]
@@ -11910,7 +11937,7 @@
         ],
         "operationId": "getWorkflowokups{Kind}",
         "summary": "workflow.author / workflow.publish / admin.catalog.manage; active tenant users/groups",
-        "description": "Session organization and actor; current object permissions. Durable sequential execution, immutable published version, no scripts/forks. Group approvals freeze participants then recheck membership/permission at decision; ANY/ALL, explicit self approval, deadline. Decisions serialize with timeout and use step version; identical accepted decision retry returns current execution. Domain command errors stop at the same node. Cancel stops the execution; request cancellation is a separate authorized domain action.",
+        "description": "Session organization and actor; current object permissions. Durable sequential execution, immutable published version, no scripts/forks. Group approvals freeze participants then recheck membership/permission at decision; ANY/ALL, explicit self approval, deadline. Decisions serialize with timeout and use step version; identical accepted decision retry returns current execution. Domain command errors stop at the same node. Cancel stops the execution; request cancellation is a separate authorized domain action. Optional id restricts this authorized selector to one exact decimal identifier; it does not grant directory access.",
         "security": [
           {
             "sessionCookie": []
@@ -11952,6 +11979,15 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
             }
           }
         ],
@@ -13182,8 +13218,18 @@
                 "groups"
               ]
             }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
           }
-        ]
+        ],
+        "description": " Optional id restricts this authorized selector to one exact decimal identifier; it does not grant directory access."
       }
     },
     "/api/v1/fulfillment/lookups/{kind}": {
@@ -13443,6 +13489,15 @@
               "type": "string",
               "maxLength": 160
             }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
           }
         ],
         "responses": {
@@ -13516,7 +13571,8 @@
               }
             }
           }
-        }
+        },
+        "description": " Optional id restricts this authorized selector to one exact decimal identifier; it does not grant directory access."
       }
     },
     "/api/v1/cmdb/lookups/groups": {
@@ -13557,6 +13613,15 @@
               "type": "string",
               "maxLength": 160
             }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
           }
         ],
         "responses": {
@@ -13630,7 +13695,8 @@
               }
             }
           }
-        }
+        },
+        "description": " Optional id restricts this authorized selector to one exact decimal identifier; it does not grant directory access."
       }
     },
     "/api/v1/cmdb/cis": {
@@ -18020,6 +18086,15 @@
               "type": "string",
               "maxLength": 160
             }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
           }
         ],
         "responses": {
@@ -18093,7 +18168,8 @@
               }
             }
           }
-        }
+        },
+        "description": " Optional id restricts this authorized selector to one exact decimal identifier; it does not grant directory access."
       }
     },
     "/api/v1/problems/lookups/users": {
@@ -18134,6 +18210,15 @@
               "type": "string",
               "maxLength": 160
             }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
           }
         ],
         "responses": {
@@ -18207,7 +18292,8 @@
               }
             }
           }
-        }
+        },
+        "description": " Optional id restricts this authorized selector to one exact decimal identifier; it does not grant directory access."
       }
     },
     "/api/v1/problems/lookups/groups": {
@@ -18248,6 +18334,15 @@
               "type": "string",
               "maxLength": 160
             }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
           }
         ],
         "responses": {
@@ -18321,7 +18416,8 @@
               }
             }
           }
-        }
+        },
+        "description": " Optional id restricts this authorized selector to one exact decimal identifier; it does not grant directory access."
       }
     },
     "/api/v1/problems/{id}/incidents": {
@@ -21054,6 +21150,15 @@
               "type": "string",
               "maxLength": 160
             }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
           }
         ],
         "responses": {
@@ -21127,7 +21232,8 @@
               }
             }
           }
-        }
+        },
+        "description": " Optional id restricts this authorized selector to one exact decimal identifier; it does not grant directory access."
       }
     },
     "/api/v1/changes/lookups/users": {
@@ -21168,6 +21274,15 @@
               "type": "string",
               "maxLength": 160
             }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
           }
         ],
         "responses": {
@@ -21241,7 +21356,8 @@
               }
             }
           }
-        }
+        },
+        "description": " Optional id restricts this authorized selector to one exact decimal identifier; it does not grant directory access."
       }
     },
     "/api/v1/changes/lookups/groups": {
@@ -21282,6 +21398,15 @@
               "type": "string",
               "maxLength": 160
             }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
           }
         ],
         "responses": {
@@ -21355,7 +21480,8 @@
               }
             }
           }
-        }
+        },
+        "description": " Optional id restricts this authorized selector to one exact decimal identifier; it does not grant directory access."
       }
     },
     "/api/v1/changes/{id}/problems": {
@@ -24717,6 +24843,383 @@
             }
           }
         }
+      }
+    },
+    "/api/v1/workspace/metadata": {
+      "get": {
+        "operationId": "workspaceMetadata",
+        "description": "Read at most 150 requested canonical record keys, in batches by domain. Current tenant/object access is applied before metadata. Missing and denied records are both omitted. No private payloads or full forms.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized workspace data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceMetadata"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required"
+          },
+          "500": {
+            "description": "Read failed; no fabricated zero counts"
+          },
+          "400": {
+            "description": "Invalid query"
+          },
+          "403": {
+            "description": "Current permissions required"
+          },
+          "404": {
+            "description": "No accessible record"
+          }
+        },
+        "parameters": [
+          {
+            "name": "key",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "maxItems": 150,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "maxLength": 80
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/workspace/context/{root}/{recordID}": {
+      "get": {
+        "operationId": "workspaceRecordContext",
+        "description": "Authorize the source first; return up to ten accessible references per section. Every linked domain retains independent access. CI business services and catalog items are distinct types.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized workspace data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceRecordContext"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required"
+          },
+          "500": {
+            "description": "Read failed; no fabricated zero counts"
+          },
+          "400": {
+            "description": "Invalid query"
+          },
+          "403": {
+            "description": "Current permissions required"
+          },
+          "404": {
+            "description": "No accessible record"
+          }
+        },
+        "parameters": [
+          {
+            "name": "root",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "incidents",
+                "requests",
+                "fulfillment",
+                "problems",
+                "changes",
+                "cmdb",
+                "catalog",
+                "approvals"
+              ]
+            }
+          },
+          {
+            "name": "recordID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/workspace/reports": {
+      "get": {
+        "operationId": "workspaceReports",
+        "description": "Real current-scope operational aggregates. Repeatable read snapshot. Active/state/group/age/SLA reports are snapshots without created-date truncation. Problem ranking uses accessible incidents created in [from,to); planned changes overlap [from,to); closed changes use actual_end in [from,to). Period is positive and at most 366 days. No SLA for other domains. Definition and source URL accompany every bucket.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized workspace data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceReports"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required"
+          },
+          "500": {
+            "description": "Read failed; no fabricated zero counts"
+          },
+          "400": {
+            "description": "Invalid query"
+          },
+          "403": {
+            "description": "Current permissions required"
+          },
+          "404": {
+            "description": "No accessible record"
+          }
+        },
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/workspace/report-records": {
+      "get": {
+        "operationId": "workspaceReportSources",
+        "description": "Reapply the exact metric predicates, current tenant/object policies and original backlog age cutoff. ID keyset pagination and count share one read snapshot. No private communication. State/access changes after the report can change counts.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized workspace data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceReportSources"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required"
+          },
+          "500": {
+            "description": "Read failed; no fabricated zero counts"
+          },
+          "400": {
+            "description": "Invalid query"
+          },
+          "403": {
+            "description": "Current permissions required"
+          },
+          "404": {
+            "description": "No accessible record"
+          }
+        },
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "report",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active_state",
+                "active_group",
+                "backlog_age",
+                "sla_risk",
+                "planned_changes",
+                "closed_changes",
+                "problem_incidents"
+              ]
+            }
+          },
+          {
+            "name": "domain",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "incident",
+                "request",
+                "problem",
+                "change"
+              ]
+            }
+          },
+          {
+            "name": "bucket",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "problem_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/workspace/directory/{kind}/{recordID}": {
+      "get": {
+        "operationId": "workspaceDirectoryReference",
+        "description": "Minimal administrator directory preview. Users require admin.users.manage; groups require admin.rbac.manage. Tenant-scoped name and current activation only.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized workspace data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceDirectoryReference"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required"
+          },
+          "500": {
+            "description": "Read failed; no fabricated zero counts"
+          },
+          "400": {
+            "description": "Invalid query"
+          },
+          "403": {
+            "description": "Current permissions required"
+          },
+          "404": {
+            "description": "No accessible record"
+          }
+        },
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "users",
+                "groups"
+              ]
+            }
+          },
+          {
+            "name": "recordID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ]
       }
     }
   },
@@ -29946,7 +30449,8 @@
           "title",
           "state",
           "url",
-          "exact"
+          "exact",
+          "version"
         ],
         "properties": {
           "id": {
@@ -29958,7 +30462,15 @@
             "enum": [
               "incident",
               "request",
-              "fulfillment_task"
+              "fulfillment_task",
+              "problem",
+              "problem_task",
+              "change",
+              "change_task",
+              "ci",
+              "catalog_item",
+              "workflow_execution",
+              "requested_item"
             ]
           },
           "number": {
@@ -29975,8 +30487,16 @@
           },
           "exact": {
             "type": "boolean"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "class": {
+            "type": "string"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "WorkspaceSearch": {
         "type": "object",
@@ -29987,7 +30507,7 @@
         "properties": {
           "items": {
             "type": "array",
-            "maxItems": 30,
+            "maxItems": 110,
             "items": {
               "$ref": "#/components/schemas/WorkspaceReference"
             }
@@ -34191,6 +34711,284 @@
         "required": [
           "items"
         ]
+      },
+      "WorkspaceMetadataItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "record"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "record": {
+            "$ref": "#/components/schemas/WorkspaceReference"
+          }
+        }
+      },
+      "WorkspaceMetadata": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 150,
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceMetadataItem"
+            }
+          }
+        }
+      },
+      "WorkspaceContextSection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "label",
+          "definition",
+          "items",
+          "more_url",
+          "has_more"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "definition": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceReference"
+            }
+          },
+          "more_url": {
+            "type": "string"
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        }
+      },
+      "WorkspaceRecordContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "record",
+          "sections"
+        ],
+        "properties": {
+          "record": {
+            "$ref": "#/components/schemas/WorkspaceReference"
+          },
+          "sections": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceContextSection"
+            }
+          }
+        }
+      },
+      "WorkspaceReportPeriod": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from",
+          "to"
+        ],
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WorkspaceReportBucket": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "label",
+          "count",
+          "url"
+        ],
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "count": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "url": {
+            "type": "string"
+          },
+          "record": {
+            "$ref": "#/components/schemas/WorkspaceReference"
+          }
+        }
+      },
+      "WorkspaceReport": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "domain",
+          "label",
+          "definition",
+          "time_scope",
+          "eligible",
+          "total",
+          "items"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string",
+            "enum": [
+              "incident",
+              "request",
+              "problem",
+              "change"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "definition": {
+            "type": "string"
+          },
+          "time_scope": {
+            "type": "string",
+            "enum": [
+              "snapshot",
+              "range"
+            ]
+          },
+          "eligible": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceReportBucket"
+            }
+          }
+        }
+      },
+      "WorkspaceReports": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "period",
+          "calculated_at"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceReport"
+            }
+          },
+          "period": {
+            "$ref": "#/components/schemas/WorkspaceReportPeriod"
+          },
+          "calculated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WorkspaceReportSources": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "calculated_at"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceReference"
+            }
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "calculated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WorkspaceDirectoryReference": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "active",
+          "membership_active"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "users",
+              "groups"
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "membership_active": {
+            "type": "boolean"
+          }
+        }
       }
     },
     "responses": {

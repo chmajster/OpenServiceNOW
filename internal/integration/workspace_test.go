@@ -60,7 +60,7 @@ func TestWorkspaceCountsAndSearchScope(t *testing.T) {
 	out := events.NewRepository(db)
 	is := incidents.NewService(incidents.NewRepository(db), tx, workrecords.NewAllocator(tx), workrecords.NewService(workrecords.NewRepository(db), tx, out), ar, out, activity.NewRepository(db))
 	rs := requests.NewService(db, nil)
-	ws := workspace.Service{Incidents: is, Requests: rs, Workflow: workflow.NewService(db, rs)}
+	ws := workspace.Service{DB: db, Incidents: is, Requests: rs, Workflow: workflow.NewService(db, rs)}
 	a := incidents.Actor{TenantID: b.TenantID, UserID: b.UserID, Permissions: p.Permissions}
 	var first incidents.Record
 	for n := 0; n < 31; n++ {
@@ -213,6 +213,56 @@ func TestWorkspaceCountsAndSearchScope(t *testing.T) {
 	results, err = ws.Search(ctx, other, first.Number)
 	if err != nil || len(results) != 0 {
 		t.Fatalf("tenant scope: %+v %v", results, err)
+	}
+
+	period := workspace.ReportPeriod{From: time.Now().UTC().Add(-24 * time.Hour), To: time.Now().UTC().Add(24 * time.Hour)}
+	reports, err := ws.Reports(ctx, p, period)
+	if err != nil {
+		t.Fatal("reports", err)
+	}
+	found = false
+	for _, r := range reports.Items {
+		if r.Domain == "incident" && r.Key == "active_state" {
+			found = true
+			if r.Total != 31 || r.Eligible != 31 || len(r.Items) != 1 || r.Items[0].Count != 31 {
+				t.Fatal("report count", r)
+			}
+			source, err := ws.ReportSources(ctx, p, workspace.ReportSourceFilter{Report: r.Key, Domain: r.Domain, Bucket: r.Items[0].Value, Period: period, Limit: 25})
+			if err != nil || source.Total != 31 || len(source.Items) != 25 || source.Next == 0 {
+				t.Fatal("report source", source, err)
+			}
+			next, err := ws.ReportSources(ctx, p, workspace.ReportSourceFilter{Report: r.Key, Domain: r.Domain, Bucket: r.Items[0].Value, Period: period, Before: source.Next, Limit: 25})
+			if err != nil || len(next.Items) != 6 || next.Total != 31 {
+				t.Fatal("report next", next, err)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("missing incident report")
+	}
+	key := fmt.Sprintf("/incidents/%d", first.ID)
+	metadata, err := ws.Metadata(ctx, p, []string{key})
+	if err != nil || len(metadata.Items) != 1 || metadata.Items[0].Key != key || metadata.Items[0].Record.Title != first.Title {
+		t.Fatal("metadata", metadata, err)
+	}
+	if metadata, err = ws.Metadata(ctx, other, []string{key}); err != nil || len(metadata.Items) != 0 {
+		t.Fatal("foreign metadata", metadata, err)
+	}
+	if _, err = ws.Context(ctx, other, "incidents", first.ID); !errors.Is(err, workrecords.ErrNotFound) {
+		t.Fatal("foreign context", err)
+	}
+	contextRecord, err := ws.Context(ctx, p, "incidents", first.ID)
+	if err != nil || contextRecord.Record.ID != first.ID {
+		t.Fatal("context", contextRecord, err)
+	}
+	if reports, err = ws.Reports(ctx, other, period); err != nil {
+		t.Fatal(err)
+	} else {
+		for _, r := range reports.Items {
+			if r.Total != 0 {
+				t.Fatal("foreign count", r)
+			}
+		}
 	}
 	p.Permissions = map[string]bool{}
 	summary, err = ws.Summary(ctx, p)

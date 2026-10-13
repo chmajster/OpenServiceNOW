@@ -150,7 +150,7 @@ func (s *Service) listStats(ctx context.Context, tasks bool, where string, args 
 	if err != nil {
 		return 0, nil, err
 	}
-	rows, err := s.db.QueryContext(ctx, "SELECT COALESCE("+col+",''),COUNT(*)"+joins+where+" GROUP BY "+col+" ORDER BY "+col, args...)
+	rows, err := s.db.QueryContext(ctx, "SELECT COALESCE("+col+",''),COUNT(*)"+joins+where+" GROUP BY "+col+" ORDER BY "+col+" LIMIT 1001", args...)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -159,6 +159,9 @@ func (s *Service) listStats(ctx context.Context, tasks bool, where string, args 
 		var bucket GroupCount
 		if err = rows.Scan(&bucket.Value, &bucket.Count); err != nil {
 			return 0, nil, err
+		}
+		if len(groups) >= 1000 {
+			return 0, nil, fmt.Errorf("%w: zbyt wiele grup, zawęź filtr", ErrInvalid)
 		}
 		groups = append(groups, bucket)
 	}
