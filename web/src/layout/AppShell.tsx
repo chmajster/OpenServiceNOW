@@ -21,22 +21,6 @@ type NavItem = {
   anyPermissions?: string[];
 };
 const navigation: NavItem[] = [
-  {
-    to: "/reports",
-    label: "Raporty operacyjne",
-    section: "Praca",
-    anyPermissions: [
-      "incident.read",
-      "incident.read_own",
-      "request.read_own",
-      "request.fulfill",
-      "request.manage",
-      "problem.read",
-      "problem.read_own",
-      "change.read",
-      "change.read_own",
-    ],
-  },
   { to: "/", label: "Mój obszar pracy", section: "Praca" },
   {
     to: "/incidents",
@@ -103,6 +87,22 @@ const navigation: NavItem[] = [
     label: "Katalog usług",
     section: "Usługi",
     permission: "catalog.read",
+  },
+  {
+    to: "/reports",
+    label: "Raporty operacyjne",
+    section: "Raporty",
+    anyPermissions: [
+      "incident.read",
+      "incident.read_own",
+      "request.read_own",
+      "request.fulfill",
+      "request.manage",
+      "problem.read",
+      "problem.read_own",
+      "change.read",
+      "change.read_own",
+    ],
   },
   {
     to: "/workflow",
@@ -328,38 +328,42 @@ function ShellContents() {
           />
         </label>
         <nav className="navigation" aria-label="Główna nawigacja">
-          {["Praca", "Usługi", "Administracja", "Konto"].map((section) => {
-            const items = visible.filter(
-              (item) =>
-                item.section === section &&
-                item.label
-                  .toLocaleLowerCase("pl")
-                  .includes(navQuery.toLocaleLowerCase("pl")),
-            );
-            return items.length ? (
-              <div className="nav-section" key={section}>
-                <h2>{section}</h2>
-                {items.map((item) => (
-                  <Link
-                    key={item.to}
-                    onClick={() => {
-                      if (window.matchMedia("(max-width: 800px)").matches)
-                        setCollapsed(true);
-                    }}
-                    to={workspace.listURL(item.to)}
-                    aria-current={current?.to === item.to ? "page" : undefined}
-                    className={
-                      current?.to === item.to
-                        ? "nav-link nav-link--active"
-                        : "nav-link"
-                    }
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-              </div>
-            ) : null;
-          })}
+          {["Praca", "Usługi", "Raporty", "Administracja", "Konto"].map(
+            (section) => {
+              const items = visible.filter(
+                (item) =>
+                  item.section === section &&
+                  item.label
+                    .toLocaleLowerCase("pl")
+                    .includes(navQuery.toLocaleLowerCase("pl")),
+              );
+              return items.length ? (
+                <div className="nav-section" key={section}>
+                  <h2>{section}</h2>
+                  {items.map((item) => (
+                    <Link
+                      key={item.to}
+                      onClick={() => {
+                        if (window.matchMedia("(max-width: 800px)").matches)
+                          setCollapsed(true);
+                      }}
+                      to={workspace.listURL(item.to)}
+                      aria-current={
+                        current?.to === item.to ? "page" : undefined
+                      }
+                      className={
+                        current?.to === item.to
+                          ? "nav-link nav-link--active"
+                          : "nav-link"
+                      }
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+              ) : null;
+            },
+          )}
           {!visible.some((item) =>
             item.label
               .toLocaleLowerCase("pl")

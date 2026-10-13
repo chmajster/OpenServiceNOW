@@ -237,7 +237,6 @@ export function IncidentWorkspace({
             </Link>
           ))}
       </nav>
-      <IncidentSLA id={record.id} version={record.version} />
       <div hidden={activeTab !== "info"} className="panel">
         <h2>Informacje o incydencie</h2>
         <FieldSummary draft={draftOf(record)} metadata={metadata} />
@@ -358,6 +357,7 @@ export function IncidentWorkspace({
       {activeTab === "history" && (
         <HistoryPanel record={record} metadata={metadata} />
       )}
+      <IncidentSLA id={record.id} version={record.version} />
     </section>
   );
 }
@@ -402,6 +402,12 @@ function EditIncident({
           })
         }
       >
+        <button
+          className="button button--primary"
+          disabled={busy || !record.actions.edit || form.conflict !== undefined}
+        >
+          Zapisz dane incydentu
+        </button>
         <IncidentFields
           draft={form.draft}
           change={form.setDraft}
@@ -416,12 +422,6 @@ function EditIncident({
           )}
           proposal={<FieldSummary draft={form.draft} metadata={metadata} />}
         />
-        <button
-          className="button button--primary"
-          disabled={busy || !record.actions.edit || form.conflict !== undefined}
-        >
-          Zapisz dane incydentu
-        </button>
       </form>
     </>
   );

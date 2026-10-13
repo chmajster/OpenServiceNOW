@@ -151,6 +151,12 @@
   padding: 0.65rem 0.9rem;
   text-decoration: none;
 }
+.workspace-tab a {
+  max-width: 20rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .workspace-tab button {
   border: 0;
   background: transparent;
@@ -485,6 +491,16 @@
   }
 }
 @media (pointer: coarse) {
+  .operator-shell {
+    --work-control: 2.75rem;
+    --work-row: 2.75rem;
+  }
+  .operator-shell .checkbox-label {
+    min-height: var(--work-control);
+  }
+  .workspace-tab button {
+    min-width: var(--work-control);
+  }
   .operator-shell .button,
   .operator-shell input:not([type="checkbox"]),
   .operator-shell select,
@@ -494,6 +510,9 @@
   }
 }
 @media (max-width: 480px) {
+  .workspace-tab a {
+    max-width: 14rem;
+  }
   .operator-shell .detail-grid {
     grid-template-columns: 1fr;
   }
@@ -668,5 +687,28 @@
   .operator-shell .reference-choice-preview summary {
     display: flex;
     align-items: center;
+  }
+}
+
+.operator-shell .work-queues {
+  width: 100%;
+  table-layout: fixed;
+}
+.operator-shell .work-queues th:first-child {
+  width: 16rem;
+}
+.operator-shell .work-queues th:nth-child(2) {
+  width: 5rem;
+}
+.operator-shell .work-queues td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .operator-shell .work-queues th:first-child {
+    width: auto;
+  }
+  .operator-shell .work-queues th:nth-child(2) {
+    width: 5rem;
   }
 }
