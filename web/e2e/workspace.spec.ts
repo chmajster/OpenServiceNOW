@@ -55,6 +55,15 @@ test("operator workspace connects real queues, search, tabs and session context"
   await expect(
     page.getByRole("heading", { name: "Mój obszar pracy", exact: true }),
   ).toBeVisible();
+  if (info.project.name === "mobile-chromium") {
+    expect(
+      await page.evaluate(() => matchMedia("(pointer: coarse)").matches),
+    ).toBe(true);
+    const size = await page
+      .getByRole("searchbox", { name: "Wyszukaj rekordy" })
+      .boundingBox();
+    expect(size?.height).toBeGreaterThanOrEqual(44);
+  }
   const summary = await (
     await page.request.get("/api/v1/workspace/summary")
   ).json();

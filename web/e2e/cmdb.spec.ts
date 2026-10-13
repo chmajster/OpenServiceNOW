@@ -14,6 +14,7 @@ test("CMDB has typed classes, preserved drafts, directed dependencies and real i
   page,
 }, info) => {
   test.setTimeout(150000);
+  const captureFullPage = info.project.name !== "mobile-chromium";
   page.setDefaultTimeout(10000);
   expect(
     (
@@ -77,7 +78,8 @@ test("CMDB has typed classes, preserved drafts, directed dependencies and real i
   await expect(page).toHaveURL(/\/cmdb\/[0-9]+$/);
   await page.unroute("**/api/v1/cmdb/cis");
   const dbID = new URL(page.url()).pathname.split("/").at(-1)!;
-  if(process.env.E2E_ASSERT_BIGINT) expect(BigInt(dbID)).toBeGreaterThan(9007199254740991n);
+  if (process.env.E2E_ASSERT_BIGINT)
+    expect(BigInt(dbID)).toBeGreaterThan(9007199254740991n);
   const db = await (await page.request.get(`/api/v1/cmdb/cis/${dbID}`)).json();
   expect(db.attributes.port).toBe(5432);
   expect(db.support_group_id).toBe(groupID);
@@ -138,10 +140,13 @@ test("CMDB has typed classes, preserved drafts, directed dependencies and real i
           () => document.documentElement.scrollWidth <= window.innerWidth,
         ),
       ).toBe(true);
-      await page.evaluate(()=>{(document.activeElement as HTMLElement)?.blur();window.scrollTo(0,0)});
+      await page.evaluate(() => {
+        (document.activeElement as HTMLElement)?.blur();
+        window.scrollTo(0, 0);
+      });
       await page.screenshot({
         path: info.outputPath(`ci-form-${width}.png`),
-        fullPage: true,
+        fullPage: captureFullPage,
       });
     }
   } else {
@@ -150,10 +155,13 @@ test("CMDB has typed classes, preserved drafts, directed dependencies and real i
         () => document.documentElement.scrollWidth <= window.innerWidth,
       ),
     ).toBe(true);
-    await page.evaluate(()=>{(document.activeElement as HTMLElement)?.blur();window.scrollTo(0,0)});
-      await page.screenshot({
+    await page.evaluate(() => {
+      (document.activeElement as HTMLElement)?.blur();
+      window.scrollTo(0, 0);
+    });
+    await page.screenshot({
       path: info.outputPath("ci-form-mobile.png"),
-      fullPage: true,
+      fullPage: captureFullPage,
     });
   }
   await page.getByRole("tab", { name: "Szczegóły", exact: true }).focus();
@@ -241,10 +249,13 @@ test("CMDB has typed classes, preserved drafts, directed dependencies and real i
           () => document.documentElement.scrollWidth <= window.innerWidth,
         ),
       ).toBe(true);
-      await page.evaluate(()=>{(document.activeElement as HTMLElement)?.blur();window.scrollTo(0,0)});
+      await page.evaluate(() => {
+        (document.activeElement as HTMLElement)?.blur();
+        window.scrollTo(0, 0);
+      });
       await page.screenshot({
         path: info.outputPath(`ci-${width}.png`),
-        fullPage: true,
+        fullPage: captureFullPage,
       });
     }
   } else {
@@ -253,10 +264,13 @@ test("CMDB has typed classes, preserved drafts, directed dependencies and real i
         () => document.documentElement.scrollWidth <= window.innerWidth,
       ),
     ).toBe(true);
-    await page.evaluate(()=>{(document.activeElement as HTMLElement)?.blur();window.scrollTo(0,0)});
-      await page.screenshot({
+    await page.evaluate(() => {
+      (document.activeElement as HTMLElement)?.blur();
+      window.scrollTo(0, 0);
+    });
+    await page.screenshot({
       path: info.outputPath("ci-mobile.png"),
-      fullPage: true,
+      fullPage: captureFullPage,
     });
   }
   await page.goto(`/cmdb?q=${encodeURIComponent(suffix)}&limit=1`);

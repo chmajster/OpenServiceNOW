@@ -159,10 +159,14 @@ test("incident communication protects notes/files and supports watchers, relatio
     await expect(page.getByLabel("Treść notatki wewnętrznej")).toHaveValue(
       `TAJNA-NOTATKA-${scope}`,
     );
-    await page
+    const navigationLink = page
       .getByRole("navigation", { name: "Główna nawigacja" })
-      .getByRole("link", { name: "Incydenty", exact: true })
-      .click();
+      .getByRole("link", { name: "Incydenty", exact: true });
+    if (!(await navigationLink.isVisible()))
+      await page
+        .getByRole("button", { name: "Rozwiń nawigację", exact: true })
+        .click();
+    await navigationLink.click();
     await expect(page.getByRole("alertdialog")).toBeVisible();
     await page
       .getByRole("button", { name: "Pozostań na stronie" })

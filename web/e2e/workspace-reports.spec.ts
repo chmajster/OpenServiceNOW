@@ -19,6 +19,7 @@ test("authorized global references, task URLs, context and real report drilldown
   request,
 }, info) => {
   test.setTimeout(180000);
+  const captureFullPage = info.project.name !== "mobile-chromium";
   page.setDefaultTimeout(12000);
   const tenant = process.env.E2E_TENANT ?? "e2e",
     suffix = `${info.project.name}-${Date.now()}`,
@@ -275,7 +276,7 @@ test("authorized global references, task URLs, context and real report drilldown
       await p.setViewportSize({ width, height: 900 });
       await p.screenshot({
         path: info.outputPath(`reports-${width}.png`),
-        fullPage: true,
+        fullPage: captureFullPage,
       });
     }
   } else {
@@ -286,7 +287,7 @@ test("authorized global references, task URLs, context and real report drilldown
     ).toBe(true);
     await p.screenshot({
       path: info.outputPath("reports-mobile.png"),
-      fullPage: true,
+      fullPage: captureFullPage,
     });
   }
   await context.close();

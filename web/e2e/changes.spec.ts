@@ -171,7 +171,7 @@ test("Integrated ITSM workspace retains incident privacy through Problem, approv
         });
         await target.screenshot({
           path: info.outputPath(`${name}-${width}.png`),
-          fullPage: true,
+          fullPage: info.project.name !== "mobile-chromium",
         });
       }
       if (original) await target.setViewportSize(original);
@@ -572,7 +572,7 @@ test("Integrated ITSM workspace retains incident privacy through Problem, approv
     await screens(page, "calendar");
     await page.screenshot({
       path: info.outputPath("change-calendar.png"),
-      fullPage: true,
+      fullPage: info.project.name !== "mobile-chromium",
     });
     await p.getByRole("tab", { name: "Zadania", exact: true }).click();
     await p
@@ -664,7 +664,7 @@ test("Integrated ITSM workspace retains incident privacy through Problem, approv
     await expect(p.locator(".timeline")).toContainText("CLOSED");
     await p.screenshot({
       path: info.outputPath("change-history.png"),
-      fullPage: true,
+      fullPage: info.project.name !== "mobile-chromium",
     });
     await p.goto(`/problems/${problem.id}?tab=related`);
     await expect(
