@@ -582,8 +582,11 @@ on_exit() {
 
 main() {
   declare -ga INSTALLER_ARGS=("$@")
+  local lock_handoff=0
   parse_args "$@"
   if [[ "$ACTION" == help ]]; then usage; return; fi
+  if [[ "${OPENSNOW_INSTALLER_LOCK_HANDOFF:-}" == 1 ]]; then lock_handoff=1; fi
+  unset OPENSNOW_INSTALLER_LOCK_HANDOFF
   [[ "$(uname -s)" == Linux && -d /proc/self ]] || fail "Local runtime supports Linux and WSL. Run this script in your Linux/WSL shell."
   local command_name
   for command_name in flock env stat readlink awk sed sort; do require_command "$command_name" "Install standard Linux utilities (util-linux and coreutils)."; done
@@ -594,12 +597,20 @@ main() {
     # Inspect an uninstalled checkout without creating runtime state or binaries.
     if [[ -f "$RUN_DIR/installer.lock" ]]; then
       exec 9<"$RUN_DIR/installer.lock"
-      flock -n 9 || fail "Another installer command is running for this checkout. Wait for it to finish."
+      if (( lock_handoff )); then
+        flock -w 30 9 || fail "Cannot take over the bootstrap installer lock for this checkout."
+      else
+        flock -n 9 || fail "Another installer command is running for this checkout. Wait for it to finish."
+      fi
     fi
   else
     ensure_state_dirs
     exec 9>"$RUN_DIR/installer.lock"
-    flock -n 9 || fail "Another installer command is running for this checkout. Wait for it to finish."
+    if (( lock_handoff )); then
+      flock -w 30 9 || fail "Cannot take over the bootstrap installer lock for this checkout."
+    else
+      flock -n 9 || fail "Another installer command is running for this checkout. Wait for it to finish."
+    fi
   fi
   trap 'on_exit' EXIT
   trap 'printf "[FAIL] Command failed at install.sh line %s.\n" "$LINENO" >&2' ERR

@@ -11,6 +11,7 @@ BRANCH=${OPENSNOW_BRANCH:-$DEFAULT_BRANCH}
 OPERATOR_USER=''
 OPERATOR_UID=''
 OPERATOR_GROUP=''
+INSTALLER_PID=''
 declare -a INSTALLER_ARGS=()
 
 info() { printf '[INFO] %s\n' "$*"; }
@@ -87,6 +88,13 @@ prepare_install_directory() {
   fi
 }
 
+acquire_installer_lock() {
+  local run_dir="$INSTALL_DIR/.opensnow/run"
+  mkdir -p -- "$run_dir"
+  exec 8>"$run_dir/installer.lock"
+  flock -n 8 || fail "Another installer command is running for ${INSTALL_DIR}. Wait for it to finish."
+}
+
 ensure_clean_checkout() {
   local changes
   changes=$(git -C "$INSTALL_DIR" status --porcelain --untracked-files=all)
@@ -125,7 +133,13 @@ update_repository() {
 
 sync_repository() {
   prepare_install_directory
-  if [[ -e "$INSTALL_DIR/.git" ]]; then update_repository; else clone_repository; fi
+  if [[ -e "$INSTALL_DIR/.git" ]]; then
+    acquire_installer_lock
+    update_repository
+  else
+    clone_repository
+    acquire_installer_lock
+  fi
   [[ -f "$INSTALL_DIR/install.sh" && -f "$INSTALL_DIR/docker/local-runtime.sh" ]] ||
     fail "Downloaded checkout is incomplete: ${INSTALL_DIR}."
 }
@@ -144,13 +158,18 @@ main() {
   validate_context
   require_command dirname 'Install coreutils.'
   require_command find 'Install findutils.'
+  require_command flock 'Install util-linux.'
   require_command install 'Install coreutils.'
+  require_command mkdir 'Install coreutils.'
   require_command stat 'Install coreutils.'
   install_git
   sync_repository
   prepare_installer_args "$@"
   info "Running ${INSTALL_DIR}/install.sh ${INSTALLER_ARGS[*]}"
-  bash "$INSTALL_DIR/install.sh" "${INSTALLER_ARGS[@]}"
+  env OPENSNOW_INSTALLER_LOCK_HANDOFF=1 bash "$INSTALL_DIR/install.sh" "${INSTALLER_ARGS[@]}" 8>&- &
+  INSTALLER_PID=$!
+  exec 8>&-
+  wait "$INSTALLER_PID"
 }
 
 if [[ -z "${BASH_SOURCE[0]:-}" || "${BASH_SOURCE[0]:-}" == "$0" || "${BASH_SOURCE[0]:-}" == /dev/stdin || "${BASH_SOURCE[0]:-}" == /dev/fd/* ]]; then

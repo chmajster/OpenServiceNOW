@@ -17,6 +17,7 @@ git -C "$publisher" config user.name 'OpenServiceNOW installer test'
 git -C "$publisher" config user.email 'installer@example.test'
 cp "$repo_dir/install.sh" "$publisher/install.sh"
 cp "$repo_dir/docker/local-runtime.sh" "$publisher/docker/local-runtime.sh"
+cp "$repo_dir/.gitignore" "$publisher/.gitignore"
 printf 'initial\n' >"$publisher/release.txt"
 git -C "$publisher" add .
 git -C "$publisher" commit -m 'initial release' >/dev/null
@@ -33,6 +34,11 @@ OPERATOR_GROUP=$(id -gn)
 sync_repository
 [[ "$(cat "$INSTALL_DIR/release.txt")" == initial ]]
 [[ "$(git -C "$INSTALL_DIR" remote get-url origin)" == "$remote" ]]
+if flock -n "$INSTALL_DIR/.opensnow/run/installer.lock" -c true; then
+  echo 'Bootstrap did not retain the lifecycle lock after source synchronization' >&2
+  exit 1
+fi
+exec 8>&-
 
 printf 'updated\n' >"$publisher/release.txt"
 git -C "$publisher" add release.txt
@@ -40,6 +46,7 @@ git -C "$publisher" commit -m 'updated release' >/dev/null
 git -C "$publisher" push origin main >/dev/null
 sync_repository
 [[ "$(cat "$INSTALL_DIR/release.txt")" == updated ]]
+exec 8>&-
 
 printf 'local change\n' >>"$INSTALL_DIR/release.txt"
 if (sync_repository) >"$fixture/dirty.log" 2>&1; then
@@ -104,6 +111,8 @@ if env OPENSNOW_INSTALL_DIR="$piped_install" OPENSNOW_REPOSITORY_URL="$remote" O
 fi
 grep -q "Running ${piped_install}/install.sh --local --status" "$fixture/piped.log"
 grep -q 'worker: stopped' "$fixture/piped.log"
-[[ -e "$piped_install/.git" && ! -e "$piped_install/.opensnow" ]]
+[[ -e "$piped_install/.git" ]]
+[[ -f "$piped_install/.opensnow/run/installer.lock" ]]
+[[ ! -e "$piped_install/.env" && ! -e "$piped_install/bin" ]]
 
 printf '%s\n' 'Remote clone/update, source-integrity and installer-argument tests passed.'
