@@ -4,6 +4,12 @@ All notable repository changes are documented here.
 
 The project is pre-release and currently in architecture/foundation development.
 
+## 2026-10-22 — One-line installation and updates
+
+- Added an HTTPS bootstrap that clones the GitHub `main` branch into `/opt/OpenServiceNow` and delegates to the complete Docker installer.
+- Re-running the command safely fast-forwards a clean, expected checkout while preserving ignored configuration, credentials, attachments and database volumes; changed origins, local edits and divergent history are rejected.
+- Added real local Git clone/update and safety regression tests, shell validation and prominent README lifecycle instructions.
+
 ## 2026-10-12 — Administration usability
 
 - Split roles/groups into searchable tables and deep-linked details/tabs with explicit creation actions; moved readiness diagnostics into administration and added Polish navigation, breadcrumbs, focus states and responsive layouts.

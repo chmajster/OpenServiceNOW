@@ -2,6 +2,34 @@
 
 OpenServiceNOW is an enterprise ITSM / IT Operations platform implemented independently from ServiceNow code, branding, and UI.
 
+## One-line installation and updates
+
+On Ubuntu/Debian Linux or WSL, run the bootstrap as your ordinary user (do not prefix the pipeline with `sudo`):
+
+```bash
+curl --proto '=https' --tlsv1.2 --fail --silent --show-error --location https://raw.githubusercontent.com/chmajster/OpenServiceNOW/main/bootstrap.sh | bash
+```
+
+The bootstrap downloads the [`main` branch from GitHub](https://github.com/chmajster/OpenServiceNOW) into `/opt/OpenServiceNow`, installs Git when it is missing, and then runs the complete Docker installer. The installer installs or updates the local Docker Engine and Compose packages on supported Ubuntu/Debian systems, builds the entire application, applies database migrations, starts the API, WebUI, worker and scheduler, and verifies readiness. It requests `sudo` only when system package management or initial creation of `/opt/OpenServiceNow` requires it; application files and lifecycle commands remain owned by the ordinary user.
+
+Re-run the same one-liner to update. Updates accept only a clean `main` checkout with the expected GitHub origin and use a fast-forward merge, so local source edits or divergent commits are never overwritten. Existing `.env`, administrator accounts, attachments and database volumes are preserved. A fresh installation opens the first-run organization and administrator wizard at the WebUI address printed by the installer.
+
+Manage the installed application directly afterward:
+
+```bash
+cd /opt/OpenServiceNow
+bash ./install.sh --local-docker --status
+bash ./install.sh --local-docker --restart
+bash ./install.sh --local-docker --stop
+bash ./install.sh --local-docker --start
+```
+
+Docker Desktop, remote Docker contexts and non-apt operating systems must provide and update Docker separately. In that case append `--skip-docker-update` to the downloaded script invocation:
+
+```bash
+curl --proto '=https' --tlsv1.2 --fail --silent --show-error --location https://raw.githubusercontent.com/chmajster/OpenServiceNOW/main/bootstrap.sh | bash -s -- --skip-docker-update
+```
+
 ## Current state
 
 The administration foundation, shared work platform and core Incident Management process are implemented. Further business modules continue according to the roadmap; an internal library does not imply an available HTTP endpoint or UI screen.

@@ -62,6 +62,8 @@ Legend: `[ ]` not delivered, `[-]` in progress, `[x]` implemented and verified f
 
 [P2] [x] Strengthen native lifecycle verification and diagnostics in PR #14.
 
+[P2] [x] Add a one-line GitHub bootstrap for clean clone/fast-forward updates in `/opt/OpenServiceNow`, delegating system/runtime work to the verified Docker installer and refusing unsafe checkout replacement.
+
 Implemented and verified in the isolated native lifecycle suite:
 
 - read-only status without directory/lock creation; local process states still reported during Docker outage,

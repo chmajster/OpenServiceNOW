@@ -177,6 +177,14 @@ On 2026-10-12, the expanded native suite passed against executable revision `0a4
 
 `--status` reports worker/scheduler process liveness, not processing throughput or queue lag. API/schema/Redis readiness remains independent of those processes. Processing proof belongs to the isolated test; status never creates a job. Current-branch CI execution and final verification are recorded in PR #14.
 
+## One-line remote installer result
+
+[PR #25](https://github.com/chmajster/OpenServiceNOW/pull/25) adds an HTTPS bootstrap for fresh installation and subsequent updates from the expected GitHub `main` branch. It installs into `/opt/OpenServiceNow`, defaults to the complete containerized runtime, and delegates Docker package management, builds, migrations, startup rollback and readiness verification to the existing `--local-docker` lifecycle.
+
+The source synchronizer runs as the ordinary installation user, requests `sudo` only for missing apt packages and initial `/opt` directory creation, and accepts updates only when the target is a clean checkout on the expected branch and origin. It uses fetch plus an ancestor check and fast-forward merge; local edits, untracked source files, divergent commits, changed origins, non-empty foreign directories and symbolic-link targets are rejected without replacement. Ignored `.env`, runtime state, attachments and named volumes remain outside Git updates and are preserved by ordinary application updates.
+
+Local shell verification covers piped execution/help, real Git clone and fast-forward update, installation paths containing spaces, expected argument forwarding and all rejection cases above. The foundation workflow validates syntax and ShellCheck before running the bootstrap regression suite and the existing native/Docker lifecycle suites.
+
 ## Known problems
 
 The September GitHub runner-allocation failures and early formatting/reserved-identifier failures are historical, fixed issues. [foundation-ci #600](https://github.com/chmajster/OpenServiceNOW/actions/runs/38189545233) on `70c6a319a964d6f120449a981d52367e6e50fa35` completed successfully with all six jobs, including native and Docker lifecycle verification. They are not current blockers.
