@@ -15,6 +15,7 @@ import (
 
 	"github.com/chmajster/OpenServiceNOW/internal/activity"
 	"github.com/chmajster/OpenServiceNOW/internal/attachments"
+	"github.com/chmajster/OpenServiceNOW/internal/cmdb"
 	"github.com/chmajster/OpenServiceNOW/internal/events"
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
 	"github.com/chmajster/OpenServiceNOW/internal/incidents"
@@ -129,6 +130,21 @@ func main() {
 	if err := jobWorker.Register(attachments.CleanupJobType, attachments.CleanupHandler(storage, attachments.NewRepository(db))); err != nil {
 		logger.Error("register attachment cleanup", "error", err)
 		os.Exit(1)
+	}
+	files, err := attachments.NewEventingService(attachments.NewRepository(db), storage, attachments.MaxFileBytes, database.NewTxManager(db), eventRepo)
+	if err != nil {
+		logger.Error("inventory storage unavailable")
+		os.Exit(1)
+	}
+	if err := jobWorker.Register("cmdb.import", cmdb.NewService(db, files, nil).ImportHandler); err != nil {
+		logger.Error("register inventory import failed")
+		os.Exit(1)
+	}
+	for kind, label := range map[string]string{"ci.changed": "Zmieniono element konfiguracji", "asset.changed": "Zmieniono zasób majątkowy"} {
+		if err := dispatcher.Register(kind, projector.Handler(kind, label)); err != nil {
+			logger.Error("register inventory projection failed")
+			os.Exit(1)
+		}
 	}
 	if err := incidents.RegisterEventHandlers(dispatcher, incidents.NewRepository(db), projector); err != nil {
 		logger.Error("register incident activity handlers", "error", err)
