@@ -9,61 +9,280 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { NotificationBadge } from "../notifications/NotificationBadge";
 
+type NavIconName =
+  | "home"
+  | "check"
+  | "workflow"
+  | "grid"
+  | "clipboard"
+  | "inbox"
+  | "alert"
+  | "user"
+  | "bell"
+  | "clock"
+  | "send"
+  | "building"
+  | "users"
+  | "key"
+  | "list"
+  | "activity";
+
 type NavItem = {
   to: string;
   label: string;
+  icon: NavIconName;
   permission?: string;
   anyPermissions?: string[];
 };
 
-const navigation: NavItem[] = [
+type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
+
+const navigationGroups: NavGroup[] = [
   {
-    to: "/approvals",
-    label: "Moje akceptacje",
-    permission: "workflow.approve",
+    label: "Moja praca",
+    items: [
+      { to: "/", label: "Przegląd", icon: "home" },
+      {
+        to: "/approvals",
+        label: "Moje akceptacje",
+        icon: "check",
+        permission: "workflow.approve",
+      },
+      {
+        to: "/workflow",
+        label: "Procesy i akceptacje",
+        icon: "workflow",
+        anyPermissions: ["workflow.author", "workflow.publish", "workflow.manage"],
+      },
+      {
+        to: "/catalog",
+        label: "Katalog usług",
+        icon: "grid",
+        permission: "catalog.read",
+      },
+      {
+        to: "/requests",
+        label: "Moje wnioski",
+        icon: "clipboard",
+        anyPermissions: ["request.read_own", "request.fulfill", "request.manage"],
+      },
+      {
+        to: "/fulfillment",
+        label: "Kolejka realizacji",
+        icon: "inbox",
+        anyPermissions: ["request.fulfill", "request.manage"],
+      },
+      {
+        to: "/incidents",
+        label: "Incydenty",
+        icon: "alert",
+        anyPermissions: ["incident.read", "incident.read_own"],
+      },
+    ],
   },
   {
-    to: "/workflow",
-    label: "Procesy i akceptacje",
-    anyPermissions: ["workflow.author", "workflow.publish", "workflow.manage"],
-  },
-  { to: "/catalog", label: "Katalog usług", permission: "catalog.read" },
-  {
-    to: "/requests",
-    label: "Moje wnioski",
-    anyPermissions: ["request.read_own", "request.fulfill", "request.manage"],
+    label: "Konto",
+    items: [
+      { to: "/account", label: "Moje konto", icon: "user" },
+      { to: "/notifications", label: "Powiadomienia", icon: "bell" },
+    ],
   },
   {
-    to: "/fulfillment",
-    label: "Kolejka realizacji",
-    anyPermissions: ["request.fulfill", "request.manage"],
+    label: "Administracja",
+    items: [
+      {
+        to: "/catalog-admin",
+        label: "Administracja katalogiem",
+        icon: "grid",
+        permission: "admin.catalog.manage",
+      },
+      {
+        to: "/sla",
+        label: "SLA i kalendarze",
+        icon: "clock",
+        permission: "admin.sla.manage",
+      },
+      {
+        to: "/notification-admin",
+        label: "Dostarczanie powiadomień",
+        icon: "send",
+        permission: "admin.notifications.manage",
+      },
+      {
+        to: "/tenant",
+        label: "Organizacja",
+        icon: "building",
+        permission: "tenant.read",
+      },
+      {
+        to: "/users",
+        label: "Użytkownicy",
+        icon: "users",
+        permission: "admin.users.manage",
+      },
+      {
+        to: "/rbac?kind=roles",
+        label: "Role",
+        icon: "key",
+        permission: "admin.rbac.manage",
+      },
+      {
+        to: "/rbac?kind=groups",
+        label: "Grupy",
+        icon: "users",
+        permission: "admin.rbac.manage",
+      },
+      {
+        to: "/audit",
+        label: "Audyt",
+        icon: "list",
+        permission: "admin.audit.read",
+      },
+      {
+        to: "/diagnostics",
+        label: "Diagnostyka",
+        icon: "activity",
+        permission: "admin.rbac.manage",
+      },
+    ],
   },
-  {
-    to: "/catalog-admin",
-    label: "Administracja katalogiem",
-    permission: "admin.catalog.manage",
-  },
-  {
-    to: "/incidents",
-    label: "Incydenty",
-    anyPermissions: ["incident.read", "incident.read_own"],
-  },
-  { to: "/account", label: "Moje konto" },
-  { to: "/notifications", label: "Powiadomienia" },
-  { to: "/sla", label: "SLA i kalendarze", permission: "admin.sla.manage" },
-  {
-    to: "/notification-admin",
-    label: "Dostarczanie powiadomień",
-    permission: "admin.notifications.manage",
-  },
-  { to: "/", label: "Przegląd" },
-  { to: "/tenant", label: "Organizacja", permission: "tenant.read" },
-  { to: "/users", label: "Użytkownicy", permission: "admin.users.manage" },
-  { to: "/rbac?kind=roles", label: "Role", permission: "admin.rbac.manage" },
-  { to: "/rbac?kind=groups", label: "Grupy", permission: "admin.rbac.manage" },
-  { to: "/audit", label: "Audyt", permission: "admin.audit.read" },
-  { to: "/diagnostics", label: "Diagnostyka", permission: "admin.rbac.manage" },
 ];
+
+const navigation = navigationGroups.flatMap((group) => group.items);
+
+function NavIcon({ name }: { name: NavIconName }) {
+  const common = {
+    "aria-hidden": true as const,
+    focusable: false as const,
+    fill: "none",
+    stroke: "currentColor",
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    strokeWidth: 1.7,
+    viewBox: "0 0 24 24",
+  };
+
+  switch (name) {
+    case "home":
+      return (
+        <svg {...common}>
+          <path d="m3 10 9-7 9 7" />
+          <path d="M5.5 9.5V21h13V9.5M9 21v-7h6v7" />
+        </svg>
+      );
+    case "check":
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="9" />
+          <path d="m8.5 12.3 2.2 2.2 4.8-5" />
+        </svg>
+      );
+    case "workflow":
+      return (
+        <svg {...common}>
+          <rect x="3" y="4" width="8" height="6" rx="1" />
+          <rect x="13" y="14" width="8" height="6" rx="1" />
+          <path d="M11 7h2a2 2 0 0 1 2 2v5" />
+        </svg>
+      );
+    case "grid":
+      return (
+        <svg {...common}>
+          <rect x="3.5" y="3.5" width="7" height="7" rx="1" />
+          <rect x="13.5" y="3.5" width="7" height="7" rx="1" />
+          <rect x="3.5" y="13.5" width="7" height="7" rx="1" />
+          <rect x="13.5" y="13.5" width="7" height="7" rx="1" />
+        </svg>
+      );
+    case "clipboard":
+      return (
+        <svg {...common}>
+          <rect x="5" y="4.5" width="14" height="17" rx="1.5" />
+          <path d="M9 4.5V3h6v1.5M8.5 10h7M8.5 14h7M8.5 18h4.5" />
+        </svg>
+      );
+    case "inbox":
+      return (
+        <svg {...common}>
+          <path d="M4 4h16v13h-4l-2 3h-4l-2-3H4z" />
+          <path d="M4 13h4l1.5 2h5L16 13h4" />
+        </svg>
+      );
+    case "alert":
+      return (
+        <svg {...common}>
+          <path d="m12 3 9 17H3z" />
+          <path d="M12 9v5M12 17.5h.01" />
+        </svg>
+      );
+    case "user":
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="8" r="3.5" />
+          <path d="M4.5 21a7.5 7.5 0 0 1 15 0" />
+        </svg>
+      );
+    case "bell":
+      return (
+        <svg {...common}>
+          <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />
+        </svg>
+      );
+    case "clock":
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7v5l3.5 2" />
+        </svg>
+      );
+    case "send":
+      return (
+        <svg {...common}>
+          <path d="m21 3-7.5 18-3.8-7.7L2 9.5z" />
+          <path d="M9.7 13.3 21 3" />
+        </svg>
+      );
+    case "building":
+      return (
+        <svg {...common}>
+          <path d="M4 21V5l8-2v18M12 9h8v12M2 21h20" />
+          <path d="M7 7h2M7 11h2M7 15h2M15 12h2M15 16h2" />
+        </svg>
+      );
+    case "users":
+      return (
+        <svg {...common}>
+          <circle cx="9" cy="8" r="3" />
+          <path d="M3 20a6 6 0 0 1 12 0M16 5.5a3 3 0 0 1 0 5.8M17 14a5 5 0 0 1 4 5" />
+        </svg>
+      );
+    case "key":
+      return (
+        <svg {...common}>
+          <circle cx="8" cy="15" r="5" />
+          <path d="m11.5 11.5 9-9M16 7l2 2M13 10l2 2" />
+        </svg>
+      );
+    case "list":
+      return (
+        <svg {...common}>
+          <path d="M9 6h11M9 12h11M9 18h11" />
+          <circle cx="4.5" cy="6" r=".7" />
+          <circle cx="4.5" cy="12" r=".7" />
+          <circle cx="4.5" cy="18" r=".7" />
+        </svg>
+      );
+    case "activity":
+      return (
+        <svg {...common}>
+          <path d="M3 12h4l2.2-7 4.6 14 2.2-7H21" />
+        </svg>
+      );
+  }
+}
 
 export function AppShell() {
   const { session, status, hasPermission, logout } = useAuth();
@@ -72,6 +291,11 @@ export function AppShell() {
   const [params] = useSearchParams();
   const objectID = params.get("id");
   const kind = params.get("kind") === "groups" ? "groups" : "roles";
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [navigationFilter, setNavigationFilter] = useState("");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
   useEffect(() => {
     const heading = document.querySelector<HTMLElement>(
       ".workspace-content h1",
@@ -79,28 +303,47 @@ export function AppShell() {
     heading?.setAttribute("tabindex", "-1");
     heading?.focus();
   }, [location.pathname, objectID, kind]);
-  const current = navigation.find(
-    (item) =>
-      (item.to.split("?")[0] === location.pathname ||
-        ([
-          "/incidents",
-          "/catalog",
-          "/requests",
-          "/fulfillment",
-          "/approvals",
-        ].includes(item.to) &&
-          location.pathname.startsWith(`${item.to}/`))) &&
-      (!item.to.includes("kind=") || item.to.endsWith(kind)),
-  );
-  const [loggingOut, setLoggingOut] = useState(false);
-  const [logoutError, setLogoutError] = useState<string | null>(null);
 
-  const visibleNavigation = navigation.filter((item) =>
-    session?.password_change_required
-      ? item.to === "/account"
-      : (!item.permission || hasPermission(item.permission)) &&
-        (!item.anyPermissions || item.anyPermissions.some(hasPermission)),
-  );
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileNavOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, []);
+
+  const current = navigation.find((item) => {
+    const path = item.to.split("?")[0] ?? item.to;
+    const nestedRoute = [
+      "/incidents",
+      "/catalog",
+      "/requests",
+      "/fulfillment",
+      "/approvals",
+    ].includes(path);
+    const matchesPath =
+      path === location.pathname ||
+      (nestedRoute && location.pathname.startsWith(path + "/"));
+    return matchesPath && (!item.to.includes("kind=") || item.to.endsWith(kind));
+  });
+
+  const query = navigationFilter.trim().toLocaleLowerCase("pl-PL");
+  const visibleGroups = navigationGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => {
+        const permitted = session?.password_change_required
+          ? item.to === "/account"
+          : (!item.permission || hasPermission(item.permission)) &&
+            (!item.anyPermissions || item.anyPermissions.some(hasPermission));
+        return permitted && item.label.toLocaleLowerCase("pl-PL").includes(query);
+      }),
+    }))
+    .filter((group) => group.items.length > 0);
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -110,94 +353,182 @@ export function AppShell() {
       navigate("/login", { replace: true });
     } catch (cause) {
       setLogoutError(
-        cause instanceof Error
-          ? cause.message
-          : "Wylogowanie nie powiodło się.",
+        cause instanceof Error ? cause.message : "Wylogowanie nie powiodło się.",
       );
     } finally {
       setLoggingOut(false);
     }
   }
 
+  const displayName = session?.user.display_name ?? "Użytkownik";
+  const initials = displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toLocaleUpperCase("pl-PL");
+
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">
         Przejdź do treści
       </a>
-      <aside className="sidebar">
-        <div className="brand">
-          <span className="brand-mark">OS</span>
-          <div>
-            <strong>OpenServiceNOW</strong>
-            <small>IT Service Platform</small>
+
+      <header className="topbar">
+        <div className="topbar-brand">
+          <button
+            className="mobile-menu-button"
+            type="button"
+            aria-label={mobileNavOpen ? "Zamknij nawigację" : "Otwórz nawigację"}
+            aria-expanded={mobileNavOpen}
+            aria-controls="app-navigation"
+            onClick={() => setMobileNavOpen((open) => !open)}
+          >
+            <svg
+              aria-hidden="true"
+              focusable="false"
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+            >
+              {mobileNavOpen ? (
+                <path d="m6 6 12 12M18 6 6 18" />
+              ) : (
+                <path d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
+          </button>
+
+          <div className="brand">
+            <span className="brand-mark">OS</span>
+            <span className="brand-copy">
+              <strong>OpenServiceNOW</strong>
+              <small>IT Service Platform</small>
+            </span>
           </div>
+          <span className="topbar-divider" aria-hidden="true" />
+          <span className="topbar-product">Service Management</span>
         </div>
 
-        <nav className="navigation" aria-label="Główna nawigacja">
-          {visibleNavigation.map((item) => (
+        <div className="topbar-actions">
+          {session ? (
+            <div className="tenant-context">
+              <strong>{session.tenant.name}</strong>
+              <span>{session.tenant.slug}</span>
+            </div>
+          ) : null}
+          {status === "authenticated" &&
+          session &&
+          !session.password_change_required ? (
+            <NotificationBadge />
+          ) : null}
+          {session ? (
             <Link
-              key={item.to}
-              to={item.to}
-              aria-current={current?.to === item.to ? "page" : undefined}
-              className={
-                current?.to === item.to
-                  ? "nav-link nav-link--active"
-                  : "nav-link"
-              }
+              className="topbar-user"
+              to="/account"
+              aria-label={"Konto: " + displayName}
             >
-              {item.label}
+              <span className="user-avatar" aria-hidden="true">
+                {initials || "OS"}
+              </span>
+              <span className="topbar-user-copy">
+                <strong>{displayName}</strong>
+                <small>Konto</small>
+              </span>
             </Link>
-          ))}
-        </nav>
-
-        <div className="sidebar-session">
-          <span>{session?.tenant.name}</span>
-          <strong>{session?.user.display_name}</strong>
-          <small>{session?.user.email}</small>
+          ) : null}
           {logoutError ? (
-            <small className="sidebar-error" role="alert">
+            <span className="topbar-error" role="alert">
               {logoutError}
-            </small>
+            </span>
           ) : null}
           <button
-            className="button button--ghost"
+            className="button button--small button--topbar topbar-logout"
             onClick={() => void handleLogout()}
             disabled={loggingOut}
           >
             {loggingOut ? "Wylogowywanie…" : "Wyloguj"}
           </button>
         </div>
+      </header>
+
+      {mobileNavOpen ? (
+        <button
+          className="sidebar-backdrop"
+          type="button"
+          tabIndex={-1}
+          aria-label="Zamknij nawigację"
+          onClick={() => setMobileNavOpen(false)}
+        />
+      ) : null}
+
+      <aside
+        className={"sidebar" + (mobileNavOpen ? " sidebar--open" : "")}
+        id="app-navigation"
+        aria-label="Nawigacja aplikacji"
+      >
+        <div className="sidebar-app-title">Service Management</div>
+        <label className="navigation-search">
+          <span className="sr-only">Filtruj nawigację</span>
+          <svg
+            aria-hidden="true"
+            focusable="false"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.8"
+            viewBox="0 0 24 24"
+          >
+            <circle cx="10.8" cy="10.8" r="6.8" />
+            <path d="m16 16 5 5" />
+          </svg>
+          <input
+            type="search"
+            value={navigationFilter}
+            onChange={(event) => setNavigationFilter(event.target.value)}
+            placeholder="Filtruj nawigator"
+            autoComplete="off"
+          />
+        </label>
+
+        <nav
+          className="navigation"
+          id="navigation-links"
+          aria-label="Główna nawigacja"
+        >
+          {visibleGroups.map((group) => (
+            <section className="navigation-group" key={group.label}>
+              <h2 className="navigation-group-title">{group.label}</h2>
+              {group.items.map((item) => {
+                const active = current?.to === item.to;
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    aria-current={active ? "page" : undefined}
+                    className={active ? "nav-link nav-link--active" : "nav-link"}
+                    onClick={() => setMobileNavOpen(false)}
+                  >
+                    <NavIcon name={item.icon} />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </section>
+          ))}
+          {visibleGroups.length === 0 ? (
+            <p className="nav-empty" role="status">
+              Nie znaleziono modułów.
+            </p>
+          ) : null}
+        </nav>
       </aside>
 
       <main className="workspace" id="main-content" tabIndex={-1}>
-        <header className="topbar">
-          <div>
-            <strong>{session?.tenant.name}</strong>
-            <span className="muted"> / {session?.tenant.slug}</span>
-          </div>
-          <div className="topbar-actions">
-            {status === "authenticated" &&
-            session &&
-            !session.password_change_required ? (
-              <NotificationBadge />
-            ) : null}
-            {status === "authenticated" && session ? (
-              <span className="status-pill">Zalogowano</span>
-            ) : null}
-            {logoutError ? (
-              <span className="topbar-error" role="alert">
-                {logoutError}
-              </span>
-            ) : null}
-            <button
-              className="button button--small button--secondary topbar-logout"
-              onClick={() => void handleLogout()}
-              disabled={loggingOut}
-            >
-              {loggingOut ? "Wylogowywanie…" : "Wyloguj"}
-            </button>
-          </div>
-        </header>
         <div className="workspace-content">
           <nav className="breadcrumbs" aria-label="Ścieżka nawigacji">
             <Link to={session?.password_change_required ? "/account" : "/"}>
@@ -207,7 +538,7 @@ export function AppShell() {
               ["/incidents", "/catalog", "/requests", "/fulfillment"].some(
                 (root) =>
                   location.pathname === root ||
-                  location.pathname.startsWith(`${root}/`),
+                  location.pathname.startsWith(root + "/"),
               ) ? (
                 <>
                   <span aria-hidden="true">/</span>
@@ -220,7 +551,7 @@ export function AppShell() {
                       <span aria-current="page">
                         {location.pathname.endsWith("/new")
                           ? "Nowy incydent"
-                          : `#${location.pathname.split("/")[2]}`}
+                          : "#" + location.pathname.split("/")[2]}
                       </span>
                     </>
                   )}
@@ -232,7 +563,10 @@ export function AppShell() {
                     {location.pathname === "/account" ||
                     location.pathname === "/notifications"
                       ? "Konto"
-                      : "Administracja"}
+                      : location.pathname === "/workflow" ||
+                          location.pathname === "/approvals"
+                        ? "Moja praca"
+                        : "Administracja"}
                   </span>
                   <span aria-hidden="true">/</span>
                   {objectID ? (
@@ -242,8 +576,8 @@ export function AppShell() {
                           location.pathname === "/catalog-admin"
                             ? "/catalog-admin"
                             : location.pathname === "/sla"
-                              ? `/sla?kind=${params.get("kind") ?? "policy"}`
-                              : `/rbac?kind=${kind}`
+                              ? "/sla?kind=" + (params.get("kind") ?? "policy")
+                              : "/rbac?kind=" + kind
                         }
                       >
                         {current?.label}
@@ -253,7 +587,7 @@ export function AppShell() {
                         {params.get("create") === "1" ||
                         (location.pathname === "/sla" && objectID === "new")
                           ? "Tworzenie"
-                          : `#${objectID}`}
+                          : "#" + objectID}
                       </span>
                     </>
                   ) : (

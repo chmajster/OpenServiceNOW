@@ -38,10 +38,12 @@ export function CommunicationPanel({
   record,
   retain,
   apiBase,
+  heading = "Komunikacja i pliki",
 }: {
   record: { id: string };
   retain: (tab: string, needed: boolean) => void;
   apiBase?: string;
+  heading?: string;
 }) {
   const base = apiBase ?? `/api/v1/incidents/${record.id}`;
   const access = useIncidentQuery<Access>(`${base}/communication-access`);
@@ -239,7 +241,7 @@ export function CommunicationPanel({
   }
   return (
     <>
-      <h2>Komunikacja i pliki</h2>
+      <h2>{heading}</h2>
       {access.loading ? (
         <PageState title="Sprawdzanie dostępu…" />
       ) : access.error ? (

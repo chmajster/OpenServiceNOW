@@ -36,12 +36,32 @@ export function NotificationBadge() {
       window.removeEventListener("notifications-changed", load);
     };
   }, [key]);
+  const unread = count?.key === key ? count.value : undefined;
   return (
     <Link
-      className="button button--small button--secondary"
+      className="button button--small button--secondary topbar-notifications"
       to="/notifications"
+      aria-label={
+        unread
+          ? "Powiadomienia. Nieprzeczytane: " + unread
+          : "Powiadomienia"
+      }
     >
-      Powiadomienia{count?.key === key ? ` (${count.value})` : ""}
+      <svg
+        aria-hidden="true"
+        focusable="false"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+        viewBox="0 0 24 24"
+      >
+        <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />
+      </svg>
+      <span className="notification-label">
+        Powiadomienia{unread ? ` (${unread})` : ""}
+      </span>
     </Link>
   );
 }
