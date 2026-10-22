@@ -69,7 +69,7 @@ test("Knowledge Center supports the ServiceNow-style article lifecycle", async (
   await page.getByRole("button", { name: "Szukaj", exact: true }).click();
   await expect(page.getByRole("link", { name: new RegExp(title) })).toBeVisible();
 
-  await page.getByRole("link", { name: "Wszystkie bazy", exact: true }).click();
+  await page.locator(".knowledge-module-home").click();
   const secondKey = `X${Date.now().toString().slice(-10)}`;
   const secondName = `Aplikacje ${info.project.name} ${secondKey}`;
   await page.getByRole("button", { name: "Nowa baza wiedzy", exact: true }).click();
@@ -85,7 +85,7 @@ test("Knowledge Center supports the ServiceNow-style article lifecycle", async (
   await page.getByRole("combobox", { name: "Stan", exact: true }).selectOption("PUBLISHED");
   await page.getByRole("button", { name: "Zapisz artykuł", exact: true }).click();
   await expect(page.getByRole("heading", { name: crossBaseTitle, exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "Wszystkie bazy", exact: true }).click();
+  await page.locator(".knowledge-module-home").click();
   await page.getByLabel("Wyszukaj artykuły we wszystkich bazach", { exact: true }).fill("vpn-cross-base-search-proof");
   await page.getByRole("button", { name: "Szukaj", exact: true }).click();
   const crossBaseResult = page.getByRole("link", { name: new RegExp(`${secondName}.*${crossBaseTitle}`) });
