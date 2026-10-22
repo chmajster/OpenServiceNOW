@@ -54,6 +54,35 @@ func TestNormalizePageAndReviewDefaults(t *testing.T) {
 	}
 }
 
+func TestNormalizePageRejectsReviewDatesOutsideMySQLRange(t *testing.T) {
+	valid := []time.Time{
+		time.Date(1000, time.January, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(9999, time.December, 31, 23, 59, 59, 999999000, time.UTC),
+		time.Date(9999, time.December, 31, 23, 59, 59, 999999999, time.UTC),
+	}
+	for _, value := range valid {
+		input, err := normalizePage(PageInput{Title: "x", Body: "x", Status: PagePublished, ReviewDueAt: &value}, true)
+		if err != nil {
+			t.Errorf("valid MySQL DATETIME rejected (%s): %v", value.Format(time.RFC3339Nano), err)
+		}
+		if input.ReviewDueAt == nil || input.ReviewDueAt.Nanosecond()%1000 != 0 {
+			t.Errorf("review date was not normalized to MySQL microsecond precision: %#v", input.ReviewDueAt)
+		}
+	}
+	invalid := []time.Time{
+		time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(999, time.December, 31, 23, 59, 59, 0, time.UTC),
+		time.Date(10000, time.January, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(1000, time.January, 1, 0, 0, 0, 0, time.FixedZone("east", 14*60*60)),
+		time.Date(9999, time.December, 31, 23, 59, 59, 0, time.FixedZone("west", -14*60*60)),
+	}
+	for _, value := range invalid {
+		if _, err := normalizePage(PageInput{Title: "x", Body: "x", Status: PagePublished, ReviewDueAt: &value}, true); err == nil {
+			t.Errorf("review date outside the UTC MySQL range was accepted: %s", value.Format(time.RFC3339Nano))
+		}
+	}
+}
+
 func TestPermissionHierarchy(t *testing.T) {
 	read := Actor{Permissions: map[string]bool{PermissionRead: true}}
 	write := Actor{Permissions: map[string]bool{PermissionWrite: true}}

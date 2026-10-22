@@ -306,6 +306,10 @@ func TestKnowledgeSpacesEndToEnd(t *testing.T) {
 	if response := request(adminLogin, http.MethodGet, fmt.Sprintf("/api/v1/knowledge/spaces/%d/pages?status=UNKNOWN", space.ID), "", false); response.Code != http.StatusBadRequest {
 		t.Fatalf("unsupported article state was not rejected: %d %s", response.Code, response.Body.String())
 	}
+	invalidReviewDate := `{"title":"Nieprawidłowa data","body":"x","status":"PUBLISHED","review_due_at":"0001-01-01T00:00:00Z"}`
+	if response := request(adminLogin, http.MethodPost, fmt.Sprintf("/api/v1/knowledge/spaces/%d/pages", space.ID), invalidReviewDate, true); response.Code != http.StatusBadRequest {
+		t.Fatalf("review date outside MySQL range did not return 400: %d %s", response.Code, response.Body.String())
+	}
 	createBody := `{"key":"HTTP","name":"HTTP","description":"","status":"ACTIVE","review_interval_days":30}`
 	if response := request(adminLogin, http.MethodPost, "/api/v1/knowledge/spaces", createBody, false); response.Code != http.StatusForbidden {
 		t.Fatalf("missing CSRF accepted: %d %s", response.Code, response.Body.String())

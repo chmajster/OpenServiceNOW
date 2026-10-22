@@ -12754,7 +12754,7 @@
           "title": {"type": "string", "minLength": 1, "maxLength": 200},
           "body": {"type": "string", "description": "Maximum 262144 UTF-8 bytes.", "x-maxBytes": 262144},
           "status": {"type": "string", "enum": ["DRAFT", "PUBLISHED", "RETIRED"]},
-          "review_due_at": {"type": "string", "format": "date-time"}
+          "review_due_at": {"type": "string", "format": "date-time", "description": "Optional RFC 3339 validity date, normalized to UTC and microsecond precision; the resulting year must be 1000 through 9999 to match MySQL DATETIME(6)."}
         },
         "required": ["title", "body", "status"],
         "additionalProperties": false
@@ -12765,7 +12765,7 @@
           "title": {"type": "string", "minLength": 1, "maxLength": 200},
           "body": {"type": "string", "description": "Maximum 262144 UTF-8 bytes.", "x-maxBytes": 262144},
           "status": {"type": "string", "enum": ["DRAFT", "PUBLISHED", "RETIRED"]},
-          "review_due_at": {"type": "string", "format": "date-time"},
+          "review_due_at": {"type": "string", "format": "date-time", "description": "Optional RFC 3339 validity date, normalized to UTC and microsecond precision; the resulting year must be 1000 through 9999 to match MySQL DATETIME(6)."},
           "version": {"type": "string", "pattern": "^[1-9][0-9]*$"}
         },
         "required": ["title", "body", "status", "version"],

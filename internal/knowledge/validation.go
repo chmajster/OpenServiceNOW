@@ -36,7 +36,10 @@ func normalizePage(input PageInput, creating bool) (PageInput, error) {
 		return input, ErrInvalid
 	}
 	if input.ReviewDueAt != nil {
-		value := input.ReviewDueAt.UTC()
+		value := input.ReviewDueAt.UTC().Truncate(time.Microsecond)
+		if value.Year() < 1000 || value.Year() > 9999 {
+			return input, ErrInvalid
+		}
 		input.ReviewDueAt = &value
 	}
 	return input, nil
