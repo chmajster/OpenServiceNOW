@@ -1049,8 +1049,8 @@ tbody tr:last-child td {
 .knowledge-hero .eyebrow { color: #9be68d; }
 .knowledge-hero h1 { margin: .15rem 0 .5rem; font-size: clamp(2rem, 4vw, 3.2rem); }
 .knowledge-hero > p:not(.eyebrow) { margin: 0; color: #d9e8e7; }
-.knowledge-hero-search { display: grid; grid-template-columns: minmax(10rem, .45fr) minmax(14rem, 1fr) auto; gap: .6rem; margin-top: 1.5rem; }
-.knowledge-hero-search select, .knowledge-hero-search input { min-height: 3rem; border: 1px solid #a9c8c7; background: #fff; }
+.knowledge-hero-search { display: grid; grid-template-columns: minmax(14rem, 1fr) auto; gap: .6rem; margin-top: 1.5rem; }
+.knowledge-hero-search input { min-height: 3rem; border: 1px solid #a9c8c7; background: #fff; }
 .knowledge-home-summary { display: flex; justify-content: center; gap: 0; border-bottom: 1px solid var(--border); padding-bottom: 1.25rem; }
 .knowledge-home-summary div { display: grid; min-width: 11rem; justify-items: center; border-right: 1px solid var(--border); padding: .35rem 2rem; }
 .knowledge-home-summary div:last-child { border-right: 0; }
@@ -1105,6 +1105,7 @@ tbody tr:last-child td {
 .knowledge-search-results h3 { margin: .15rem 0; }
 .knowledge-search-results p { margin: 0; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
 .knowledge-search-results small, .knowledge-article-number { color: #166a67; font-weight: 800; letter-spacing: .025em; }
+.knowledge-pagination { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding-top: 1rem; color: var(--muted); }
 .knowledge-breadcrumbs { display: flex; flex-wrap: wrap; gap: .4rem; color: var(--muted); font-size: .82rem; }
 .knowledge-breadcrumbs a { color: #126d78; text-decoration: none; }
 .knowledge-article { display: grid; gap: 1.5rem; }
@@ -1154,4 +1155,5 @@ tbody tr:last-child td {
   .knowledge-table td { display: grid; grid-template-columns: 8rem 1fr; gap: .5rem; border-top: 0; padding: .38rem .5rem; }
   .knowledge-table td::before { content: attr(data-label); color: var(--muted); font-size: .75rem; font-weight: 750; text-transform: uppercase; }
   .knowledge-search-results > a { flex-direction: column; }
+  .knowledge-pagination { flex-direction: column; align-items: stretch; }
 }

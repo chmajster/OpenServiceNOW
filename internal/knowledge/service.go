@@ -460,21 +460,25 @@ func (s *Service) pageSummaries(ctx context.Context, actor Actor, spaceID uint64
 	if !canRead(actor) {
 		return page, ErrForbidden
 	}
-	if spaceID == 0 || limit < 1 || limit > 100 {
+	if limit < 1 || limit > 100 || (spaceID == 0 && (query == "" || attention)) {
 		return page, ErrInvalid
 	}
 	includeDrafts := canWrite(actor)
 	includeArchived := actor.Has(PermissionManage)
 	statement := `
-		SELECT p.id,p.space_id,p.title,p.status,p.review_due_at,p.version,
+		SELECT p.id,p.space_id,s.name,p.title,p.status,p.review_due_at,p.version,
 		       p.updated_by,COALESCE(u.display_name,''),p.updated_at,
 		       CASE WHEN ?<>'' OR ? THEN LEFT(p.body,240) ELSE '' END,
 		       CASE WHEN p.status='DRAFT' THEN 'DRAFT' WHEN p.review_due_at<=UTC_TIMESTAMP(6) THEN 'REVIEW_DUE' ELSE '' END
 		FROM knowledge_pages p
 		JOIN knowledge_spaces s ON s.tenant_id=p.tenant_id AND s.id=p.space_id
 		LEFT JOIN users u ON u.id=p.updated_by
-		WHERE p.tenant_id=? AND p.space_id=? AND p.id>? AND (? OR s.status='ACTIVE') AND (? OR p.status='PUBLISHED')`
-	args := []any{query, attention, actor.TenantID, spaceID, after, includeArchived, includeDrafts}
+		WHERE p.tenant_id=? AND p.id>? AND (? OR s.status='ACTIVE') AND (? OR p.status='PUBLISHED')`
+	args := []any{query, attention, actor.TenantID, after, includeArchived, includeDrafts}
+	if spaceID > 0 {
+		statement += " AND p.space_id=?"
+		args = append(args, spaceID)
+	}
 	if query != "" {
 		statement += " AND LOCATE(LOWER(?),LOWER(CONCAT(p.title,' ',p.body)))>0"
 		args = append(args, query)
@@ -492,7 +496,7 @@ func (s *Service) pageSummaries(ctx context.Context, actor Actor, spaceID uint64
 	for rows.Next() {
 		var item PageSummary
 		var review sql.NullTime
-		if err := rows.Scan(&item.ID, &item.SpaceID, &item.Title, &item.Status,
+		if err := rows.Scan(&item.ID, &item.SpaceID, &item.SpaceName, &item.Title, &item.Status,
 			&review, &item.Version, &item.UpdatedBy, &item.UpdatedByName, &item.UpdatedAt,
 			&item.Excerpt, &item.Attention); err != nil {
 			return page, err

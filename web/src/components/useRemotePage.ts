@@ -38,6 +38,7 @@ export function useRemotePage<T>(
       setState((previous) => ({
         key,
         items: after && previous.key === key ? previous.items : [],
+        next: after && previous.key === key ? previous.next : undefined,
         loading: true,
         error: null,
       }));

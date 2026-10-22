@@ -147,6 +147,31 @@ func TestKnowledgeSpacesEndToEnd(t *testing.T) {
 	if err != nil || len(results.Pages) != 1 || results.Pages[0].ID != root.ID {
 		t.Fatalf("search results: %+v err=%v", results, err)
 	}
+	globalKey := "crossbase-" + suffix
+	secondSpace, _, err := service.CreateSpace(ctx, admin, knowledge.SpaceInput{Key: "APPS", Name: "Aplikacje", Status: knowledge.SpaceActive}, "knowledge-space-apps")
+	if err != nil {
+		t.Fatal(err)
+	}
+	globalArticle, _, err := service.CreatePage(ctx, admin, secondSpace.ID, knowledge.PageInput{Title: "Integracja", Body: globalKey, Status: knowledge.PagePublished}, "knowledge-global-search")
+	if err != nil {
+		t.Fatal(err)
+	}
+	globalResults, err := service.Search(ctx, reader, 0, globalKey, 0, 50)
+	if err != nil || len(globalResults.Pages) != 1 || globalResults.Pages[0].ID != globalArticle.ID || globalResults.Pages[0].SpaceID != secondSpace.ID || globalResults.Pages[0].SpaceName != secondSpace.Name {
+		t.Fatalf("cross-base search results: %+v err=%v", globalResults, err)
+	}
+	foreignResults, err := service.Search(ctx, otherAdmin, 0, globalKey, 0, 50)
+	if err != nil || len(foreignResults.Pages) != 0 {
+		t.Fatalf("cross-tenant global search leaked results: %+v err=%v", foreignResults, err)
+	}
+	readerDraftResults, err := service.Search(ctx, reader, 0, secret, 0, 50)
+	if err != nil || len(readerDraftResults.Pages) != 0 {
+		t.Fatalf("global search exposed draft body to reader: %+v err=%v", readerDraftResults, err)
+	}
+	adminDraftResults, err := service.Search(ctx, admin, 0, secret, 0, 50)
+	if err != nil || len(adminDraftResults.Pages) != 1 || adminDraftResults.Pages[0].ID != draft.ID {
+		t.Fatalf("global search omitted writer-visible draft: %+v err=%v", adminDraftResults, err)
+	}
 	attention, err := service.Attention(ctx, admin, space.ID, 0, 50)
 	if err != nil || len(attention.Pages) != 2 {
 		t.Fatalf("attention results: %+v err=%v", attention, err)
@@ -236,6 +261,9 @@ func TestKnowledgeSpacesEndToEnd(t *testing.T) {
 	}
 	if response := request(adminLogin, http.MethodGet, "/api/v1/knowledge/spaces?limit=50", "", false); response.Code != http.StatusOK {
 		t.Fatalf("authenticated knowledge list: %d %s", response.Code, response.Body.String())
+	}
+	if response := request(readerLogin, http.MethodGet, "/api/v1/knowledge/search?limit=50&q=bezpieczne", "", false); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), fmt.Sprintf(`"id":"%d"`, root.ID)) {
+		t.Fatalf("authenticated cross-base knowledge search: %d %s", response.Code, response.Body.String())
 	}
 	createBody := `{"key":"HTTP","name":"HTTP","description":"","status":"ACTIVE","review_interval_days":30}`
 	if response := request(adminLogin, http.MethodPost, "/api/v1/knowledge/spaces", createBody, false); response.Code != http.StatusForbidden {

@@ -85,6 +85,7 @@ type PageInput struct {
 type PageSummary struct {
 	ID            uint64     `json:"id,string"`
 	SpaceID       uint64     `json:"space_id,string"`
+	SpaceName     string     `json:"space_name"`
 	Title         string     `json:"title"`
 	Status        string     `json:"status"`
 	ReviewDueAt   *time.Time `json:"review_due_at,omitempty"`

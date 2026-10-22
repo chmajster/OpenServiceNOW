@@ -54,6 +54,7 @@ func RegisterRoutes(router chi.Router, handler *Handler, auth *identity.Middlewa
 		router.With(auth.RequireCSRF).Put("/spaces/{spaceID}", handler.UpdateSpace)
 		router.Get("/spaces/{spaceID}/pages", handler.ListPages)
 		router.With(auth.RequireCSRF).Post("/spaces/{spaceID}/pages", handler.CreatePage)
+		router.Get("/search", handler.SearchAll)
 		router.Get("/spaces/{spaceID}/search", handler.Search)
 		router.Get("/spaces/{spaceID}/attention", handler.Attention)
 		router.With(auth.RequireCSRF).Put("/spaces/{spaceID}/subscription", handler.Subscribe)
@@ -188,6 +189,16 @@ func (handler *Handler) ListPages(writer http.ResponseWriter, request *http.Requ
 
 func (handler *Handler) Search(writer http.ResponseWriter, request *http.Request) {
 	handler.pageList(writer, request, "search")
+}
+
+func (handler *Handler) SearchAll(writer http.ResponseWriter, request *http.Request) {
+	after, limit, err := pagination(request, "after_id")
+	if err != nil {
+		writeError(writer, request, err)
+		return
+	}
+	result, err := handler.service.Search(request.Context(), requestActor(request), 0, request.URL.Query().Get("q"), after, limit)
+	respond(writer, request, http.StatusOK, result, err)
 }
 
 func (handler *Handler) Attention(writer http.ResponseWriter, request *http.Request) {

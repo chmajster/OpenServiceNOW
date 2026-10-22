@@ -17,6 +17,7 @@ export type ArticleStatus = "DRAFT" | "PUBLISHED" | "RETIRED";
 export type PageSummary = {
   id: string;
   space_id: string;
+  space_name?: string;
   title: string;
   status: ArticleStatus;
   review_due_at?: string;
