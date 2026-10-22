@@ -1,14 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError, jsonBody } from "../api/client";
 import { message } from "./contracts";
-export function useCreation<T>() {
-  const proposal = useRef<
-      { key: string; body: string; path: string } | undefined
-    >(undefined),
+type Proposal = { key: string; body: string; path: string };
+
+// A keyed creation must survive the editor component being unmounted while its
+// request is in flight. Keeping the proposal in this module preserves it across
+// in-app navigation without writing article content to browser storage.
+const pendingCreations = new Map<string, Proposal>();
+
+export function useCreation<T>(scope?: string) {
+  const [pending, setPending] = useState<Proposal | undefined>(() => scope ? pendingCreations.get(scope) : undefined);
+  const proposal = useRef<Proposal | undefined>(pending),
     alive = useRef(true),
     controller = useRef<AbortController | undefined>(undefined);
   const [busy, setBusy] = useState(false),
-    [uncertain, setUncertain] = useState(false),
+    [uncertain, setUncertain] = useState(Boolean(pending)),
     [error, setError] = useState<string>();
   useEffect(() => {
     alive.current = true;
@@ -20,13 +26,16 @@ export function useCreation<T>() {
   async function create(path: string, input: unknown) {
     if (busy) return;
     const body = jsonBody(input);
-    if (
-      !uncertain &&
-      (!proposal.current ||
-        proposal.current.body !== body ||
-        proposal.current.path !== path)
-    )
+    if (proposal.current && (proposal.current.body !== body || proposal.current.path !== path)) {
+      setUncertain(true);
+      setError("Poprzednie utworzenie nie zostało uzgodnione. Przywróć jego treść i ponów zapis przed rozpoczęciem kolejnego.");
+      return;
+    }
+    if (!proposal.current) {
       proposal.current = { key: crypto.randomUUID(), body, path };
+      pendingCreations.set(scope ?? path, proposal.current);
+      setPending(proposal.current);
+    }
     const attempt = proposal.current!;
     setBusy(true);
     setError(undefined);
@@ -41,19 +50,24 @@ export function useCreation<T>() {
       });
       if (!alive.current || c.signal.aborted) return;
       setUncertain(false);
+      pendingCreations.delete(scope ?? attempt.path);
       proposal.current = undefined;
+      setPending(undefined);
       return result;
     } catch (e) {
       if (alive.current && !c.signal.aborted) {
         setError(message(e));
         setUncertain(!(e instanceof ApiError) || e.status >= 500);
-        if (e instanceof ApiError && e.status < 500)
+        if (e instanceof ApiError && e.status < 500) {
+          pendingCreations.delete(scope ?? attempt.path);
           proposal.current = undefined;
+          setPending(undefined);
+        }
       }
       return;
     } finally {
       if (alive.current) setBusy(false);
     }
   }
-  return { create, busy, uncertain, error };
+  return { create, busy, uncertain, error, pending };
 }

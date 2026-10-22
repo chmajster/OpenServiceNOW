@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/chmajster/OpenServiceNOW/internal/audit"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
@@ -480,7 +481,11 @@ func (s *Service) pageSummaries(ctx context.Context, actor Actor, spaceID uint64
 		args = append(args, spaceID)
 	}
 	if query != "" {
-		statement += " AND LOCATE(LOWER(?),LOWER(CONCAT(p.title,' ',p.body)))>0"
+		if utf8.RuneCountInString(query) < 3 {
+			statement += " AND LOCATE(LOWER(?),LOWER(CONCAT(p.title,' ',p.body)))>0"
+		} else {
+			statement += " AND MATCH(p.title,p.body) AGAINST (? IN NATURAL LANGUAGE MODE)>0"
+		}
 		args = append(args, query)
 	}
 	if attention {
@@ -529,8 +534,8 @@ func (s *Service) Versions(ctx context.Context, actor Actor, pageID, before uint
 		       v.changed_by,COALESCE(u.display_name,''),v.changed_at
 		FROM knowledge_page_versions v
 		LEFT JOIN users u ON u.id=v.changed_by
-		WHERE v.tenant_id=? AND v.page_id=? AND (?=0 OR v.version<?)
-		ORDER BY v.version DESC LIMIT ?`, actor.TenantID, pageID, before, before, limit+1)
+		WHERE v.tenant_id=? AND v.page_id=? AND (?=0 OR v.version<?) AND (? OR v.status='PUBLISHED')
+		ORDER BY v.version DESC LIMIT ?`, actor.TenantID, pageID, before, before, canWrite(actor), limit+1)
 	if err != nil {
 		return result, err
 	}

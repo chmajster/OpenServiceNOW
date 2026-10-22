@@ -25,6 +25,16 @@ function errorMessage(cause: unknown, fallback: string) {
   return cause instanceof Error ? cause.message : fallback;
 }
 
+function proposalInput(pending?: { body: string }): Record<string, unknown> {
+  if (!pending) return {};
+  try {
+    const value: unknown = JSON.parse(pending.body);
+    return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
 function dateTime(value?: string) {
   if (!value) return "";
   const date = new Date(value);
@@ -115,11 +125,12 @@ function KnowledgeHome({ spaces, canManage, reload, moreSpaces, nextSpaces, spac
 }
 
 function KnowledgeBaseCreate({ saved, onUncertainChange }: { saved: () => void; onUncertainChange: (uncertain: boolean) => void }) {
-  const [key, setKey] = useState("");
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [review, setReview] = useState(180);
-  const creation = useCreation<Space>();
+  const creation = useCreation<Space>(`${base}/spaces`);
+  const restored = proposalInput(creation.pending);
+  const [key, setKey] = useState(() => typeof restored.key === "string" ? restored.key : "");
+  const [name, setName] = useState(() => typeof restored.name === "string" ? restored.name : "");
+  const [description, setDescription] = useState(() => typeof restored.description === "string" ? restored.description : "");
+  const [review, setReview] = useState(() => typeof restored.review_interval_days === "number" ? restored.review_interval_days : 180);
   useEffect(() => onUncertainChange(creation.uncertain), [creation.uncertain, onUncertainChange]);
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -321,17 +332,33 @@ function ArticleDetails({ pageID, space, canWrite, changed }: { pageID: string; 
 }
 
 function ArticleEditor({ space, record, saved, cancel }: { space: Space; record?: KnowledgePageRecord; saved: (page: KnowledgePageRecord) => void; cancel?: () => void }) {
-  const [draft, setDraft] = useState<{ title: string; body: string; status: ArticleStatus; review_due_at: string }>({ title: record?.title ?? "", body: record?.body ?? "", status: record?.status ?? "DRAFT", review_due_at: dateTime(record?.review_due_at) });
+  const navigate = useNavigate();
+  const createPath = `${base}/spaces/${space.id}/pages`;
+  const creation = useCreation<KnowledgePageRecord>(record ? undefined : createPath);
+  const restored = proposalInput(creation.pending);
+  const [draft, setDraft] = useState<{ title: string; body: string; status: ArticleStatus; review_due_at: string }>(() => {
+    if (record) return { title: record.title, body: record.body, status: record.status, review_due_at: dateTime(record.review_due_at) };
+    const status = restored.status === "PUBLISHED" || restored.status === "RETIRED" ? restored.status : "DRAFT";
+    return {
+      title: typeof restored.title === "string" ? restored.title : "",
+      body: typeof restored.body === "string" ? restored.body : "",
+      status,
+      review_due_at: typeof restored.review_due_at === "string" ? dateTime(restored.review_due_at) : "",
+    };
+  });
   const [currentVersion, setCurrentVersion] = useState(record?.version);
-  const [busy, setBusy] = useState(false); const [dirty, setDirty] = useState(false); const [error, setError] = useState<string>(); const [conflict, setConflict] = useState(false);
-  const creation = useCreation<KnowledgePageRecord>();
+  const [busy, setBusy] = useState(false); const [dirty, setDirty] = useState(Boolean(creation.pending)); const [error, setError] = useState<string>(); const [conflict, setConflict] = useState(false);
   function update(value: Partial<typeof draft>) { setDraft((current) => ({ ...current, ...value })); setDirty(true); setConflict(false); }
+  async function createPage() {
+    const body = { title: draft.title, body: draft.body, status: draft.status, review_due_at: isoDate(draft.review_due_at) };
+    const result = await creation.create(createPath, body);
+    if (result) { flushSync(() => setDirty(false)); saved(result); }
+  }
   async function submit(event: FormEvent) {
     event.preventDefault(); setError(undefined);
     const body = { title: draft.title, body: draft.body, status: draft.status, review_due_at: isoDate(draft.review_due_at), ...(currentVersion ? { version: currentVersion } : {}) };
     if (!record) {
-      const result = await creation.create(`${base}/spaces/${space.id}/pages`, body);
-      if (result) { flushSync(() => setDirty(false)); saved(result); }
+      await createPage();
       return;
     }
     setBusy(true);
@@ -349,5 +376,5 @@ function ArticleEditor({ space, record, saved, cancel }: { space: Space; record?
     finally { setBusy(false); }
   }
   const saving = busy || creation.busy;
-  return <form className="knowledge-editor form-stack" onSubmit={(event) => void submit(event)}><UnsavedGuard dirty={dirty} /><header className="panel-heading"><div><p className="eyebrow">{record ? articleNumber(record.id) : "Nowy rekord"}</p><h2>{record ? "Edytuj artykuł wiedzy" : "Nowy artykuł wiedzy"}</h2></div><div className="action-row">{creation.uncertain ? <span className="muted">Ponów poprzednią próbę zapisu</span> : cancel ? <button type="button" className="button button--secondary" onClick={cancel}>Anuluj</button> : <Link className="button button--secondary" to={`/knowledge/${space.id}`}>Anuluj</Link>}<button className="button button--primary" disabled={saving}>{saving ? "Zapisywanie…" : creation.uncertain ? "Ponów zapis" : "Zapisz artykuł"}</button></div></header>{error ? <p className="inline-error" role="alert">{error}</p> : null}{creation.error ? <p className="inline-error" role="alert">{creation.error}</p> : null}{creation.uncertain ? <p className="notice" role="status">Odpowiedź serwera nie potwierdziła wyniku. Treść pozostaje zablokowana; ponów zapis, aby bezpiecznie uzgodnić poprzednią próbę.</p> : null}{conflict ? <div className="notice notice--error"><strong>Artykuł ma nowszą wersję.</strong><p>Skopiuj potrzebne zmiany, a następnie wczytaj aktualną wersję przed ponowną edycją.</p><button type="button" className="button button--secondary" disabled={busy} onClick={() => void loadLatest()}>Wczytaj aktualną wersję</button></div> : null}<div className="knowledge-editor-meta"><label>Krótki opis<input disabled={creation.uncertain} required maxLength={200} value={draft.title} onChange={(event) => update({ title: event.target.value })} /></label><label>Stan<select disabled={creation.uncertain} value={draft.status} onChange={(event) => update({ status: event.target.value as ArticleStatus })}><option value="DRAFT">Nieopublikowany</option><option value="PUBLISHED">Opublikowany</option><option value="RETIRED">Wycofany</option></select></label>{draft.status === "PUBLISHED" ? <label>Ważny do<input disabled={creation.uncertain} type="datetime-local" value={draft.review_due_at} onChange={(event) => update({ review_due_at: event.target.value })} /></label> : null}</div><div className="knowledge-editor-columns"><label>Treść artykułu<textarea disabled={creation.uncertain} required rows={24} maxLength={262144} value={draft.body} onChange={(event) => update({ body: event.target.value })} spellCheck /></label><div><span className="knowledge-preview-label">Podgląd artykułu</span><SafeMarkdown source={draft.body} /></div></div></form>;
+  return <form className="knowledge-editor form-stack" onSubmit={(event) => void submit(event)}><UnsavedGuard dirty={dirty} includeSearch locked={creation.busy || creation.uncertain} onRetry={creation.uncertain && !record ? () => void createPage() : undefined} /><header className="panel-heading"><div><p className="eyebrow">{record ? articleNumber(record.id) : "Nowy rekord"}</p><h2>{record ? "Edytuj artykuł wiedzy" : "Nowy artykuł wiedzy"}</h2></div><div className="action-row">{creation.uncertain ? <span className="muted">Ponów poprzednią próbę zapisu</span> : cancel ? <button type="button" className="button button--secondary" disabled={saving} onClick={cancel}>Anuluj</button> : <button type="button" className="button button--secondary" disabled={saving} onClick={() => navigate(`/knowledge/${space.id}`)}>Anuluj</button>}<button className="button button--primary" disabled={saving}>{saving ? "Zapisywanie…" : creation.uncertain ? "Ponów zapis" : "Zapisz artykuł"}</button></div></header>{error ? <p className="inline-error" role="alert">{error}</p> : null}{creation.error ? <p className="inline-error" role="alert">{creation.error}</p> : null}{creation.uncertain ? <p className="notice" role="status">Odpowiedź serwera nie potwierdziła wyniku. Treść pozostaje zablokowana; ponów zapis, aby bezpiecznie uzgodnić poprzednią próbę.</p> : null}{conflict ? <div className="notice notice--error"><strong>Artykuł ma nowszą wersję.</strong><p>Skopiuj potrzebne zmiany, a następnie wczytaj aktualną wersję przed ponowną edycją.</p><button type="button" className="button button--secondary" disabled={busy} onClick={() => void loadLatest()}>Wczytaj aktualną wersję</button></div> : null}<div className="knowledge-editor-meta"><label>Krótki opis<input disabled={creation.uncertain} required maxLength={200} value={draft.title} onChange={(event) => update({ title: event.target.value })} /></label><label>Stan<select disabled={creation.uncertain} value={draft.status} onChange={(event) => update({ status: event.target.value as ArticleStatus })}><option value="DRAFT">Nieopublikowany</option><option value="PUBLISHED">Opublikowany</option><option value="RETIRED">Wycofany</option></select></label>{draft.status === "PUBLISHED" ? <label>Ważny do<input disabled={creation.uncertain} type="datetime-local" value={draft.review_due_at} onChange={(event) => update({ review_due_at: event.target.value })} /></label> : null}</div><div className="knowledge-editor-columns"><label>Treść artykułu<textarea disabled={creation.uncertain} required rows={24} maxLength={262144} value={draft.body} onChange={(event) => update({ body: event.target.value })} spellCheck /></label><div><span className="knowledge-preview-label">Podgląd artykułu</span><SafeMarkdown source={draft.body} /></div></div></form>;
 }

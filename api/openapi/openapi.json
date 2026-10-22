@@ -12510,7 +12510,7 @@
         "security": [{"sessionCookie": [], "csrfHeader": []}],
         "parameters": [{"name": "Idempotency-Key", "in": "header", "required": true, "schema": {"type": "string", "pattern": "^[A-Za-z0-9._:-]{8,128}$"}}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgeSpaceInput"}}}},
-        "responses": {"201": {"description": "Created space", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgeSpace"}}}}, "400": {"$ref": "#/components/responses/BadRequest"}, "403": {"$ref": "#/components/responses/Forbidden"}, "409": {"$ref": "#/components/responses/Conflict"}}
+        "responses": {"200": {"description": "Previously created space returned for an identical idempotent retry", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgeSpace"}}}}, "201": {"description": "Created space", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgeSpace"}}}}, "400": {"$ref": "#/components/responses/BadRequest"}, "403": {"$ref": "#/components/responses/Forbidden"}, "409": {"$ref": "#/components/responses/Conflict"}}
       }
     },
     "/api/v1/knowledge/spaces/{spaceID}": {
@@ -12541,7 +12541,7 @@
         "security": [{"sessionCookie": [], "csrfHeader": []}],
         "parameters": [{"name": "Idempotency-Key", "in": "header", "required": true, "schema": {"type": "string", "pattern": "^[A-Za-z0-9._:-]{8,128}$"}}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgePageInput"}}}},
-        "responses": {"201": {"description": "Created page", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgePage"}}}}, "400": {"$ref": "#/components/responses/BadRequest"}, "403": {"$ref": "#/components/responses/Forbidden"}, "409": {"$ref": "#/components/responses/Conflict"}}
+        "responses": {"200": {"description": "Previously created page returned for an identical idempotent retry", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgePage"}}}}, "201": {"description": "Created page", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgePage"}}}}, "400": {"$ref": "#/components/responses/BadRequest"}, "403": {"$ref": "#/components/responses/Forbidden"}, "409": {"$ref": "#/components/responses/Conflict"}}
       }
     },
     "/api/v1/knowledge/spaces/{spaceID}/search": {

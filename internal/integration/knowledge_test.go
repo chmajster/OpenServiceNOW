@@ -147,6 +147,10 @@ func TestKnowledgeSpacesEndToEnd(t *testing.T) {
 	if err != nil || len(results.Pages) != 1 || results.Pages[0].ID != root.ID {
 		t.Fatalf("search results: %+v err=%v", results, err)
 	}
+	shortResults, err := service.Search(ctx, reader, space.ID, "wd", 0, 50)
+	if err != nil || len(shortResults.Pages) != 1 || shortResults.Pages[0].ID != root.ID {
+		t.Fatalf("short partial search: %+v err=%v", shortResults, err)
+	}
 	globalKey := "crossbase-" + suffix
 	secondSpace, _, err := service.CreateSpace(ctx, admin, knowledge.SpaceInput{Key: "APPS", Name: "Aplikacje", Status: knowledge.SpaceActive}, "knowledge-space-apps")
 	if err != nil {
@@ -195,6 +199,23 @@ func TestKnowledgeSpacesEndToEnd(t *testing.T) {
 	versions, err := service.Versions(ctx, admin, root.ID, 0, 20)
 	if err != nil || len(versions.Versions) != 2 || versions.Versions[0].Version != 2 {
 		t.Fatalf("version history: %+v err=%v", versions, err)
+	}
+	hiddenTitle := "SECRET-TITLE-" + suffix
+	historyPage, _, err := service.CreatePage(ctx, admin, space.ID, knowledge.PageInput{Title: hiddenTitle, Body: "Internal draft", Status: knowledge.PageDraft}, "knowledge-private-history")
+	if err != nil {
+		t.Fatal(err)
+	}
+	historyPage, err = service.UpdatePage(ctx, admin, historyPage.ID, knowledge.PageInput{Title: "Public title", Body: "Published content", Status: knowledge.PagePublished, Version: historyPage.Version})
+	if err != nil {
+		t.Fatal(err)
+	}
+	readerVersions, err := service.Versions(ctx, reader, historyPage.ID, 0, 20)
+	if err != nil || len(readerVersions.Versions) != 1 || readerVersions.Versions[0].Title != "Public title" {
+		t.Fatalf("reader history exposed nonpublished revision: %+v err=%v", readerVersions, err)
+	}
+	adminVersions, err := service.Versions(ctx, admin, historyPage.ID, 0, 20)
+	if err != nil || len(adminVersions.Versions) != 2 || adminVersions.Versions[1].Title != hiddenTitle {
+		t.Fatalf("writer history omitted draft revision: %+v err=%v", adminVersions, err)
 	}
 
 	root, err = service.UpdatePage(ctx, admin, root.ID, knowledge.PageInput{Title: root.Title, Body: root.Body, Status: knowledge.PageRetired, Version: root.Version})

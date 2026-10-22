@@ -4,26 +4,30 @@ import { useBlocker } from "react-router-dom";
 export function UnsavedGuard({
   dirty,
   includeSearch = false,
+  locked = false,
+  onRetry,
 }: {
   dirty: boolean;
   includeSearch?: boolean;
+  locked?: boolean;
+  onRetry?: () => void;
 }) {
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      dirty &&
+      (dirty || locked) &&
       (currentLocation.pathname !== nextLocation.pathname ||
         (includeSearch && currentLocation.search !== nextLocation.search)),
   );
   const stay = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    if (!dirty) return;
+    if (!dirty && !locked) return;
     const unload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", unload);
     return () => window.removeEventListener("beforeunload", unload);
-  }, [dirty]);
+  }, [dirty, locked]);
   useEffect(() => {
     if (blocker.state === "blocked") stay.current?.focus();
   }, [blocker.state]);
@@ -51,25 +55,30 @@ export function UnsavedGuard({
           }
         }}
       >
-        <h2 id="leave-title">Niezapisana praca</h2>
+        <h2 id="leave-title">{locked ? "Trwa uzgadnianie zapisu" : "Niezapisana praca"}</h2>
         <p>
-          Opuszczenie strony usunie niezapisane dane. Zapisz je lub świadomie
-          zrezygnuj z edycji.
+          {locked
+            ? "Nie opuszczaj formularza, dopóki zapis nie zostanie potwierdzony. Ponów próbę, aby bezpiecznie uzgodnić wynik."
+            : "Opuszczenie strony usunie niezapisane dane. Zapisz je lub świadomie zrezygnuj z edycji."}
         </p>
         <div className="action-row">
           <button
+            type="button"
             ref={stay}
             className="button button--primary"
             onClick={() => blocker.reset()}
           >
             Pozostań na stronie
           </button>
-          <button
-            className="button button--secondary"
-            onClick={() => blocker.proceed()}
-          >
-            Opuść bez zapisu
-          </button>
+          {locked ? onRetry ? (
+            <button type="button" className="button button--secondary" onClick={() => { blocker.reset(); onRetry(); }}>
+              Ponów zapis
+            </button>
+          ) : null : (
+            <button type="button" className="button button--secondary" onClick={() => blocker.proceed()}>
+              Opuść bez zapisu
+            </button>
+          )}
         </div>
       </section>
     </div>

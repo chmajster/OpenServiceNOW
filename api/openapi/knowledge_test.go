@@ -52,6 +52,25 @@ func TestKnowledgeSecurityAndConcurrencyContract(t *testing.T) {
 		if item.idempotent && !hasHeaderParameter(operation, "Idempotency-Key") {
 			t.Errorf("%s %s lacks Idempotency-Key", item.method, item.path)
 		}
+		if item.idempotent {
+			responses, _ := operation["responses"].(map[string]any)
+			for _, status := range []string{"200", "201"} {
+				if _, ok := responses[status]; !ok {
+					t.Errorf("%s %s lacks documented %s idempotent-create response", item.method, item.path, status)
+				}
+			}
+			schemaRef := func(status string) string {
+				response, _ := responses[status].(map[string]any)
+				content, _ := response["content"].(map[string]any)
+				jsonContent, _ := content["application/json"].(map[string]any)
+				schema, _ := jsonContent["schema"].(map[string]any)
+				ref, _ := schema["$ref"].(string)
+				return ref
+			}
+			if replay, created := schemaRef("200"), schemaRef("201"); replay == "" || replay != created {
+				t.Errorf("%s %s replay and creation schemas differ: 200=%q 201=%q", item.method, item.path, replay, created)
+			}
+		}
 	}
 }
 
