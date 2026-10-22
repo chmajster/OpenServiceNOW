@@ -79,7 +79,18 @@ Durable MySQL-backed jobs, worker/scheduler execution and shared work-record inf
 | Incident SLA | Versioned policies/calendars, durable business-time checkpoints, scheduler/worker and idempotent thresholds | Organization administration, authorized batch summaries and history | Policy/calendar forms, incident list/details/history |
 | Workflow and approvals | Immutable versions, durable steps/decisions/deadlines, transactional commands and real jobs | Publication, object-authorized decisions/state/repair | Process form editor, approval inbox, visual state and attempt history |
 | Service catalog and requests | Immutable publications, declarative forms, Request/Requested Item/Task, atomic audit/outbox, idempotency and CAS | Audience-filtered catalog, own requests, scoped fulfillment and request-bound collaboration | Catalog administration/designer/templates, portal, own requests and fulfillment queue |
+| Documentation spaces | Tenant-scoped spaces, hierarchical Markdown pages, immutable versions, review dates, watchers and bounded portable archives | Documented `/api/v1/knowledge` routes with read/write/manage RBAC | Confluence-style space header, actions menu, templates, search, editor, history and attention queue |
 | Other roadmap business modules | Remaining roadmap work | Not available | Not available |
+
+## Documentation spaces
+
+Open **Dokumentacja** to organize procedures, architecture decisions and team knowledge into tenant-scoped spaces. The space header follows the familiar Confluence workflow: **Więcej działań** contains space settings, documents requiring attention, watch/unwatch, ZIP export and ZIP import; **Utwórz stronę** opens the Markdown editor. The adjacent **Strony**, **Szablony** and **Szukaj** tabs expose the page hierarchy, built-in runbook/incident/ADR/onboarding templates and full space search. The layout collapses to one column on smaller screens, and every visible action calls a real backend endpoint with loading, success and error feedback.
+
+Grant `knowledge.read` to readers, `knowledge.write` to authors and `knowledge.manage` to space administrators. Read-only users see active spaces and published pages only. Authors can create drafts, publish pages, build parent-child hierarchies and review the attention queue. Managers can create, configure and archive spaces and import/export them. Every write revalidates active tenant membership and current RBAC permissions in the transaction. Page and space updates use decimal-string optimistic versions; stale edits remain in the browser and require an explicit refresh.
+
+Pages are stored as Markdown and rendered as React text elements without raw HTML execution. Each save creates an immutable version. Published pages may receive an explicit review date or inherit the space interval; drafts and overdue pages appear in **Dokumenty wymagające uwagi**. Watching is idempotent and does not grant access. Audit events contain titles, versions, byte counts and SHA-256 body digests, never page bodies.
+
+ZIP export/import is restricted to `knowledge.manage`. The portable `opensnow-knowledge-v1` manifest retains hierarchy, publication state, review dates and Markdown. Import validates every path and file before one atomic write, rejects traversal, unknown/duplicate entries, missing parents and cycles, and enforces limits of 8 MiB uploaded, 20 MiB uncompressed and 500 pages. Retry the identical import with the same `Idempotency-Key`; a changed archive conflicts. Schema migrations 72–76 add the permissions, spaces, pages, immutable versions and watchers without changing existing accounts or application data.
 
 ## Workflow and approvals
 

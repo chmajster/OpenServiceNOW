@@ -1,0 +1,102 @@
+package openapi
+
+import (
+	"encoding/json"
+	"testing"
+)
+
+func TestKnowledgeSecurityAndConcurrencyContract(t *testing.T) {
+	var root map[string]any
+	if err := json.Unmarshal(loadDocument(t), &root); err != nil {
+		t.Fatal(err)
+	}
+
+	paths := root["paths"].(map[string]any)
+	operations := []struct {
+		path, method string
+		write        bool
+		idempotent   bool
+	}{
+		{"/api/v1/knowledge/spaces", "get", false, false},
+		{"/api/v1/knowledge/spaces", "post", true, true},
+		{"/api/v1/knowledge/spaces/{spaceID}", "get", false, false},
+		{"/api/v1/knowledge/spaces/{spaceID}", "put", true, false},
+		{"/api/v1/knowledge/spaces/{spaceID}/pages", "get", false, false},
+		{"/api/v1/knowledge/spaces/{spaceID}/pages", "post", true, true},
+		{"/api/v1/knowledge/spaces/{spaceID}/search", "get", false, false},
+		{"/api/v1/knowledge/spaces/{spaceID}/attention", "get", false, false},
+		{"/api/v1/knowledge/spaces/{spaceID}/watch", "put", true, false},
+		{"/api/v1/knowledge/spaces/{spaceID}/watch", "delete", true, false},
+		{"/api/v1/knowledge/spaces/{spaceID}/export", "get", false, false},
+		{"/api/v1/knowledge/spaces/{spaceID}/import", "post", true, true},
+		{"/api/v1/knowledge/pages/{pageID}", "get", false, false},
+		{"/api/v1/knowledge/pages/{pageID}", "put", true, false},
+		{"/api/v1/knowledge/pages/{pageID}/versions", "get", false, false},
+	}
+	for _, item := range operations {
+		rawPath, ok := paths[item.path].(map[string]any)
+		if !ok {
+			t.Fatalf("knowledge path %s is missing", item.path)
+		}
+		operation, ok := rawPath[item.method].(map[string]any)
+		if !ok {
+			t.Fatalf("%s %s operation is missing", item.method, item.path)
+		}
+		security := operation["security"].([]any)[0].(map[string]any)
+		if _, ok := security["sessionCookie"]; !ok {
+			t.Errorf("%s %s lacks session authentication", item.method, item.path)
+		}
+		_, csrf := security["csrfHeader"]
+		if csrf != item.write {
+			t.Errorf("%s %s CSRF=%t", item.method, item.path, csrf)
+		}
+		if item.idempotent && !hasHeaderParameter(operation, "Idempotency-Key") {
+			t.Errorf("%s %s lacks Idempotency-Key", item.method, item.path)
+		}
+	}
+}
+
+func TestKnowledgeIdentifiersUseDecimalStrings(t *testing.T) {
+	var root map[string]any
+	if err := json.Unmarshal(loadDocument(t), &root); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, ref := range []string{
+		"#/components/schemas/KnowledgeSpace/properties/id",
+		"#/components/schemas/KnowledgeSpace/properties/version",
+		"#/components/schemas/KnowledgeSpace/properties/page_count",
+		"#/components/schemas/KnowledgeSpaces/properties/next_after_id",
+		"#/components/schemas/KnowledgePageSummary/properties/id",
+		"#/components/schemas/KnowledgePageSummary/properties/space_id",
+		"#/components/schemas/KnowledgePageSummary/properties/parent_id",
+		"#/components/schemas/KnowledgePageSummary/properties/version",
+		"#/components/schemas/KnowledgePage/properties/id",
+		"#/components/schemas/KnowledgePage/properties/space_id",
+		"#/components/schemas/KnowledgePage/properties/parent_id",
+		"#/components/schemas/KnowledgePage/properties/version",
+		"#/components/schemas/KnowledgePageVersion/properties/page_id",
+		"#/components/schemas/KnowledgePageVersion/properties/version",
+		"#/components/schemas/KnowledgePageVersion/properties/parent_id",
+	} {
+		value, err := resolveLocalRef(root, ref)
+		if err != nil {
+			t.Errorf("%s: %v", ref, err)
+			continue
+		}
+		if value.(map[string]any)["type"] != "string" {
+			t.Errorf("%s is not a decimal string", ref)
+		}
+	}
+}
+
+func hasHeaderParameter(operation map[string]any, name string) bool {
+	parameters, _ := operation["parameters"].([]any)
+	for _, raw := range parameters {
+		parameter, _ := raw.(map[string]any)
+		if parameter["in"] == "header" && parameter["name"] == name && parameter["required"] == true {
+			return true
+		}
+	}
+	return false
+}
