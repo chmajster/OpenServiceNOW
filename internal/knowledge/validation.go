@@ -3,6 +3,7 @@ package knowledge
 import (
 	"regexp"
 	"strings"
+	"time"
 	"unicode/utf8"
 )
 
