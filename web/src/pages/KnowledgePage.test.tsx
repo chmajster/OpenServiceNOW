@@ -270,3 +270,34 @@ it("keeps article conflict resolution visible after edits and rebases the preser
     expect(container.textContent).toContain("Moja zmiana zachowana");
   } finally { await act(async () => root.unmount()); }
 });
+
+it("requests article-state filtering from the server before pagination", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const now = new Date().toISOString();
+  const space = { id: "10", key: "OPS", name: "Operacje", description: "", status: "ACTIVE", review_interval_days: 30, version: "1", page_count: "2", subscribed: false, created_at: now, updated_at: now };
+  const requests: string[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+    const path = String(input);
+    requests.push(path);
+    let body: unknown;
+    if (path === "/api/v1/setup") body = { required: false };
+    else if (path === "/api/v1/auth/me") body = {
+      user: { id: "1", email: "admin@example.test", display_name: "Admin", version: "1", credential_version: "1" },
+      tenant: { id: "2", name: "Test", slug: "test" },
+      permissions: ["knowledge.manage"], password_change_required: false, expires_at: new Date(Date.now() + 600_000).toISOString(),
+    };
+    else if (path === "/api/v1/knowledge/spaces?limit=100") body = { spaces: [space] };
+    else if (path === "/api/v1/knowledge/spaces/10") body = space;
+    else if (path === "/api/v1/knowledge/spaces/10/pages?limit=100&status=DRAFT") body = { pages: [{ id: "21", space_id: "10", title: "Późny szkic", status: "DRAFT", version: "1", updated_by: "1", updated_by_name: "Admin", updated_at: now }] };
+    else throw new Error(`unexpected request: ${path}`);
+    return new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
+  }));
+  const router = createMemoryRouter([{ path: "/knowledge/:spaceID", element: <AuthProvider><KnowledgePage /></AuthProvider> }], { initialEntries: ["/knowledge/10?view=draft"] });
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  try {
+    await act(async () => { root.render(<RouterProvider router={router} />); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    expect(requests).toContain("/api/v1/knowledge/spaces/10/pages?limit=100&status=DRAFT");
+    expect(container.textContent).toContain("Późny szkic");
+  } finally { await act(async () => root.unmount()); }
+});

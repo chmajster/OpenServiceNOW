@@ -9,7 +9,12 @@ import { UnsavedGuard } from "../incidents/UnsavedGuard";
 import { useIncidentQuery } from "../incidents/hooks";
 import { useCreation } from "../requests/useCreation";
 import {
+  articleBodyByteLength,
   articleNumber,
+  MAX_ARTICLE_BODY_BYTES,
+  MAX_KNOWLEDGE_SEARCH_RUNES,
+  MIN_KNOWLEDGE_SEARCH_RUNES,
+  knowledgeSearchQueryLength,
   pageStatus,
   type ArticleStatus,
   type KnowledgePageRecord,
@@ -82,10 +87,12 @@ function KnowledgeHome({ spaces, canManage, reload, moreSpaces, nextSpaces, spac
   const [creating, setCreating] = useState(spaces.length === 0 && canManage);
   const [createUncertain, setCreateUncertain] = useState(false);
   const [query, setQuery] = useState("");
+  const queryLength = knowledgeSearchQueryLength(query);
+  const canSearch = queryLength >= MIN_KNOWLEDGE_SEARCH_RUNES && queryLength <= MAX_KNOWLEDGE_SEARCH_RUNES;
   const articleCount = spaces.reduce((total, item) => total + BigInt(item.page_count), 0n).toString();
   function search(event: FormEvent) {
     event.preventDefault();
-    if (query.trim()) navigate(`/knowledge?view=search&q=${encodeURIComponent(query.trim())}`);
+    if (canSearch) navigate(`/knowledge?view=search&q=${encodeURIComponent(query.trim())}`);
   }
   return (
     <div className="page knowledge-page knowledge-home">
@@ -95,8 +102,8 @@ function KnowledgeHome({ spaces, canManage, reload, moreSpaces, nextSpaces, spac
         <p>Znajdź instrukcje, rozwiązania i zweryfikowane informacje operacyjne.</p>
         {spaces.length ? (
           <form className="knowledge-hero-search" onSubmit={search}>
-            <label><span className="visually-hidden">Wyszukaj artykuły we wszystkich bazach</span><input value={query} onChange={(event) => setQuery(event.target.value)} maxLength={200} placeholder="Wyszukaj we wszystkich bazach wiedzy" /></label>
-            <button className="button button--primary">Szukaj</button>
+            <label><span className="visually-hidden">Wyszukaj artykuły we wszystkich bazach</span><input required minLength={MIN_KNOWLEDGE_SEARCH_RUNES} value={query} onChange={(event) => setQuery(event.target.value)} maxLength={MAX_KNOWLEDGE_SEARCH_RUNES} placeholder="Wyszukaj we wszystkich bazach wiedzy" /></label>
+            <button className="button button--primary" disabled={!canSearch}>Szukaj</button>
           </form>
         ) : null}
       </section>
@@ -169,13 +176,17 @@ function KnowledgeBase({ spaceID, pageID, spaces, reloadSpaces, cacheScope, more
   const { hasPermission } = useAuth();
   const canWrite = hasPermission("knowledge.write") || hasPermission("knowledge.manage");
   const canManage = hasPermission("knowledge.manage");
+  const view = availableView(params.get("view"), canWrite, canManage);
+  const statusFilter = view === "draft" ? "DRAFT" : view === "published" ? "PUBLISHED" : view === "retired" ? "RETIRED" : "";
+  const listEnabled = !pageID && (view === "all" || Boolean(statusFilter));
+  const pageQuery = new URLSearchParams({ limit: "100" });
+  if (statusFilter) pageQuery.set("status", statusFilter);
   const space = useIncidentQuery<Space>(`${base}/spaces/${spaceID}`);
   const [spaceOverride, setSpaceOverride] = useState<Space>();
-  const pages = useRemotePage<PageSummary>(`${base}/spaces/${spaceID}/pages?limit=100`, "pages", "after_id", true, cacheScope);
+  const pages = useRemotePage<PageSummary>(`${base}/spaces/${spaceID}/pages?${pageQuery}`, "pages", "after_id", listEnabled, cacheScope);
   const [notice, setNotice] = useState<string>();
   const [actionError, setActionError] = useState<string>();
   const [busyAction, setBusyAction] = useState(false);
-  const view = availableView(params.get("view"), canWrite, canManage);
 
   function showView(next: ListView) {
     const value = new URLSearchParams();
@@ -199,12 +210,6 @@ function KnowledgeBase({ spaceID, pageID, spaces, reloadSpaces, cacheScope, more
   if (space.loading && !space.data) return <PageState title="Ładowanie bazy wiedzy" />;
   if (space.error || !space.data) return <PageState title="Nie udało się otworzyć bazy wiedzy" detail={space.error} tone="error" />;
   const current = spaceOverride ?? space.data;
-  const counts = {
-    all: pages.items.length,
-    draft: pages.items.filter((item) => item.status === "DRAFT").length,
-    published: pages.items.filter((item) => item.status === "PUBLISHED").length,
-    retired: pages.items.filter((item) => item.status === "RETIRED").length,
-  };
   return (
     <div className="page knowledge-page knowledge-center">
       <header className="knowledge-center-header">
@@ -228,10 +233,10 @@ function KnowledgeBase({ spaceID, pageID, spaces, reloadSpaces, cacheScope, more
         <aside className="knowledge-module-nav" aria-label="Nawigacja Knowledge Center">
           <Link className="knowledge-module-home" to="/knowledge">← Wszystkie bazy</Link>
           <section><h2>Artykuły</h2>
-            <ModuleButton label="Wszystkie" count={pages.next ? undefined : counts.all} active={!pageID && view === "all"} onClick={() => showView("all")} />
-            {canWrite ? <ModuleButton label="Nieopublikowane" count={pages.next ? undefined : counts.draft} active={!pageID && view === "draft"} onClick={() => showView("draft")} /> : null}
-            <ModuleButton label="Opublikowane" count={pages.next ? undefined : counts.published} active={!pageID && view === "published"} onClick={() => showView("published")} />
-            {canWrite ? <ModuleButton label="Wycofane" count={pages.next ? undefined : counts.retired} active={!pageID && view === "retired"} onClick={() => showView("retired")} /> : null}
+            <ModuleButton label="Wszystkie" active={!pageID && view === "all"} onClick={() => showView("all")} />
+            {canWrite ? <ModuleButton label="Nieopublikowane" active={!pageID && view === "draft"} onClick={() => showView("draft")} /> : null}
+            <ModuleButton label="Opublikowane" active={!pageID && view === "published"} onClick={() => showView("published")} />
+            {canWrite ? <ModuleButton label="Wycofane" active={!pageID && view === "retired"} onClick={() => showView("retired")} /> : null}
             {canWrite ? <ModuleButton label="Wygasające" active={!pageID && view === "expiring"} onClick={() => showView("expiring")} /> : null}
           </section>
           <section><h2>Narzędzia</h2>
@@ -259,8 +264,8 @@ function KnowledgeBase({ spaceID, pageID, spaces, reloadSpaces, cacheScope, more
   );
 }
 
-function ModuleButton({ label, count, active, onClick }: { label: string; count?: number; active: boolean; onClick: () => void }) {
-  return <button aria-current={active ? "page" : undefined} onClick={onClick}><span>{label}</span>{count !== undefined ? <small>{count}</small> : null}</button>;
+function ModuleButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return <button aria-current={active ? "page" : undefined} onClick={onClick}><span>{label}</span></button>;
 }
 
 function ArticleDirectory({ spaceName, spaceID, pages, filter, loading, error, retry, more, next, showHeading = true }: { spaceName: string; spaceID: string; pages: PageSummary[]; filter: ListView; loading: boolean; error: string | null; retry: () => void; more?: () => void; next?: string; showHeading?: boolean }) {
@@ -285,14 +290,17 @@ function KnowledgeSearch({ spaceID, cacheScope }: { spaceID?: string; cacheScope
   const [params, setParams] = useSearchParams();
   const query = params.get("q") ?? "";
   const [value, setValue] = useState(query);
+  const queryLength = knowledgeSearchQueryLength(query);
+  const validQuery = queryLength >= MIN_KNOWLEDGE_SEARCH_RUNES && queryLength <= MAX_KNOWLEDGE_SEARCH_RUNES;
+  const canSearch = knowledgeSearchQueryLength(value) >= MIN_KNOWLEDGE_SEARCH_RUNES && knowledgeSearchQueryLength(value) <= MAX_KNOWLEDGE_SEARCH_RUNES;
   const searchPath = spaceID ? `${base}/spaces/${spaceID}/search` : `${base}/search`;
-  const result = useRemotePage<PageSummary>(`${searchPath}?limit=100&q=${encodeURIComponent(query)}`, "pages", "after_id", query.trim().length > 0, cacheScope);
+  const result = useRemotePage<PageSummary>(`${searchPath}?limit=100&q=${encodeURIComponent(query)}`, "pages", "after_id", validQuery, cacheScope);
   return (
     <section className="form-stack"><header className="knowledge-list-heading"><div><p className="eyebrow">Artykuły</p><h2>Wyszukiwanie</h2><p className="muted">{spaceID ? "Wyszukiwanie w tej bazie wiedzy." : "Wyniki ze wszystkich baz wiedzy dostępnych dla Twojej roli."}</p></div>{!spaceID ? <Link className="button button--secondary" to="/knowledge">Wszystkie bazy</Link> : null}</header>
-      <form className="knowledge-search" onSubmit={(event) => { event.preventDefault(); const next = new URLSearchParams({ view: "search" }); if (value.trim()) next.set("q", value.trim()); setParams(next); }}>
-        <label>Wyszukaj w tytule i treści<input value={value} maxLength={200} onChange={(event) => setValue(event.target.value)} placeholder="Wpisz co najmniej jedno słowo" /></label><button className="button button--primary">Szukaj</button>
+      <form className="knowledge-search" onSubmit={(event) => { event.preventDefault(); if (!canSearch) return; const next = new URLSearchParams({ view: "search" }); next.set("q", value.trim()); setParams(next); }}>
+        <label>Wyszukaj w tytule i treści<input required minLength={MIN_KNOWLEDGE_SEARCH_RUNES} value={value} maxLength={MAX_KNOWLEDGE_SEARCH_RUNES} onChange={(event) => setValue(event.target.value)} placeholder="Wpisz co najmniej 3 znaki" /></label><button className="button button--primary" disabled={!canSearch}>Szukaj</button>
       </form>
-      {!query ? <PageState title="Wyszukaj artykuł" detail="Wyniki uwzględniają artykuły dostępne dla Twojej roli." /> : result.loading && !result.items.length ? <PageState title="Wyszukiwanie" /> : result.error && !result.items.length ? <PageState title="Wyszukiwanie nie powiodło się" detail={result.error} tone="error" /> : !result.items.length ? <PageState title="Brak wyników" detail={`Nie znaleziono artykułów dla „${query}”.`} /> : <ArticleSearchResults pages={result.items} loading={result.loading} error={result.error} next={result.next} more={result.more} retry={result.retry} />}
+      {!query ? <PageState title="Wyszukaj artykuł" detail="Wyniki uwzględniają artykuły dostępne dla Twojej roli." /> : !validQuery ? <PageState title="Nieprawidłowe zapytanie" detail={`Wpisz od ${MIN_KNOWLEDGE_SEARCH_RUNES} do ${MAX_KNOWLEDGE_SEARCH_RUNES} znaków.`} tone="error" /> : result.loading && !result.items.length ? <PageState title="Wyszukiwanie" /> : result.error && !result.items.length ? <PageState title="Wyszukiwanie nie powiodło się" detail={result.error} tone="error" /> : !result.items.length ? <PageState title="Brak wyników" detail={`Nie znaleziono artykułów dla „${query}”.`} /> : <ArticleSearchResults pages={result.items} loading={result.loading} error={result.error} next={result.next} more={result.more} retry={result.retry} />}
     </section>
   );
 }
@@ -379,6 +387,8 @@ function ArticleEditor({ space, record, saved, cancel }: { space: Space; record?
   const [currentVersion, setCurrentVersion] = useState(record?.version);
   const [busy, setBusy] = useState(false); const [dirty, setDirty] = useState(Boolean(creation.pending)); const [error, setError] = useState<string>(); const [notice, setNotice] = useState<string>(); const [conflict, setConflict] = useState(false); const [conflictPage, setConflictPage] = useState<KnowledgePageRecord>();
   function update(value: Partial<typeof draft>) { setDraft((current) => ({ ...current, ...value })); setDirty(true); setNotice(undefined); }
+  const bodyBytes = articleBodyByteLength(draft.body);
+  const bodyTooLarge = bodyBytes > MAX_ARTICLE_BODY_BYTES;
   async function createPage() {
     const body = { title: draft.title, body: draft.body, status: draft.status, review_due_at: isoDate(draft.review_due_at) };
     const result = await creation.create(createPath, body);
@@ -386,6 +396,7 @@ function ArticleEditor({ space, record, saved, cancel }: { space: Space; record?
   }
   async function submit(event: FormEvent) {
     event.preventDefault(); setError(undefined); setNotice(undefined);
+    if (bodyTooLarge) { setError(`Treść przekracza limit ${MAX_ARTICLE_BODY_BYTES.toLocaleString("pl-PL")} bajtów UTF-8.`); return; }
     const body = { title: draft.title, body: draft.body, status: draft.status, review_due_at: isoDate(draft.review_due_at), ...(currentVersion ? { version: currentVersion } : {}) };
     if (!record) {
       await createPage();
@@ -425,7 +436,7 @@ function ArticleEditor({ space, record, saved, cancel }: { space: Space; record?
       <UnsavedGuard dirty={dirty} includeSearch locked={creation.busy || creation.uncertain} onRetry={creation.uncertain && !record ? () => void createPage() : undefined} />
       <header className="panel-heading">
         <div><p className="eyebrow">{record ? articleNumber(record.id) : "Nowy rekord"}</p><h2>{record ? "Edytuj artykuł wiedzy" : "Nowy artykuł wiedzy"}</h2></div>
-        <div className="action-row">{creation.uncertain ? <span className="muted">Ponów poprzednią próbę zapisu</span> : cancel ? <button type="button" className="button button--secondary" disabled={saving} onClick={cancel}>Anuluj</button> : <button type="button" className="button button--secondary" disabled={saving} onClick={() => navigate(`/knowledge/${space.id}`)}>Anuluj</button>}<button className="button button--primary" disabled={saving || (!!record && conflict)}>{saving ? "Zapisywanie…" : creation.uncertain ? "Ponów zapis" : "Zapisz artykuł"}</button></div>
+        <div className="action-row">{creation.uncertain ? <span className="muted">Ponów poprzednią próbę zapisu</span> : cancel ? <button type="button" className="button button--secondary" disabled={saving} onClick={cancel}>Anuluj</button> : <button type="button" className="button button--secondary" disabled={saving} onClick={() => navigate(`/knowledge/${space.id}`)}>Anuluj</button>}<button className="button button--primary" disabled={saving || bodyTooLarge || (!!record && conflict)}>{saving ? "Zapisywanie…" : creation.uncertain ? "Ponów zapis" : "Zapisz artykuł"}</button></div>
       </header>
       {error ? <p className="inline-error" role="alert">{error}</p> : null}
       {creation.error ? <p className="inline-error" role="alert">{creation.error}</p> : null}
@@ -446,7 +457,8 @@ function ArticleEditor({ space, record, saved, cancel }: { space: Space; record?
         {draft.status === "PUBLISHED" ? <label>Ważny do<input disabled={creation.uncertain} type="datetime-local" value={draft.review_due_at} onChange={(event) => update({ review_due_at: event.target.value })} /></label> : null}
       </div>
       <div className="knowledge-editor-columns">
-        <label>Treść artykułu<textarea disabled={creation.uncertain} required rows={24} maxLength={262144} value={draft.body} onChange={(event) => update({ body: event.target.value })} spellCheck /></label>
+        <label>Treść artykułu<textarea disabled={creation.uncertain} required rows={24} maxLength={MAX_ARTICLE_BODY_BYTES} value={draft.body} onChange={(event) => update({ body: event.target.value })} spellCheck /></label>
+        <p className={bodyTooLarge ? "inline-error" : "muted"} role={bodyTooLarge ? "alert" : "status"}>{bodyBytes.toLocaleString("pl-PL")} / {MAX_ARTICLE_BODY_BYTES.toLocaleString("pl-PL")} bajtów UTF-8</p>
         <div><span className="knowledge-preview-label">Podgląd artykułu</span><SafeMarkdown source={draft.body} /></div>
       </div>
     </form>

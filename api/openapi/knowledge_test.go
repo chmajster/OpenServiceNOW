@@ -172,6 +172,38 @@ func TestKnowledgeListOperationsDocumentPagination(t *testing.T) {
 	if !hasQueryEnum(attention, "reason", "REVIEW_DUE") {
 		t.Error("GET knowledge attention does not document pre-pagination REVIEW_DUE filtering")
 	}
+	pageList := paths["/api/v1/knowledge/spaces/{spaceID}/pages"].(map[string]any)["get"].(map[string]any)
+	for _, status := range []string{"DRAFT", "PUBLISHED", "RETIRED"} {
+		if !hasQueryEnum(pageList, "status", status) {
+			t.Errorf("GET knowledge pages does not document pre-pagination status %s", status)
+		}
+	}
+	for _, path := range []string{"/api/v1/knowledge/search", "/api/v1/knowledge/spaces/{spaceID}/search"} {
+		operation := paths[path].(map[string]any)["get"].(map[string]any)
+		if !hasQueryMinLength(operation, "q", 3) {
+			t.Errorf("GET %s does not enforce the indexed search minimum", path)
+		}
+	}
+}
+
+func TestKnowledgeArticleBodyDocumentsUTF8ByteLimit(t *testing.T) {
+	var root map[string]any
+	if err := json.Unmarshal(loadDocument(t), &root); err != nil {
+		t.Fatal(err)
+	}
+	for _, schemaName := range []string{"KnowledgePage", "KnowledgePageInput", "KnowledgePageUpdateInput"} {
+		value, err := resolveLocalRef(root, "#/components/schemas/"+schemaName+"/properties/body")
+		if err != nil {
+			t.Fatal(err)
+		}
+		body := value.(map[string]any)
+		if body["x-maxBytes"] != float64(256<<10) || body["description"] != "Maximum 262144 UTF-8 bytes." {
+			t.Errorf("%s body does not document the UTF-8 byte limit: %#v", schemaName, body)
+		}
+		if _, misleadingCharacterLimit := body["maxLength"]; misleadingCharacterLimit {
+			t.Errorf("%s body uses maxLength instead of the byte-specific contract", schemaName)
+		}
+	}
 }
 
 func TestKnowledgeArticleLifecycleContract(t *testing.T) {
@@ -226,6 +258,21 @@ func hasQueryEnum(operation map[string]any, name, expected string) bool {
 			if value == expected {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+func hasQueryMinLength(operation map[string]any, name string, expected float64) bool {
+	parameters, _ := operation["parameters"].([]any)
+	for _, raw := range parameters {
+		parameter, _ := raw.(map[string]any)
+		if parameter["in"] != "query" || parameter["name"] != name {
+			continue
+		}
+		schema, _ := parameter["schema"].(map[string]any)
+		if schema["minLength"] == expected {
+			return true
 		}
 	}
 	return false

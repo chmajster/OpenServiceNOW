@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/chmajster/OpenServiceNOW/internal/audit"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
@@ -437,16 +436,19 @@ func (s *Service) Page(ctx context.Context, actor Actor, id uint64) (Page, error
 	return page, translate(err)
 }
 
-func (s *Service) Pages(ctx context.Context, actor Actor, spaceID, after uint64, limit int) (PagePage, error) {
-	return s.pageSummaries(ctx, actor, spaceID, "", after, limit, false, "")
+func (s *Service) Pages(ctx context.Context, actor Actor, spaceID uint64, status string, after uint64, limit int) (PagePage, error) {
+	if status != "" && status != PageDraft && status != PagePublished && status != PageRetired {
+		return PagePage{Pages: []PageSummary{}}, ErrInvalid
+	}
+	return s.pageSummaries(ctx, actor, spaceID, "", status, after, limit, false, "")
 }
 
 func (s *Service) Search(ctx context.Context, actor Actor, spaceID uint64, query string, after uint64, limit int) (PagePage, error) {
 	query = strings.TrimSpace(query)
-	if !text(query, 1, 200) {
+	if !text(query, MinSearchQueryRunes, MaxSearchQueryRunes) {
 		return PagePage{Pages: []PageSummary{}}, ErrInvalid
 	}
-	return s.pageSummaries(ctx, actor, spaceID, query, after, limit, false, "")
+	return s.pageSummaries(ctx, actor, spaceID, query, "", after, limit, false, "")
 }
 
 func (s *Service) Attention(ctx context.Context, actor Actor, spaceID, after uint64, limit int, reason string) (PagePage, error) {
@@ -456,10 +458,10 @@ func (s *Service) Attention(ctx context.Context, actor Actor, spaceID, after uin
 	if reason != "" && reason != AttentionReviewDue {
 		return PagePage{Pages: []PageSummary{}}, ErrInvalid
 	}
-	return s.pageSummaries(ctx, actor, spaceID, "", after, limit, true, reason)
+	return s.pageSummaries(ctx, actor, spaceID, "", "", after, limit, true, reason)
 }
 
-func (s *Service) pageSummaries(ctx context.Context, actor Actor, spaceID uint64, query string, after uint64, limit int, attention bool, attentionReason string) (PagePage, error) {
+func (s *Service) pageSummaries(ctx context.Context, actor Actor, spaceID uint64, query, status string, after uint64, limit int, attention bool, attentionReason string) (PagePage, error) {
 	page := PagePage{Pages: []PageSummary{}}
 	if !canRead(actor) {
 		return page, ErrForbidden
@@ -483,12 +485,12 @@ func (s *Service) pageSummaries(ctx context.Context, actor Actor, spaceID uint64
 		statement += " AND p.space_id=?"
 		args = append(args, spaceID)
 	}
+	if status != "" {
+		statement += " AND p.status=?"
+		args = append(args, status)
+	}
 	if query != "" {
-		if utf8.RuneCountInString(query) < 3 {
-			statement += " AND LOCATE(LOWER(?),LOWER(CONCAT(p.title,' ',p.body)))>0"
-		} else {
-			statement += " AND MATCH(p.title,p.body) AGAINST (? IN NATURAL LANGUAGE MODE)>0"
-		}
+		statement += " AND MATCH(p.title,p.body) AGAINST (? IN NATURAL LANGUAGE MODE)>0"
 		args = append(args, query)
 	}
 	if attention {

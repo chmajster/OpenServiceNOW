@@ -49,6 +49,9 @@ func TestNormalizePageAndReviewDefaults(t *testing.T) {
 	if _, err := normalizePage(PageInput{Title: "x", Body: strings.Repeat("x", MaxPageBodyBytes+1)}, true); err == nil {
 		t.Fatal("oversized page body accepted")
 	}
+	if _, err := normalizePage(PageInput{Title: "x", Body: strings.Repeat("ą", MaxPageBodyBytes/2+1)}, true); err == nil {
+		t.Fatal("UTF-8 body exceeding byte limit accepted")
+	}
 }
 
 func TestPermissionHierarchy(t *testing.T) {

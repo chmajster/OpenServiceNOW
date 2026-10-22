@@ -14,6 +14,18 @@ export type Space = {
 
 export type ArticleStatus = "DRAFT" | "PUBLISHED" | "RETIRED";
 
+export const MIN_KNOWLEDGE_SEARCH_RUNES = 3;
+export const MAX_KNOWLEDGE_SEARCH_RUNES = 200;
+export const MAX_ARTICLE_BODY_BYTES = 256 * 1024;
+
+export function knowledgeSearchQueryLength(value: string) {
+  return Array.from(value.trim()).length;
+}
+
+export function articleBodyByteLength(value: string) {
+  return new TextEncoder().encode(value).byteLength;
+}
+
 export type PageSummary = {
   id: string;
   space_id: string;

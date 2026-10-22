@@ -27,7 +27,9 @@ const (
 
 	AttentionReviewDue = "REVIEW_DUE"
 
-	MaxPageBodyBytes = 256 << 10
+	MinSearchQueryRunes = 3
+	MaxSearchQueryRunes = 200
+	MaxPageBodyBytes    = 256 << 10
 )
 
 type Actor = workrecords.Principal

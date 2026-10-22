@@ -148,9 +148,15 @@ func TestKnowledgeSpacesEndToEnd(t *testing.T) {
 	if err != nil || len(results.Pages) != 1 || results.Pages[0].ID != root.ID {
 		t.Fatalf("search results: %+v err=%v", results, err)
 	}
-	shortResults, err := service.Search(ctx, reader, space.ID, "wd", 0, 50)
-	if err != nil || len(shortResults.Pages) != 1 || shortResults.Pages[0].ID != root.ID {
-		t.Fatalf("short partial search: %+v err=%v", shortResults, err)
+	if _, err := service.Search(ctx, reader, space.ID, "wd", 0, 50); !errors.Is(err, knowledge.ErrInvalid) {
+		t.Fatalf("short search must be rejected before scanning the corpus: %v", err)
+	}
+	publishedPage, err := service.Pages(ctx, admin, space.ID, knowledge.PagePublished, 0, 1)
+	if err != nil || len(publishedPage.Pages) != 1 || publishedPage.Pages[0].ID != root.ID || publishedPage.NextAfterID != 0 {
+		t.Fatalf("status filter must run before pagination: %+v err=%v", publishedPage, err)
+	}
+	if _, err := service.Pages(ctx, admin, space.ID, "UNKNOWN", 0, 1); !errors.Is(err, knowledge.ErrInvalid) {
+		t.Fatalf("unsupported article status accepted: %v", err)
 	}
 	globalKey := "crossbase-" + suffix
 	secondSpace, _, err := service.CreateSpace(ctx, admin, knowledge.SpaceInput{Key: "APPS", Name: "Aplikacje", Status: knowledge.SpaceActive}, "knowledge-space-apps")
@@ -293,6 +299,12 @@ func TestKnowledgeSpacesEndToEnd(t *testing.T) {
 	}
 	if response := request(readerLogin, http.MethodGet, "/api/v1/knowledge/search?limit=50&q="+globalKey, "", false); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), fmt.Sprintf(`"id":"%d"`, globalArticle.ID)) {
 		t.Fatalf("authenticated cross-base knowledge search: %d %s", response.Code, response.Body.String())
+	}
+	if response := request(readerLogin, http.MethodGet, "/api/v1/knowledge/search?limit=50&q=ab", "", false); response.Code != http.StatusBadRequest {
+		t.Fatalf("short full-text search was not rejected: %d %s", response.Code, response.Body.String())
+	}
+	if response := request(adminLogin, http.MethodGet, fmt.Sprintf("/api/v1/knowledge/spaces/%d/pages?status=UNKNOWN", space.ID), "", false); response.Code != http.StatusBadRequest {
+		t.Fatalf("unsupported article state was not rejected: %d %s", response.Code, response.Body.String())
 	}
 	createBody := `{"key":"HTTP","name":"HTTP","description":"","status":"ACTIVE","review_interval_days":30}`
 	if response := request(adminLogin, http.MethodPost, "/api/v1/knowledge/spaces", createBody, false); response.Code != http.StatusForbidden {

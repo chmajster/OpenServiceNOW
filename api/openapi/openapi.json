@@ -12487,7 +12487,7 @@
         "tags": ["Knowledge"], "operationId": "searchAllKnowledgePages",
         "description": "Searches published pages in active bases visible to the session; writers also see drafts and managers can search archived bases.",
         "security": [{"sessionCookie": []}],
-        "parameters": [{"name": "q", "in": "query", "required": true, "schema": {"type": "string", "minLength": 1, "maxLength": 200}}, {"name": "after_id", "in": "query", "schema": {"type": "string", "pattern": "^[1-9][0-9]*$"}}, {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100}}],
+        "parameters": [{"name": "q", "in": "query", "required": true, "description": "At least 3 Unicode characters; uses the knowledge full-text index.", "schema": {"type": "string", "minLength": 3, "maxLength": 200}}, {"name": "after_id", "in": "query", "schema": {"type": "string", "pattern": "^[1-9][0-9]*$"}}, {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100}}],
         "responses": {"200": {"description": "Visible matching pages from all knowledge bases", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgePages"}}}}, "400": {"$ref": "#/components/responses/BadRequest"}, "401": {"$ref": "#/components/responses/Unauthorized"}, "403": {"$ref": "#/components/responses/Forbidden"}}
       }
     },
@@ -12532,7 +12532,7 @@
       "parameters": [{"name": "spaceID", "in": "path", "required": true, "schema": {"type": "string", "pattern": "^[1-9][0-9]*$"}}],
       "get": {
         "tags": ["Knowledge"], "operationId": "listKnowledgePages", "security": [{"sessionCookie": []}],
-        "parameters": [{"name": "after_id", "in": "query", "schema": {"type": "string", "pattern": "^[1-9][0-9]*$"}}, {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100}}],
+        "parameters": [{"name": "after_id", "in": "query", "schema": {"type": "string", "pattern": "^[1-9][0-9]*$"}}, {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100}}, {"name": "status", "in": "query", "description": "Filter before pagination. Omit to list every visible article state.", "schema": {"type": "string", "enum": ["DRAFT", "PUBLISHED", "RETIRED"]}}],
         "responses": {"200": {"description": "Visible page summaries", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgePages"}}}}, "404": {"$ref": "#/components/responses/NotFound"}}
       },
       "post": {
@@ -12548,7 +12548,7 @@
       "parameters": [{"name": "spaceID", "in": "path", "required": true, "schema": {"type": "string", "pattern": "^[1-9][0-9]*$"}}],
       "get": {
         "tags": ["Knowledge"], "operationId": "searchKnowledgePages", "security": [{"sessionCookie": []}],
-        "parameters": [{"name": "q", "in": "query", "required": true, "schema": {"type": "string", "minLength": 1, "maxLength": 200}}, {"name": "after_id", "in": "query", "schema": {"type": "string", "pattern": "^[1-9][0-9]*$"}}, {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100}}],
+        "parameters": [{"name": "q", "in": "query", "required": true, "description": "At least 3 Unicode characters; uses the knowledge full-text index.", "schema": {"type": "string", "minLength": 3, "maxLength": 200}}, {"name": "after_id", "in": "query", "schema": {"type": "string", "pattern": "^[1-9][0-9]*$"}}, {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100}}],
         "responses": {"200": {"description": "Visible matching pages", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgePages"}}}}, "400": {"$ref": "#/components/responses/BadRequest"}}
       }
     },
@@ -12735,7 +12735,7 @@
           "id": {"type": "string", "pattern": "^[1-9][0-9]*$"},
           "space_id": {"type": "string", "pattern": "^[1-9][0-9]*$"},
           "title": {"type": "string", "minLength": 1, "maxLength": 200},
-          "body": {"type": "string", "maxLength": 262144},
+          "body": {"type": "string", "description": "Maximum 262144 UTF-8 bytes.", "x-maxBytes": 262144},
           "status": {"type": "string", "enum": ["DRAFT", "PUBLISHED", "RETIRED"]},
           "review_due_at": {"type": "string", "format": "date-time"},
           "version": {"type": "string", "pattern": "^[1-9][0-9]*$"},
@@ -12752,7 +12752,7 @@
         "type": "object",
         "properties": {
           "title": {"type": "string", "minLength": 1, "maxLength": 200},
-          "body": {"type": "string", "maxLength": 262144},
+          "body": {"type": "string", "description": "Maximum 262144 UTF-8 bytes.", "x-maxBytes": 262144},
           "status": {"type": "string", "enum": ["DRAFT", "PUBLISHED", "RETIRED"]},
           "review_due_at": {"type": "string", "format": "date-time"}
         },
@@ -12763,7 +12763,7 @@
         "type": "object",
         "properties": {
           "title": {"type": "string", "minLength": 1, "maxLength": 200},
-          "body": {"type": "string", "maxLength": 262144},
+          "body": {"type": "string", "description": "Maximum 262144 UTF-8 bytes.", "x-maxBytes": 262144},
           "status": {"type": "string", "enum": ["DRAFT", "PUBLISHED", "RETIRED"]},
           "review_due_at": {"type": "string", "format": "date-time"},
           "version": {"type": "string", "pattern": "^[1-9][0-9]*$"}
