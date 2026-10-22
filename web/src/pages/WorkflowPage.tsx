@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { flushSync } from "react-dom";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useRemotePage } from "../components/useRemotePage";
@@ -8,9 +7,8 @@ import { useIncidentQuery } from "../incidents/hooks";
 import { UnsavedGuard } from "../incidents/UnsavedGuard";
 import { LoadState } from "../requests/LoadState";
 import { useEditor } from "../requests/useEditor";
-import { useCreation } from "../requests/useCreation";
+import { WorkflowWizard } from "../workflow/WorkflowWizard";
 import {
-  blank,
   labels,
   errors,
   type Config,
@@ -27,8 +25,8 @@ export function WorkflowPage() {
       (!has("workflow.author") && !has("workflow.publish"))
         ? "executions"
         : "definitions",
-    id = p.get("id");
-  const [creating, setCreating] = useState(false);
+    id = p.get("id"),
+    creating = p.get("new") === "1";
   const defs = useRemotePage<Definition>(
     `${base}/definitions?limit=25&q=${encodeURIComponent(p.get("q") ?? "")}`,
     "items",
@@ -46,8 +44,9 @@ export function WorkflowPage() {
     tab === "executions" && has("workflow.manage"),
   );
   function select(id?: string) {
-    setCreating(false);
     const next = new URLSearchParams(p);
+    next.set("tab", "definitions");
+    next.delete("new");
     if (id) next.set("id", id);
     else next.delete("id");
     set(next);
@@ -66,10 +65,7 @@ export function WorkflowPage() {
           <button
             className="button button--secondary"
             aria-current={tab === "definitions" ? "page" : undefined}
-            onClick={() => {
-              setCreating(false);
-              set({ tab: "definitions" });
-            }}
+            onClick={() => set({ tab: "definitions" })}
           >
             Definicje
           </button>
@@ -78,10 +74,7 @@ export function WorkflowPage() {
           <button
             className="button button--secondary"
             aria-current={tab === "executions" ? "page" : undefined}
-            onClick={() => {
-              setCreating(false);
-              set({ tab: "executions" });
-            }}
+            onClick={() => set({ tab: "executions" })}
           >
             Wykonania
           </button>
@@ -164,11 +157,9 @@ export function WorkflowPage() {
           </button>
         </>
       ) : creating ? (
-        <Editor
-          key="new"
-          initial={{ id: "", version: "0", draft: structuredClone(blank) }}
-          back={() => setCreating(false)}
-          saved={(d) => {
+        <WorkflowWizard
+          back={() => select()}
+          created={(d) => {
             select(d.id);
             defs.reload();
           }}
@@ -194,7 +185,7 @@ export function WorkflowPage() {
           {has("workflow.author") ? (
             <button
               className="button button--primary"
-              onClick={() => setCreating(true)}
+              onClick={() => set({ tab: "definitions", new: "1" })}
             >
               Nowy proces
             </button>
@@ -270,8 +261,7 @@ function Editor({
   saved: (d: Definition) => void;
 }) {
   const { hasPermission: has } = useAuth();
-  const ed = useEditor(initial, `${base}/definitions/${initial.id}`),
-    creation = useCreation<Definition>();
+  const ed = useEditor(initial, `${base}/definitions/${initial.id}`);
   const [draft, setDraft] = useState<Config>(() =>
       structuredClone(initial.draft),
     ),
@@ -281,30 +271,18 @@ function Editor({
     setDirty(true);
   }
   async function save() {
-    if (!initial.id) {
-      const d = await creation.create(`${base}/definitions`, {
-        version: "0",
-        draft,
-      });
-      if (d) {
-        flushSync(() => setDirty(false));
-        saved(d);
-      }
-    } else {
-      if (
-        await ed.save(
-          `${base}/definitions/${initial.id}`,
-          { version: ed.record.version, draft },
-          "PUT",
-        )
-      ) {
-        setDirty(false);
-        saved(ed.record);
-      }
+    if (
+      await ed.save(
+        `${base}/definitions/${initial.id}`,
+        { version: ed.record.version, draft },
+        "PUT",
+      )
+    ) {
+      setDirty(false);
+      saved(ed.record);
     }
   }
-  const locked =
-    ed.busy || creation.busy || !!ed.conflict || creation.uncertain;
+  const locked = ed.busy || !!ed.conflict;
   return (
     <>
       <UnsavedGuard dirty={dirty} includeSearch />
@@ -318,7 +296,7 @@ function Editor({
           void save();
         }}
       >
-        <h2>{initial.id ? "Szkic procesu" : "Nowy proces"}</h2>
+        <h2>Szkic procesu</h2>
         <p>
           Szkic {ed.record.version}; opublikowana wersja{" "}
           {ed.record.published_version ?? "brak"}. Uruchomione wykonania
@@ -407,7 +385,7 @@ function Editor({
             Dodaj krok
           </button>
         </fieldset>
-        <LoadState error={ed.error ?? creation.error} />
+        <LoadState error={ed.error} />
         {ed.notice ? <p role="status">{ed.notice}</p> : null}
         {ed.conflict ? (
           <section className="conflict-panel">
@@ -443,12 +421,10 @@ function Editor({
           {has("workflow.author") ? (
             <button
               className="button button--primary"
-              disabled={ed.busy || creation.busy || !!ed.conflict}
+              disabled={ed.busy || !!ed.conflict}
               type="submit"
             >
-              {creation.uncertain
-                ? "Potwierdź wynik utworzenia"
-                : "Zapisz szkic procesu"}
+              Zapisz szkic procesu
             </button>
           ) : null}
           {initial.id && has("workflow.publish") ? (

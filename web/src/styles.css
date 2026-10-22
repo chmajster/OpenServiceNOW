@@ -6,6 +6,12 @@
   --color-sn-teal-header: #263d3f;
   --color-sn-workspace: #f1f3f4;
   --color-sn-border: #d3ddde;
+  --color-sn-canvas: #f3f6f7;
+  --color-sn-line: #d8e0e5;
+  --color-sn-ink: #18212f;
+  --color-sn-muted: #64748b;
+  --color-sn-paper: #ffffff;
+  --shadow-sn-panel: 0 16px 40px rgb(18 52 59 / 8%);
 }
 
 @layer components {
