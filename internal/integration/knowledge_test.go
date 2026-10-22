@@ -113,7 +113,8 @@ func TestKnowledgeSpacesEndToEnd(t *testing.T) {
 	if err != nil || created || replayed.ID != space.ID {
 		t.Fatalf("idempotent space retry: created=%t result=%+v err=%v", created, replayed, err)
 	}
-	secret := "SECRET-BODY-" + suffix
+	secretSearchTerm := "DRAFTONLYTOKEN"
+	secret := "SECRET-BODY-" + secretSearchTerm + "-" + suffix
 	draft, _, err := service.CreatePage(ctx, admin, space.ID, knowledge.PageInput{Title: "Szkic", Body: secret, Status: knowledge.PageDraft}, "knowledge-draft")
 	if err != nil {
 		t.Fatal(err)
@@ -168,11 +169,11 @@ func TestKnowledgeSpacesEndToEnd(t *testing.T) {
 	if err != nil || len(foreignResults.Pages) != 0 {
 		t.Fatalf("cross-tenant global search leaked results: %+v err=%v", foreignResults, err)
 	}
-	readerDraftResults, err := service.Search(ctx, reader, 0, secret, 0, 50)
+	readerDraftResults, err := service.Search(ctx, reader, 0, secretSearchTerm, 0, 50)
 	if err != nil || len(readerDraftResults.Pages) != 0 {
 		t.Fatalf("global search exposed draft body to reader: %+v err=%v", readerDraftResults, err)
 	}
-	adminDraftResults, err := service.Search(ctx, admin, 0, secret, 0, 50)
+	adminDraftResults, err := service.Search(ctx, admin, 0, secretSearchTerm, 0, 50)
 	if err != nil || len(adminDraftResults.Pages) != 1 || adminDraftResults.Pages[0].ID != draft.ID {
 		t.Fatalf("global search omitted writer-visible draft: %+v err=%v", adminDraftResults, err)
 	}
