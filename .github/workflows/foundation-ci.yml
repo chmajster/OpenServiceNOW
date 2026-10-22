@@ -62,9 +62,11 @@ jobs:
 
       - name: Validate installer
         run: |
-          for script in install.sh docker/*.sh tests/*.sh; do bash -n "$script"; done
+          for script in bootstrap.sh install.sh docker/*.sh tests/*.sh; do bash -n "$script"; done
           ./install.sh --help >/dev/null
-          shellcheck -x -P SCRIPTDIR install.sh docker/*.sh tests/*.sh
+          ./bootstrap.sh --help >/dev/null
+          shellcheck -x -P SCRIPTDIR bootstrap.sh install.sh docker/*.sh tests/*.sh
+          bash tests/bootstrap_test.sh
           bash tests/installer_test.sh
 
       - uses: actions/setup-go@v6
