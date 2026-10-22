@@ -79,7 +79,7 @@ function KnowledgeWorkspace() {
   const spaceList = { moreSpaces: spaces.more, nextSpaces: spaces.next, spacesLoading: spaces.loading, spacesError: spaces.error, retrySpaces: spaces.retry };
   if (!spaceID)
     return <KnowledgeHome spaces={spaces.items} canManage={hasPermission("knowledge.manage")} reload={spaces.reload} {...spaceList} />;
-  return <KnowledgeBase key={spaceID} spaceID={spaceID} pageID={pageID} spaces={spaces.items} reloadSpaces={spaces.reload} cacheScope={cacheScope} {...spaceList} />;
+  return <KnowledgeBase key={`${spaceID}:${cacheScope}`} spaceID={spaceID} pageID={pageID} spaces={spaces.items} reloadSpaces={spaces.reload} cacheScope={cacheScope} {...spaceList} />;
 }
 
 function KnowledgeHome({ spaces, canManage, reload, moreSpaces, nextSpaces, spacesLoading, spacesError, retrySpaces }: { spaces: Space[]; canManage: boolean; reload: () => void; moreSpaces: () => void; nextSpaces?: string; spacesLoading: boolean; spacesError: string | null; retrySpaces: () => void }) {
@@ -202,6 +202,7 @@ function KnowledgeBase({ spaceID, pageID, spaces, reloadSpaces, cacheScope, more
     try {
       const result = await api<Space>(`${base}/spaces/${spaceID}/subscription`, { method: current.subscribed ? "DELETE" : "PUT" });
       setSpaceOverride(result);
+      reloadSpaces();
       setNotice(result.subscribed ? "Subskrybujesz tę bazę wiedzy." : "Anulowano subskrypcję bazy wiedzy.");
     } catch (cause) { setActionError(errorMessage(cause, "Nie udało się zmienić subskrypcji.")); }
     finally { setBusyAction(false); }

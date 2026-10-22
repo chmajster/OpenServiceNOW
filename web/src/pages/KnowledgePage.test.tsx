@@ -301,3 +301,55 @@ it("requests article-state filtering from the server before pagination", async (
     expect(container.textContent).toContain("Późny szkic");
   } finally { await act(async () => root.unmount()); }
 });
+
+it("refreshes subscription cards and discards subscription overrides when the session changes", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const now = new Date().toISOString();
+  let userID = "1";
+  const subscriptions = new Map([["1", false], ["2", true]]);
+  let spaceListReads = 0;
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(input);
+    let body: unknown;
+    if (path === "/api/v1/setup") body = { required: false };
+    else if (path === "/api/v1/auth/me") body = {
+      user: { id: userID, email: `${userID}@example.test`, display_name: `User ${userID}`, version: "1", credential_version: "1" },
+      tenant: { id: "2", name: "Test", slug: "test" },
+      permissions: ["knowledge.manage"], password_change_required: false, expires_at: new Date(Date.now() + 600_000).toISOString(),
+    };
+    else if (path === "/api/v1/knowledge/spaces?limit=100") {
+      spaceListReads += 1;
+      body = { spaces: [{ id: "10", key: "OPS", name: "Operacje", description: "", status: "ACTIVE", review_interval_days: 90, version: "1", page_count: "0", subscribed: subscriptions.get(userID), created_at: now, updated_at: now }] };
+    }
+    else if (path === "/api/v1/knowledge/spaces/10") body = { id: "10", key: "OPS", name: "Operacje", description: "", status: "ACTIVE", review_interval_days: 90, version: "1", page_count: "0", subscribed: subscriptions.get(userID), created_at: now, updated_at: now };
+    else if (path === "/api/v1/knowledge/spaces/10/pages?limit=100") body = { pages: [] };
+    else if (path === "/api/v1/knowledge/spaces/10/subscription") {
+      subscriptions.set(userID, init?.method === "PUT");
+      body = { id: "10", key: "OPS", name: "Operacje", description: "", status: "ACTIVE", review_interval_days: 90, version: "1", page_count: "0", subscribed: subscriptions.get(userID), created_at: now, updated_at: now };
+    }
+    else throw new Error(`unexpected request: ${path} ${init?.method ?? "GET"}`);
+    return new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
+  }));
+  const router = createMemoryRouter([{ path: "/knowledge/:spaceID?", element: <AuthProvider><KnowledgePage /></AuthProvider> }], { initialEntries: ["/knowledge/10"] });
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  try {
+    await act(async () => { root.render(<RouterProvider router={router} />); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    const subscriptionButton = () => Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent === "Subskrybuj" || button.textContent === "Anuluj subskrypcję");
+    await act(async () => { subscriptionButton()?.click(); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    expect(subscriptionButton()?.textContent).toBe("Anuluj subskrypcję");
+    expect(spaceListReads).toBeGreaterThan(1);
+
+    const allBases = Array.from(container.querySelectorAll<HTMLAnchorElement>("a")).find((link) => link.textContent?.includes("Wszystkie bazy"));
+    await act(async () => { allBases?.click(); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    expect(container.textContent).toContain("Subskrybowana");
+    const baseCard = container.querySelector<HTMLAnchorElement>(".knowledge-base-card");
+    await act(async () => { baseCard?.click(); await new Promise((resolve) => setTimeout(resolve, 20)); });
+
+    await act(async () => { subscriptionButton()?.click(); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    expect(subscriptionButton()?.textContent).toBe("Subskrybuj");
+    userID = "2";
+    await act(async () => { window.dispatchEvent(new Event("focus")); await new Promise((resolve) => setTimeout(resolve, 30)); });
+    expect(subscriptionButton()?.textContent).toBe("Anuluj subskrypcję");
+  } finally { await act(async () => root.unmount()); }
+});
