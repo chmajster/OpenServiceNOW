@@ -105,6 +105,28 @@ func TestKnowledgeIdentifiersUseDecimalStrings(t *testing.T) {
 	}
 }
 
+func TestKnowledgeListOperationsDocumentPagination(t *testing.T) {
+	var root map[string]any
+	if err := json.Unmarshal(loadDocument(t), &root); err != nil {
+		t.Fatal(err)
+	}
+	paths := root["paths"].(map[string]any)
+	for _, path := range []string{
+		"/api/v1/knowledge/search",
+		"/api/v1/knowledge/spaces",
+		"/api/v1/knowledge/spaces/{spaceID}/pages",
+		"/api/v1/knowledge/spaces/{spaceID}/search",
+		"/api/v1/knowledge/spaces/{spaceID}/attention",
+	} {
+		operation := paths[path].(map[string]any)["get"].(map[string]any)
+		for _, name := range []string{"after_id", "limit"} {
+			if !hasQueryParameter(operation, name) {
+				t.Errorf("GET %s does not document %s pagination", path, name)
+			}
+		}
+	}
+}
+
 func TestKnowledgeArticleLifecycleContract(t *testing.T) {
 	var root map[string]any
 	if err := json.Unmarshal(loadDocument(t), &root); err != nil {
@@ -127,6 +149,17 @@ func hasHeaderParameter(operation map[string]any, name string) bool {
 	for _, raw := range parameters {
 		parameter, _ := raw.(map[string]any)
 		if parameter["in"] == "header" && parameter["name"] == name && parameter["required"] == true {
+			return true
+		}
+	}
+	return false
+}
+
+func hasQueryParameter(operation map[string]any, name string) bool {
+	parameters, _ := operation["parameters"].([]any)
+	for _, raw := range parameters {
+		parameter, _ := raw.(map[string]any)
+		if parameter["in"] == "query" && parameter["name"] == name {
 			return true
 		}
 	}

@@ -12558,6 +12558,7 @@
         "tags": ["Knowledge"], "operationId": "listKnowledgeAttentionPages",
         "description": "Requires knowledge.write or knowledge.manage.",
         "security": [{"sessionCookie": []}],
+        "parameters": [{"name": "after_id", "in": "query", "schema": {"type": "string", "pattern": "^[1-9][0-9]*$"}}, {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 50}}],
         "responses": {"200": {"description": "Drafts and overdue reviews", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgePages"}}}}, "403": {"$ref": "#/components/responses/Forbidden"}}
       }
     },

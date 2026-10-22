@@ -40,8 +40,19 @@ const errorMessages: Record<string, string> = {
 
 let sessionRevision = 0;
 const sessionListeners = new Set<() => void>();
+const sessionRevisionListeners = new Set<() => void>();
 export function advanceSessionRevision() {
   sessionRevision += 1;
+  sessionRevisionListeners.forEach((listener) => listener());
+}
+export function currentSessionRevision() {
+  return sessionRevision;
+}
+export function onSessionRevisionChange(listener: () => void) {
+  sessionRevisionListeners.add(listener);
+  return () => {
+    sessionRevisionListeners.delete(listener);
+  };
 }
 export function onSessionExpired(listener: () => void) {
   sessionListeners.add(listener);

@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { api, ApiError, jsonBody } from "../api/client";
+import { api, ApiError, currentSessionRevision, jsonBody, onSessionRevisionChange } from "../api/client";
 import { message } from "./contracts";
-type Proposal = { key: string; body: string; path: string };
+type Proposal = { key: string; body: string; path: string; scope: string };
 
 // A keyed creation must survive the editor component being unmounted while its
 // request is in flight. Keeping the proposal in this module preserves it across
 // in-app navigation without writing article content to browser storage.
 const pendingCreations = new Map<string, Proposal>();
+onSessionRevisionChange(() => pendingCreations.clear());
 
 export function useCreation<T>(scope?: string) {
-  const [pending, setPending] = useState<Proposal | undefined>(() => scope ? pendingCreations.get(scope) : undefined);
+  const [pending, setPending] = useState<Proposal | undefined>(() => scope ? pendingCreations.get(`${currentSessionRevision()}:${scope}`) : undefined);
   const proposal = useRef<Proposal | undefined>(pending),
     alive = useRef(true),
     controller = useRef<AbortController | undefined>(undefined);
@@ -32,8 +33,9 @@ export function useCreation<T>(scope?: string) {
       return;
     }
     if (!proposal.current) {
-      proposal.current = { key: crypto.randomUUID(), body, path };
-      pendingCreations.set(scope ?? path, proposal.current);
+      const proposalScope = `${currentSessionRevision()}:${scope ?? path}`;
+      proposal.current = { key: crypto.randomUUID(), body, path, scope: proposalScope };
+      pendingCreations.set(proposalScope, proposal.current);
       setPending(proposal.current);
     }
     const attempt = proposal.current!;
@@ -50,7 +52,7 @@ export function useCreation<T>(scope?: string) {
       });
       if (!alive.current || c.signal.aborted) return;
       setUncertain(false);
-      pendingCreations.delete(scope ?? attempt.path);
+      pendingCreations.delete(attempt.scope);
       proposal.current = undefined;
       setPending(undefined);
       return result;
@@ -59,7 +61,7 @@ export function useCreation<T>(scope?: string) {
         setError(message(e));
         setUncertain(!(e instanceof ApiError) || e.status >= 500);
         if (e instanceof ApiError && e.status < 500) {
-          pendingCreations.delete(scope ?? attempt.path);
+          pendingCreations.delete(attempt.scope);
           proposal.current = undefined;
           setPending(undefined);
         }
