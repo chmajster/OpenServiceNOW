@@ -60,6 +60,10 @@ func (s *Service) List(
 	return s.repo.List(ctx, tenantID, afterID, limit, query)
 }
 
+func (s *Service) Profile(ctx context.Context, tenantID, userID uint64) (Profile, error) {
+	return s.repo.Profile(ctx, tenantID, userID)
+}
+
 func (s *Service) Create(ctx context.Context, actor Actor, input CreateInput) (uint64, error) {
 	input.Email = strings.ToLower(strings.TrimSpace(input.Email))
 	input.DisplayName = strings.TrimSpace(input.DisplayName)

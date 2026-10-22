@@ -67,6 +67,16 @@ export type TenantUser = {
   created_at: string;
 };
 
+export type UserProfile = {
+  id: string;
+  email: string;
+  display_name: string;
+  user_active: boolean;
+  membership_active: boolean;
+  created_at: string;
+  membership_created_at: string;
+};
+
 export type UsersResponse = {
   users: TenantUser[];
   next_after_id?: string;

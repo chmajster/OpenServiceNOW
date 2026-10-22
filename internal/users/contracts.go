@@ -4,6 +4,7 @@ import "context"
 
 type APIService interface {
 	List(context.Context, uint64, uint64, int, string) (Page, error)
+	Profile(context.Context, uint64, uint64) (Profile, error)
 	Create(context.Context, Actor, CreateInput) (uint64, error)
 	AddExistingMembership(context.Context, Actor, AddExistingInput) (uint64, error)
 	SetMembershipActive(context.Context, Actor, uint64, bool) error

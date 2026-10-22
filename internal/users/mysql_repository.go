@@ -71,6 +71,31 @@ func (r *MySQLRepository) List(
 	return page, nil
 }
 
+func (r *MySQLRepository) Profile(ctx context.Context, tenantID, userID uint64) (Profile, error) {
+	var profile Profile
+	err := r.db.QueryRowContext(ctx, `
+		SELECT u.id, u.email, u.display_name, u.active, tm.active, u.created_at, tm.created_at
+		FROM tenant_memberships tm
+		JOIN users u ON u.id = tm.user_id
+		WHERE tm.tenant_id = ? AND u.id = ?
+	`, tenantID, userID).Scan(
+		&profile.ID,
+		&profile.Email,
+		&profile.DisplayName,
+		&profile.UserActive,
+		&profile.MembershipActive,
+		&profile.CreatedAt,
+		&profile.MembershipCreatedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Profile{}, ErrNotFound
+	}
+	if err != nil {
+		return Profile{}, fmt.Errorf("read tenant user profile: %w", err)
+	}
+	return profile, nil
+}
+
 func (r *MySQLRepository) CreateLocal(
 	ctx context.Context,
 	exec platformdb.Executor,

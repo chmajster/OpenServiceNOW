@@ -39,17 +39,28 @@ func (fakeAuthService) HasPermission(context.Context, identity.SessionIdentity, 
 	return true, nil
 }
 
+type deniedUserPermissionAuth struct{ fakeAuthService }
+
+func (deniedUserPermissionAuth) HasPermission(context.Context, identity.SessionIdentity, string) (bool, error) {
+	return false, nil
+}
+
 type fakeUsersService struct {
-	listTenantID uint64
-	listAfterID  uint64
-	listLimit    int
-	listQuery    string
-	listCalls    int
-	addActor     Actor
-	addInput     AddExistingInput
-	addID        uint64
-	addErr       error
-	setErr       error
+	listTenantID    uint64
+	listAfterID     uint64
+	listLimit       int
+	listQuery       string
+	listCalls       int
+	profileTenantID uint64
+	profileUserID   uint64
+	profileCalls    int
+	profileResult   Profile
+	profileErr      error
+	addActor        Actor
+	addInput        AddExistingInput
+	addID           uint64
+	addErr          error
+	setErr          error
 }
 
 func (f *fakeUsersService) List(
@@ -74,6 +85,13 @@ func (f *fakeUsersService) List(
 
 func (*fakeUsersService) Create(context.Context, Actor, CreateInput) (uint64, error) {
 	return 0, nil
+}
+
+func (f *fakeUsersService) Profile(_ context.Context, tenantID, userID uint64) (Profile, error) {
+	f.profileCalls++
+	f.profileTenantID = tenantID
+	f.profileUserID = userID
+	return f.profileResult, f.profileErr
 }
 
 func (f *fakeUsersService) AddExistingMembership(
@@ -161,6 +179,66 @@ func TestListRejectsInvalidCursor(t *testing.T) {
 	}
 	if service.listCalls != 0 {
 		t.Fatalf("list calls = %d", service.listCalls)
+	}
+}
+
+func TestProfileUsesAuthenticatedTenantAndDoesNotExposeCredentials(t *testing.T) {
+	service := &fakeUsersService{profileResult: Profile{
+		ID: 9007199254740993, Email: "operator@example.test", DisplayName: "Operator",
+		UserActive: true, MembershipActive: true,
+	}}
+	recorder := httptest.NewRecorder()
+	usersTestRouter(service).ServeHTTP(
+		recorder,
+		authenticatedUsersRequest("/api/v1/admin/users/9007199254740993"),
+	)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if service.profileTenantID != 7 || service.profileUserID != 9007199254740993 || service.profileCalls != 1 {
+		t.Fatalf("profile args tenant=%d user=%d calls=%d", service.profileTenantID, service.profileUserID, service.profileCalls)
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `"id":"9007199254740993"`) ||
+		!strings.Contains(body, `"email":"operator@example.test"`) {
+		t.Fatalf("body = %s", body)
+	}
+	if strings.Contains(body, "password") || strings.Contains(body, "credential") {
+		t.Fatalf("profile response contains credential fields: %s", body)
+	}
+}
+
+func TestProfileHidesUsersOutsideTenant(t *testing.T) {
+	service := &fakeUsersService{profileErr: ErrNotFound}
+	recorder := httptest.NewRecorder()
+	usersTestRouter(service).ServeHTTP(
+		recorder,
+		authenticatedUsersRequest("/api/v1/admin/users/42"),
+	)
+
+	if recorder.Code != http.StatusNotFound || !strings.Contains(recorder.Body.String(), "USER_NOT_FOUND") {
+		t.Fatalf("status = %d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestProfileRequiresUserManagementPermission(t *testing.T) {
+	service := &fakeUsersService{}
+	router := chi.NewRouter()
+	auth := identity.NewMiddleware(deniedUserPermissionAuth{}, config.SessionConfig{
+		TTL:            time.Hour,
+		CookieName:     "session",
+		CSRFCookieName: "csrf",
+	})
+	RegisterRoutes(router, NewHandler(service), auth)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, authenticatedUsersRequest("/api/v1/admin/users/42"))
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if service.profileCalls != 0 {
+		t.Fatalf("profile calls = %d", service.profileCalls)
 	}
 }
 

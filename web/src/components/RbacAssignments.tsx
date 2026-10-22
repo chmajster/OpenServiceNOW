@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import type { AssignedRole, GroupMember } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
@@ -202,7 +203,11 @@ export function GroupMembers({
           <tbody>
             {page.items.map((member) => (
               <tr key={member.user_id}>
-                <td>{member.display_name}</td>
+                <td>
+                  <Link to={`/users/${member.user_id}`}>
+                    {member.display_name}
+                  </Link>
+                </td>
                 <td>{member.email}</td>
                 <td>
                   {member.user_active && member.membership_active

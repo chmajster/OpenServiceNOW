@@ -78,6 +78,24 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	httpapi.WriteJSON(w, http.StatusOK, page)
 }
 
+func (h *Handler) Profile(w http.ResponseWriter, r *http.Request) {
+	userID, ok := userIDFromPath(w, r)
+	if !ok {
+		return
+	}
+	session, ok := identity.FromContext(r.Context())
+	if !ok {
+		httpapi.WriteError(w, r, http.StatusUnauthorized, "UNAUTHENTICATED", "Authentication required")
+		return
+	}
+	profile, err := h.service.Profile(r.Context(), session.TenantID, userID)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	httpapi.WriteJSON(w, http.StatusOK, map[string]any{"profile": profile})
+}
+
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	var request createRequest
 	if err := httpapi.DecodeJSON(r, &request); err != nil {

@@ -15,6 +15,7 @@ import { OverviewPage } from "./pages/OverviewPage";
 import { RbacPage } from "./pages/RbacPage";
 import { TenantPage } from "./pages/TenantPage";
 import { UsersPage } from "./pages/UsersPage";
+import { UserProfilePage } from "./pages/UserProfilePage";
 import { SetupPage } from "./pages/SetupPage";
 import { DiagnosticsPage } from "./pages/DiagnosticsPage";
 import { AccountPage } from "./pages/AccountPage";
@@ -134,6 +135,14 @@ const router = createBrowserRouter(
           element={
             <RequirePermission permission="admin.users.manage">
               <UsersPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="users/:userID"
+          element={
+            <RequirePermission permission="admin.users.manage">
+              <UserProfilePage />
             </RequirePermission>
           }
         />

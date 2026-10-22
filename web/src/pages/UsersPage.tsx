@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { ApiError, api, jsonBody } from "../api/client";
 import type { CreatedID, TenantUser } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
@@ -282,7 +282,9 @@ export function UsersPage() {
             <tbody>
               {page.items.map((user) => (
                 <tr key={user.id}>
-                  <td>{user.display_name}</td>
+                  <td>
+                    <Link to={`/users/${user.id}`}>{user.display_name}</Link>
+                  </td>
                   <td>{user.email}</td>
                   <td>{user.user_active ? "Aktywne" : "Wyłączone"}</td>
                   <td>

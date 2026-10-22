@@ -11,6 +11,7 @@ func RegisterRoutes(r chi.Router, handler *Handler, auth *identity.Middleware) {
 		r.Use(auth.RequirePermission("admin.users.manage"))
 
 		r.Get("/", handler.List)
+		r.Get("/{userID}", handler.Profile)
 
 		r.Group(func(r chi.Router) {
 			r.Use(auth.RequireCSRF)

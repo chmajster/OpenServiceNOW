@@ -20,6 +20,16 @@ type User struct {
 	CreatedAt        time.Time `json:"created_at"`
 }
 
+type Profile struct {
+	ID                uint64    `json:"id,string"`
+	Email             string    `json:"email"`
+	DisplayName       string    `json:"display_name"`
+	UserActive        bool      `json:"user_active"`
+	MembershipActive  bool      `json:"membership_active"`
+	CreatedAt         time.Time `json:"created_at"`
+	MembershipCreatedAt time.Time `json:"membership_created_at"`
+}
+
 type CreateInput struct {
 	Email       string
 	DisplayName string
