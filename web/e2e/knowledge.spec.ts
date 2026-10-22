@@ -55,13 +55,13 @@ test("Knowledge Center supports the ServiceNow-style article lifecycle", async (
   const title = `Reset hasła ${info.project.name}`;
   await page.getByLabel("Krótki opis", { exact: true }).fill(title);
   await page.getByLabel("Treść artykułu", { exact: true }).fill("# Reset hasła\n\nZweryfikuj tożsamość użytkownika i bezpiecznie zresetuj hasło.");
-  await page.getByLabel("Stan", { exact: true }).selectOption("PUBLISHED");
+  await page.getByRole("combobox", { name: "Stan", exact: true }).selectOption("PUBLISHED");
   const yesterday = new Date(Date.now() - 86_400_000);
   const local = new Date(yesterday.getTime() - yesterday.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
   await page.getByLabel("Ważny do", { exact: true }).fill(local);
   await page.getByRole("button", { name: "Zapisz artykuł", exact: true }).click();
   await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
-  await expect(page.getByText(/^KB\d{7,}$/)).toBeVisible();
+  await expect(page.locator(".knowledge-article-number")).toHaveText(/^KB\d{7,}$/);
   await expect(page.getByText("Wersje artykułu", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Wyszukiwanie", exact: true }).click();
@@ -73,7 +73,7 @@ test("Knowledge Center supports the ServiceNow-style article lifecycle", async (
   await expect(page.getByRole("heading", { name: "Wygasające artykuły", exact: true })).toBeVisible();
   await page.getByRole("link", { name: title, exact: true }).click();
   await page.getByRole("button", { name: "Edytuj artykuł", exact: true }).click();
-  await page.getByLabel("Stan", { exact: true }).selectOption("RETIRED");
+  await page.getByRole("combobox", { name: "Stan", exact: true }).selectOption("RETIRED");
   await page.getByRole("button", { name: "Zapisz artykuł", exact: true }).click();
   await expect(page.getByText("Wycofany", { exact: true })).toBeVisible();
 
