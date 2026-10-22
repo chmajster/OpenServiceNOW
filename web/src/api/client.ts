@@ -32,6 +32,12 @@ const errorMessages: Record<string, string> = {
   INVALID_AUDIT_FILTER:
     "Nieprawidłowy filtr audytu. Sprawdź daty, identyfikator aktora i długość wpisanych wartości.",
   INVALID_PAGINATION: "Nieprawidłowy filtr lub kursor listy.",
+  KNOWLEDGE_CONFLICT:
+    "Dokumentacja zmieniła się. Odczytaj aktualną wersję i rozstrzygnij konflikt.",
+  KNOWLEDGE_IDEMPOTENCY_CONFLICT:
+    "Ten klucz operacji dokumentacji był już użyty z innymi danymi.",
+  KNOWLEDGE_ARCHIVE_TOO_LARGE:
+    "Archiwum dokumentacji jest zbyt duże lub po rozpakowaniu przekracza limit.",
 };
 
 let sessionRevision = 0;

@@ -41,6 +41,9 @@ const WorkflowPage = lazy(() =>
 const ApprovalsPage = lazy(() =>
   import("./pages/ApprovalsPage").then((m) => ({ default: m.ApprovalsPage })),
 );
+const KnowledgePage = lazy(() =>
+  import("./pages/KnowledgePage").then((m) => ({ default: m.KnowledgePage })),
+);
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -71,6 +74,10 @@ const router = createBrowserRouter(
         <Route path="approvals" element={<ApprovalsPage />} />
         <Route path="approvals/:executionID" element={<ApprovalsPage />} />
         <Route path="workflow" element={<WorkflowPage />} />
+        <Route path="knowledge" element={<KnowledgePage />} />
+        <Route path="knowledge/:spaceID" element={<KnowledgePage />} />
+        <Route path="knowledge/:spaceID/:pageID" element={<KnowledgePage />} />
+        <Route path="knowledge/:spaceID/pages/:pageID" element={<KnowledgePage />} />
         <Route path="fulfillment" element={<RequestsPage tasks />} />
         <Route path="fulfillment/:recordID" element={<RequestsPage tasks />} />
         <Route

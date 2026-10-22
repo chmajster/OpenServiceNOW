@@ -27,6 +27,11 @@ const navigation: NavItem[] = [
     label: "Procesy i akceptacje",
     anyPermissions: ["workflow.author", "workflow.publish", "workflow.manage"],
   },
+  {
+    to: "/knowledge",
+    label: "Dokumentacja",
+    anyPermissions: ["knowledge.read", "knowledge.write", "knowledge.manage"],
+  },
   { to: "/catalog", label: "Katalog usług", permission: "catalog.read" },
   {
     to: "/requests",
@@ -88,6 +93,7 @@ export function AppShell() {
           "/requests",
           "/fulfillment",
           "/approvals",
+          "/knowledge",
         ].includes(item.to) &&
           location.pathname.startsWith(`${item.to}/`))) &&
       (!item.to.includes("kind=") || item.to.endsWith(kind)),
@@ -219,8 +225,12 @@ export function AppShell() {
                       <span aria-hidden="true">/</span>
                       <span aria-current="page">
                         {location.pathname.endsWith("/new")
-                          ? "Nowy incydent"
-                          : `#${location.pathname.split("/")[2]}`}
+                          ? location.pathname.startsWith("/knowledge/")
+                            ? "Nowa strona"
+                            : "Nowy incydent"
+                          : location.pathname.startsWith("/knowledge/")
+                            ? "Przestrzeń"
+                            : `#${location.pathname.split("/")[2]}`}
                       </span>
                     </>
                   )}
