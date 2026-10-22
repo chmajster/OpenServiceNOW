@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +18,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
+	"github.com/go-chi/chi/v5"
 )
 
 func TestKnowledgeSpacesEndToEnd(t *testing.T) {
@@ -216,5 +219,57 @@ func TestKnowledgeSpacesEndToEnd(t *testing.T) {
 	}
 	if _, err := service.Space(ctx, admin, space.ID); err != nil {
 		t.Fatalf("archived space hidden from manager: %v", err)
+	}
+
+	// The HTTP boundary supplies tenant/actor from the session and protects every mutation with CSRF.
+	auth, err := identity.NewService(identities, tx, audits, cfg.Session, cfg.Auth)
+	if err != nil {
+		t.Fatal(err)
+	}
+	login := func(tenant, email string) identity.LoginResult {
+		t.Helper()
+		result, err := auth.Login(ctx, identity.LoginInput{Tenant: tenant, Email: email, Password: "knowledge-test-administrator"}, identity.RequestMeta{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return result
+	}
+	adminLogin := login("knowledge-a-"+suffix, "knowledge-a-"+suffix+"@example.test")
+	readerLogin := login("knowledge-a-"+suffix, "knowledge-reader-"+suffix+"@example.test")
+	foreignLogin := login("knowledge-b-"+suffix, "knowledge-b-"+suffix+"@example.test")
+	router := chi.NewRouter()
+	knowledge.RegisterRoutes(router, knowledge.NewHandler(service, auth), identity.NewMiddleware(auth, cfg.Session))
+	request := func(login identity.LoginResult, method, path, body string, csrf bool) *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequest(method, path, strings.NewReader(body))
+		if body != "" {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		req.Header.Set("Idempotency-Key", "knowledge-http-key")
+		req.AddCookie(&http.Cookie{Name: cfg.Session.CookieName, Value: login.SessionToken})
+		req.AddCookie(&http.Cookie{Name: cfg.Session.CSRFCookieName, Value: login.CSRFToken})
+		if csrf {
+			req.Header.Set("X-CSRF-Token", login.CSRFToken)
+		}
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, req)
+		return response
+	}
+	if response := request(adminLogin, http.MethodGet, "/api/v1/knowledge/spaces?limit=50", "", false); response.Code != http.StatusOK {
+		t.Fatalf("authenticated knowledge list: %d %s", response.Code, response.Body.String())
+	}
+	createBody := `{"key":"HTTP","name":"HTTP","description":"","status":"ACTIVE","review_interval_days":30}`
+	if response := request(adminLogin, http.MethodPost, "/api/v1/knowledge/spaces", createBody, false); response.Code != http.StatusForbidden {
+		t.Fatalf("missing CSRF accepted: %d %s", response.Code, response.Body.String())
+	}
+	if response := request(readerLogin, http.MethodPost, "/api/v1/knowledge/spaces", createBody, true); response.Code != http.StatusForbidden {
+		t.Fatalf("reader manage bypass: %d %s", response.Code, response.Body.String())
+	}
+	if response := request(foreignLogin, http.MethodGet, fmt.Sprintf("/api/v1/knowledge/spaces/%d", space.ID), "", false); response.Code != http.StatusNotFound {
+		t.Fatalf("cross-tenant HTTP read: %d %s", response.Code, response.Body.String())
+	}
+	spoofed := fmt.Sprintf(`{"tenant_id":"%d","key":"%s","name":"%s","description":"","status":"ACTIVE","review_interval_days":30,"version":"%d"}`, adminB.TenantID, space.Key, space.Name, space.Version)
+	if response := request(adminLogin, http.MethodPut, fmt.Sprintf("/api/v1/knowledge/spaces/%d", space.ID), spoofed, true); response.Code != http.StatusBadRequest {
+		t.Fatalf("spoofed tenant field accepted: %d %s", response.Code, response.Body.String())
 	}
 }

@@ -6,6 +6,7 @@ import {
   type FormEvent,
 } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { flushSync } from "react-dom";
 import { api, ApiError, download, jsonBody, upload } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { PageState } from "../components/PageState";
@@ -53,8 +54,8 @@ function KnowledgeWorkspace() {
   const { spaceID, pageID } = useParams();
   const { hasPermission } = useAuth();
   const spaces = useRemotePage<Space>(`${base}/spaces?limit=100`, "spaces");
-  if (spaces.loading && !spaces.items.length) return <PageState title="Ładowanie dokumentacji" detail="Pobieranie przestrzeni i stron." />;
-  if (spaces.error && !spaces.items.length)
+  if (!spaceID && spaces.loading && !spaces.items.length) return <PageState title="Ładowanie dokumentacji" detail="Pobieranie przestrzeni i stron." />;
+  if (!spaceID && spaces.error && !spaces.items.length)
     return <PageState title="Nie udało się otworzyć dokumentacji" detail={spaces.error} tone="error" />;
   if (!spaceID)
     return <SpaceDirectory spaces={spaces.items} canManage={hasPermission("knowledge.manage")} reload={spaces.reload} />;
@@ -138,6 +139,7 @@ function SpaceWorkspace({ spaceID, pageID, spaces, reloadSpaces }: { spaceID: st
   const canWrite = hasPermission("knowledge.write") || hasPermission("knowledge.manage");
   const canManage = hasPermission("knowledge.manage");
   const space = useIncidentQuery<Space>(`${base}/spaces/${spaceID}`);
+  const [spaceOverride, setSpaceOverride] = useState<Space>();
   const pages = useRemotePage<PageSummary>(`${base}/spaces/${spaceID}/pages?limit=100`, "pages");
   const [notice, setNotice] = useState<string>();
   const [actionError, setActionError] = useState<string>();
@@ -149,16 +151,20 @@ function SpaceWorkspace({ spaceID, pageID, spaces, reloadSpaces }: { spaceID: st
   function showView(next: string) {
     const value = new URLSearchParams();
     if (next !== "pages") value.set("view", next);
-    setParams(value);
+    if (pageID) {
+      navigate({ pathname: `/knowledge/${spaceID}`, search: value.toString() });
+    } else {
+      setParams(value);
+    }
   }
 
   async function watch() {
     if (!space.data) return;
     setBusyAction(true); setActionError(undefined); setNotice(undefined);
     try {
-      const result = await api<Space>(`${base}/spaces/${spaceID}/watch`, { method: space.data.watched ? "DELETE" : "PUT" });
+      const result = await api<Space>(`${base}/spaces/${spaceID}/watch`, { method: current.watched ? "DELETE" : "PUT" });
       setNotice(result.watched ? "Obserwujesz tę przestrzeń." : "Wyłączono obserwowanie przestrzeni.");
-      space.reload(); reloadSpaces();
+      setSpaceOverride(result);
     } catch (cause) { setActionError(errorMessage(cause, "Nie udało się zmienić obserwowania.")); }
     finally { setBusyAction(false); }
   }
@@ -180,14 +186,14 @@ function SpaceWorkspace({ spaceID, pageID, spaces, reloadSpaces }: { spaceID: st
     try {
       const result = await upload<ImportResult>(`${base}/spaces/${spaceID}/import`, form, crypto.randomUUID(), setUploadProgress);
       setNotice(result.replayed ? "Ten import był już wykonany." : `Zaimportowano ${result.created} stron.`);
-      pages.reload(); space.reload(); reloadSpaces();
+      pages.reload();
     } catch (cause) { setActionError(errorMessage(cause, "Nie udało się zaimportować archiwum.")); }
     finally { setBusyAction(false); setUploadProgress(undefined); }
   }
 
   if (space.loading && !space.data) return <PageState title="Ładowanie przestrzeni" />;
   if (space.error || !space.data) return <PageState title="Nie udało się otworzyć przestrzeni" detail={space.error} tone="error" />;
-  const current = space.data;
+  const current = spaceOverride ?? space.data;
   return (
     <div className="page knowledge-page">
       <header className="knowledge-header">
@@ -201,7 +207,7 @@ function SpaceWorkspace({ spaceID, pageID, spaces, reloadSpaces }: { spaceID: st
           </select>
           <details className="knowledge-actions">
             <summary className="button button--secondary">Więcej działań</summary>
-            <div className="knowledge-actions-menu" role="menu">
+            <div className="knowledge-actions-menu" role="menu" onClick={(event) => { if ((event.target as HTMLElement).closest("button")) event.currentTarget.closest("details")?.removeAttribute("open"); }}>
               {canManage ? <button role="menuitem" onClick={() => showView("settings")}>Ustawienia przestrzeni</button> : null}
               {canWrite ? <button role="menuitem" onClick={() => showView("attention")}>Dokumenty wymagające uwagi</button> : null}
               <button role="menuitem" disabled={busyAction} onClick={() => void watch()}>{current.watched ? "Przestań obserwować" : "Obserwuj przestrzeń"}</button>
@@ -223,15 +229,15 @@ function SpaceWorkspace({ spaceID, pageID, spaces, reloadSpaces }: { spaceID: st
         <button aria-current={view === "search" ? "page" : undefined} onClick={() => showView("search")}>Szukaj</button>
       </nav>
       {pageID === "new" ? (
-        <PageEditor space={current} pages={pages.items} saved={(record) => { pages.reload(); space.reload(); reloadSpaces(); navigate(`/knowledge/${spaceID}/pages/${record.id}`); }} />
+        <PageEditor space={current} pages={pages.items} saved={(record) => { pages.reload(); navigate(`/knowledge/${spaceID}/pages/${record.id}`); }} />
       ) : pageID ? (
-        <PageDetails pageID={pageID} space={current} pages={pages.items} canWrite={canWrite && current.status === "ACTIVE"} changed={() => { pages.reload(); space.reload(); reloadSpaces(); }} />
+        <PageDetails pageID={pageID} space={current} pages={pages.items} canWrite={canWrite && current.status === "ACTIVE"} changed={pages.reload} />
       ) : view === "templates" ? (
         <Templates spaceID={spaceID} canWrite={canWrite && current.status === "ACTIVE"} />
       ) : view === "search" ? (
         <Search spaceID={spaceID} />
       ) : view === "settings" && canManage ? (
-        <SpaceSettings space={current} saved={() => { space.reload(); reloadSpaces(); }} />
+        <SpaceSettings space={current} saved={(updated) => { setSpaceOverride(updated); reloadSpaces(); }} />
       ) : view === "attention" && canWrite ? (
         <Attention spaceID={spaceID} />
       ) : (
@@ -306,12 +312,12 @@ function ResultList({ spaceID, pages, attention = false }: { spaceID: string; pa
   return <div className="knowledge-results">{pages.map((page) => <Link className="panel" key={page.id} to={`/knowledge/${spaceID}/pages/${page.id}`}><div><h2>{page.title}</h2><p>{page.excerpt || "Brak podglądu treści"}</p></div><small>{attention ? attentionLabel[page.attention_reason ?? ""] : pageStatus[page.status]} · {new Date(page.updated_at).toLocaleString("pl-PL")}</small></Link>)}</div>;
 }
 
-function SpaceSettings({ space, saved }: { space: Space; saved: () => void }) {
+function SpaceSettings({ space, saved }: { space: Space; saved: (space: Space) => void }) {
   const [draft, setDraft] = useState({ key: space.key, name: space.name, description: space.description, status: space.status, review_interval_days: space.review_interval_days });
   const [busy, setBusy] = useState(false); const [error, setError] = useState<string>(); const [notice, setNotice] = useState<string>();
   async function submit(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError(undefined); setNotice(undefined);
-    try { await api<Space>(`${base}/spaces/${space.id}`, { method: "PUT", body: jsonBody({ ...draft, version: space.version }) }); setNotice("Ustawienia przestrzeni zapisano."); saved(); }
+    try { const updated = await api<Space>(`${base}/spaces/${space.id}`, { method: "PUT", body: jsonBody({ ...draft, version: space.version }) }); setNotice("Ustawienia przestrzeni zapisano."); saved(updated); }
     catch (cause) { setError(errorMessage(cause, "Nie udało się zapisać ustawień.")); }
     finally { setBusy(false); }
   }
@@ -340,7 +346,8 @@ function PageEditor({ space, pages, record, saved, cancel }: { space: Space; pag
     const body = { parent_id: draft.parent_id || undefined, title: draft.title, body: draft.body, status: draft.status, review_due_at: isoDate(draft.review_due_at), ...(record ? { version: record.version } : {}) };
     try {
       const result = await api<KnowledgePageRecord>(record ? `${base}/pages/${record.id}` : `${base}/spaces/${space.id}/pages`, { method: record ? "PUT" : "POST", headers: record ? undefined : { "Idempotency-Key": crypto.randomUUID() }, body: jsonBody(body) });
-      setDirty(false); saved(result);
+      flushSync(() => setDirty(false));
+      saved(result);
     } catch (cause) { if (cause instanceof ApiError && cause.status === 409) setConflict(true); setError(errorMessage(cause, "Nie udało się zapisać strony.")); }
     finally { setBusy(false); }
   }

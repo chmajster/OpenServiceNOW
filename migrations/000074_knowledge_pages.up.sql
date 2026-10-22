@@ -19,8 +19,7 @@ CREATE TABLE knowledge_pages (
  KEY idx_knowledge_pages_attention (tenant_id,space_id,status,review_due_at,id),
  FULLTEXT KEY ft_knowledge_pages_search (title,body),
  CONSTRAINT fk_knowledge_pages_space FOREIGN KEY (tenant_id,space_id) REFERENCES knowledge_spaces(tenant_id,id) ON DELETE CASCADE,
- CONSTRAINT fk_knowledge_pages_parent FOREIGN KEY (tenant_id,space_id,parent_id) REFERENCES knowledge_pages(tenant_id,space_id,id) ON DELETE RESTRICT,
- CONSTRAINT chk_knowledge_pages_parent CHECK (parent_id IS NULL OR parent_id <> id),
+ CONSTRAINT fk_knowledge_pages_parent FOREIGN KEY (tenant_id,space_id,parent_id) REFERENCES knowledge_pages(tenant_id,space_id,id) ON DELETE CASCADE,
  CONSTRAINT chk_knowledge_pages_status CHECK (status IN('DRAFT','PUBLISHED')),
  CONSTRAINT chk_knowledge_pages_version CHECK (version >= 1)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
