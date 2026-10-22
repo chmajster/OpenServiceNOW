@@ -29,7 +29,7 @@ const navigation: NavItem[] = [
   },
   {
     to: "/knowledge",
-    label: "Dokumentacja",
+    label: "Baza wiedzy",
     anyPermissions: ["knowledge.read", "knowledge.write", "knowledge.manage"],
   },
   { to: "/catalog", label: "Katalog usług", permission: "catalog.read" },
@@ -210,7 +210,13 @@ export function AppShell() {
               {session?.password_change_required ? "Moje konto" : "Przegląd"}
             </Link>
             {location.pathname !== "/" ? (
-              ["/incidents", "/catalog", "/requests", "/fulfillment"].some(
+              [
+                "/incidents",
+                "/catalog",
+                "/requests",
+                "/fulfillment",
+                "/knowledge",
+              ].some(
                 (root) =>
                   location.pathname === root ||
                   location.pathname.startsWith(`${root}/`),
@@ -226,10 +232,10 @@ export function AppShell() {
                       <span aria-current="page">
                         {location.pathname.endsWith("/new")
                           ? location.pathname.startsWith("/knowledge/")
-                            ? "Nowa strona"
+                            ? "Nowy artykuł"
                             : "Nowy incydent"
                           : location.pathname.startsWith("/knowledge/")
-                            ? "Przestrzeń"
+                            ? "Baza wiedzy"
                             : `#${location.pathname.split("/")[2]}`}
                       </span>
                     </>

@@ -7,13 +7,13 @@ import { KnowledgePage } from "./KnowledgePage";
 
 afterEach(() => vi.unstubAllGlobals());
 
-it("shows the complete Confluence-style space menu and navigation", async () => {
+it("shows the ServiceNow-style Knowledge Center navigation", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const now = new Date().toISOString();
   const space = {
     id: "10", key: "OPS", name: "Operacje", description: "Wiedza zespołu",
     status: "ACTIVE", review_interval_days: 90, version: "1", page_count: "1",
-    watched: false, created_at: now, updated_at: now,
+    subscribed: false, created_at: now, updated_at: now,
   };
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
     const path = String(input);
@@ -36,8 +36,11 @@ it("shows the complete Confluence-style space menu and navigation", async () => 
   try {
     await act(async () => { root.render(<RouterProvider router={router} />); await new Promise((resolve) => setTimeout(resolve, 20)); });
     const text = container.textContent ?? "";
-    for (const label of ["Więcej działań", "Utwórz stronę", "Ustawienia przestrzeni", "Dokumenty wymagające uwagi", "Obserwuj przestrzeń", "Eksport ZIP", "Import", "Szablony", "Szukaj"]) {
+    for (const label of ["Knowledge Center", "Nowy artykuł", "Subskrybuj", "Wszystkie bazy", "Nieopublikowane", "Opublikowane", "Wycofane", "Wygasające", "Wyszukiwanie", "Konfiguracja bazy", "KB0000020"]) {
       expect(text).toContain(label);
+    }
+    for (const removed of ["Więcej działań", "Utwórz stronę", "Eksport ZIP", "Import", "Szablony"]) {
+      expect(text).not.toContain(removed);
     }
     expect(text).toContain("Start");
   } finally { await act(async () => root.unmount()); }

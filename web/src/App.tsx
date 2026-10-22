@@ -76,8 +76,7 @@ const router = createBrowserRouter(
         <Route path="workflow" element={<WorkflowPage />} />
         <Route path="knowledge" element={<KnowledgePage />} />
         <Route path="knowledge/:spaceID" element={<KnowledgePage />} />
-        <Route path="knowledge/:spaceID/:pageID" element={<KnowledgePage />} />
-        <Route path="knowledge/:spaceID/pages/:pageID" element={<KnowledgePage />} />
+        <Route path="knowledge/:spaceID/articles/:pageID" element={<KnowledgePage />} />
         <Route path="fulfillment" element={<RequestsPage tasks />} />
         <Route path="fulfillment/:recordID" element={<RequestsPage tasks />} />
         <Route

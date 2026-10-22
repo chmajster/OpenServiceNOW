@@ -77,6 +77,12 @@ const actions: Record<string, string> = {
   "user.membership.update": "Zmiana członkostwa w organizacji",
   "setup.platform_admin": "Utworzenie administratora podczas instalacji",
   "bootstrap.platform_admin": "Konfiguracja administratora",
+  "knowledge.base.created": "Utworzenie bazy wiedzy",
+  "knowledge.base.updated": "Zmiana bazy wiedzy",
+  "knowledge.base.subscribed": "Subskrypcja bazy wiedzy",
+  "knowledge.base.unsubscribed": "Anulowanie subskrypcji bazy wiedzy",
+  "knowledge.article.created": "Utworzenie artykułu wiedzy",
+  "knowledge.article.updated": "Zmiana artykułu wiedzy",
 };
 export function fieldLabel(field: string) {
   return labels[field] ?? field;
@@ -95,6 +101,9 @@ const permissionLabels: Record<string, string> = {
   "admin.users.manage": "Zarządzanie użytkownikami",
   "admin.rbac.manage": "Zarządzanie rolami i grupami",
   "admin.audit.read": "Odczyt audytu",
+  "knowledge.read": "Odczyt bazy wiedzy",
+  "knowledge.write": "Tworzenie i publikowanie artykułów wiedzy",
+  "knowledge.manage": "Zarządzanie bazami wiedzy",
 };
 export function permissionLabel(key: string) {
   return permissionLabels[key] ?? key;

@@ -1,5 +1,10 @@
 import { expect, it } from "vitest";
-import { auditChanges, displayValue } from "./auditPresentation";
+import {
+  actionLabel,
+  auditChanges,
+  displayValue,
+  permissionLabel,
+} from "./auditPresentation";
 it("shows only changed fields, including nested and removed fields", () => {
   expect(
     auditChanges(
@@ -14,4 +19,10 @@ it("shows only changed fields, including nested and removed fields", () => {
   ]);
   expect(displayValue(false)).toBe("Nie");
   expect(displayValue(["9007199254740993"])).toBe("9007199254740993");
+});
+
+it("presents knowledge actions and permissions as knowledge-base concepts", () => {
+  expect(actionLabel("knowledge.base.created")).toBe("Utworzenie bazy wiedzy");
+  expect(actionLabel("knowledge.article.updated")).toBe("Zmiana artykułu wiedzy");
+  expect(permissionLabel("knowledge.manage")).toBe("Zarządzanie bazami wiedzy");
 });

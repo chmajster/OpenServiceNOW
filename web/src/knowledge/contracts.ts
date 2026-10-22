@@ -7,17 +7,18 @@ export type Space = {
   review_interval_days: number;
   version: string;
   page_count: string;
-  watched: boolean;
+  subscribed: boolean;
   created_at: string;
   updated_at: string;
 };
 
+export type ArticleStatus = "DRAFT" | "PUBLISHED" | "RETIRED";
+
 export type PageSummary = {
   id: string;
   space_id: string;
-  parent_id?: string;
   title: string;
-  status: "DRAFT" | "PUBLISHED";
+  status: ArticleStatus;
   review_due_at?: string;
   version: string;
   updated_by: string;
@@ -36,27 +37,20 @@ export type KnowledgePageRecord = PageSummary & {
 export type PageVersion = {
   page_id: string;
   version: string;
-  parent_id?: string;
   title: string;
-  status: "DRAFT" | "PUBLISHED";
+  status: ArticleStatus;
   review_due_at?: string;
   changed_by: string;
   changed_by_name: string;
   changed_at: string;
 };
 
-export type ImportResult = {
-  space_id: string;
-  created: number;
-  replayed: boolean;
+export const pageStatus: Record<ArticleStatus, string> = {
+  DRAFT: "Nieopublikowany",
+  PUBLISHED: "Opublikowany",
+  RETIRED: "Wycofany",
 };
 
-export const pageStatus: Record<PageSummary["status"], string> = {
-  DRAFT: "Szkic",
-  PUBLISHED: "Opublikowana",
-};
-
-export const attentionLabel: Record<string, string> = {
-  DRAFT: "Szkic wymaga publikacji",
-  REVIEW_DUE: "Minął termin przeglądu",
-};
+export function articleNumber(id: string) {
+  return `KB${id.padStart(7, "0")}`;
+}

@@ -1,29 +1,22 @@
-import {
-  useMemo,
-  useRef,
-  useState,
-  type ChangeEvent,
-  type FormEvent,
-} from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { flushSync } from "react-dom";
-import { api, ApiError, download, jsonBody, upload } from "../api/client";
+import { useState, type FormEvent } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { api, ApiError, jsonBody } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { PageState } from "../components/PageState";
 import { useRemotePage } from "../components/useRemotePage";
 import { UnsavedGuard } from "../incidents/UnsavedGuard";
 import { useIncidentQuery } from "../incidents/hooks";
 import {
-  attentionLabel,
+  articleNumber,
   pageStatus,
-  type ImportResult,
+  type ArticleStatus,
   type KnowledgePageRecord,
   type PageSummary,
   type PageVersion,
   type Space,
 } from "../knowledge/contracts";
 import { SafeMarkdown } from "../knowledge/SafeMarkdown";
-import { knowledgeTemplates } from "../knowledge/templates";
 
 const base = "/api/v1/knowledge";
 
@@ -42,11 +35,17 @@ function isoDate(value: string) {
   return value ? new Date(value).toISOString() : undefined;
 }
 
+function statusClass(status: ArticleStatus) {
+  if (status === "PUBLISHED") return "badge badge--success";
+  if (status === "RETIRED") return "badge badge--muted";
+  return "badge";
+}
+
 export function KnowledgePage() {
   const { hasPermission } = useAuth();
   const canRead = ["knowledge.read", "knowledge.write", "knowledge.manage"].some(hasPermission);
   if (!canRead)
-    return <PageState title="Brak uprawnień" detail="Ta sekcja wymaga dostępu do dokumentacji." tone="error" />;
+    return <PageState title="Brak uprawnień" detail="Ta sekcja wymaga dostępu do bazy wiedzy." tone="error" />;
   return <KnowledgeWorkspace />;
 }
 
@@ -54,42 +53,57 @@ function KnowledgeWorkspace() {
   const { spaceID, pageID } = useParams();
   const { hasPermission } = useAuth();
   const spaces = useRemotePage<Space>(`${base}/spaces?limit=100`, "spaces");
-  if (!spaceID && spaces.loading && !spaces.items.length) return <PageState title="Ładowanie dokumentacji" detail="Pobieranie przestrzeni i stron." />;
+  if (!spaceID && spaces.loading && !spaces.items.length)
+    return <PageState title="Ładowanie bazy wiedzy" detail="Pobieranie baz wiedzy i artykułów." />;
   if (!spaceID && spaces.error && !spaces.items.length)
-    return <PageState title="Nie udało się otworzyć dokumentacji" detail={spaces.error} tone="error" />;
+    return <PageState title="Nie udało się otworzyć bazy wiedzy" detail={spaces.error} tone="error" />;
   if (!spaceID)
-    return <SpaceDirectory spaces={spaces.items} canManage={hasPermission("knowledge.manage")} reload={spaces.reload} />;
-  return (
-    <SpaceWorkspace
-      key={spaceID}
-      spaceID={spaceID}
-      pageID={pageID}
-      spaces={spaces.items}
-      reloadSpaces={spaces.reload}
-    />
-  );
+    return <KnowledgeHome spaces={spaces.items} canManage={hasPermission("knowledge.manage")} reload={spaces.reload} />;
+  return <KnowledgeBase key={spaceID} spaceID={spaceID} pageID={pageID} spaces={spaces.items} reloadSpaces={spaces.reload} />;
 }
 
-function SpaceDirectory({ spaces, canManage, reload }: { spaces: Space[]; canManage: boolean; reload: () => void }) {
+function KnowledgeHome({ spaces, canManage, reload }: { spaces: Space[]; canManage: boolean; reload: () => void }) {
+  const navigate = useNavigate();
   const [creating, setCreating] = useState(spaces.length === 0 && canManage);
+  const [selected, setSelected] = useState(spaces[0]?.id ?? "");
+  const [query, setQuery] = useState("");
+  const articleCount = spaces.reduce((total, item) => total + BigInt(item.page_count), 0n).toString();
+  function search(event: FormEvent) {
+    event.preventDefault();
+    if (selected && query.trim()) navigate(`/knowledge/${selected}?view=search&q=${encodeURIComponent(query.trim())}`);
+  }
   return (
-    <div className="page knowledge-page">
-      <header className="page-heading">
-        <div>
-          <p className="eyebrow">Baza wiedzy</p>
-          <h1>Dokumentacja</h1>
-          <p className="muted">Procedury, decyzje i wiedza operacyjna zespołu w uporządkowanych przestrzeniach.</p>
-        </div>
-        {canManage ? <button className="button button--primary" onClick={() => setCreating((value) => !value)}>{creating ? "Anuluj" : "Nowa przestrzeń"}</button> : null}
+    <div className="page knowledge-page knowledge-home">
+      <section className="knowledge-hero">
+        <p className="eyebrow">Knowledge Management</p>
+        <h1>Witamy w Bazie Wiedzy</h1>
+        <p>Znajdź instrukcje, rozwiązania i zweryfikowane informacje operacyjne.</p>
+        {spaces.length ? (
+          <form className="knowledge-hero-search" onSubmit={search}>
+            <select aria-label="Baza wiedzy" value={selected} onChange={(event) => setSelected(event.target.value)}>
+              {spaces.map((space) => <option key={space.id} value={space.id}>{space.name}</option>)}
+            </select>
+            <label><span className="visually-hidden">Wyszukaj artykuły</span><input value={query} onChange={(event) => setQuery(event.target.value)} maxLength={200} placeholder="Wyszukaj w bazie wiedzy" /></label>
+            <button className="button button--primary">Szukaj</button>
+          </form>
+        ) : null}
+      </section>
+      <div className="knowledge-home-summary" aria-label="Podsumowanie bazy wiedzy">
+        <div><strong>{spaces.length}</strong><span>Bazy wiedzy</span></div>
+        <div><strong>{articleCount}</strong><span>Artykuły</span></div>
+      </div>
+      <header className="knowledge-section-heading">
+        <div><h2>Przeglądaj bazy wiedzy</h2><p className="muted">Wybierz obszar, aby wyświetlić dostępne artykuły.</p></div>
+        {canManage ? <button className="button button--primary" onClick={() => setCreating((value) => !value)}>{creating ? "Anuluj" : "Nowa baza wiedzy"}</button> : null}
       </header>
-      {creating ? <SpaceCreate saved={() => { setCreating(false); reload(); }} /> : null}
-      {!spaces.length && !creating ? <PageState title="Brak przestrzeni" detail={canManage ? "Utwórz pierwszą przestrzeń dokumentacji." : "Administrator nie utworzył jeszcze przestrzeni."} /> : null}
-      <div className="knowledge-space-grid">
+      {creating ? <KnowledgeBaseCreate saved={() => { setCreating(false); reload(); }} /> : null}
+      {!spaces.length && !creating ? <PageState title="Brak baz wiedzy" detail={canManage ? "Utwórz pierwszą bazę wiedzy." : "Administrator nie utworzył jeszcze bazy wiedzy."} /> : null}
+      <div className="knowledge-base-grid">
         {spaces.map((space) => (
-          <Link className="knowledge-space-card" key={space.id} to={`/knowledge/${space.id}`}>
-            <span className="knowledge-space-key">{space.key}</span>
-            <div><h2>{space.name}</h2><p>{space.description || "Bez opisu"}</p></div>
-            <small>{space.page_count} stron · {space.status === "ARCHIVED" ? "Zarchiwizowana" : "Aktywna"}</small>
+          <Link className="knowledge-base-card" key={space.id} to={`/knowledge/${space.id}`}>
+            <span className="knowledge-base-icon" aria-hidden="true">KB</span>
+            <div><h2>{space.name}</h2><p>{space.description || "Baza wiedzy bez opisu"}</p></div>
+            <footer><span>{space.page_count} artykułów</span><span>{space.subscribed ? "Subskrybowana" : "Otwórz bazę"} →</span></footer>
           </Link>
         ))}
       </div>
@@ -97,7 +111,7 @@ function SpaceDirectory({ spaces, canManage, reload }: { spaces: Space[]; canMan
   );
 }
 
-function SpaceCreate({ saved }: { saved: () => void }) {
+function KnowledgeBaseCreate({ saved }: { saved: () => void }) {
   const [key, setKey] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -105,34 +119,38 @@ function SpaceCreate({ saved }: { saved: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   async function submit(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true); setError(undefined);
+    event.preventDefault(); setBusy(true); setError(undefined);
     try {
-      await api<Space>(`${base}/spaces`, {
-        method: "POST",
-        headers: { "Idempotency-Key": crypto.randomUUID() },
-        body: jsonBody({ key, name, description, status: "ACTIVE", review_interval_days: review }),
-      });
+      await api<Space>(`${base}/spaces`, { method: "POST", headers: { "Idempotency-Key": crypto.randomUUID() }, body: jsonBody({ key, name, description, status: "ACTIVE", review_interval_days: review }) });
       saved();
-    } catch (cause) { setError(errorMessage(cause, "Nie udało się utworzyć przestrzeni.")); }
+    } catch (cause) { setError(errorMessage(cause, "Nie udało się utworzyć bazy wiedzy.")); }
     finally { setBusy(false); }
   }
   return (
-    <form className="panel form-stack" onSubmit={(event) => void submit(event)}>
-      <div className="panel-heading"><div><h2>Nowa przestrzeń</h2><p className="muted">Klucz będzie krótkim, unikalnym oznaczeniem przestrzeni.</p></div></div>
+    <form className="panel form-stack knowledge-base-form" onSubmit={(event) => void submit(event)}>
+      <div className="panel-heading"><div><h2>Nowa baza wiedzy</h2><p className="muted">Oddziel artykuły według zespołu, usługi lub odbiorców.</p></div></div>
       <div className="form-grid">
-        <label>Klucz<input required pattern="[A-Za-z][A-Za-z0-9]{1,15}" maxLength={16} value={key} onChange={(e) => setKey(e.target.value.toUpperCase())} placeholder="OPS" /></label>
-        <label>Nazwa<input required maxLength={160} value={name} onChange={(e) => setName(e.target.value)} placeholder="Operacje IT" /></label>
-        <label>Przegląd co ile dni<input required type="number" min={0} max={3650} value={review} onChange={(e) => setReview(Number(e.target.value))} /></label>
+        <label>Identyfikator<input required pattern="[A-Za-z][A-Za-z0-9]{1,15}" maxLength={16} value={key} onChange={(event) => setKey(event.target.value.toUpperCase())} placeholder="IT" /></label>
+        <label>Nazwa<input required maxLength={160} value={name} onChange={(event) => setName(event.target.value)} placeholder="Wsparcie IT" /></label>
+        <label>Domyślna ważność (dni)<input required type="number" min={0} max={3650} value={review} onChange={(event) => setReview(Number(event.target.value))} /></label>
       </div>
-      <label>Opis<textarea rows={3} maxLength={10000} value={description} onChange={(e) => setDescription(e.target.value)} /></label>
+      <label>Opis<textarea rows={3} maxLength={10000} value={description} onChange={(event) => setDescription(event.target.value)} /></label>
       {error ? <p className="inline-error" role="alert">{error}</p> : null}
-      <div className="action-row"><button className="button button--primary" disabled={busy}>{busy ? "Tworzenie…" : "Utwórz przestrzeń"}</button></div>
+      <div className="action-row"><button className="button button--primary" disabled={busy}>{busy ? "Tworzenie…" : "Utwórz bazę wiedzy"}</button></div>
     </form>
   );
 }
 
-function SpaceWorkspace({ spaceID, pageID, spaces, reloadSpaces }: { spaceID: string; pageID?: string; spaces: Space[]; reloadSpaces: () => void }) {
+type ListView = "all" | "draft" | "published" | "retired" | "expiring" | "search" | "settings";
+
+function availableView(value: string | null, canWrite: boolean, canManage: boolean): ListView {
+  if (value === "search" || value === "published") return value;
+  if (canWrite && (value === "draft" || value === "retired" || value === "expiring")) return value;
+  if (canManage && value === "settings") return value;
+  return "all";
+}
+
+function KnowledgeBase({ spaceID, pageID, spaces, reloadSpaces }: { spaceID: string; pageID?: string; spaces: Space[]; reloadSpaces: () => void }) {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const { hasPermission } = useAuth();
@@ -144,218 +162,178 @@ function SpaceWorkspace({ spaceID, pageID, spaces, reloadSpaces }: { spaceID: st
   const [notice, setNotice] = useState<string>();
   const [actionError, setActionError] = useState<string>();
   const [busyAction, setBusyAction] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<number>();
-  const fileRef = useRef<HTMLInputElement>(null);
-  const view = params.get("view") ?? "pages";
+  const view = availableView(params.get("view"), canWrite, canManage);
 
-  function showView(next: string) {
+  function showView(next: ListView) {
     const value = new URLSearchParams();
-    if (next !== "pages") value.set("view", next);
-    if (pageID) {
-      navigate({ pathname: `/knowledge/${spaceID}`, search: value.toString() });
-    } else {
-      setParams(value);
-    }
+    if (next !== "all") value.set("view", next);
+    if (pageID) navigate({ pathname: `/knowledge/${spaceID}`, search: value.toString() });
+    else setParams(value);
   }
 
-  async function watch() {
+  async function subscribe() {
     if (!space.data) return;
+    const current = spaceOverride ?? space.data;
     setBusyAction(true); setActionError(undefined); setNotice(undefined);
     try {
-      const result = await api<Space>(`${base}/spaces/${spaceID}/watch`, { method: current.watched ? "DELETE" : "PUT" });
-      setNotice(result.watched ? "Obserwujesz tę przestrzeń." : "Wyłączono obserwowanie przestrzeni.");
+      const result = await api<Space>(`${base}/spaces/${spaceID}/subscription`, { method: current.subscribed ? "DELETE" : "PUT" });
       setSpaceOverride(result);
-    } catch (cause) { setActionError(errorMessage(cause, "Nie udało się zmienić obserwowania.")); }
+      setNotice(result.subscribed ? "Subskrybujesz tę bazę wiedzy." : "Anulowano subskrypcję bazy wiedzy.");
+    } catch (cause) { setActionError(errorMessage(cause, "Nie udało się zmienić subskrypcji.")); }
     finally { setBusyAction(false); }
   }
 
-  async function exportArchive() {
-    if (!space.data) return;
-    setBusyAction(true); setActionError(undefined);
-    try { await download(`${base}/spaces/${spaceID}/export`, `opensnow-${space.data.key.toLowerCase()}-documentation.zip`); setNotice("Eksport został pobrany."); }
-    catch (cause) { setActionError(errorMessage(cause, "Nie udało się wyeksportować przestrzeni.")); }
-    finally { setBusyAction(false); }
-  }
-
-  async function importArchive(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    setBusyAction(true); setUploadProgress(0); setActionError(undefined); setNotice(undefined);
-    const form = new FormData(); form.set("file", file);
-    try {
-      const result = await upload<ImportResult>(`${base}/spaces/${spaceID}/import`, form, crypto.randomUUID(), setUploadProgress);
-      setNotice(result.replayed ? "Ten import był już wykonany." : `Zaimportowano ${result.created} stron.`);
-      pages.reload();
-    } catch (cause) { setActionError(errorMessage(cause, "Nie udało się zaimportować archiwum.")); }
-    finally { setBusyAction(false); setUploadProgress(undefined); }
-  }
-
-  if (space.loading && !space.data) return <PageState title="Ładowanie przestrzeni" />;
-  if (space.error || !space.data) return <PageState title="Nie udało się otworzyć przestrzeni" detail={space.error} tone="error" />;
+  if (space.loading && !space.data) return <PageState title="Ładowanie bazy wiedzy" />;
+  if (space.error || !space.data) return <PageState title="Nie udało się otworzyć bazy wiedzy" detail={space.error} tone="error" />;
   const current = spaceOverride ?? space.data;
+  const counts = {
+    all: pages.items.length,
+    draft: pages.items.filter((item) => item.status === "DRAFT").length,
+    published: pages.items.filter((item) => item.status === "PUBLISHED").length,
+    retired: pages.items.filter((item) => item.status === "RETIRED").length,
+  };
   return (
-    <div className="page knowledge-page">
-      <header className="knowledge-header">
-        <div className="knowledge-space-title">
-          <span className="knowledge-space-key">{current.key}</span>
-          <div><h1>{current.name}</h1><p>{current.description || "Przestrzeń dokumentacji"}</p></div>
+    <div className="page knowledge-page knowledge-center">
+      <header className="knowledge-center-header">
+        <div>
+          <p className="eyebrow">Knowledge Center</p>
+          <h1>{current.name}</h1>
+          <p>{current.description || "Baza wiedzy"}</p>
         </div>
-        <div className="knowledge-header-actions">
-          <select aria-label="Zmień przestrzeń" value={spaceID} onChange={(e) => navigate(`/knowledge/${e.target.value}`)}>
-            {spaces.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
-          </select>
-          <details className="knowledge-actions">
-            <summary className="button button--secondary">Więcej działań</summary>
-            <div className="knowledge-actions-menu" role="menu" onClick={(event) => { if ((event.target as HTMLElement).closest("button")) event.currentTarget.closest("details")?.removeAttribute("open"); }}>
-              {canManage ? <button role="menuitem" onClick={() => showView("settings")}>Ustawienia przestrzeni</button> : null}
-              {canWrite ? <button role="menuitem" onClick={() => showView("attention")}>Dokumenty wymagające uwagi</button> : null}
-              <button role="menuitem" disabled={busyAction} onClick={() => void watch()}>{current.watched ? "Przestań obserwować" : "Obserwuj przestrzeń"}</button>
-              {canManage ? <button role="menuitem" disabled={busyAction} onClick={() => void exportArchive()}>Eksport ZIP</button> : null}
-              {canManage ? <button role="menuitem" disabled={busyAction} onClick={() => fileRef.current?.click()}>Import</button> : null}
-            </div>
-          </details>
-          {canManage ? <input ref={fileRef} className="visually-hidden" type="file" accept=".zip,application/zip" onChange={(event) => void importArchive(event)} /> : null}
-          {canWrite ? <Link className="button button--primary" to={`/knowledge/${spaceID}/new`}>Utwórz stronę</Link> : null}
+        <div className="knowledge-center-actions">
+          <label><span className="visually-hidden">Zmień bazę wiedzy</span><select value={spaceID} onChange={(event) => navigate(`/knowledge/${event.target.value}`)}>{spaces.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
+          <button className="button button--secondary" disabled={busyAction} onClick={() => void subscribe()}>{current.subscribed ? "Anuluj subskrypcję" : "Subskrybuj"}</button>
+          {canWrite && current.status === "ACTIVE" ? <Link className="button button--primary" to={`/knowledge/${spaceID}/articles/new`}>Nowy artykuł</Link> : null}
         </div>
       </header>
-      {current.status === "ARCHIVED" ? <p className="notice">Ta przestrzeń jest zarchiwizowana i dostępna tylko do odczytu dla zarządzających.</p> : null}
+      {current.status === "ARCHIVED" ? <p className="notice">Ta baza wiedzy jest zarchiwizowana i dostępna tylko do odczytu dla zarządzających.</p> : null}
       {notice ? <p className="inline-success" role="status">{notice}</p> : null}
       {actionError ? <p className="inline-error" role="alert">{actionError}</p> : null}
-      {uploadProgress !== undefined ? <p className="muted" role="status">Wysyłanie archiwum: {uploadProgress}%</p> : null}
-      <nav className="knowledge-tabs" aria-label="Dokumentacja">
-        <button aria-current={view === "pages" ? "page" : undefined} onClick={() => showView("pages")}>Strony</button>
-        <button aria-current={view === "templates" ? "page" : undefined} onClick={() => showView("templates")}>Szablony</button>
-        <button aria-current={view === "search" ? "page" : undefined} onClick={() => showView("search")}>Szukaj</button>
-      </nav>
-      {pageID === "new" ? (
-        <PageEditor space={current} pages={pages.items} saved={(record) => { pages.reload(); navigate(`/knowledge/${spaceID}/pages/${record.id}`); }} />
-      ) : pageID ? (
-        <PageDetails pageID={pageID} space={current} pages={pages.items} canWrite={canWrite && current.status === "ACTIVE"} changed={pages.reload} />
-      ) : view === "templates" ? (
-        <Templates spaceID={spaceID} canWrite={canWrite && current.status === "ACTIVE"} />
-      ) : view === "search" ? (
-        <Search spaceID={spaceID} />
-      ) : view === "settings" && canManage ? (
-        <SpaceSettings space={current} saved={(updated) => { setSpaceOverride(updated); reloadSpaces(); }} />
-      ) : view === "attention" && canWrite ? (
-        <Attention spaceID={spaceID} />
-      ) : (
-        <PageDirectory spaceID={spaceID} pages={pages.items} loading={pages.loading} error={pages.error} retry={pages.retry} />
-      )}
+      <div className="knowledge-center-layout">
+        <aside className="knowledge-module-nav" aria-label="Nawigacja Knowledge Center">
+          <Link className="knowledge-module-home" to="/knowledge">← Wszystkie bazy</Link>
+          <section><h2>Artykuły</h2>
+            <ModuleButton label="Wszystkie" count={counts.all} active={!pageID && view === "all"} onClick={() => showView("all")} />
+            {canWrite ? <ModuleButton label="Nieopublikowane" count={counts.draft} active={!pageID && view === "draft"} onClick={() => showView("draft")} /> : null}
+            <ModuleButton label="Opublikowane" count={counts.published} active={!pageID && view === "published"} onClick={() => showView("published")} />
+            {canWrite ? <ModuleButton label="Wycofane" count={counts.retired} active={!pageID && view === "retired"} onClick={() => showView("retired")} /> : null}
+            {canWrite ? <ModuleButton label="Wygasające" active={!pageID && view === "expiring"} onClick={() => showView("expiring")} /> : null}
+          </section>
+          <section><h2>Narzędzia</h2>
+            <ModuleButton label="Wyszukiwanie" active={!pageID && view === "search"} onClick={() => showView("search")} />
+          </section>
+          {canManage ? <section><h2>Administracja</h2><ModuleButton label="Konfiguracja bazy" active={!pageID && view === "settings"} onClick={() => showView("settings")} /></section> : null}
+        </aside>
+        <main className="knowledge-center-content">
+          {pageID === "new" ? (
+            <ArticleEditor space={current} saved={(record) => { pages.reload(); navigate(`/knowledge/${spaceID}/articles/${record.id}`); }} />
+          ) : pageID ? (
+            <ArticleDetails pageID={pageID} space={current} canWrite={canWrite && current.status === "ACTIVE"} changed={pages.reload} />
+          ) : view === "search" ? (
+            <KnowledgeSearch spaceID={spaceID} />
+          ) : view === "settings" && canManage ? (
+            <KnowledgeBaseSettings space={current} saved={(updated) => { setSpaceOverride(updated); reloadSpaces(); }} />
+          ) : view === "expiring" && canWrite ? (
+            <ExpiringArticles spaceID={spaceID} spaceName={current.name} />
+          ) : (
+            <ArticleDirectory spaceName={current.name} spaceID={spaceID} pages={pages.items} filter={view} loading={pages.loading} error={pages.error} retry={pages.retry} />
+          )}
+        </main>
+      </div>
     </div>
   );
 }
 
-function PageDirectory({ spaceID, pages, loading, error, retry }: { spaceID: string; pages: PageSummary[]; loading: boolean; error: string | null; retry: () => void }) {
-  const depths = useMemo(() => {
-    const byID = new Map(pages.map((page) => [page.id, page]));
-    const result = new Map<string, number>();
-    const depth = (page: PageSummary) => {
-      let value = 0, parent = page.parent_id, guard = 0;
-      while (parent && byID.has(parent) && guard++ < pages.length) { value += 1; parent = byID.get(parent)?.parent_id; }
-      return value;
-    };
-    pages.forEach((page) => result.set(page.id, depth(page)));
-    return result;
-  }, [pages]);
-  if (loading && !pages.length) return <PageState title="Ładowanie stron" />;
-  if (error) return <div className="form-stack"><PageState title="Nie udało się pobrać stron" detail={error} tone="error" /><button className="button button--secondary" onClick={() => void retry()}>Spróbuj ponownie</button></div>;
-  if (!pages.length) return <PageState title="Ta przestrzeń jest pusta" detail="Utwórz pierwszą stronę lub skorzystaj z gotowego szablonu." />;
+function ModuleButton({ label, count, active, onClick }: { label: string; count?: number; active: boolean; onClick: () => void }) {
+  return <button aria-current={active ? "page" : undefined} onClick={onClick}><span>{label}</span>{count !== undefined ? <small>{count}</small> : null}</button>;
+}
+
+function ArticleDirectory({ spaceName, spaceID, pages, filter, loading, error, retry, showHeading = true }: { spaceName: string; spaceID: string; pages: PageSummary[]; filter: ListView; loading: boolean; error: string | null; retry: () => void; showHeading?: boolean }) {
+  const visible = filter === "all" ? pages : pages.filter((page) => page.status.toLowerCase() === filter);
+  if (loading && !pages.length) return <PageState title="Ładowanie artykułów" />;
+  if (error) return <div className="form-stack"><PageState title="Nie udało się pobrać artykułów" detail={error} tone="error" /><button className="button button--secondary" onClick={() => void retry()}>Spróbuj ponownie</button></div>;
   return (
-    <section className="panel knowledge-page-list" aria-label="Strony przestrzeni">
-      {pages.map((page) => (
-        <Link key={page.id} to={`/knowledge/${spaceID}/pages/${page.id}`} style={{ paddingLeft: `${1 + (depths.get(page.id) ?? 0) * 1.35}rem` }}>
-          <span className="knowledge-page-icon" aria-hidden="true">▤</span>
-          <span><strong>{page.title}</strong><small>{pageStatus[page.status]} · zaktualizowano {new Date(page.updated_at).toLocaleString("pl-PL")}</small></span>
-          {page.status === "DRAFT" ? <span className="badge">Szkic</span> : null}
-        </Link>
-      ))}
+    <section className="knowledge-list-view">
+      {showHeading ? <header className="knowledge-list-heading"><div><p className="eyebrow">Artykuły</p><h2>{filter === "all" ? "Wszystkie" : pageStatus[filter.toUpperCase() as ArticleStatus]}</h2></div><span>{visible.length} wyników</span></header> : null}
+      {!visible.length ? <PageState title="Brak artykułów" detail="W tym widoku nie ma artykułów spełniających kryteria." /> : (
+        <div className="knowledge-table-wrap"><table className="knowledge-table"><thead><tr><th>Numer</th><th>Krótki opis</th><th>Baza wiedzy</th><th>Stan</th><th>Ważny do</th><th>Zaktualizowano</th></tr></thead><tbody>
+          {visible.map((page) => <tr key={page.id}><td data-label="Numer"><Link to={`/knowledge/${spaceID}/articles/${page.id}`}>{articleNumber(page.id)}</Link></td><td data-label="Krótki opis"><Link to={`/knowledge/${spaceID}/articles/${page.id}`}>{page.title}</Link></td><td data-label="Baza wiedzy">{spaceName}</td><td data-label="Stan"><span className={statusClass(page.status)}>{pageStatus[page.status]}</span></td><td data-label="Ważny do">{page.review_due_at ? new Date(page.review_due_at).toLocaleDateString("pl-PL") : "—"}</td><td data-label="Zaktualizowano">{new Date(page.updated_at).toLocaleDateString("pl-PL")}</td></tr>)}
+        </tbody></table></div>
+      )}
     </section>
   );
 }
 
-function Templates({ spaceID, canWrite }: { spaceID: string; canWrite: boolean }) {
-  return (
-    <section><div className="panel-heading"><div><h2>Szablony</h2><p className="muted">Zacznij od sprawdzonej struktury i dostosuj ją przed zapisaniem.</p></div></div>
-      <div className="knowledge-template-grid">
-        {knowledgeTemplates.map((template) => <article className="panel" key={template.id}><span className="knowledge-template-icon">◇</span><h2>{template.name}</h2><p>{template.description}</p>{canWrite ? <Link className="button button--secondary" to={`/knowledge/${spaceID}/new?template=${template.id}`}>Użyj szablonu</Link> : null}</article>)}
-      </div>
-    </section>
-  );
-}
-
-function Search({ spaceID }: { spaceID: string }) {
+function KnowledgeSearch({ spaceID }: { spaceID: string }) {
   const [params, setParams] = useSearchParams();
   const query = params.get("q") ?? "";
   const [value, setValue] = useState(query);
   const result = useRemotePage<PageSummary>(`${base}/spaces/${spaceID}/search?limit=100&q=${encodeURIComponent(query)}`, "pages", "after_id", query.trim().length > 0);
   return (
-    <section className="form-stack">
+    <section className="form-stack"><header className="knowledge-list-heading"><div><p className="eyebrow">Artykuły</p><h2>Wyszukiwanie</h2></div></header>
       <form className="knowledge-search" onSubmit={(event) => { event.preventDefault(); const next = new URLSearchParams({ view: "search" }); if (value.trim()) next.set("q", value.trim()); setParams(next); }}>
-        <label>Przeszukaj tytuły i treść<input value={value} maxLength={200} onChange={(e) => setValue(e.target.value)} placeholder="Np. wdrożenie produkcyjne" /></label>
-        <button className="button button--primary">Szukaj</button>
+        <label>Wyszukaj w tytule i treści<input value={value} maxLength={200} onChange={(event) => setValue(event.target.value)} placeholder="Wpisz co najmniej jedno słowo" /></label><button className="button button--primary">Szukaj</button>
       </form>
-      {!query ? <PageState title="Wpisz szukaną frazę" detail="Wyniki obejmą opublikowane strony oraz szkice dostępne dla Twojej roli." /> : result.loading ? <PageState title="Wyszukiwanie" /> : result.error ? <PageState title="Wyszukiwanie nie powiodło się" detail={result.error} tone="error" /> : !result.items.length ? <PageState title="Brak wyników" detail={`Nie znaleziono stron dla „${query}”.`} /> : <ResultList spaceID={spaceID} pages={result.items} />}
+      {!query ? <PageState title="Wyszukaj artykuł" detail="Wyniki uwzględniają artykuły dostępne dla Twojej roli." /> : result.loading ? <PageState title="Wyszukiwanie" /> : result.error ? <PageState title="Wyszukiwanie nie powiodło się" detail={result.error} tone="error" /> : !result.items.length ? <PageState title="Brak wyników" detail={`Nie znaleziono artykułów dla „${query}”.`} /> : <ArticleSearchResults spaceID={spaceID} pages={result.items} />}
     </section>
   );
 }
 
-function Attention({ spaceID }: { spaceID: string }) {
+function ExpiringArticles({ spaceID, spaceName }: { spaceID: string; spaceName: string }) {
   const result = useRemotePage<PageSummary>(`${base}/spaces/${spaceID}/attention?limit=100`, "pages");
-  if (result.loading) return <PageState title="Sprawdzanie dokumentów" />;
-  if (result.error) return <PageState title="Nie udało się pobrać dokumentów" detail={result.error} tone="error" />;
-  return <section><div className="panel-heading"><div><h2>Dokumenty wymagające uwagi</h2><p className="muted">Szkice i opublikowane strony po terminie przeglądu.</p></div></div>{result.items.length ? <ResultList spaceID={spaceID} pages={result.items} attention /> : <PageState title="Wszystko aktualne" detail="Brak szkiców i zaległych przeglądów." tone="success" />}</section>;
+  if (result.loading) return <PageState title="Sprawdzanie ważności artykułów" />;
+  if (result.error) return <PageState title="Nie udało się pobrać wygasających artykułów" detail={result.error} tone="error" />;
+  const expired = result.items.filter((item) => item.attention_reason === "REVIEW_DUE");
+  return <section><header className="knowledge-list-heading"><div><p className="eyebrow">Artykuły</p><h2>Wygasające artykuły</h2><p className="muted">Opublikowane artykuły po dacie ważności wymagają ponownej weryfikacji.</p></div><span>{expired.length} wyników</span></header>{expired.length ? <ArticleDirectory spaceName={spaceName} spaceID={spaceID} pages={expired} filter="all" loading={false} error={null} retry={result.retry} showHeading={false} /> : <PageState title="Brak wygasających artykułów" detail="Wszystkie opublikowane artykuły mają aktualną datę ważności." tone="success" />}</section>;
 }
 
-function ResultList({ spaceID, pages, attention = false }: { spaceID: string; pages: PageSummary[]; attention?: boolean }) {
-  return <div className="knowledge-results">{pages.map((page) => <Link className="panel" key={page.id} to={`/knowledge/${spaceID}/pages/${page.id}`}><div><h2>{page.title}</h2><p>{page.excerpt || "Brak podglądu treści"}</p></div><small>{attention ? attentionLabel[page.attention_reason ?? ""] : pageStatus[page.status]} · {new Date(page.updated_at).toLocaleString("pl-PL")}</small></Link>)}</div>;
+function ArticleSearchResults({ spaceID, pages }: { spaceID: string; pages: PageSummary[] }) {
+  return <div className="knowledge-search-results">{pages.map((page) => <Link className="panel" key={page.id} to={`/knowledge/${spaceID}/articles/${page.id}`}><div><small>{articleNumber(page.id)}</small><h3>{page.title}</h3><p>{page.excerpt || "Brak podglądu treści"}</p></div><span className={statusClass(page.status)}>{pageStatus[page.status]}</span></Link>)}</div>;
 }
 
-function SpaceSettings({ space, saved }: { space: Space; saved: (space: Space) => void }) {
+function KnowledgeBaseSettings({ space, saved }: { space: Space; saved: (space: Space) => void }) {
   const [draft, setDraft] = useState({ key: space.key, name: space.name, description: space.description, status: space.status, review_interval_days: space.review_interval_days });
   const [busy, setBusy] = useState(false); const [error, setError] = useState<string>(); const [notice, setNotice] = useState<string>();
   async function submit(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError(undefined); setNotice(undefined);
-    try { const updated = await api<Space>(`${base}/spaces/${space.id}`, { method: "PUT", body: jsonBody({ ...draft, version: space.version }) }); setNotice("Ustawienia przestrzeni zapisano."); saved(updated); }
-    catch (cause) { setError(errorMessage(cause, "Nie udało się zapisać ustawień.")); }
+    try { const updated = await api<Space>(`${base}/spaces/${space.id}`, { method: "PUT", body: jsonBody({ ...draft, version: space.version }) }); setNotice("Konfiguracja bazy wiedzy została zapisana."); saved(updated); }
+    catch (cause) { setError(errorMessage(cause, "Nie udało się zapisać konfiguracji.")); }
     finally { setBusy(false); }
   }
-  return <form className="panel form-stack" onSubmit={(event) => void submit(event)}><div><h2>Ustawienia przestrzeni</h2><p className="muted">Archiwizacja ukrywa przestrzeń przed czytelnikami i blokuje edycję stron.</p></div><div className="form-grid"><label>Klucz<input required pattern="[A-Za-z][A-Za-z0-9]{1,15}" value={draft.key} onChange={(e) => setDraft({ ...draft, key: e.target.value.toUpperCase() })} /></label><label>Nazwa<input required maxLength={160} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label><label>Stan<select value={draft.status} onChange={(e) => setDraft({ ...draft, status: e.target.value as Space["status"] })}><option value="ACTIVE">Aktywna</option><option value="ARCHIVED">Zarchiwizowana</option></select></label><label>Cykl przeglądu (dni)<input type="number" min={0} max={3650} value={draft.review_interval_days} onChange={(e) => setDraft({ ...draft, review_interval_days: Number(e.target.value) })} /></label></div><label>Opis<textarea rows={4} maxLength={10000} value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /></label>{error ? <p className="inline-error" role="alert">{error}</p> : null}{notice ? <p className="inline-success" role="status">{notice}</p> : null}<button className="button button--primary" disabled={busy}>{busy ? "Zapisywanie…" : "Zapisz ustawienia"}</button></form>;
+  return <form className="panel form-stack" onSubmit={(event) => void submit(event)}><div><p className="eyebrow">Administracja</p><h2>Konfiguracja bazy wiedzy</h2><p className="muted">Archiwizacja ukrywa bazę przed czytelnikami i blokuje edycję artykułów.</p></div><div className="form-grid"><label>Identyfikator<input required pattern="[A-Za-z][A-Za-z0-9]{1,15}" value={draft.key} onChange={(event) => setDraft({ ...draft, key: event.target.value.toUpperCase() })} /></label><label>Nazwa<input required maxLength={160} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label><label>Stan<select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as Space["status"] })}><option value="ACTIVE">Aktywna</option><option value="ARCHIVED">Zarchiwizowana</option></select></label><label>Domyślna ważność (dni)<input type="number" min={0} max={3650} value={draft.review_interval_days} onChange={(event) => setDraft({ ...draft, review_interval_days: Number(event.target.value) })} /></label></div><label>Opis<textarea rows={4} maxLength={10000} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>{error ? <p className="inline-error" role="alert">{error}</p> : null}{notice ? <p className="inline-success" role="status">{notice}</p> : null}<div><button className="button button--primary" disabled={busy}>{busy ? "Zapisywanie…" : "Zapisz konfigurację"}</button></div></form>;
 }
 
-function PageDetails({ pageID, space, pages, canWrite, changed }: { pageID: string; space: Space; pages: PageSummary[]; canWrite: boolean; changed: () => void }) {
+function ArticleDetails({ pageID, space, canWrite, changed }: { pageID: string; space: Space; canWrite: boolean; changed: () => void }) {
   const detail = useIncidentQuery<KnowledgePageRecord>(`${base}/pages/${pageID}`);
   const versions = useIncidentQuery<{ versions: PageVersion[] }>(`${base}/pages/${pageID}/versions?limit=20`);
   const [editing, setEditing] = useState(false);
-  if (detail.loading && !detail.data) return <PageState title="Ładowanie strony" />;
-  if (detail.error || !detail.data) return <PageState title="Nie udało się otworzyć strony" detail={detail.error} tone="error" />;
-  if (editing) return <PageEditor space={space} pages={pages} record={detail.data} cancel={() => setEditing(false)} saved={() => { setEditing(false); detail.reload(); versions.reload(); changed(); }} />;
+  if (detail.loading && !detail.data) return <PageState title="Ładowanie artykułu" />;
+  if (detail.error || !detail.data) return <PageState title="Nie udało się otworzyć artykułu" detail={detail.error} tone="error" />;
   const page = detail.data;
-  return <div className="knowledge-document"><header className="knowledge-document-heading"><div><div className="action-row"><span className={page.status === "PUBLISHED" ? "badge badge--success" : "badge"}>{pageStatus[page.status]}</span>{page.review_due_at ? <span className="muted">Przegląd: {new Date(page.review_due_at).toLocaleDateString("pl-PL")}</span> : null}</div><h2>{page.title}</h2><p className="muted">Wersja {page.version} · ostatnia zmiana {new Date(page.updated_at).toLocaleString("pl-PL")} przez {page.updated_by_name || `#${page.updated_by}`}</p></div>{canWrite ? <button className="button button--secondary" onClick={() => setEditing(true)}>Edytuj</button> : null}</header><SafeMarkdown source={page.body} /><aside className="knowledge-history"><h3>Historia wersji</h3>{versions.loading ? <p className="muted">Ładowanie historii…</p> : versions.error ? <p className="inline-error">{versions.error}</p> : <ol>{versions.data?.versions.map((version) => <li key={version.version}><strong>Wersja {version.version}</strong><span>{pageStatus[version.status]} · {new Date(version.changed_at).toLocaleString("pl-PL")} · {version.changed_by_name || `#${version.changed_by}`}</span></li>)}</ol>}</aside></div>;
+  if (editing) return <ArticleEditor space={space} record={page} saved={() => { setEditing(false); detail.reload(); versions.reload(); changed(); }} cancel={() => setEditing(false)} />;
+  return <article className="knowledge-article"><nav className="knowledge-breadcrumbs" aria-label="Okruszki"><Link to="/knowledge">Baza wiedzy</Link><span>/</span><Link to={`/knowledge/${space.id}`}>{space.name}</Link><span>/</span><span>{articleNumber(page.id)}</span></nav><header className="knowledge-article-heading"><div><div className="action-row"><span className={statusClass(page.status)}>{pageStatus[page.status]}</span><span className="knowledge-article-number">{articleNumber(page.id)}</span></div><h2>{page.title}</h2><p className="muted">Wersja {page.version} · zaktualizowano {new Date(page.updated_at).toLocaleString("pl-PL")} przez {page.updated_by_name || `#${page.updated_by}`}</p>{page.review_due_at ? <p className="muted">Ważny do: {new Date(page.review_due_at).toLocaleDateString("pl-PL")}</p> : null}</div>{canWrite ? <button className="button button--secondary" onClick={() => setEditing(true)}>Edytuj artykuł</button> : null}</header><SafeMarkdown source={page.body} /><aside className="knowledge-history"><h3>Wersje artykułu</h3>{versions.loading ? <p className="muted">Ładowanie historii…</p> : versions.error ? <p className="inline-error">{versions.error}</p> : <ol>{versions.data?.versions.map((version) => <li key={version.version}><strong>Wersja {version.version}</strong><span>{pageStatus[version.status]} · {new Date(version.changed_at).toLocaleString("pl-PL")} · {version.changed_by_name || `#${version.changed_by}`}</span></li>)}</ol>}</aside></article>;
 }
 
-function PageEditor({ space, pages, record, saved, cancel }: { space: Space; pages: PageSummary[]; record?: KnowledgePageRecord; saved: (record: KnowledgePageRecord) => void; cancel?: () => void }) {
-  const [params] = useSearchParams();
-  const template = knowledgeTemplates.find((item) => item.id === params.get("template"));
-  const [draft, setDraft] = useState<{ parent_id: string; title: string; body: string; status: KnowledgePageRecord["status"]; review_due_at: string }>({ parent_id: record?.parent_id ?? "", title: record?.title ?? template?.title ?? "", body: record?.body ?? template?.body ?? "", status: record?.status ?? "DRAFT", review_due_at: dateTime(record?.review_due_at) });
-  const [dirty, setDirty] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState<string>(); const [conflict, setConflict] = useState(false);
-  const update = (next: Partial<typeof draft>) => { setDraft((value) => ({ ...value, ...next })); setDirty(true); setConflict(false); };
+function ArticleEditor({ space, record, saved, cancel }: { space: Space; record?: KnowledgePageRecord; saved: (page: KnowledgePageRecord) => void; cancel?: () => void }) {
+  const [draft, setDraft] = useState<{ title: string; body: string; status: ArticleStatus; review_due_at: string }>({ title: record?.title ?? "", body: record?.body ?? "", status: record?.status ?? "DRAFT", review_due_at: dateTime(record?.review_due_at) });
+  const [currentVersion, setCurrentVersion] = useState(record?.version);
+  const [busy, setBusy] = useState(false); const [dirty, setDirty] = useState(false); const [error, setError] = useState<string>(); const [conflict, setConflict] = useState(false);
+  function update(value: Partial<typeof draft>) { setDraft((current) => ({ ...current, ...value })); setDirty(true); setConflict(false); }
   async function submit(event: FormEvent) {
-    event.preventDefault(); setBusy(true); setError(undefined); setConflict(false);
-    const body = { parent_id: draft.parent_id || undefined, title: draft.title, body: draft.body, status: draft.status, review_due_at: isoDate(draft.review_due_at), ...(record ? { version: record.version } : {}) };
+    event.preventDefault(); setBusy(true); setError(undefined);
+    const body = { title: draft.title, body: draft.body, status: draft.status, review_due_at: isoDate(draft.review_due_at), ...(currentVersion ? { version: currentVersion } : {}) };
     try {
       const result = await api<KnowledgePageRecord>(record ? `${base}/pages/${record.id}` : `${base}/spaces/${space.id}/pages`, { method: record ? "PUT" : "POST", headers: record ? undefined : { "Idempotency-Key": crypto.randomUUID() }, body: jsonBody(body) });
-      flushSync(() => setDirty(false));
-      saved(result);
-    } catch (cause) { if (cause instanceof ApiError && cause.status === 409) setConflict(true); setError(errorMessage(cause, "Nie udało się zapisać strony.")); }
+      flushSync(() => setDirty(false)); saved(result);
+    } catch (cause) { if (cause instanceof ApiError && cause.status === 409) setConflict(true); setError(errorMessage(cause, "Nie udało się zapisać artykułu.")); }
     finally { setBusy(false); }
   }
   async function loadLatest() {
-    if (!record) return; setBusy(true); setError(undefined);
-    try { const latest = await api<KnowledgePageRecord>(`${base}/pages/${record.id}`); setDraft({ parent_id: latest.parent_id ?? "", title: latest.title, body: latest.body, status: latest.status, review_due_at: dateTime(latest.review_due_at) }); setDirty(false); setConflict(false); }
-    catch (cause) { setError(errorMessage(cause, "Nie udało się pobrać aktualnej wersji.")); }
+    if (!record) return;
+    setBusy(true); setError(undefined);
+    try { const latest = await api<KnowledgePageRecord>(`${base}/pages/${record.id}`); setDraft({ title: latest.title, body: latest.body, status: latest.status, review_due_at: dateTime(latest.review_due_at) }); setCurrentVersion(latest.version); setDirty(false); setConflict(false); }
+    catch (cause) { setError(errorMessage(cause, "Nie udało się wczytać aktualnego artykułu.")); }
     finally { setBusy(false); }
   }
-  return <form className="knowledge-editor form-stack" onSubmit={(event) => void submit(event)}><UnsavedGuard dirty={dirty} /><header className="panel-heading"><div><p className="eyebrow">{record ? `Edycja wersji ${record.version}` : template ? template.name : "Nowa strona"}</p><h2>{record ? record.title : "Utwórz stronę"}</h2></div><div className="action-row">{cancel ? <button type="button" className="button button--secondary" onClick={cancel}>Anuluj</button> : <Link className="button button--secondary" to={`/knowledge/${space.id}`}>Anuluj</Link>}<button className="button button--primary" disabled={busy}>{busy ? "Zapisywanie…" : "Zapisz stronę"}</button></div></header>{error ? <p className="inline-error" role="alert">{error}</p> : null}{conflict ? <div className="notice notice--error"><strong>Ktoś zapisał nowszą wersję.</strong><p>Skopiuj potrzebne zmiany, a następnie wczytaj aktualną wersję przed ponowną edycją.</p><button type="button" className="button button--secondary" disabled={busy} onClick={() => void loadLatest()}>Wczytaj aktualną wersję</button></div> : null}<div className="knowledge-editor-meta"><label>Tytuł<input required maxLength={200} value={draft.title} onChange={(e) => update({ title: e.target.value })} /></label><label>Strona nadrzędna<select value={draft.parent_id} onChange={(e) => update({ parent_id: e.target.value })}><option value="">Brak — poziom główny</option>{pages.filter((page) => page.id !== record?.id).map((page) => <option key={page.id} value={page.id}>{page.title}</option>)}</select></label><label>Stan<select value={draft.status} onChange={(e) => update({ status: e.target.value as KnowledgePageRecord["status"] })}><option value="DRAFT">Szkic</option><option value="PUBLISHED">Opublikowana</option></select></label>{draft.status === "PUBLISHED" ? <label>Termin przeglądu<input type="datetime-local" value={draft.review_due_at} onChange={(e) => update({ review_due_at: e.target.value })} /></label> : null}</div><div className="knowledge-editor-columns"><label>Treść w Markdown<textarea required rows={24} maxLength={262144} value={draft.body} onChange={(e) => update({ body: e.target.value })} spellCheck /></label><div><span className="knowledge-preview-label">Podgląd</span><SafeMarkdown source={draft.body} /></div></div></form>;
+  return <form className="knowledge-editor form-stack" onSubmit={(event) => void submit(event)}><UnsavedGuard dirty={dirty} /><header className="panel-heading"><div><p className="eyebrow">{record ? articleNumber(record.id) : "Nowy rekord"}</p><h2>{record ? "Edytuj artykuł wiedzy" : "Nowy artykuł wiedzy"}</h2></div><div className="action-row">{cancel ? <button type="button" className="button button--secondary" onClick={cancel}>Anuluj</button> : <Link className="button button--secondary" to={`/knowledge/${space.id}`}>Anuluj</Link>}<button className="button button--primary" disabled={busy}>{busy ? "Zapisywanie…" : "Zapisz artykuł"}</button></div></header>{error ? <p className="inline-error" role="alert">{error}</p> : null}{conflict ? <div className="notice notice--error"><strong>Artykuł ma nowszą wersję.</strong><p>Skopiuj potrzebne zmiany, a następnie wczytaj aktualną wersję przed ponowną edycją.</p><button type="button" className="button button--secondary" disabled={busy} onClick={() => void loadLatest()}>Wczytaj aktualną wersję</button></div> : null}<div className="knowledge-editor-meta"><label>Krótki opis<input required maxLength={200} value={draft.title} onChange={(event) => update({ title: event.target.value })} /></label><label>Stan<select value={draft.status} onChange={(event) => update({ status: event.target.value as ArticleStatus })}><option value="DRAFT">Nieopublikowany</option><option value="PUBLISHED">Opublikowany</option><option value="RETIRED">Wycofany</option></select></label>{draft.status === "PUBLISHED" ? <label>Ważny do<input type="datetime-local" value={draft.review_due_at} onChange={(event) => update({ review_due_at: event.target.value })} /></label> : null}</div><div className="knowledge-editor-columns"><label>Treść artykułu<textarea required rows={24} maxLength={262144} value={draft.body} onChange={(event) => update({ body: event.target.value })} spellCheck /></label><div><span className="knowledge-preview-label">Podgląd artykułu</span><SafeMarkdown source={draft.body} /></div></div></form>;
 }
