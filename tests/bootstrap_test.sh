@@ -98,7 +98,7 @@ prepare_installer_args --local --no-start
 [[ "${INSTALLER_ARGS[*]}" == '--local --no-start' ]]
 
 piped_install="$fixture/piped installation"
-if cat "$repo_dir/bootstrap.sh" | env OPENSNOW_INSTALL_DIR="$piped_install" OPENSNOW_REPOSITORY_URL="$remote" OPENSNOW_BRANCH=main bash -s -- --local --status >"$fixture/piped.log" 2>&1; then
+if env OPENSNOW_INSTALL_DIR="$piped_install" OPENSNOW_REPOSITORY_URL="$remote" OPENSNOW_BRANCH=main bash -s -- --local --status <"$repo_dir/bootstrap.sh" >"$fixture/piped.log" 2>&1; then
   echo 'Fresh piped bootstrap unexpectedly reported a running installation' >&2
   exit 1
 fi
