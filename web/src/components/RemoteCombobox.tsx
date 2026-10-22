@@ -13,6 +13,8 @@ export function RemoteCombobox({
   allowInactive = false,
   clearable = true,
   endpoint,
+  collection,
+  cursor = "after_id",
 }: {
   kind: ChoiceKind;
   label: string;
@@ -22,6 +24,8 @@ export function RemoteCombobox({
   allowInactive?: boolean;
   clearable?: boolean;
   endpoint?: string;
+  collection?: string;
+  cursor?: string;
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -108,6 +112,8 @@ export function RemoteCombobox({
           key={`${kind}:${endpoint ?? ""}`}
           kind={kind}
           endpoint={endpoint}
+          collection={collection}
+          cursor={cursor}
           allowInactive={allowInactive}
           search={search}
           pending={query !== search}
@@ -132,6 +138,8 @@ export function RemoteCombobox({
 function Options({
   kind,
   endpoint: customEndpoint,
+  collection,
+  cursor,
   allowInactive,
   search,
   pending,
@@ -142,6 +150,8 @@ function Options({
 }: {
   kind: ChoiceKind;
   endpoint?: string;
+  collection?: string;
+  cursor: string;
   allowInactive: boolean;
   search: string;
   pending: boolean;
@@ -158,7 +168,8 @@ function Options({
   url.searchParams.set("q", search);
   const page = useRemotePage<Role | Group | TenantUser>(
     `${url.pathname}${url.search}`,
-    kind,
+    collection ?? kind,
+    cursor,
   );
   const options: Choice[] = page.items.map((item) =>
     "email" in item

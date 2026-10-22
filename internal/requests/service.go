@@ -395,7 +395,7 @@ func (s *Service) History(ctx context.Context, a Actor, id, before uint64, limit
 	return activity.NewRepository(s.db).ListVisibleBySourceEvent(ctx, a.TenantID, "request", fmt.Sprint(id), before, limit, internal)
 }
 func RegisterEventHandlers(d *events.Dispatcher, p *activity.Projector) error {
-	for kind, summary := range map[string]string{"catalog.changed": "Zmieniono katalog usług", "request.created": "Złożono wniosek", "request.state.changed": "Zmieniono stan wniosku", "request.task.changed": "Zmieniono stan zadania", "request.task.assigned": "Zmieniono przypisanie zadania", "request.comment.added": "Odpowiedź dla zgłaszającego", "request.note.added": "Notatka wewnętrzna"} {
+	for kind, summary := range map[string]string{"catalog.changed": "Zmieniono katalog usług", "request.created": "Złożono wniosek", "request.state.changed": "Zmieniono stan wniosku", "request.task.changed": "Zmieniono stan zadania", "request.task.assigned": "Zmieniono przypisanie zadania", "request.comment.added": "Odpowiedź dla zgłaszającego", "request.note.added": "Notatka wewnętrzna", "request.ci.changed": "Zmieniono powiązania CMDB"} {
 		if err := d.Register(kind, p.Handler(kind, summary)); err != nil {
 			return err
 		}
