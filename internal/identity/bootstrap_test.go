@@ -33,3 +33,15 @@ func TestBootstrapRejectsOversizedEmailBeforeDatabaseAccess(t *testing.T) {
 		t.Fatal("expected oversized admin email error")
 	}
 }
+
+func TestPlatformAdminIncludesITAMPermissions(t *testing.T) {
+	permissions := make(map[string]bool, len(platformAdminPermissions))
+	for _, permission := range platformAdminPermissions {
+		permissions[permission.Key] = true
+	}
+	for _, key := range []string{"assets.read", "assets.manage"} {
+		if !permissions[key] {
+			t.Errorf("platform administrator is missing %q", key)
+		}
+	}
+}

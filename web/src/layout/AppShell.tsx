@@ -81,6 +81,12 @@ const navigationGroups: NavGroup[] = [
         icon: "alert",
         anyPermissions: ["incident.read", "incident.read_own"],
       },
+      {
+        to: "/assets",
+        label: "Zasoby IT (ITAM)",
+        icon: "grid",
+        anyPermissions: ["assets.read", "assets.read_own"],
+      },
     ],
   },
   {
@@ -294,7 +300,13 @@ export function AppShell() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [navigationFilter, setNavigationFilter] = useState("");
+  const [globalSearch, setGlobalSearch] = useState("");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    if (location.pathname === "/search")
+      setGlobalSearch(params.get("q") ?? "");
+  }, [location.pathname, params]);
 
   useEffect(() => {
     const heading = document.querySelector<HTMLElement>(
@@ -324,12 +336,24 @@ export function AppShell() {
       "/requests",
       "/fulfillment",
       "/approvals",
+      "/assets",
     ].includes(path);
     const matchesPath =
       path === location.pathname ||
       (nestedRoute && location.pathname.startsWith(path + "/"));
     return matchesPath && (!item.to.includes("kind=") || item.to.endsWith(kind));
   });
+  const isAssetRoute =
+    location.pathname === "/assets" || location.pathname.startsWith("/assets/");
+  const isCollectionRoute = [
+    "/incidents",
+    "/catalog",
+    "/requests",
+    "/fulfillment",
+  ].some(
+    (root) =>
+      location.pathname === root || location.pathname.startsWith(root + "/"),
+  ) || isAssetRoute;
 
   const query = navigationFilter.trim().toLocaleLowerCase("pl-PL");
   const visibleGroups = navigationGroups
@@ -412,6 +436,39 @@ export function AppShell() {
           <span className="topbar-divider" aria-hidden="true" />
           <span className="topbar-product">Service Management</span>
         </div>
+
+        {!session?.password_change_required ? (
+          <form
+            className="topbar-global-search"
+            role="search"
+            aria-label="Wyszukiwanie globalne"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const query = globalSearch.trim();
+              if (query) navigate(`/search?q=${encodeURIComponent(query)}`);
+            }}
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="10.8" cy="10.8" r="6.8" />
+              <path d="m16 16 5 5" />
+            </svg>
+            <input
+              type="search"
+              aria-label="Szukaj globalnie"
+              placeholder="Szukaj zgłoszeń, zasobów…"
+              value={globalSearch}
+              maxLength={160}
+              onChange={(event) => setGlobalSearch(event.target.value)}
+            />
+            <kbd>Enter</kbd>
+          </form>
+        ) : null}
 
         <div className="topbar-actions">
           {session ? (
@@ -535,11 +592,12 @@ export function AppShell() {
               {session?.password_change_required ? "Moje konto" : "Przegląd"}
             </Link>
             {location.pathname !== "/" ? (
-              ["/incidents", "/catalog", "/requests", "/fulfillment"].some(
-                (root) =>
-                  location.pathname === root ||
-                  location.pathname.startsWith(root + "/"),
-              ) ? (
+              location.pathname === "/search" ? (
+                <>
+                  <span aria-hidden="true">/</span>
+                  <span aria-current="page">Wyszukiwanie globalne</span>
+                </>
+              ) : isCollectionRoute ? (
                 <>
                   <span aria-hidden="true">/</span>
                   {location.pathname.split("/").length === 2 ? (
@@ -550,7 +608,9 @@ export function AppShell() {
                       <span aria-hidden="true">/</span>
                       <span aria-current="page">
                         {location.pathname.endsWith("/new")
-                          ? "Nowy incydent"
+                          ? isAssetRoute
+                            ? "Nowy zasób"
+                            : "Nowy incydent"
                           : "#" + location.pathname.split("/")[2]}
                       </span>
                     </>
@@ -591,7 +651,7 @@ export function AppShell() {
                       </span>
                     </>
                   ) : (
-                    <span aria-current="page">{current?.label}</span>
+                    <span aria-current="page">{current?.label ?? "Administracja"}</span>
                   )}
                 </>
               )

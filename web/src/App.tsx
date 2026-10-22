@@ -43,6 +43,14 @@ const IncidentsPage = lazy(() =>
 const ApprovalsPage = lazy(() =>
   import("./pages/ApprovalsPage").then((m) => ({ default: m.ApprovalsPage })),
 );
+const AssetsPage = lazy(() =>
+  import("./pages/AssetsPage").then((m) => ({ default: m.AssetsPage })),
+);
+const GlobalSearchPage = lazy(() =>
+  import("./pages/GlobalSearchPage").then((m) => ({
+    default: m.GlobalSearchPage,
+  })),
+);
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -66,6 +74,9 @@ const router = createBrowserRouter(
       >
         <Route index element={<OverviewPage />} />
         <Route path="account" element={<AccountPage />} />
+        <Route path="search" element={<GlobalSearchPage />} />
+        <Route path="assets" element={<AssetsPage />} />
+        <Route path="assets/:assetID" element={<AssetsPage />} />
         <Route path="catalog" element={<CatalogPage />} />
         <Route path="catalog/:itemID" element={<CatalogPage />} />
         <Route path="requests" element={<RequestsPage />} />

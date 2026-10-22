@@ -1,3 +1,5 @@
+pracuje zawsze na main branch, nie tworz branchy,wykonuj commity po skonczeniu polecenia, testuj lokalnie tylko
+
 ## Zasady pracy nad repozytorium
 
 Przed rozpoczęciem zmian dokładnie przeanalizuj całe repozytorium projektu.
@@ -367,3 +369,9 @@ Nie kończ pracy po wykonaniu pierwszej działającej wersji.
 Po implementacji ponownie przeanalizuj cały zmieniony obszar, wykonaj testy end-to-end i usuń znalezione problemy związane z wykonywanym zadaniem.
 
 Celem jest dostarczenie kompletnej, zweryfikowanej i gotowej do użycia zmiany, a nie jedynie kodu spełniającego podstawowy scenariusz.
+
+## GitHub Actions
+
+- Nie czekaj na GitHub Actions ani status checków PR jako warunek kontynuowania pracy. Weryfikację wykonuj lokalnie w zakresie dostępnym dla środowiska.
+- Jeśli lokalne testy nie mogą zostać uruchomione, opisz konkretny powód i zakres wykonanej weryfikacji; nie oczekuj na GitHub rerun.
+- Jeżeli dostępny wynik GitHub ujawni błąd bezpośrednio związany ze zmienianym kodem, uwzględnij go w przeglądzie i napraw, jeśli można to zrobić lokalnie.
