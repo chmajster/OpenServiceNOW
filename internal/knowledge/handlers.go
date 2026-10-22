@@ -3,9 +3,6 @@ package knowledge
 import (
 	"context"
 	"errors"
-	"fmt"
-	"io"
-	"mime"
 	"net/http"
 	"strconv"
 	"strings"
@@ -35,9 +32,7 @@ type APIService interface {
 	Search(context.Context, Actor, uint64, string, uint64, int) (PagePage, error)
 	Attention(context.Context, Actor, uint64, uint64, int) (PagePage, error)
 	Versions(context.Context, Actor, uint64, uint64, int) (VersionPage, error)
-	Watch(context.Context, Actor, uint64, bool) (Space, error)
-	Export(context.Context, Actor, uint64) ([]byte, string, error)
-	Import(context.Context, Actor, uint64, []byte, string) (ImportResult, error)
+	Subscribe(context.Context, Actor, uint64, bool) (Space, error)
 }
 
 type Handler struct {
@@ -61,10 +56,8 @@ func RegisterRoutes(router chi.Router, handler *Handler, auth *identity.Middlewa
 		router.With(auth.RequireCSRF).Post("/spaces/{spaceID}/pages", handler.CreatePage)
 		router.Get("/spaces/{spaceID}/search", handler.Search)
 		router.Get("/spaces/{spaceID}/attention", handler.Attention)
-		router.With(auth.RequireCSRF).Put("/spaces/{spaceID}/watch", handler.Watch)
-		router.With(auth.RequireCSRF).Delete("/spaces/{spaceID}/watch", handler.Watch)
-		router.Get("/spaces/{spaceID}/export", handler.Export)
-		router.With(auth.RequireCSRF).Post("/spaces/{spaceID}/import", handler.Import)
+		router.With(auth.RequireCSRF).Put("/spaces/{spaceID}/subscription", handler.Subscribe)
+		router.With(auth.RequireCSRF).Delete("/spaces/{spaceID}/subscription", handler.Subscribe)
 		router.Get("/pages/{pageID}", handler.GetPage)
 		router.With(auth.RequireCSRF).Put("/pages/{pageID}", handler.UpdatePage)
 		router.Get("/pages/{pageID}/versions", handler.Versions)
@@ -283,82 +276,14 @@ func (handler *Handler) Versions(writer http.ResponseWriter, request *http.Reque
 	respond(writer, request, http.StatusOK, result, err)
 }
 
-func (handler *Handler) Watch(writer http.ResponseWriter, request *http.Request) {
+func (handler *Handler) Subscribe(writer http.ResponseWriter, request *http.Request) {
 	id, err := routeID(request, "spaceID")
 	if err != nil {
 		writeError(writer, request, err)
 		return
 	}
-	result, err := handler.service.Watch(request.Context(), requestActor(request), id, request.Method == http.MethodPut)
+	result, err := handler.service.Subscribe(request.Context(), requestActor(request), id, request.Method == http.MethodPut)
 	respond(writer, request, http.StatusOK, result, err)
-}
-
-func (handler *Handler) Export(writer http.ResponseWriter, request *http.Request) {
-	id, err := routeID(request, "spaceID")
-	if err != nil {
-		writeError(writer, request, err)
-		return
-	}
-	archive, filename, err := handler.service.Export(request.Context(), requestActor(request), id)
-	if err != nil {
-		writeError(writer, request, err)
-		return
-	}
-	disposition := mime.FormatMediaType("attachment", map[string]string{"filename": filename})
-	writer.Header().Set("Content-Type", "application/zip")
-	writer.Header().Set("Content-Disposition", disposition)
-	writer.Header().Set("Content-Length", strconv.Itoa(len(archive)))
-	writer.WriteHeader(http.StatusOK)
-	_, _ = writer.Write(archive)
-}
-
-func (handler *Handler) Import(writer http.ResponseWriter, request *http.Request) {
-	id, err := routeID(request, "spaceID")
-	if err != nil {
-		writeError(writer, request, err)
-		return
-	}
-	reader, err := request.MultipartReader()
-	if err != nil {
-		httpapi.WriteError(writer, request, http.StatusUnsupportedMediaType, "UNSUPPORTED_MEDIA_TYPE", "Prześlij archiwum jako multipart/form-data.")
-		return
-	}
-	var archive []byte
-	for {
-		part, partErr := reader.NextPart()
-		if errors.Is(partErr, io.EOF) {
-			break
-		}
-		if partErr != nil {
-			writeError(writer, request, ErrInvalid)
-			return
-		}
-		if part.FormName() != "file" || part.FileName() == "" || archive != nil {
-			_ = part.Close()
-			writeError(writer, request, ErrInvalid)
-			return
-		}
-		archive, err = io.ReadAll(io.LimitReader(part, MaxImportBytes+1))
-		closeErr := part.Close()
-		if err != nil || closeErr != nil {
-			writeError(writer, request, ErrInvalid)
-			return
-		}
-	}
-	if int64(len(archive)) > MaxImportBytes {
-		writeError(writer, request, ErrTooLarge)
-		return
-	}
-	if len(archive) == 0 {
-		writeError(writer, request, ErrInvalid)
-		return
-	}
-	result, err := handler.service.Import(request.Context(), requestActor(request), id, archive, request.Header.Get("Idempotency-Key"))
-	status := http.StatusCreated
-	if result.Replayed {
-		status = http.StatusOK
-	}
-	respond(writer, request, status, result, err)
 }
 
 func writeError(writer http.ResponseWriter, request *http.Request, err error) {
@@ -366,25 +291,23 @@ func writeError(writer http.ResponseWriter, request *http.Request, err error) {
 		return
 	}
 	switch {
-	case errors.Is(err, ErrTooLarge):
-		httpapi.WriteError(writer, request, http.StatusRequestEntityTooLarge, "KNOWLEDGE_ARCHIVE_TOO_LARGE", fmt.Sprintf("Archiwum może mieć najwyżej %d MiB po przesłaniu i %d MiB po rozpakowaniu.", MaxImportBytes>>20, MaxArchiveBytes>>20))
 	case errors.Is(err, ErrNotFound):
-		httpapi.WriteError(writer, request, http.StatusNotFound, "KNOWLEDGE_NOT_FOUND", "Przestrzeń lub strona nie istnieje albo nie masz do niej dostępu.")
+		httpapi.WriteError(writer, request, http.StatusNotFound, "KNOWLEDGE_NOT_FOUND", "Baza wiedzy lub artykuł nie istnieje albo nie masz do nich dostępu.")
 	case errors.Is(err, ErrForbidden):
-		httpapi.WriteError(writer, request, http.StatusForbidden, "FORBIDDEN", "Nie masz uprawnienia do tej operacji w dokumentacji.")
+		httpapi.WriteError(writer, request, http.StatusForbidden, "FORBIDDEN", "Nie masz uprawnienia do tej operacji w bazie wiedzy.")
 	case errors.Is(err, ErrConflict):
-		httpapi.WriteError(writer, request, http.StatusConflict, "KNOWLEDGE_CONFLICT", "Dokumentacja zmieniła się. Odczytaj aktualną wersję i rozstrzygnij konflikt.")
+		httpapi.WriteError(writer, request, http.StatusConflict, "KNOWLEDGE_CONFLICT", "Baza wiedzy zmieniła się. Odczytaj aktualną wersję i rozstrzygnij konflikt.")
 	case errors.Is(err, workrecords.ErrOperationConflict):
-		httpapi.WriteError(writer, request, http.StatusConflict, "KNOWLEDGE_IDEMPOTENCY_CONFLICT", "Ten klucz operacji był już użyty z innymi danymi.")
+		httpapi.WriteError(writer, request, http.StatusConflict, "KNOWLEDGE_IDEMPOTENCY_CONFLICT", "Ten klucz operacji bazy wiedzy był już użyty z innymi danymi.")
 	case errors.Is(err, ErrInvalid):
 		message := strings.TrimSpace(err.Error())
 		if message == "" {
-			message = "Dane dokumentacji są nieprawidłowe."
+			message = "Dane bazy wiedzy są nieprawidłowe."
 		}
 		httpapi.WriteError(writer, request, http.StatusBadRequest, "KNOWLEDGE_INVALID", message)
 	case errors.Is(err, database.ErrCommitUncertain):
 		httpapi.WriteError(writer, request, http.StatusInternalServerError, "KNOWLEDGE_RESULT_UNKNOWN", "Nie potwierdzono wyniku operacji. Odśwież dane przed ponowieniem.")
 	default:
-		httpapi.WriteError(writer, request, http.StatusInternalServerError, "KNOWLEDGE_FAILED", "Nie udało się wykonać operacji dokumentacji.")
+		httpapi.WriteError(writer, request, http.StatusInternalServerError, "KNOWLEDGE_FAILED", "Nie udało się wykonać operacji w bazie wiedzy.")
 	}
 }

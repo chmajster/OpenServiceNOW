@@ -75,12 +75,9 @@ func spaceAuditValue(space Space) map[string]any {
 func pageAuditValue(page Page) map[string]any {
 	digest := sha256.Sum256([]byte(page.Body))
 	value := map[string]any{
-		"space_id": fmt.Sprint(page.SpaceID), "title": page.Title, "status": page.Status,
+		"base_id": fmt.Sprint(page.SpaceID), "title": page.Title, "status": page.Status,
 		"version": fmt.Sprint(page.Version), "body_bytes": len(page.Body),
 		"body_sha256": hex.EncodeToString(digest[:]),
-	}
-	if page.ParentID != nil {
-		value["parent_id"] = fmt.Sprint(*page.ParentID)
 	}
 	if page.ReviewDueAt != nil {
 		value["review_due_at"] = page.ReviewDueAt.UTC()
@@ -98,7 +95,7 @@ func (s *Service) CreateSpace(ctx context.Context, actor Actor, input SpaceInput
 	var id uint64
 	created := false
 	err = s.write(ctx, actor, requireManage, func(exec database.Executor, current Actor) error {
-		existing, err := workrecords.ReserveOperation(ctx, exec, current.Actor, key, "knowledge_space", digest)
+		existing, err := workrecords.ReserveOperation(ctx, exec, current.Actor, key, "knowledge_base", digest)
 		if err != nil {
 			if errors.Is(err, workrecords.ErrInvalid) {
 				return ErrInvalid
@@ -126,7 +123,7 @@ func (s *Service) CreateSpace(ctx context.Context, actor Actor, input SpaceInput
 		}
 		id, created = uint64(inserted), true
 		space := Space{ID: id, Key: input.Key, Name: input.Name, Description: input.Description, Status: input.Status, ReviewIntervalDays: input.ReviewIntervalDays, Version: 1, CreatedAt: now, UpdatedAt: now}
-		if err := s.appendAudit(ctx, exec, current, "knowledge.space.created", "knowledge_space", id, nil, spaceAuditValue(space)); err != nil {
+		if err := s.appendAudit(ctx, exec, current, "knowledge.base.created", "knowledge_base", id, nil, spaceAuditValue(space)); err != nil {
 			return err
 		}
 		return workrecords.CompleteOperation(ctx, exec, current.Actor, key, id)
@@ -171,7 +168,7 @@ func (s *Service) UpdateSpace(ctx context.Context, actor Actor, id uint64, input
 		after := before
 		after.Key, after.Name, after.Description, after.Status = input.Key, input.Name, input.Description, input.Status
 		after.ReviewIntervalDays, after.Version, after.UpdatedAt = input.ReviewIntervalDays, input.Version+1, now
-		return s.appendAudit(ctx, exec, current, "knowledge.space.updated", "knowledge_space", id, spaceAuditValue(before), spaceAuditValue(after))
+		return s.appendAudit(ctx, exec, current, "knowledge.base.updated", "knowledge_base", id, spaceAuditValue(before), spaceAuditValue(after))
 	})
 	if err != nil {
 		return Space{}, err
@@ -202,13 +199,13 @@ func (s *Service) Space(ctx context.Context, actor Actor, id uint64) (Space, err
 	err := s.db.QueryRowContext(ctx, `
 		SELECT s.id,s.space_key,s.name,s.description,s.status,s.review_interval_days,s.version,
 		       (SELECT COUNT(*) FROM knowledge_pages p WHERE p.tenant_id=s.tenant_id AND p.space_id=s.id AND (? OR p.status='PUBLISHED')),
-		       EXISTS(SELECT 1 FROM knowledge_space_watchers w WHERE w.tenant_id=s.tenant_id AND w.space_id=s.id AND w.user_id=?),
+		       EXISTS(SELECT 1 FROM knowledge_base_subscriptions w WHERE w.tenant_id=s.tenant_id AND w.space_id=s.id AND w.user_id=?),
 		       s.created_at,s.updated_at
 		FROM knowledge_spaces s
 		WHERE s.tenant_id=? AND s.id=? AND (? OR s.status='ACTIVE')`,
 		includeDrafts, actor.UserID, actor.TenantID, id, includeArchived).Scan(
 		&space.ID, &space.Key, &space.Name, &space.Description, &space.Status,
-		&space.ReviewIntervalDays, &space.Version, &space.PageCount, &space.Watched,
+		&space.ReviewIntervalDays, &space.Version, &space.PageCount, &space.Subscribed,
 		&space.CreatedAt, &space.UpdatedAt)
 	return space, translate(err)
 }
@@ -226,7 +223,7 @@ func (s *Service) Spaces(ctx context.Context, actor Actor, after uint64, limit i
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT s.id,s.space_key,s.name,s.description,s.status,s.review_interval_days,s.version,
 		       (SELECT COUNT(*) FROM knowledge_pages p WHERE p.tenant_id=s.tenant_id AND p.space_id=s.id AND (? OR p.status='PUBLISHED')),
-		       EXISTS(SELECT 1 FROM knowledge_space_watchers w WHERE w.tenant_id=s.tenant_id AND w.space_id=s.id AND w.user_id=?),
+		       EXISTS(SELECT 1 FROM knowledge_base_subscriptions w WHERE w.tenant_id=s.tenant_id AND w.space_id=s.id AND w.user_id=?),
 		       s.created_at,s.updated_at
 		FROM knowledge_spaces s
 		WHERE s.tenant_id=? AND s.id>? AND (? OR s.status='ACTIVE')
@@ -239,7 +236,7 @@ func (s *Service) Spaces(ctx context.Context, actor Actor, after uint64, limit i
 	for rows.Next() {
 		var space Space
 		if err := rows.Scan(&space.ID, &space.Key, &space.Name, &space.Description, &space.Status,
-			&space.ReviewIntervalDays, &space.Version, &space.PageCount, &space.Watched,
+			&space.ReviewIntervalDays, &space.Version, &space.PageCount, &space.Subscribed,
 			&space.CreatedAt, &space.UpdatedAt); err != nil {
 			return page, err
 		}
@@ -268,7 +265,7 @@ func (s *Service) CreatePage(ctx context.Context, actor Actor, spaceID uint64, i
 	var id uint64
 	created := false
 	err = s.write(ctx, actor, canWrite, func(exec database.Executor, current Actor) error {
-		existing, err := workrecords.ReserveOperation(ctx, exec, current.Actor, key, "knowledge_page", digest)
+		existing, err := workrecords.ReserveOperation(ctx, exec, current.Actor, key, "knowledge_article", digest)
 		if err != nil {
 			if errors.Is(err, workrecords.ErrInvalid) {
 				return ErrInvalid
@@ -286,17 +283,14 @@ func (s *Service) CreatePage(ctx context.Context, actor Actor, spaceID uint64, i
 		if space.Status != SpaceActive {
 			return ErrConflict
 		}
-		if err := validateParent(ctx, exec, current.TenantID, spaceID, 0, input.ParentID); err != nil {
-			return err
-		}
 		applyReviewDefault(&input, space.ReviewIntervalDays)
 		now := time.Now().UTC()
 		result, err := exec.ExecContext(ctx, `
 			INSERT INTO knowledge_pages(
-				tenant_id,space_id,parent_id,title,body,status,review_due_at,created_by,
+				tenant_id,space_id,title,body,status,review_due_at,created_by,
 				updated_by,created_at,updated_at
-			) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
-			current.TenantID, spaceID, input.ParentID, input.Title, input.Body, input.Status,
+			) VALUES(?,?,?,?,?,?,?,?,?,?)`,
+			current.TenantID, spaceID, input.Title, input.Body, input.Status,
 			input.ReviewDueAt, current.UserID, current.UserID, now, now)
 		if err != nil {
 			return translate(err)
@@ -306,11 +300,11 @@ func (s *Service) CreatePage(ctx context.Context, actor Actor, spaceID uint64, i
 			return err
 		}
 		id, created = uint64(inserted), true
-		page := Page{ID: id, SpaceID: spaceID, ParentID: input.ParentID, Title: input.Title, Body: input.Body, Status: input.Status, ReviewDueAt: input.ReviewDueAt, Version: 1, CreatedBy: current.UserID, UpdatedBy: current.UserID, CreatedAt: now, UpdatedAt: now}
+		page := Page{ID: id, SpaceID: spaceID, Title: input.Title, Body: input.Body, Status: input.Status, ReviewDueAt: input.ReviewDueAt, Version: 1, CreatedBy: current.UserID, UpdatedBy: current.UserID, CreatedAt: now, UpdatedAt: now}
 		if err := insertVersion(ctx, exec, current.TenantID, page, current.UserID, now); err != nil {
 			return err
 		}
-		if err := s.appendAudit(ctx, exec, current, "knowledge.page.created", "knowledge_page", id, nil, pageAuditValue(page)); err != nil {
+		if err := s.appendAudit(ctx, exec, current, "knowledge.article.created", "knowledge_article", id, nil, pageAuditValue(page)); err != nil {
 			return err
 		}
 		return workrecords.CompleteOperation(ctx, exec, current.Actor, key, id)
@@ -349,16 +343,13 @@ func (s *Service) UpdatePage(ctx context.Context, actor Actor, id uint64, input 
 		if before.Version != input.Version {
 			return ErrConflict
 		}
-		if err := validateParent(ctx, exec, current.TenantID, before.SpaceID, id, input.ParentID); err != nil {
-			return err
-		}
 		applyReviewDefault(&input, space.ReviewIntervalDays)
 		now := time.Now().UTC()
 		result, err := exec.ExecContext(ctx, `
-			UPDATE knowledge_pages SET parent_id=?,title=?,body=?,status=?,review_due_at=?,
+			UPDATE knowledge_pages SET title=?,body=?,status=?,review_due_at=?,
 				version=version+1,updated_by=?,updated_at=?
 			WHERE tenant_id=? AND id=? AND version=?`,
-			input.ParentID, input.Title, input.Body, input.Status, input.ReviewDueAt,
+			input.Title, input.Body, input.Status, input.ReviewDueAt,
 			current.UserID, now, current.TenantID, id, input.Version)
 		if err != nil {
 			return translate(err)
@@ -371,12 +362,12 @@ func (s *Service) UpdatePage(ctx context.Context, actor Actor, id uint64, input 
 			return ErrConflict
 		}
 		after := before
-		after.ParentID, after.Title, after.Body, after.Status, after.ReviewDueAt = input.ParentID, input.Title, input.Body, input.Status, input.ReviewDueAt
+		after.Title, after.Body, after.Status, after.ReviewDueAt = input.Title, input.Body, input.Status, input.ReviewDueAt
 		after.Version, after.UpdatedBy, after.UpdatedAt = input.Version+1, current.UserID, now
 		if err := insertVersion(ctx, exec, current.TenantID, after, current.UserID, now); err != nil {
 			return err
 		}
-		return s.appendAudit(ctx, exec, current, "knowledge.page.updated", "knowledge_page", id, pageAuditValue(before), pageAuditValue(after))
+		return s.appendAudit(ctx, exec, current, "knowledge.article.updated", "knowledge_article", id, pageAuditValue(before), pageAuditValue(after))
 	})
 	if err != nil {
 		return Page{}, err
@@ -395,55 +386,27 @@ func applyReviewDefault(input *PageInput, days uint16) {
 	}
 }
 
-func validateParent(ctx context.Context, exec database.Executor, tenant, space, page uint64, parent *uint64) error {
-	if parent == nil {
-		return nil
-	}
-	current := *parent
-	for depth := 0; depth < 100; depth++ {
-		if current == page && page != 0 {
-			return ErrInvalid
-		}
-		var next sql.Null[uint64]
-		err := exec.QueryRowContext(ctx, `
-			SELECT parent_id FROM knowledge_pages
-			WHERE tenant_id=? AND space_id=? AND id=?`, tenant, space, current).Scan(&next)
-		if err != nil {
-			return translate(err)
-		}
-		if !next.Valid {
-			return nil
-		}
-		current = next.V
-	}
-	return ErrInvalid
-}
-
 func insertVersion(ctx context.Context, exec database.Executor, tenant uint64, page Page, actor uint64, changed time.Time) error {
 	_, err := exec.ExecContext(ctx, `
 		INSERT INTO knowledge_page_versions(
-			tenant_id,space_id,page_id,version,parent_id,title,body,status,review_due_at,changed_by,changed_at
-		) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
-		tenant, page.SpaceID, page.ID, page.Version, page.ParentID, page.Title, page.Body,
+			tenant_id,space_id,page_id,version,title,body,status,review_due_at,changed_by,changed_at
+		) VALUES(?,?,?,?,?,?,?,?,?,?)`,
+		tenant, page.SpaceID, page.ID, page.Version, page.Title, page.Body,
 		page.Status, page.ReviewDueAt, actor, changed)
 	return err
 }
 
 func getPageBase(ctx context.Context, exec database.Executor, tenant, id uint64, lock bool) (Page, error) {
-	query := `SELECT id,space_id,parent_id,title,body,status,review_due_at,version,created_by,updated_by,created_at,updated_at
+	query := `SELECT id,space_id,title,body,status,review_due_at,version,created_by,updated_by,created_at,updated_at
 		FROM knowledge_pages WHERE tenant_id=? AND id=?`
 	if lock {
 		query += " FOR UPDATE"
 	}
 	var page Page
-	var parent sql.Null[uint64]
 	var review sql.NullTime
 	err := exec.QueryRowContext(ctx, query, tenant, id).Scan(
-		&page.ID, &page.SpaceID, &parent, &page.Title, &page.Body, &page.Status,
+		&page.ID, &page.SpaceID, &page.Title, &page.Body, &page.Status,
 		&review, &page.Version, &page.CreatedBy, &page.UpdatedBy, &page.CreatedAt, &page.UpdatedAt)
-	if parent.Valid {
-		page.ParentID = &parent.V
-	}
 	if review.Valid {
 		page.ReviewDueAt = &review.Time
 	}
@@ -455,22 +418,18 @@ func (s *Service) Page(ctx context.Context, actor Actor, id uint64) (Page, error
 		return Page{}, ErrForbidden
 	}
 	var page Page
-	var parent sql.Null[uint64]
 	var review sql.NullTime
 	err := s.db.QueryRowContext(ctx, `
-		SELECT p.id,p.space_id,p.parent_id,p.title,p.body,p.status,p.review_due_at,p.version,
+		SELECT p.id,p.space_id,p.title,p.body,p.status,p.review_due_at,p.version,
 		       p.created_by,p.updated_by,COALESCE(u.display_name,''),p.created_at,p.updated_at
 		FROM knowledge_pages p
 		JOIN knowledge_spaces s ON s.tenant_id=p.tenant_id AND s.id=p.space_id
 		LEFT JOIN users u ON u.id=p.updated_by
 		WHERE p.tenant_id=? AND p.id=? AND (? OR s.status='ACTIVE') AND (? OR p.status='PUBLISHED')`,
 		actor.TenantID, id, actor.Has(PermissionManage), canWrite(actor)).Scan(
-		&page.ID, &page.SpaceID, &parent, &page.Title, &page.Body, &page.Status,
+		&page.ID, &page.SpaceID, &page.Title, &page.Body, &page.Status,
 		&review, &page.Version, &page.CreatedBy, &page.UpdatedBy, &page.UpdatedByName,
 		&page.CreatedAt, &page.UpdatedAt)
-	if parent.Valid {
-		page.ParentID = &parent.V
-	}
 	if review.Valid {
 		page.ReviewDueAt = &review.Time
 	}
@@ -507,7 +466,7 @@ func (s *Service) pageSummaries(ctx context.Context, actor Actor, spaceID uint64
 	includeDrafts := canWrite(actor)
 	includeArchived := actor.Has(PermissionManage)
 	statement := `
-		SELECT p.id,p.space_id,p.parent_id,p.title,p.status,p.review_due_at,p.version,
+		SELECT p.id,p.space_id,p.title,p.status,p.review_due_at,p.version,
 		       p.updated_by,COALESCE(u.display_name,''),p.updated_at,
 		       CASE WHEN ?<>'' OR ? THEN LEFT(p.body,240) ELSE '' END,
 		       CASE WHEN p.status='DRAFT' THEN 'DRAFT' WHEN p.review_due_at<=UTC_TIMESTAMP(6) THEN 'REVIEW_DUE' ELSE '' END
@@ -532,15 +491,11 @@ func (s *Service) pageSummaries(ctx context.Context, actor Actor, spaceID uint64
 	defer rows.Close()
 	for rows.Next() {
 		var item PageSummary
-		var parent sql.Null[uint64]
 		var review sql.NullTime
-		if err := rows.Scan(&item.ID, &item.SpaceID, &parent, &item.Title, &item.Status,
+		if err := rows.Scan(&item.ID, &item.SpaceID, &item.Title, &item.Status,
 			&review, &item.Version, &item.UpdatedBy, &item.UpdatedByName, &item.UpdatedAt,
 			&item.Excerpt, &item.Attention); err != nil {
 			return page, err
-		}
-		if parent.Valid {
-			item.ParentID = &parent.V
 		}
 		if review.Valid {
 			item.ReviewDueAt = &review.Time
@@ -566,7 +521,7 @@ func (s *Service) Versions(ctx context.Context, actor Actor, pageID, before uint
 		return result, err
 	}
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT v.page_id,v.version,v.parent_id,v.title,v.status,v.review_due_at,
+		SELECT v.page_id,v.version,v.title,v.status,v.review_due_at,
 		       v.changed_by,COALESCE(u.display_name,''),v.changed_at
 		FROM knowledge_page_versions v
 		LEFT JOIN users u ON u.id=v.changed_by
@@ -578,14 +533,10 @@ func (s *Service) Versions(ctx context.Context, actor Actor, pageID, before uint
 	defer rows.Close()
 	for rows.Next() {
 		var item PageVersion
-		var parent sql.Null[uint64]
 		var review sql.NullTime
-		if err := rows.Scan(&item.PageID, &item.Version, &parent, &item.Title, &item.Status,
+		if err := rows.Scan(&item.PageID, &item.Version, &item.Title, &item.Status,
 			&review, &item.ChangedBy, &item.ChangedByName, &item.ChangedAt); err != nil {
 			return result, err
-		}
-		if parent.Valid {
-			item.ParentID = &parent.V
 		}
 		if review.Valid {
 			item.ReviewDueAt = &review.Time
@@ -602,7 +553,7 @@ func (s *Service) Versions(ctx context.Context, actor Actor, pageID, before uint
 	return result, nil
 }
 
-func (s *Service) Watch(ctx context.Context, actor Actor, spaceID uint64, enabled bool) (Space, error) {
+func (s *Service) Subscribe(ctx context.Context, actor Actor, spaceID uint64, enabled bool) (Space, error) {
 	if spaceID == 0 {
 		return Space{}, ErrInvalid
 	}
@@ -618,7 +569,7 @@ func (s *Service) Watch(ctx context.Context, actor Actor, spaceID uint64, enable
 		var changed bool
 		if enabled {
 			result, err := exec.ExecContext(ctx, `
-				INSERT IGNORE INTO knowledge_space_watchers(tenant_id,space_id,user_id,created_at)
+				INSERT IGNORE INTO knowledge_base_subscriptions(tenant_id,space_id,user_id,created_at)
 				VALUES(?,?,?,?)`, current.TenantID, spaceID, current.UserID, now)
 			if err != nil {
 				return err
@@ -627,7 +578,7 @@ func (s *Service) Watch(ctx context.Context, actor Actor, spaceID uint64, enable
 			changed = count > 0
 		} else {
 			result, err := exec.ExecContext(ctx, `
-				DELETE FROM knowledge_space_watchers WHERE tenant_id=? AND space_id=? AND user_id=?`,
+				DELETE FROM knowledge_base_subscriptions WHERE tenant_id=? AND space_id=? AND user_id=?`,
 				current.TenantID, spaceID, current.UserID)
 			if err != nil {
 				return err
@@ -638,11 +589,11 @@ func (s *Service) Watch(ctx context.Context, actor Actor, spaceID uint64, enable
 		if !changed {
 			return nil
 		}
-		action := "knowledge.space.unwatched"
+		action := "knowledge.base.unsubscribed"
 		if enabled {
-			action = "knowledge.space.watched"
+			action = "knowledge.base.subscribed"
 		}
-		return s.appendAudit(ctx, exec, current, action, "knowledge_space", spaceID, nil, map[string]any{"watched": enabled})
+		return s.appendAudit(ctx, exec, current, action, "knowledge_base", spaceID, nil, map[string]any{"subscribed": enabled})
 	})
 	if err != nil {
 		return Space{}, err

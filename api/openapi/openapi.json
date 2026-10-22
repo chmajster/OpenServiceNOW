@@ -46,7 +46,7 @@
     },
     {
       "name": "Knowledge",
-      "description": "Tenant-scoped documentation spaces, hierarchical pages, review workflow and portable ZIP archives."
+      "description": "Tenant-scoped knowledge bases, versioned articles, publication lifecycle, validity review and subscriptions."
     }
   ],
   "paths": {
@@ -12552,35 +12552,15 @@
         "responses": {"200": {"description": "Drafts and overdue reviews", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgePages"}}}}, "403": {"$ref": "#/components/responses/Forbidden"}}
       }
     },
-    "/api/v1/knowledge/spaces/{spaceID}/watch": {
+    "/api/v1/knowledge/spaces/{spaceID}/subscription": {
       "parameters": [{"name": "spaceID", "in": "path", "required": true, "schema": {"type": "string", "pattern": "^[1-9][0-9]*$"}}],
       "put": {
-        "tags": ["Knowledge"], "operationId": "watchKnowledgeSpace", "security": [{"sessionCookie": [], "csrfHeader": []}],
-        "responses": {"200": {"description": "Watched space", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgeSpace"}}}}, "403": {"$ref": "#/components/responses/Forbidden"}, "404": {"$ref": "#/components/responses/NotFound"}}
+        "tags": ["Knowledge"], "operationId": "subscribeKnowledgeBase", "security": [{"sessionCookie": [], "csrfHeader": []}],
+        "responses": {"200": {"description": "Subscribed knowledge base", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgeSpace"}}}}, "403": {"$ref": "#/components/responses/Forbidden"}, "404": {"$ref": "#/components/responses/NotFound"}}
       },
       "delete": {
-        "tags": ["Knowledge"], "operationId": "unwatchKnowledgeSpace", "security": [{"sessionCookie": [], "csrfHeader": []}],
-        "responses": {"200": {"description": "Unwatched space", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgeSpace"}}}}, "403": {"$ref": "#/components/responses/Forbidden"}, "404": {"$ref": "#/components/responses/NotFound"}}
-      }
-    },
-    "/api/v1/knowledge/spaces/{spaceID}/export": {
-      "parameters": [{"name": "spaceID", "in": "path", "required": true, "schema": {"type": "string", "pattern": "^[1-9][0-9]*$"}}],
-      "get": {
-        "tags": ["Knowledge"], "operationId": "exportKnowledgeSpace",
-        "description": "Requires knowledge.manage. Returns a bounded portable archive and records an audit event.",
-        "security": [{"sessionCookie": []}],
-        "responses": {"200": {"description": "ZIP archive", "content": {"application/zip": {"schema": {"type": "string", "contentEncoding": "binary"}}}}, "403": {"$ref": "#/components/responses/Forbidden"}, "404": {"$ref": "#/components/responses/NotFound"}, "413": {"$ref": "#/components/responses/PayloadTooLarge"}}
-      }
-    },
-    "/api/v1/knowledge/spaces/{spaceID}/import": {
-      "parameters": [{"name": "spaceID", "in": "path", "required": true, "schema": {"type": "string", "pattern": "^[1-9][0-9]*$"}}],
-      "post": {
-        "tags": ["Knowledge"], "operationId": "importKnowledgeSpace",
-        "description": "Requires knowledge.manage. Validates paths, duplicate entries, hierarchy cycles and compressed/uncompressed limits before one atomic import.",
-        "security": [{"sessionCookie": [], "csrfHeader": []}],
-        "parameters": [{"name": "Idempotency-Key", "in": "header", "required": true, "schema": {"type": "string", "pattern": "^[A-Za-z0-9._:-]{8,128}$"}}],
-        "requestBody": {"required": true, "content": {"multipart/form-data": {"schema": {"type": "object", "properties": {"file": {"type": "string", "contentEncoding": "binary"}}, "required": ["file"], "additionalProperties": false}}}},
-        "responses": {"201": {"description": "Imported pages", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgeImportResult"}}}}, "400": {"$ref": "#/components/responses/BadRequest"}, "403": {"$ref": "#/components/responses/Forbidden"}, "409": {"$ref": "#/components/responses/Conflict"}, "413": {"$ref": "#/components/responses/PayloadTooLarge"}}
+        "tags": ["Knowledge"], "operationId": "unsubscribeKnowledgeBase", "security": [{"sessionCookie": [], "csrfHeader": []}],
+        "responses": {"200": {"description": "Unsubscribed knowledge base", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgeSpace"}}}}, "403": {"$ref": "#/components/responses/Forbidden"}, "404": {"$ref": "#/components/responses/NotFound"}}
       }
     },
     "/api/v1/knowledge/pages/{pageID}": {
@@ -12591,7 +12571,7 @@
       },
       "put": {
         "tags": ["Knowledge"], "operationId": "updateKnowledgePage",
-        "description": "Requires knowledge.write or knowledge.manage and the current optimistic-lock version. Cyclic hierarchy is rejected.",
+        "description": "Requires knowledge.write or knowledge.manage and the current optimistic-lock version.",
         "security": [{"sessionCookie": [], "csrfHeader": []}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgePageInput"}}}},
         "responses": {"200": {"description": "Updated page", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgePage"}}}}, "400": {"$ref": "#/components/responses/BadRequest"}, "403": {"$ref": "#/components/responses/Forbidden"}, "404": {"$ref": "#/components/responses/NotFound"}, "409": {"$ref": "#/components/responses/Conflict"}}
@@ -12679,11 +12659,11 @@
           "review_interval_days": {"type": "integer", "minimum": 0, "maximum": 3650},
           "version": {"type": "string", "pattern": "^[1-9][0-9]*$"},
           "page_count": {"type": "string", "pattern": "^[0-9]+$"},
-          "watched": {"type": "boolean"},
+          "subscribed": {"type": "boolean"},
           "created_at": {"type": "string", "format": "date-time"},
           "updated_at": {"type": "string", "format": "date-time"}
         },
-        "required": ["id", "key", "name", "description", "status", "review_interval_days", "version", "page_count", "watched", "created_at", "updated_at"],
+        "required": ["id", "key", "name", "description", "status", "review_interval_days", "version", "page_count", "subscribed", "created_at", "updated_at"],
         "additionalProperties": false
       },
       "KnowledgeSpaceInput": {
@@ -12713,9 +12693,8 @@
         "properties": {
           "id": {"type": "string", "pattern": "^[1-9][0-9]*$"},
           "space_id": {"type": "string", "pattern": "^[1-9][0-9]*$"},
-          "parent_id": {"type": "string", "pattern": "^[1-9][0-9]*$"},
           "title": {"type": "string", "minLength": 1, "maxLength": 200},
-          "status": {"type": "string", "enum": ["DRAFT", "PUBLISHED"]},
+          "status": {"type": "string", "enum": ["DRAFT", "PUBLISHED", "RETIRED"]},
           "review_due_at": {"type": "string", "format": "date-time"},
           "version": {"type": "string", "pattern": "^[1-9][0-9]*$"},
           "updated_by": {"type": "string", "pattern": "^[1-9][0-9]*$"},
@@ -12732,10 +12711,9 @@
         "properties": {
           "id": {"type": "string", "pattern": "^[1-9][0-9]*$"},
           "space_id": {"type": "string", "pattern": "^[1-9][0-9]*$"},
-          "parent_id": {"type": "string", "pattern": "^[1-9][0-9]*$"},
           "title": {"type": "string", "minLength": 1, "maxLength": 200},
           "body": {"type": "string", "maxLength": 262144},
-          "status": {"type": "string", "enum": ["DRAFT", "PUBLISHED"]},
+          "status": {"type": "string", "enum": ["DRAFT", "PUBLISHED", "RETIRED"]},
           "review_due_at": {"type": "string", "format": "date-time"},
           "version": {"type": "string", "pattern": "^[1-9][0-9]*$"},
           "created_by": {"type": "string", "pattern": "^[1-9][0-9]*$"},
@@ -12750,10 +12728,9 @@
       "KnowledgePageInput": {
         "type": "object",
         "properties": {
-          "parent_id": {"type": "string", "pattern": "^[1-9][0-9]*$"},
           "title": {"type": "string", "minLength": 1, "maxLength": 200},
           "body": {"type": "string", "maxLength": 262144},
-          "status": {"type": "string", "enum": ["DRAFT", "PUBLISHED"]},
+          "status": {"type": "string", "enum": ["DRAFT", "PUBLISHED", "RETIRED"]},
           "review_due_at": {"type": "string", "format": "date-time"},
           "version": {"type": "string", "pattern": "^[1-9][0-9]*$"}
         },
@@ -12774,9 +12751,8 @@
         "properties": {
           "page_id": {"type": "string", "pattern": "^[1-9][0-9]*$"},
           "version": {"type": "string", "pattern": "^[1-9][0-9]*$"},
-          "parent_id": {"type": "string", "pattern": "^[1-9][0-9]*$"},
           "title": {"type": "string"},
-          "status": {"type": "string", "enum": ["DRAFT", "PUBLISHED"]},
+          "status": {"type": "string", "enum": ["DRAFT", "PUBLISHED", "RETIRED"]},
           "review_due_at": {"type": "string", "format": "date-time"},
           "changed_by": {"type": "string", "pattern": "^[1-9][0-9]*$"},
           "changed_by_name": {"type": "string"},
@@ -12792,16 +12768,6 @@
           "next_before_version": {"type": "string", "pattern": "^[1-9][0-9]*$"}
         },
         "required": ["versions"],
-        "additionalProperties": false
-      },
-      "KnowledgeImportResult": {
-        "type": "object",
-        "properties": {
-          "space_id": {"type": "string", "pattern": "^[1-9][0-9]*$"},
-          "created": {"type": "integer", "minimum": 0, "maximum": 500},
-          "replayed": {"type": "boolean"}
-        },
-        "required": ["space_id", "created", "replayed"],
         "additionalProperties": false
       },
       "CatalogCondition": {

@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/chmajster/OpenServiceNOW/internal/attachments"
-	"github.com/chmajster/OpenServiceNOW/internal/knowledge"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/health"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/httpapi"
 	"github.com/go-chi/chi/v5"
@@ -169,7 +168,6 @@ func securityHeaders(next http.Handler) http.Handler {
 }
 
 var incidentUploadPath = regexp.MustCompile(`^/api/v1/(incidents|requests)/[0-9]+/files$`)
-var knowledgeImportPath = regexp.MustCompile(`^/api/v1/knowledge/spaces/[0-9]+/import$`)
 
 func limitBody(max int64) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -178,9 +176,6 @@ func limitBody(max int64) func(http.Handler) http.Handler {
 				limit := max
 				if r.Method == "POST" && incidentUploadPath.MatchString(strings.TrimSuffix(r.URL.Path, "/")) {
 					limit = attachments.MaxMultipartBytes
-				}
-				if r.Method == "POST" && knowledgeImportPath.MatchString(strings.TrimSuffix(r.URL.Path, "/")) {
-					limit = knowledge.MaxImportBytes + (1 << 20)
 				}
 				r.Body = http.MaxBytesReader(w, r.Body, limit)
 			}

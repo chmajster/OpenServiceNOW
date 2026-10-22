@@ -31,11 +31,8 @@ func normalizePage(input PageInput, creating bool) (PageInput, error) {
 	}
 	if !text(input.Title, 1, 200) || !utf8.ValidString(input.Body) ||
 		len(input.Body) > MaxPageBodyBytes ||
-		(input.Status != PageDraft && input.Status != PagePublished) ||
+		(input.Status != PageDraft && input.Status != PagePublished && input.Status != PageRetired) ||
 		(!creating && input.Version == 0) {
-		return input, ErrInvalid
-	}
-	if input.ParentID != nil && *input.ParentID == 0 {
 		return input, ErrInvalid
 	}
 	if input.ReviewDueAt != nil {

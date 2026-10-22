@@ -123,13 +123,8 @@ func TestKnowledgeSpacesEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	child, _, err := service.CreatePage(ctx, admin, space.ID, knowledge.PageInput{ParentID: &root.ID, Title: "Rollback", Body: "Wycofaj zmianę", Status: knowledge.PagePublished}, "knowledge-child")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	readerSpaces, err := service.Spaces(ctx, reader, 0, 50)
-	if err != nil || len(readerSpaces.Spaces) != 1 || readerSpaces.Spaces[0].PageCount != 2 {
+	if err != nil || len(readerSpaces.Spaces) != 1 || readerSpaces.Spaces[0].PageCount != 1 {
 		t.Fatalf("reader space projection leaked drafts: %+v err=%v", readerSpaces, err)
 	}
 	if _, err := service.Page(ctx, reader, draft.ID); !errors.Is(err, knowledge.ErrNotFound) {
@@ -156,12 +151,12 @@ func TestKnowledgeSpacesEndToEnd(t *testing.T) {
 	if err != nil || len(attention.Pages) != 2 {
 		t.Fatalf("attention results: %+v err=%v", attention, err)
 	}
-	if _, err := service.Watch(ctx, reader, space.ID, true); err != nil {
+	if _, err := service.Subscribe(ctx, reader, space.ID, true); err != nil {
 		t.Fatal(err)
 	}
-	watched, err := service.Space(ctx, reader, space.ID)
-	if err != nil || !watched.Watched {
-		t.Fatalf("watch state not persisted: %+v err=%v", watched, err)
+	subscribed, err := service.Space(ctx, reader, space.ID)
+	if err != nil || !subscribed.Subscribed {
+		t.Fatalf("subscription state not persisted: %+v err=%v", subscribed, err)
 	}
 
 	root.Body = "# Procedura\n\nNowa wersja"
@@ -172,37 +167,21 @@ func TestKnowledgeSpacesEndToEnd(t *testing.T) {
 	if _, err := service.UpdatePage(ctx, admin, root.ID, knowledge.PageInput{Title: root.Title, Body: root.Body, Status: root.Status, Version: 1}); !errors.Is(err, knowledge.ErrConflict) {
 		t.Fatalf("stale update accepted: %v", err)
 	}
-	if _, err := service.UpdatePage(ctx, admin, root.ID, knowledge.PageInput{ParentID: &child.ID, Title: root.Title, Body: root.Body, Status: root.Status, Version: root.Version}); !errors.Is(err, knowledge.ErrInvalid) {
-		t.Fatalf("hierarchy cycle accepted: %v", err)
-	}
 	versions, err := service.Versions(ctx, admin, root.ID, 0, 20)
 	if err != nil || len(versions.Versions) != 2 || versions.Versions[0].Version != 2 {
 		t.Fatalf("version history: %+v err=%v", versions, err)
 	}
 
-	archive, _, err := service.Export(ctx, admin, space.ID)
-	if err != nil || len(archive) == 0 {
-		t.Fatalf("export: bytes=%d err=%v", len(archive), err)
+	root, err = service.UpdatePage(ctx, admin, root.ID, knowledge.PageInput{Title: root.Title, Body: root.Body, Status: knowledge.PageRetired, Version: root.Version})
+	if err != nil || root.Status != knowledge.PageRetired || root.ReviewDueAt != nil {
+		t.Fatalf("retire article: %+v err=%v", root, err)
 	}
-	target, _, err := service.CreateSpace(ctx, admin, knowledge.SpaceInput{Key: "COPY", Name: "Kopia", Status: knowledge.SpaceActive}, "knowledge-target")
-	if err != nil {
-		t.Fatal(err)
-	}
-	imported, err := service.Import(ctx, admin, target.ID, archive, "knowledge-import")
-	if err != nil || imported.Created != 3 || imported.Replayed {
-		t.Fatalf("import: %+v err=%v", imported, err)
-	}
-	retry, err := service.Import(ctx, admin, target.ID, archive, "knowledge-import")
-	if err != nil || !retry.Replayed || retry.Created != 0 {
-		t.Fatalf("import retry: %+v err=%v", retry, err)
-	}
-	copyPages, err := service.Pages(ctx, admin, target.ID, 0, 50)
-	if err != nil || len(copyPages.Pages) != 3 {
-		t.Fatalf("imported pages: %+v err=%v", copyPages, err)
+	if _, err := service.Page(ctx, reader, root.ID); !errors.Is(err, knowledge.ErrNotFound) {
+		t.Fatalf("retired article visible to reader: %v", err)
 	}
 
 	var auditJSON string
-	if err := db.QueryRowContext(ctx, "SELECT CONCAT(COALESCE(GROUP_CONCAT(old_values),''),COALESCE(GROUP_CONCAT(new_values),'')) FROM audit_events WHERE tenant_id=? AND object_type IN ('knowledge_space','knowledge_page')", adminA.TenantID).Scan(&auditJSON); err != nil {
+	if err := db.QueryRowContext(ctx, "SELECT CONCAT(COALESCE(GROUP_CONCAT(old_values),''),COALESCE(GROUP_CONCAT(new_values),'')) FROM audit_events WHERE tenant_id=? AND object_type IN ('knowledge_base','knowledge_article')", adminA.TenantID).Scan(&auditJSON); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(auditJSON, secret) {

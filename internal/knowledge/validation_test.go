@@ -41,6 +41,11 @@ func TestNormalizePageAndReviewDefaults(t *testing.T) {
 	if input.ReviewDueAt != nil {
 		t.Fatal("draft retained a review due date")
 	}
+	input.Status = PageRetired
+	input.Version = 1
+	if _, err := normalizePage(input, false); err != nil {
+		t.Fatalf("retired article rejected: %v", err)
+	}
 	if _, err := normalizePage(PageInput{Title: "x", Body: strings.Repeat("x", MaxPageBodyBytes+1)}, true); err == nil {
 		t.Fatal("oversized page body accepted")
 	}

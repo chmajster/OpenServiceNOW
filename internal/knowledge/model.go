@@ -8,11 +8,10 @@ import (
 )
 
 var (
-	ErrInvalid   = errors.New("nieprawidłowe dane dokumentacji")
-	ErrNotFound  = errors.New("nie znaleziono dokumentacji")
-	ErrForbidden = errors.New("brak uprawnień do dokumentacji")
-	ErrConflict  = errors.New("dokumentacja zmieniła się; odczytaj aktualną wersję")
-	ErrTooLarge  = errors.New("archiwum dokumentacji przekracza dozwolony rozmiar")
+	ErrInvalid   = errors.New("nieprawidłowe dane bazy wiedzy")
+	ErrNotFound  = errors.New("nie znaleziono bazy wiedzy lub artykułu")
+	ErrForbidden = errors.New("brak uprawnień do bazy wiedzy")
+	ErrConflict  = errors.New("baza wiedzy zmieniła się; odczytaj aktualną wersję")
 )
 
 const (
@@ -24,11 +23,9 @@ const (
 	SpaceArchived = "ARCHIVED"
 	PageDraft     = "DRAFT"
 	PagePublished = "PUBLISHED"
+	PageRetired   = "RETIRED"
 
-	MaxImportBytes   int64 = 8 << 20
-	MaxArchiveBytes        = 20 << 20
-	MaxImportPages         = 500
-	MaxPageBodyBytes       = 256 << 10
+	MaxPageBodyBytes = 256 << 10
 )
 
 type Actor = workrecords.Principal
@@ -42,7 +39,7 @@ type Space struct {
 	ReviewIntervalDays uint16    `json:"review_interval_days"`
 	Version            uint64    `json:"version,string"`
 	PageCount          uint64    `json:"page_count,string"`
-	Watched            bool      `json:"watched"`
+	Subscribed         bool      `json:"subscribed"`
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`
 }
@@ -64,7 +61,6 @@ type SpacePage struct {
 type Page struct {
 	ID            uint64     `json:"id,string"`
 	SpaceID       uint64     `json:"space_id,string"`
-	ParentID      *uint64    `json:"parent_id,string,omitempty"`
 	Title         string     `json:"title"`
 	Body          string     `json:"body"`
 	Status        string     `json:"status"`
@@ -79,7 +75,6 @@ type Page struct {
 }
 
 type PageInput struct {
-	ParentID    *uint64    `json:"parent_id,string,omitempty"`
 	Title       string     `json:"title"`
 	Body        string     `json:"body"`
 	Status      string     `json:"status"`
@@ -90,7 +85,6 @@ type PageInput struct {
 type PageSummary struct {
 	ID            uint64     `json:"id,string"`
 	SpaceID       uint64     `json:"space_id,string"`
-	ParentID      *uint64    `json:"parent_id,string,omitempty"`
 	Title         string     `json:"title"`
 	Status        string     `json:"status"`
 	ReviewDueAt   *time.Time `json:"review_due_at,omitempty"`
@@ -110,7 +104,6 @@ type PagePage struct {
 type PageVersion struct {
 	PageID        uint64     `json:"page_id,string"`
 	Version       uint64     `json:"version,string"`
-	ParentID      *uint64    `json:"parent_id,string,omitempty"`
 	Title         string     `json:"title"`
 	Status        string     `json:"status"`
 	ReviewDueAt   *time.Time `json:"review_due_at,omitempty"`
@@ -122,10 +115,4 @@ type PageVersion struct {
 type VersionPage struct {
 	Versions          []PageVersion `json:"versions"`
 	NextBeforeVersion uint64        `json:"next_before_version,string,omitempty"`
-}
-
-type ImportResult struct {
-	SpaceID  uint64 `json:"space_id,string"`
-	Created  int    `json:"created"`
-	Replayed bool   `json:"replayed"`
 }
