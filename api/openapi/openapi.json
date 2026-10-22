@@ -12482,6 +12482,15 @@
         }
       }
     },
+    "/api/v1/knowledge/search": {
+      "get": {
+        "tags": ["Knowledge"], "operationId": "searchAllKnowledgePages",
+        "description": "Searches published pages in active bases visible to the session; writers also see drafts and managers can search archived bases.",
+        "security": [{"sessionCookie": []}],
+        "parameters": [{"name": "q", "in": "query", "required": true, "schema": {"type": "string", "minLength": 1, "maxLength": 200}}, {"name": "after_id", "in": "query", "schema": {"type": "string", "pattern": "^[1-9][0-9]*$"}}, {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100}}],
+        "responses": {"200": {"description": "Visible matching pages from all knowledge bases", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgePages"}}}}, "400": {"$ref": "#/components/responses/BadRequest"}, "401": {"$ref": "#/components/responses/Unauthorized"}, "403": {"$ref": "#/components/responses/Forbidden"}}
+      }
+    },
     "/api/v1/knowledge/spaces": {
       "get": {
         "tags": ["Knowledge"],
@@ -12693,6 +12702,7 @@
         "properties": {
           "id": {"type": "string", "pattern": "^[1-9][0-9]*$"},
           "space_id": {"type": "string", "pattern": "^[1-9][0-9]*$"},
+          "space_name": {"type": "string"},
           "title": {"type": "string", "minLength": 1, "maxLength": 200},
           "status": {"type": "string", "enum": ["DRAFT", "PUBLISHED", "RETIRED"]},
           "review_due_at": {"type": "string", "format": "date-time"},
@@ -12703,7 +12713,7 @@
           "excerpt": {"type": "string", "maxLength": 240},
           "attention_reason": {"type": "string", "enum": ["DRAFT", "REVIEW_DUE"]}
         },
-        "required": ["id", "space_id", "title", "status", "version", "updated_by", "updated_by_name", "updated_at"],
+        "required": ["id", "space_id", "space_name", "title", "status", "version", "updated_by", "updated_by_name", "updated_at"],
         "additionalProperties": false
       },
       "KnowledgePage": {

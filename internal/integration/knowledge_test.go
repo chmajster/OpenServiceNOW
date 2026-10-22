@@ -262,7 +262,7 @@ func TestKnowledgeSpacesEndToEnd(t *testing.T) {
 	if response := request(adminLogin, http.MethodGet, "/api/v1/knowledge/spaces?limit=50", "", false); response.Code != http.StatusOK {
 		t.Fatalf("authenticated knowledge list: %d %s", response.Code, response.Body.String())
 	}
-	if response := request(readerLogin, http.MethodGet, "/api/v1/knowledge/search?limit=50&q=bezpieczne", "", false); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), fmt.Sprintf(`"id":"%d"`, root.ID)) {
+	if response := request(readerLogin, http.MethodGet, "/api/v1/knowledge/search?limit=50&q="+globalKey, "", false); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), fmt.Sprintf(`"id":"%d"`, globalArticle.ID)) {
 		t.Fatalf("authenticated cross-base knowledge search: %d %s", response.Code, response.Body.String())
 	}
 	createBody := `{"key":"HTTP","name":"HTTP","description":"","status":"ACTIVE","review_interval_days":30}`

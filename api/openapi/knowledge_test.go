@@ -17,6 +17,7 @@ func TestKnowledgeSecurityAndConcurrencyContract(t *testing.T) {
 		write        bool
 		idempotent   bool
 	}{
+		{"/api/v1/knowledge/search", "get", false, false},
 		{"/api/v1/knowledge/spaces", "get", false, false},
 		{"/api/v1/knowledge/spaces", "post", true, true},
 		{"/api/v1/knowledge/spaces/{spaceID}", "get", false, false},
