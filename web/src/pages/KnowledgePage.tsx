@@ -301,7 +301,7 @@ function KnowledgeSearch({ spaceID, cacheScope }: { spaceID?: string; cacheScope
       <form className="knowledge-search" onSubmit={(event) => { event.preventDefault(); if (!canSearch) return; const next = new URLSearchParams({ view: "search" }); next.set("q", value.trim()); setParams(next); }}>
         <label>Wyszukaj w tytule i treści<input required minLength={MIN_KNOWLEDGE_SEARCH_RUNES} value={value} maxLength={MAX_KNOWLEDGE_SEARCH_RUNES} onChange={(event) => setValue(event.target.value)} placeholder="Wpisz co najmniej 3 znaki" /></label><button className="button button--primary" disabled={!canSearch}>Szukaj</button>
       </form>
-      {!query ? <PageState title="Wyszukaj artykuł" detail="Wyniki uwzględniają artykuły dostępne dla Twojej roli." /> : !validQuery ? <PageState title="Nieprawidłowe zapytanie" detail={`Wpisz od ${MIN_KNOWLEDGE_SEARCH_RUNES} do ${MAX_KNOWLEDGE_SEARCH_RUNES} znaków.`} tone="error" /> : result.loading && !result.items.length ? <PageState title="Wyszukiwanie" /> : result.error && !result.items.length ? <PageState title="Wyszukiwanie nie powiodło się" detail={result.error} tone="error" /> : !result.items.length ? <PageState title="Brak wyników" detail={`Nie znaleziono artykułów dla „${query}”.`} /> : <ArticleSearchResults pages={result.items} loading={result.loading} error={result.error} next={result.next} more={result.more} retry={result.retry} />}
+      {!query ? <PageState title="Wyszukaj artykuł" detail="Wyniki uwzględniają artykuły dostępne dla Twojej roli." /> : !validQuery ? <PageState title="Nieprawidłowe zapytanie" detail={`Wpisz od ${MIN_KNOWLEDGE_SEARCH_RUNES} do ${MAX_KNOWLEDGE_SEARCH_RUNES} znaków.`} tone="error" /> : result.loading && !result.items.length ? <PageState title="Wyszukiwanie" /> : result.error && !result.items.length ? <div className="form-stack"><PageState title="Wyszukiwanie nie powiodło się" detail={result.error} tone="error" /><button className="button button--secondary" onClick={() => void result.retry()}>Spróbuj ponownie</button></div> : !result.items.length ? <PageState title="Brak wyników" detail={`Nie znaleziono artykułów dla „${query}”.`} /> : <ArticleSearchResults pages={result.items} loading={result.loading} error={result.error} next={result.next} more={result.more} retry={result.retry} />}
     </section>
   );
 }
@@ -322,11 +322,12 @@ function KnowledgeBaseSettings({ space, saved }: { space: Space; saved: (space: 
   const [draft, setDraft] = useState({ key: space.key, name: space.name, description: space.description, status: space.status, review_interval_days: space.review_interval_days });
   const [version, setVersion] = useState(space.version);
   const [conflict, setConflict] = useState<Space>();
-  const [busy, setBusy] = useState(false); const [error, setError] = useState<string>(); const [notice, setNotice] = useState<string>();
+  const [busy, setBusy] = useState(false); const [dirty, setDirty] = useState(false); const [error, setError] = useState<string>(); const [notice, setNotice] = useState<string>();
   useEffect(() => setVersion(space.version), [space.version]);
+  function updateDraft(value: Partial<typeof draft>) { setDraft((current) => ({ ...current, ...value })); setDirty(true); setNotice(undefined); }
   async function submit(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError(undefined); setNotice(undefined);
-    try { const updated = await api<Space>(`${base}/spaces/${space.id}`, { method: "PUT", body: jsonBody({ ...draft, version }) }); setConflict(undefined); setNotice("Konfiguracja bazy wiedzy została zapisana."); saved(updated); }
+    try { const updated = await api<Space>(`${base}/spaces/${space.id}`, { method: "PUT", body: jsonBody({ ...draft, version }) }); flushSync(() => setDirty(false)); setConflict(undefined); setNotice("Konfiguracja bazy wiedzy została zapisana."); saved(updated); }
     catch (cause) {
       if (cause instanceof ApiError && cause.status === 409) {
         try { setConflict(await api<Space>(`${base}/spaces/${space.id}`)); }
@@ -336,26 +337,26 @@ function KnowledgeBaseSettings({ space, saved }: { space: Space; saved: (space: 
     finally { setBusy(false); }
   }
   return (
-    <form className="panel form-stack" onSubmit={(event) => void submit(event)}>
+    <><UnsavedGuard dirty={dirty} includeSearch locked={busy} /><form className="panel form-stack" onSubmit={(event) => void submit(event)}>
       <div><p className="eyebrow">Administracja</p><h2>Konfiguracja bazy wiedzy</h2><p className="muted">Archiwizacja ukrywa bazę przed czytelnikami i blokuje edycję artykułów.</p></div>
       <div className="form-grid">
-        <label>Identyfikator<input required pattern="[A-Za-z][A-Za-z0-9]{1,15}" value={draft.key} onChange={(event) => setDraft({ ...draft, key: event.target.value.toUpperCase() })} /></label>
-        <label>Nazwa<input required maxLength={160} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
-        <label>Stan<select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as Space["status"] })}><option value="ACTIVE">Aktywna</option><option value="ARCHIVED">Zarchiwizowana</option></select></label>
-        <label>Domyślna ważność (dni)<input type="number" min={0} max={3650} value={draft.review_interval_days} onChange={(event) => setDraft({ ...draft, review_interval_days: Number(event.target.value) })} /></label>
+        <label>Identyfikator<input disabled={busy} required pattern="[A-Za-z][A-Za-z0-9]{1,15}" value={draft.key} onChange={(event) => updateDraft({ key: event.target.value.toUpperCase() })} /></label>
+        <label>Nazwa<input disabled={busy} required maxLength={160} value={draft.name} onChange={(event) => updateDraft({ name: event.target.value })} /></label>
+        <label>Stan<select disabled={busy} value={draft.status} onChange={(event) => updateDraft({ status: event.target.value as Space["status"] })}><option value="ACTIVE">Aktywna</option><option value="ARCHIVED">Zarchiwizowana</option></select></label>
+        <label>Domyślna ważność (dni)<input disabled={busy} type="number" min={0} max={3650} value={draft.review_interval_days} onChange={(event) => updateDraft({ review_interval_days: Number(event.target.value) })} /></label>
       </div>
-      <label>Opis<textarea rows={4} maxLength={10000} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
+      <label>Opis<textarea disabled={busy} rows={4} maxLength={10000} value={draft.description} onChange={(event) => updateDraft({ description: event.target.value })} /></label>
       {error ? <p className="inline-error" role="alert">{error}</p> : null}
       {conflict ? <div className="notice" role="alert">
         <p>Baza została zmieniona przez inną osobę. Twój formularz pozostał bez zmian. Aktualna wersja {conflict.version}: identyfikator {conflict.key}, nazwa „{conflict.name}”, opis „{conflict.description || "—"}”, {conflict.status === "ACTIVE" ? "aktywna" : "zarchiwizowana"}, domyślna ważność {conflict.review_interval_days} dni. Wybierz, jak rozstrzygnąć konflikt.</p>
         <div className="action-row">
-          <button className="button button--primary" type="button" disabled={busy} onClick={() => { setVersion(conflict.version); setConflict(undefined); setNotice("Zachowano Twój formularz. Następny zapis użyje aktualnej wersji bazy."); }}>Zachowaj mój formularz</button>
-          <button className="button button--secondary" type="button" disabled={busy} onClick={() => { setDraft({ key: conflict.key, name: conflict.name, description: conflict.description, status: conflict.status, review_interval_days: conflict.review_interval_days }); setVersion(conflict.version); setConflict(undefined); setNotice("Wczytano aktualną konfigurację bazy."); }}>Wczytaj aktualną konfigurację</button>
+          <button className="button button--primary" type="button" disabled={busy} onClick={() => { setVersion(conflict.version); setConflict(undefined); setDirty(true); setNotice("Zachowano Twój formularz. Następny zapis użyje aktualnej wersji bazy."); }}>Zachowaj mój formularz</button>
+          <button className="button button--secondary" type="button" disabled={busy} onClick={() => { setDraft({ key: conflict.key, name: conflict.name, description: conflict.description, status: conflict.status, review_interval_days: conflict.review_interval_days }); setVersion(conflict.version); setConflict(undefined); setDirty(false); setNotice("Wczytano aktualną konfigurację bazy."); }}>Wczytaj aktualną konfigurację</button>
         </div>
       </div> : null}
       {notice ? <p className="inline-success" role="status">{notice}</p> : null}
       <div><button className="button button--primary" disabled={busy || !!conflict}>{busy ? "Zapisywanie…" : "Zapisz konfigurację"}</button></div>
-    </form>
+    </form></>
   );
 }
 

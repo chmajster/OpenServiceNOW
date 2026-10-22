@@ -353,3 +353,85 @@ it("refreshes subscription cards and discards subscription overrides when the se
     expect(subscriptionButton()?.textContent).toBe("Anuluj subskrypcję");
   } finally { await act(async () => root.unmount()); }
 });
+
+it("warns before leaving dirty knowledge base settings", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const now = new Date().toISOString();
+  const space = { id: "10", key: "OPS", name: "Operacje", description: "Opis", status: "ACTIVE", review_interval_days: 90, version: "1", page_count: "0", subscribed: false, created_at: now, updated_at: now };
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+    const path = String(input);
+    let body: unknown;
+    if (path === "/api/v1/setup") body = { required: false };
+    else if (path === "/api/v1/auth/me") body = {
+      user: { id: "1", email: "admin@example.test", display_name: "Admin", version: "1", credential_version: "1" },
+      tenant: { id: "2", name: "Test", slug: "test" },
+      permissions: ["knowledge.manage"], password_change_required: false, expires_at: new Date(Date.now() + 600_000).toISOString(),
+    };
+    else if (path === "/api/v1/knowledge/spaces?limit=100") body = { spaces: [space] };
+    else if (path === "/api/v1/knowledge/spaces/10") body = space;
+    else throw new Error(`unexpected request: ${path}`);
+    return new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
+  }));
+  const router = createMemoryRouter([{ path: "/knowledge/:spaceID", element: <AuthProvider><KnowledgePage /></AuthProvider> }], { initialEntries: ["/knowledge/10?view=settings"] });
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  try {
+    await act(async () => { root.render(<RouterProvider router={router} />); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    const nameInput = Array.from(container.querySelectorAll("label")).find((label) => label.textContent?.startsWith("Nazwa"))?.querySelector<HTMLInputElement>("input");
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      setter?.call(nameInput, "Nowa nazwa");
+      nameInput?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const allArticles = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent === "Wszystkie");
+    await act(async () => { allArticles?.click(); });
+    expect(container.textContent).toContain("Niezapisana praca");
+    expect(router.state.location.search).toBe("?view=settings");
+    const stay = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent === "Pozostań na stronie");
+    await act(async () => { stay?.click(); });
+    expect(nameInput?.value).toBe("Nowa nazwa");
+    await act(async () => { allArticles?.click(); });
+    const leave = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent === "Opuść bez zapisu");
+    await act(async () => { leave?.click(); });
+    expect(router.state.location.search).toBe("");
+    expect(container.textContent).not.toContain("Konfiguracja bazy wiedzy");
+  } finally { await act(async () => root.unmount()); }
+});
+
+it("retries a knowledge search after its initial request fails", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const now = new Date().toISOString();
+  const space = { id: "10", key: "OPS", name: "Operacje", description: "", status: "ACTIVE", review_interval_days: 90, version: "1", page_count: "1", subscribed: false, created_at: now, updated_at: now };
+  let searchReads = 0;
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+    const path = String(input);
+    let body: unknown;
+    if (path === "/api/v1/setup") body = { required: false };
+    else if (path === "/api/v1/auth/me") body = {
+      user: { id: "1", email: "admin@example.test", display_name: "Admin", version: "1", credential_version: "1" },
+      tenant: { id: "2", name: "Test", slug: "test" },
+      permissions: ["knowledge.manage"], password_change_required: false, expires_at: new Date(Date.now() + 600_000).toISOString(),
+    };
+    else if (path === "/api/v1/knowledge/spaces?limit=100") body = { spaces: [space] };
+    else if (path === "/api/v1/knowledge/spaces/10") body = space;
+    else if (path === "/api/v1/knowledge/spaces/10/search?limit=100&q=procedura") {
+      searchReads += 1;
+      if (searchReads === 1) return new Response(JSON.stringify({ error: { code: "TEMPORARY_FAILURE", message: "Usługa wyszukiwania jest chwilowo niedostępna." } }), { status: 503, headers: { "Content-Type": "application/json" } });
+      body = { pages: [{ id: "20", space_id: "10", space_name: "Operacje", title: "Procedura odzyskiwania", status: "PUBLISHED", version: "1", updated_by: "1", updated_by_name: "Admin", updated_at: now, excerpt: "Kroki odzyskiwania dostępu" }] };
+    }
+    else throw new Error(`unexpected request: ${path}`);
+    return new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
+  }));
+  const router = createMemoryRouter([{ path: "/knowledge/:spaceID", element: <AuthProvider><KnowledgePage /></AuthProvider> }], { initialEntries: ["/knowledge/10?view=search&q=procedura"] });
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  try {
+    await act(async () => { root.render(<RouterProvider router={router} />); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    expect(container.textContent).toContain("Wyszukiwanie nie powiodło się");
+    const retry = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent === "Spróbuj ponownie");
+    expect(retry).toBeTruthy();
+    await act(async () => { retry?.click(); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    expect(searchReads).toBe(2);
+    expect(container.textContent).toContain("Procedura odzyskiwania");
+  } finally { await act(async () => root.unmount()); }
+});
