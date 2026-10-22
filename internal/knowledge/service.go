@@ -38,6 +38,14 @@ func translate(err error) error {
 	return err
 }
 
+func translateSpaceWrite(err error) error {
+	var mysqlError *mysql.MySQLError
+	if errors.As(err, &mysqlError) && mysqlError.Number == 1062 && strings.Contains(strings.ToLower(mysqlError.Message), "uq_knowledge_spaces_tenant_key") {
+		return fmt.Errorf("%w: identyfikator bazy wiedzy jest już zajęty w tej organizacji", ErrInvalid)
+	}
+	return translate(err)
+}
+
 func (s *Service) write(ctx context.Context, actor Actor, allowed func(Actor) bool, fn func(database.Executor, Actor) error) error {
 	return s.tx.WithTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted}, func(exec database.Executor) error {
 		current, err := workrecords.LockPrincipal(ctx, exec, actor)
@@ -115,7 +123,7 @@ func (s *Service) CreateSpace(ctx context.Context, actor Actor, input SpaceInput
 			current.TenantID, input.Key, input.Name, input.Description, input.Status,
 			input.ReviewIntervalDays, current.UserID, current.UserID, now, now)
 		if err != nil {
-			return translate(err)
+			return translateSpaceWrite(err)
 		}
 		inserted, err := result.LastInsertId()
 		if err != nil {
@@ -156,7 +164,7 @@ func (s *Service) UpdateSpace(ctx context.Context, actor Actor, id uint64, input
 			input.Key, input.Name, input.Description, input.Status, input.ReviewIntervalDays,
 			current.UserID, now, current.TenantID, id, input.Version)
 		if err != nil {
-			return translate(err)
+			return translateSpaceWrite(err)
 		}
 		count, err := result.RowsAffected()
 		if err != nil {

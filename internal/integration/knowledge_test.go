@@ -311,6 +311,14 @@ func TestKnowledgeSpacesEndToEnd(t *testing.T) {
 		t.Fatalf("review date outside MySQL range did not return 400: %d %s", response.Code, response.Body.String())
 	}
 	createBody := `{"key":"HTTP","name":"HTTP","description":"","status":"ACTIVE","review_interval_days":30}`
+	duplicateCreateBody := `{"key":"OPS","name":"Duplikat","description":"","status":"ACTIVE","review_interval_days":30}`
+	if response := request(adminLogin, http.MethodPost, "/api/v1/knowledge/spaces", duplicateCreateBody, true); response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "KNOWLEDGE_INVALID") || !strings.Contains(response.Body.String(), "identyfikator bazy wiedzy jest już zajęty") {
+		t.Fatalf("duplicate knowledge base key was not an actionable validation error: %d %s", response.Code, response.Body.String())
+	}
+	duplicateUpdateBody := fmt.Sprintf(`{"key":"OPS","name":"Aplikacje","description":"","status":"ACTIVE","review_interval_days":90,"version":"%d"}`, secondSpace.Version)
+	if response := request(adminLogin, http.MethodPut, fmt.Sprintf("/api/v1/knowledge/spaces/%d", secondSpace.ID), duplicateUpdateBody, true); response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "KNOWLEDGE_INVALID") || !strings.Contains(response.Body.String(), "identyfikator bazy wiedzy jest już zajęty") {
+		t.Fatalf("duplicate knowledge base key update was not an actionable validation error: %d %s", response.Code, response.Body.String())
+	}
 	if response := request(adminLogin, http.MethodPost, "/api/v1/knowledge/spaces", createBody, false); response.Code != http.StatusForbidden {
 		t.Fatalf("missing CSRF accepted: %d %s", response.Code, response.Body.String())
 	}
