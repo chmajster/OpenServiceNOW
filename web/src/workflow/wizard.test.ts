@@ -31,6 +31,28 @@ describe("approval workflow wizard", () => {
         fulfillment_days: "1.5",
       }),
     ).toMatch(/1 do 365/);
+    expect(
+      validateApprovalWizardStep(2, {
+        ...initialApprovalWizardValues,
+        fulfillment_instructions: "😀".repeat(10001),
+      }),
+    ).toMatch(/10 000 znaków/);
+  });
+
+  it("supports approval by one selected user", () => {
+    const config = buildApprovalWorkflow({
+      ...initialApprovalWizardValues,
+      name: "Zakup",
+      executor_id: "10",
+      group_id: "20",
+      approval_target_type: "USER",
+      approval_target_id: "30",
+    });
+    expect(config.nodes.find((node) => node.id === "approval")).toMatchObject({
+      target_type: "USER",
+      target_id: "30",
+      policy: "ANY",
+    });
   });
 
   it("builds a complete approval, fulfillment, cancellation and notification graph", () => {

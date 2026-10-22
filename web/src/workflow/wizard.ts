@@ -33,12 +33,16 @@ function integerInRange(value: string, min: number, max: number) {
   return Number.isInteger(parsed) && parsed >= min && parsed <= max;
 }
 
+function runeLength(value: string) {
+  return Array.from(value).length;
+}
+
 export function validateApprovalWizardStep(
   step: number,
   values: ApprovalWizardValues,
 ): string | undefined {
   if (step === 0) {
-    if (!values.name.trim() || values.name.trim().length > 200)
+    if (!values.name.trim() || runeLength(values.name.trim()) > 200)
       return "Podaj nazwę procesu (maksymalnie 200 znaków).";
     if (values.executor_id === "0")
       return "Wybierz aktywną tożsamość wykonawczą.";
@@ -56,10 +60,10 @@ export function validateApprovalWizardStep(
   if (step === 2) {
     if (
       !values.fulfillment_title.trim() ||
-      values.fulfillment_title.trim().length > 200
+      runeLength(values.fulfillment_title.trim()) > 200
     )
       return "Podaj tytuł zadania (maksymalnie 200 znaków).";
-    if (values.fulfillment_instructions.length > 10000)
+    if (runeLength(values.fulfillment_instructions) > 10000)
       return "Instrukcje zadania mogą mieć maksymalnie 10 000 znaków.";
     if (!integerInRange(values.fulfillment_days, 1, 365))
       return "Termin realizacji musi wynosić od 1 do 365 dni.";

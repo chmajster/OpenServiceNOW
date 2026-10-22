@@ -145,7 +145,7 @@ export function WorkflowWizard({
                   <input
                     autoFocus
                     required
-                    maxLength={200}
+                    maxLength={400}
                     value={values.name}
                     disabled={locked}
                     onChange={(event) => edit("name", event.target.value)}
@@ -289,7 +289,7 @@ export function WorkflowWizard({
                   Tytuł zadania
                   <input
                     required
-                    maxLength={200}
+                    maxLength={400}
                     value={values.fulfillment_title}
                     disabled={locked}
                     onChange={(event) => edit("fulfillment_title", event.target.value)}
@@ -301,7 +301,7 @@ export function WorkflowWizard({
                   Instrukcje dla realizującego
                   <textarea
                     rows={5}
-                    maxLength={10000}
+                    maxLength={20000}
                     value={values.fulfillment_instructions}
                     disabled={locked}
                     onChange={(event) => edit("fulfillment_instructions", event.target.value)}
@@ -309,7 +309,7 @@ export function WorkflowWizard({
                     placeholder="Opisz wymagane działania i sposób potwierdzenia realizacji."
                   />
                   <small className="font-normal text-sn-muted">
-                    {values.fulfillment_instructions.length}/10 000 znaków
+                    {Array.from(values.fulfillment_instructions).length}/10 000 znaków
                   </small>
                 </label>
                 <label className="grid max-w-sm content-start gap-2 text-sm font-semibold text-sn-ink">
