@@ -164,7 +164,20 @@ test("workflow approval preserves proposal, pins version and creates exactly one
     await page.getByLabel("Nazwa procesu", { exact: true }).fill(processName);
     await choose(page, "Tożsamość wykonawcza", me.user.display_name);
     await choose(page, "Grupa realizacji procesu", teamName);
-    await choose(page, "Akceptujący", approvalName);
+    await page.getByRole("button", { name: "Dalej", exact: true }).click();
+    await choose(page, "Grupa akceptująca", approvalName);
+    await page.getByRole("button", { name: "Dalej", exact: true }).click();
+    await page.getByRole("button", { name: "Dalej", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Sprawdź przepływ", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Odrzucenie lub przekroczenie terminu", { exact: true }),
+    ).toBeVisible();
+    await page.screenshot({
+      path: info.outputPath("workflow-wizard-review.png"),
+      fullPage: true,
+    });
     await page
       .getByRole("button", { name: "Zapisz szkic procesu", exact: true })
       .click();
