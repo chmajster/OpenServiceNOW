@@ -15,45 +15,75 @@ export function IncidentFields({
   change,
   metadata,
   disabled,
+  layout = "standard",
 }: {
   draft: FieldDraft;
   change: (draft: FieldDraft) => void;
   metadata: Metadata;
   disabled: boolean;
+  layout?: "standard" | "record";
 }) {
   const category = metadata.categories.find((c) => c.value === draft.category);
+  const recordLayout = layout === "record";
+  const labelClassName = recordLayout
+    ? "grid grid-cols-1 gap-x-3 gap-y-1 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-center"
+    : undefined;
+  const titleField = (
+    <label className={labelClassName}>
+      <span>{recordLayout ? "Krótki opis" : "Tytuł"}</span>
+      <input
+        required
+        value={draft.title}
+        onChange={(e) => change({ ...draft, title: e.target.value })}
+      />
+    </label>
+  );
+  const descriptionField = (
+    <label className={labelClassName}>
+      <span>Opis</span>
+      <textarea
+        aria-label="Opis"
+        required
+        rows={5}
+        value={draft.description}
+        onChange={(e) => change({ ...draft, description: e.target.value })}
+      />
+    </label>
+  );
   return (
-    <fieldset className="form-fields" disabled={disabled}>
-      <label>
-        Tytuł
-        <input
-          required
-          value={draft.title}
-          onChange={(e) => change({ ...draft, title: e.target.value })}
-        />
-      </label>
-      <label>
-        Opis
-        <textarea
-          aria-label="Opis"
-          required
-          rows={5}
-          value={draft.description}
-          onChange={(e) => change({ ...draft, description: e.target.value })}
-        />
-      </label>
+    <fieldset
+      className={
+        recordLayout
+          ? "form-fields grid grid-cols-1 gap-y-2"
+          : "form-fields"
+      }
+      disabled={disabled}
+    >
+      {!recordLayout ? titleField : null}
+      {!recordLayout ? descriptionField : null}
       <RemoteCombobox
         kind="users"
         label="Osoba dotknięta problemem"
         endpoint="/api/v1/incidents/lookups/users?purpose=affected"
+        className={
+          recordLayout
+            ? "incident-record-combobox grid grid-cols-[8rem_minmax(0,1fr)] items-center gap-x-3"
+            : undefined
+        }
         value={draft.affected}
         onChange={(affected) => change({ ...draft, affected })}
         disabled={disabled}
         clearable={false}
       />
-      <div className="two-column">
-        <label>
-          Kategoria
+      <div
+        className={
+          recordLayout
+            ? "grid grid-cols-1 gap-y-2"
+            : "two-column"
+        }
+      >
+        <label className={labelClassName}>
+          <span>Kategoria</span>
           <select
             aria-label="Kategoria"
             value={draft.category}
@@ -75,8 +105,8 @@ export function IncidentFields({
             ))}
           </select>
         </label>
-        <label>
-          Podkategoria
+        <label className={labelClassName}>
+          <span>Podkategoria</span>
           <select
             aria-label="Podkategoria"
             value={draft.subcategory}
@@ -89,8 +119,8 @@ export function IncidentFields({
             ))}
           </select>
         </label>
-        <label>
-          Wpływ
+        <label className={labelClassName}>
+          <span>Wpływ</span>
           <select
             aria-label="Wpływ"
             value={draft.impact}
@@ -101,8 +131,8 @@ export function IncidentFields({
             <option value="3">Niski — pojedynczy użytkownik</option>
           </select>
         </label>
-        <label>
-          Pilność
+        <label className={labelClassName}>
+          <span>Pilność</span>
           <select
             aria-label="Pilność"
             value={draft.urgency}
@@ -114,13 +144,17 @@ export function IncidentFields({
           </select>
         </label>
       </div>
-      <p className="notice">
-        Wyliczony priorytet:{" "}
-        <strong>
-          P{calculatedPriority(metadata, draft.impact, draft.urgency)}
-        </strong>
-        . Zmiana wpływu lub pilności przywraca priorytet z macierzy.
-      </p>
+      {!recordLayout ? (
+        <p className="notice">
+          Wyliczony priorytet:{" "}
+          <strong>
+            P{calculatedPriority(metadata, draft.impact, draft.urgency)}
+          </strong>
+          . Zmiana wpływu lub pilności przywraca priorytet z macierzy.
+        </p>
+      ) : null}
+      {recordLayout ? titleField : null}
+      {recordLayout ? descriptionField : null}
       <details>
         <summary>Macierz priorytetu</summary>
         <div className="table-scroll">

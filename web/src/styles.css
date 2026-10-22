@@ -1,3 +1,14 @@
+@import "tailwindcss";
+
+@theme {
+  --color-sn-teal: #08786f;
+  --color-sn-teal-dark: #20383a;
+  --color-sn-teal-header: #263d3f;
+  --color-sn-workspace: #f1f3f4;
+  --color-sn-border: #d3ddde;
+}
+
+@layer components {
 .notification-list { list-style: none; padding: 0; }
 .notification-list li { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1rem; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
 .notification-unread { border-left: 4px solid #2463eb; background: #f1f6ff; }
@@ -958,6 +969,8 @@ tbody tr:last-child td {
 .incident-page pre { max-height: 25rem; overflow: auto; font-size: .8rem; }
 .account-page .action-row .button { min-width: 0; overflow-wrap: anywhere; text-align: center; }
 .remote-combobox { position: relative; min-width: 0; }
+.incident-record-combobox > .combobox-popup,
+.incident-record-combobox > small { grid-column: 2; }
 .combobox-input { display: flex; gap: 0.4rem; }
 .combobox-popup { position: relative; margin-top: 0.3rem; border: 1px solid var(--border); border-radius: 0.65rem; background: #fff; box-shadow: var(--shadow); padding: 0.5rem; }
 .combobox-popup ul { max-height: 15rem; overflow: auto; list-style: none; padding: 0; margin: 0; }
@@ -1722,4 +1735,5 @@ table a {
   .sidebar {
     transition: none;
   }
+}
 }

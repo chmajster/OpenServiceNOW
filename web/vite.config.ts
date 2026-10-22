@@ -1,5 +1,6 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 
 const apiPort = process.env.OPENSNOW_API_PORT ?? "8080";
 if (!/^[1-9][0-9]{0,4}$/.test(apiPort) || Number(apiPort) > 65535) {
@@ -8,7 +9,7 @@ if (!/^[1-9][0-9]{0,4}$/.test(apiPort) || Number(apiPort) > 65535) {
 const apiTarget = `http://127.0.0.1:${apiPort}`;
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   server: {
     host: "127.0.0.1",
     port: 5173,

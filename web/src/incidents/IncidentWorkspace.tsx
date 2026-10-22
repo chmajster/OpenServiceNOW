@@ -37,6 +37,18 @@ type EditorProps = {
   saved: (record: Incident, confirmed?: boolean) => void;
   retain: (tab: string, needed: boolean) => void;
 };
+
+function tabHref(
+  params: URLSearchParams,
+  tab: string,
+  values: Record<string, string> = {},
+) {
+  const next = new URLSearchParams(params);
+  next.set("tab", tab);
+  Object.entries(values).forEach(([key, value]) => next.set(key, value));
+  return `?${next.toString()}`;
+}
+
 export function IncidentWorkspace({
   initial,
   metadata,
@@ -93,8 +105,9 @@ export function IncidentWorkspace({
       if (mounted.current) setBusy(false);
     }
   }
-  const tab = params.get("tab") ?? "info";
+  const tab = params.get("tab") ?? "form";
   const tabs = [
+    { value: "form", label: "Formularz", available: true },
     { value: "info", label: "Informacje", available: true },
     {
       value: "edit",
@@ -125,7 +138,7 @@ export function IncidentWorkspace({
     { value: "history", label: "Historia", available: true },
   ];
   const activeTab =
-    tabs.find((t) => t.value === tab && t.available)?.value ?? "info";
+    tabs.find((t) => t.value === tab && t.available)?.value ?? "form";
   const saved = (updated: Incident, confirmed = true) => {
     setRecord(updated);
     setNotice(
@@ -141,36 +154,38 @@ export function IncidentWorkspace({
   return (
     <section className="page incident-page">
       <UnsavedGuard dirty={Object.values(draftTabs).some(Boolean)} />
-      <div className="page-heading">
-        <div>
-          <p className="eyebrow">{record.number}</p>
-          <h1 ref={heading} tabIndex={-1}>
-            {record.title}
-          </h1>
-          <p>
-            <strong>{optionLabel(metadata.states, record.state)}</strong> ·{" "}
-            <span className={`incident-priority priority-${record.priority}`}>
-              P{record.priority}
-            </span>{" "}
-            · Wersja {record.version}
-          </p>
+      {activeTab !== "form" ? (
+        <div className="page-heading">
+          <div>
+            <p className="eyebrow">{record.number}</p>
+            <h1 ref={heading} tabIndex={-1}>
+              {record.title}
+            </h1>
+            <p>
+              <strong>{optionLabel(metadata.states, record.state)}</strong> ·{" "}
+              <span className={`incident-priority priority-${record.priority}`}>
+                P{record.priority}
+              </span>{" "}
+              · Wersja {record.version}
+            </p>
+          </div>
+          <div className="action-row">
+            <Link
+              className="button button--secondary"
+              to={`/incidents?${backSearch}`}
+            >
+              Wróć do listy
+            </Link>
+            <button
+              className="button button--secondary"
+              disabled={busy}
+              onClick={() => void refresh()}
+            >
+              Odśwież incydent
+            </button>
+          </div>
         </div>
-        <div className="action-row">
-          <Link
-            className="button button--secondary"
-            to={`/incidents?${backSearch}`}
-          >
-            Wróć do listy
-          </Link>
-          <button
-            className="button button--secondary"
-            disabled={busy}
-            onClick={() => void refresh()}
-          >
-            Odśwież incydent
-          </button>
-        </div>
-      </div>
+      ) : null}
       {notice && (
         <p className="notice" role="status">
           {notice}
@@ -181,13 +196,20 @@ export function IncidentWorkspace({
           {error}
         </p>
       )}
-      <nav className="tabs" aria-label="Zakładki incydentu">
+      <nav
+        className="tabs flex flex-wrap items-center gap-1 border-b border-sn-border pb-0"
+        aria-label="Widoki incydentu"
+      >
         {tabs
           .filter((t) => t.available)
           .map((t) => (
             <Link
               key={t.value}
-              className={activeTab === t.value ? "is-active" : ""}
+              className={
+                activeTab === t.value
+                  ? "rounded-t-sm border-b-2 border-sn-teal bg-white px-3 py-2 text-sm font-semibold text-sn-teal"
+                  : "rounded-t-sm px-3 py-2 text-sm text-slate-600 hover:bg-white hover:text-sn-teal"
+              }
               aria-current={activeTab === t.value ? "page" : undefined}
               to={`?${(() => {
                 const next = new URLSearchParams(params);
@@ -199,7 +221,27 @@ export function IncidentWorkspace({
             </Link>
           ))}
       </nav>
-      <IncidentSLA id={record.id} version={record.version} />
+      <div hidden={activeTab === "form"}>
+        <IncidentSLA id={record.id} version={record.version} />
+      </div>
+      <div hidden={activeTab !== "form"} className="incident-record-view">
+        <IncidentRecordForm
+          heading={heading}
+          record={record}
+          metadata={metadata}
+          busy={busy}
+          setBusy={setBusy}
+          saved={saved}
+          retain={retain}
+          backToList={`/incidents?${backSearch}`}
+          communicationTo={tabHref(params, "communication")}
+          historyTo={tabHref(params, "history")}
+          assignmentTo={tabHref(params, "assignment")}
+          stateTo={tabHref(params, "state")}
+          resolveTo={tabHref(params, "state", { state: "RESOLVED" })}
+          refresh={() => void refresh()}
+        />
+      </div>
       <div hidden={activeTab !== "info"} className="panel">
         <h2>Informacje o incydencie</h2>
         <FieldSummary draft={draftOf(record)} metadata={metadata} />
@@ -282,7 +324,11 @@ export function IncidentWorkspace({
       )}
       {(record.actions.transitions.length > 0 || draftTabs.state) && (
         <div hidden={activeTab !== "state"} className="panel">
-          <TransitionIncident {...props} />
+          <TransitionIncident
+            key={params.get("state") ?? "default"}
+            {...props}
+            preferredState={params.get("state")}
+          />
         </div>
       )}
       {(record.actions.override_priority || draftTabs.priority) && (
@@ -290,20 +336,234 @@ export function IncidentWorkspace({
           <PriorityIncident {...props} />
         </div>
       )}
-      <div hidden={activeTab !== "communication"} className="panel">
-        <CommunicationPanel record={record} retain={retain} />
+      <div
+        hidden={activeTab !== "communication" && activeTab !== "form"}
+        className="panel"
+      >
+        <CommunicationPanel
+          record={record}
+          retain={retain}
+          heading={activeTab === "form" ? "Notatki" : "Komunikacja i pliki"}
+        />
       </div>
       {activeTab === "participants" && (
         <div className="panel">
           <ParticipantsPanel record={record} />
         </div>
       )}
-      {activeTab === "history" && (
-        <HistoryPanel record={record} metadata={metadata} />
-      )}
+      {activeTab === "history" || activeTab === "form" ? (
+        <HistoryPanel
+          record={record}
+          metadata={metadata}
+          heading={activeTab === "form" ? "Aktywność" : "Historia incydentu"}
+        />
+      ) : null}
     </section>
   );
 }
+
+function IncidentRecordForm({
+  heading,
+  record,
+  metadata,
+  busy,
+  setBusy,
+  saved,
+  retain,
+  backToList,
+  communicationTo,
+  historyTo,
+  assignmentTo,
+  stateTo,
+  resolveTo,
+  refresh,
+}: EditorProps & {
+  heading: ReturnType<typeof useIncidentTitleFocus>;
+  backToList: string;
+  communicationTo: string;
+  historyTo: string;
+  assignmentTo: string;
+  stateTo: string;
+  resolveTo: string;
+  refresh: () => void;
+}) {
+  const form = useIncidentForm(record, draftOf, saved, setBusy);
+  useEffect(() => {
+    retain("form", form.dirty || form.conflict !== undefined);
+  }, [form.dirty, form.conflict, retain]);
+
+  return (
+    <section className="min-w-0 overflow-hidden rounded-sm border border-sn-border bg-white shadow-sm">
+      <form
+        className="grid gap-0"
+        onSubmit={(event) =>
+          void form.submit(event, `/api/v1/incidents/${record.id}`, "PUT", () => {
+            if (!record.actions.edit)
+              throw new Error("Zapis edycji nie jest obecnie dozwolony.");
+            return fieldsOf(form.draft);
+          })
+        }
+      >
+        <div className="flex min-w-0 flex-wrap items-center gap-2 border-b border-slate-300 bg-slate-100 px-3 py-2 lg:flex-nowrap">
+          <Link
+            to={backToList}
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+            aria-label="Wróć do listy incydentów"
+            title="Wróć do listy"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="m15 5-7 7 7 7" />
+            </svg>
+          </Link>
+          <span className="shrink-0 text-xs font-semibold text-slate-600">
+            Incydent · {record.number}
+          </span>
+          <h1
+            ref={heading}
+            tabIndex={-1}
+            className="min-w-0 flex-1 truncate text-base font-semibold text-sn-teal-dark"
+          >
+            {record.title}
+          </h1>
+          <div className="flex min-w-0 flex-wrap items-center gap-1 lg:ml-auto lg:flex-nowrap">
+            <Link
+              to={communicationTo}
+              className="inline-flex h-8 items-center gap-1 rounded-sm border border-slate-300 bg-white px-2 text-xs text-slate-700 hover:bg-slate-50"
+              aria-label="Otwórz komunikację i załączniki"
+              title="Komunikacja i załączniki"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="m8 12.5 7.3-7.3a3 3 0 0 1 4.2 4.2l-9.2 9.2a5 5 0 0 1-7.1-7.1l9.2-9.2" />
+              </svg>
+              <span className="hidden sm:inline">Załączniki</span>
+            </Link>
+            <Link
+              to={historyTo}
+              className="inline-flex h-8 items-center gap-1 rounded-sm border border-slate-300 bg-white px-2 text-xs text-slate-700 hover:bg-slate-50"
+              aria-label="Otwórz historię incydentu"
+              title="Historia"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M3 12h4l2-7 4 14 2-7h6" />
+              </svg>
+              <span className="hidden sm:inline">Aktywność</span>
+            </Link>
+            <button
+              className="inline-flex h-8 items-center rounded-sm border border-slate-400 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              type="button"
+              disabled={busy}
+              onClick={refresh}
+            >
+              Odśwież
+            </button>
+            {record.actions.transitions.includes("RESOLVED") ? (
+              <Link
+                to={resolveTo}
+                className="inline-flex h-8 items-center rounded-sm border border-slate-400 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-50"
+              >
+                Rozwiąż incydent
+              </Link>
+            ) : null}
+            <button
+              className="inline-flex h-8 items-center rounded-sm border border-sn-teal bg-sn-teal px-3 text-xs font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
+              type="submit"
+              disabled={
+                busy || !record.actions.edit || form.conflict !== undefined
+              }
+              title={
+                record.actions.edit
+                  ? undefined
+                  : "Nie masz uprawnienia do edycji tego incydentu."
+              }
+            >
+              {busy ? "Zapisywanie…" : "Update"}
+            </button>
+          </div>
+        </div>
+
+        <div className="grid min-w-0 grid-cols-1 gap-x-8 gap-y-4 p-3 sm:p-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(18rem,1fr)]">
+          <div className="grid min-w-0 content-start gap-2">
+            <RecordDatum label="Numer" value={record.number} />
+            <IncidentFields
+              layout="record"
+              draft={form.draft}
+              change={form.setDraft}
+              metadata={metadata}
+              disabled={busy || !record.actions.edit}
+            />
+          </div>
+
+          <aside className="grid min-w-0 content-start gap-2 border-t border-slate-200 pt-3 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+            <RecordDatum label="Utworzono" value={dateLabel(record.created_at)} />
+            <RecordDatum label="Zgłaszający" value={record.reporter_name} />
+            <RecordDatum
+              label="Stan"
+              value={optionLabel(metadata.states, record.state)}
+            />
+            <RecordDatum
+              label="Priorytet"
+              value={`P${record.priority} · macierz P${record.calculated_priority}`}
+            />
+            <RecordDatum
+              label="Grupa przypisania"
+              value={record.group_name || "Bez grupy"}
+            />
+            <RecordDatum
+              label="Przypisany do"
+              value={record.assigned_name || "Nieprzypisany"}
+            />
+            <div className="flex flex-wrap gap-2 pt-1">
+              {record.actions.assign ? (
+                <Link
+                  className="inline-flex min-h-8 items-center rounded-sm border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  to={assignmentTo}
+                >
+                  Zmień przypisanie
+                </Link>
+              ) : null}
+              {record.actions.transitions.length > 0 ? (
+                <Link
+                  className="inline-flex min-h-8 items-center rounded-sm border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  to={stateTo}
+                >
+                  Zmień stan
+                </Link>
+              ) : null}
+            </div>
+          </aside>
+        </div>
+        <FormFeedback
+          form={form}
+          busy={busy}
+          current={(current) => (
+            <FieldSummary draft={draftOf(current)} metadata={metadata} />
+          )}
+          proposal={<FieldSummary draft={form.draft} metadata={metadata} />}
+        />
+        {!record.actions.edit ? (
+          <p className="m-0 border-t border-slate-200 px-4 py-3 text-sm text-slate-600">
+            Ten incydent jest dostępny tylko do odczytu. Możesz skorzystać z
+            widoków komunikacji, historii i uczestników zgodnie z uprawnieniami.
+          </p>
+        ) : null}
+      </form>
+    </section>
+  );
+}
+
+function RecordDatum({ label, value }: { label: string; value: string }) {
+  return (
+    <dl className="m-0 grid min-w-0 grid-cols-[7.5rem_minmax(0,1fr)] items-center gap-3 text-sm">
+      <dt className="text-right text-xs font-medium text-slate-600">
+        {label}
+      </dt>
+      <dd className="m-0 block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap rounded-sm border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-800">
+        {value || "—"}
+      </dd>
+    </dl>
+  );
+}
+
 function useRetainedDraft(
   form: { dirty: boolean; conflict?: Incident | null },
   tab: string,
@@ -465,8 +725,14 @@ type TransitionDraft = {
   resolution_code: string;
   resolution_description: string;
 };
-const transitionOf = (r: Incident): TransitionDraft => ({
-  state: r.actions.transitions[0] ?? "",
+const transitionOf = (
+  r: Incident,
+  preferredState?: string | null,
+): TransitionDraft => ({
+  state:
+    preferredState && r.actions.transitions.includes(preferredState)
+      ? preferredState
+      : (r.actions.transitions[0] ?? ""),
   reason: "",
   resolution_code: "FIXED",
   resolution_description: "",
@@ -478,8 +744,14 @@ function TransitionIncident({
   setBusy,
   saved,
   retain,
-}: EditorProps) {
-  const form = useIncidentForm(record, transitionOf, saved, setBusy);
+  preferredState,
+}: EditorProps & { preferredState?: string | null }) {
+  const form = useIncidentForm(
+    record,
+    (current) => transitionOf(current, preferredState),
+    saved,
+    setBusy,
+  );
   useRetainedDraft(form, "state", retain);
   const draft = form.draft;
   const reasonRequired =
@@ -768,9 +1040,11 @@ function PriorityIncident({
 function HistoryPanel({
   record,
   metadata,
+  heading,
 }: {
   record: Incident;
   metadata: Metadata;
+  heading: string;
 }) {
   const [params, setParams] = useSearchParams();
   const before = params.get("history_before_event_id");
@@ -798,7 +1072,7 @@ function HistoryPanel({
   return (
     <div className="panel">
       <div className="action-row">
-        <h2>Historia incydentu</h2>
+        <h2>{heading}</h2>
         <button
           className="button button--secondary"
           disabled={history.loading}

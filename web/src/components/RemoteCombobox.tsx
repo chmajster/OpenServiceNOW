@@ -13,6 +13,7 @@ export function RemoteCombobox({
   allowInactive = false,
   clearable = true,
   endpoint,
+  className,
 }: {
   kind: ChoiceKind;
   label: string;
@@ -22,6 +23,7 @@ export function RemoteCombobox({
   allowInactive?: boolean;
   clearable?: boolean;
   endpoint?: string;
+  className?: string;
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -38,7 +40,7 @@ export function RemoteCombobox({
   }, [query]);
   return (
     <div
-      className="remote-combobox"
+      className={"remote-combobox" + (className ? " " + className : "")}
       ref={root}
       onBlur={(event) => {
         if (!root.current?.contains(event.relatedTarget)) setOpen(false);

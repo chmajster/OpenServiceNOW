@@ -18,7 +18,6 @@ import { UsersPage } from "./pages/UsersPage";
 import { SetupPage } from "./pages/SetupPage";
 import { DiagnosticsPage } from "./pages/DiagnosticsPage";
 import { AccountPage } from "./pages/AccountPage";
-import { IncidentsPage } from "./pages/IncidentsPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { NotificationAdminPage } from "./pages/NotificationAdminPage";
 import { SlaAdminPage } from "./pages/SlaAdminPage";
@@ -37,6 +36,9 @@ const RequestsPage = lazy(() =>
 );
 const WorkflowPage = lazy(() =>
   import("./pages/WorkflowPage").then((m) => ({ default: m.WorkflowPage })),
+);
+const IncidentsPage = lazy(() =>
+  import("./pages/IncidentsPage").then((m) => ({ default: m.IncidentsPage })),
 );
 const ApprovalsPage = lazy(() =>
   import("./pages/ApprovalsPage").then((m) => ({ default: m.ApprovalsPage })),
