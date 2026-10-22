@@ -18,6 +18,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/events"
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
 	"github.com/chmajster/OpenServiceNOW/internal/incidents"
+	"github.com/chmajster/OpenServiceNOW/internal/knowledge"
 	"github.com/chmajster/OpenServiceNOW/internal/notifications"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/cache"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
@@ -115,6 +116,7 @@ func main() {
 	incidentHandler := incidents.NewHandler(incidentService, identityService)
 	requestHandler := requests.NewHandler(requests.NewService(db, files), catalog.NewService(db), identityService)
 	workflowHandler := workflow.NewHandler(workflow.NewService(db, requests.NewService(db, files)), identityService)
+	knowledgeHandler := knowledge.NewHandler(knowledge.NewService(db), identityService)
 	notificationHandler := notifications.NewHandler(notifications.NewService(db, cfg.NotificationKey, cfg.SMTPAllowInsecure), outboxRepo)
 
 	healthHandler := health.New(
@@ -154,6 +156,7 @@ func main() {
 			func(r chi.Router) { notifications.RegisterRoutes(r, notificationHandler, identityMiddleware) },
 			func(r chi.Router) { requests.RegisterRoutes(r, requestHandler, identityMiddleware) },
 			func(r chi.Router) { workflow.RegisterRoutes(r, workflowHandler, identityMiddleware) },
+			func(r chi.Router) { knowledge.RegisterRoutes(r, knowledgeHandler, identityMiddleware) },
 			func(r chi.Router) {
 				sla.RegisterRoutes(r, sla.NewHandler(sla.NewService(db), identityService), identityMiddleware)
 			},

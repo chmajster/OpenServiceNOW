@@ -1,0 +1,22 @@
+CREATE TABLE knowledge_spaces (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+ tenant_id BIGINT UNSIGNED NOT NULL,
+ space_key VARCHAR(16) NOT NULL,
+ name VARCHAR(160) NOT NULL,
+ description TEXT NOT NULL,
+ status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE',
+ review_interval_days SMALLINT UNSIGNED NOT NULL DEFAULT 180,
+ version BIGINT UNSIGNED NOT NULL DEFAULT 1,
+ created_by BIGINT UNSIGNED NOT NULL,
+ updated_by BIGINT UNSIGNED NOT NULL,
+ created_at DATETIME(6) NOT NULL,
+ updated_at DATETIME(6) NOT NULL,
+ PRIMARY KEY (id),
+ UNIQUE KEY uq_knowledge_spaces_tenant_key (tenant_id,space_key),
+ UNIQUE KEY uq_knowledge_spaces_tenant_id (tenant_id,id),
+ KEY idx_knowledge_spaces_list (tenant_id,status,id),
+ CONSTRAINT fk_knowledge_spaces_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+ CONSTRAINT chk_knowledge_spaces_status CHECK (status IN('ACTIVE','ARCHIVED')),
+ CONSTRAINT chk_knowledge_spaces_review CHECK (review_interval_days <= 3650),
+ CONSTRAINT chk_knowledge_spaces_version CHECK (version >= 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
