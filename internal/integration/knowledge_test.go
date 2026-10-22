@@ -137,7 +137,7 @@ func TestKnowledgeSpacesEndToEnd(t *testing.T) {
 	if _, _, err := service.CreatePage(ctx, reader, space.ID, knowledge.PageInput{Title: "Forbidden", Body: "x"}, "reader-cannot-write"); !errors.Is(err, knowledge.ErrForbidden) {
 		t.Fatalf("reader write bypass: %v", err)
 	}
-	if _, err := service.Attention(ctx, reader, space.ID, 0, 50); !errors.Is(err, knowledge.ErrForbidden) {
+	if _, err := service.Attention(ctx, reader, space.ID, 0, 50, ""); !errors.Is(err, knowledge.ErrForbidden) {
 		t.Fatalf("reader attention bypass: %v", err)
 	}
 	if _, err := service.Space(ctx, otherAdmin, space.ID); !errors.Is(err, knowledge.ErrNotFound) {
@@ -177,9 +177,16 @@ func TestKnowledgeSpacesEndToEnd(t *testing.T) {
 	if err != nil || len(adminDraftResults.Pages) != 1 || adminDraftResults.Pages[0].ID != draft.ID {
 		t.Fatalf("global search omitted writer-visible draft: %+v err=%v", adminDraftResults, err)
 	}
-	attention, err := service.Attention(ctx, admin, space.ID, 0, 50)
+	attention, err := service.Attention(ctx, admin, space.ID, 0, 50, "")
 	if err != nil || len(attention.Pages) != 2 {
 		t.Fatalf("attention results: %+v err=%v", attention, err)
+	}
+	expiring, err := service.Attention(ctx, admin, space.ID, 0, 1, knowledge.AttentionReviewDue)
+	if err != nil || len(expiring.Pages) != 1 || expiring.Pages[0].ID != root.ID || expiring.NextAfterID != 0 {
+		t.Fatalf("expiring filter must run before pagination: %+v err=%v", expiring, err)
+	}
+	if _, err := service.Attention(ctx, admin, space.ID, 0, 50, "UNKNOWN"); !errors.Is(err, knowledge.ErrInvalid) {
+		t.Fatalf("unsupported attention filter accepted: %v", err)
 	}
 	if _, err := service.Subscribe(ctx, reader, space.ID, true); err != nil {
 		t.Fatal(err)

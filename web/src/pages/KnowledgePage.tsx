@@ -63,9 +63,10 @@ export function KnowledgePage() {
 function KnowledgeWorkspace() {
   const { spaceID, pageID } = useParams();
   const [params] = useSearchParams();
-  const { hasPermission } = useAuth();
-  const spaces = useRemotePage<Space>(`${base}/spaces?limit=100`, "spaces");
-  if (!spaceID && params.get("view") === "search") return <KnowledgeSearch />;
+  const { hasPermission, session } = useAuth();
+  const cacheScope = session ? `${session.tenant.id}:${session.user.id}:${[...session.permissions].sort().join(",")}` : "anonymous";
+  const spaces = useRemotePage<Space>(`${base}/spaces?limit=100`, "spaces", "after_id", true, cacheScope);
+  if (!spaceID && params.get("view") === "search") return <KnowledgeSearch cacheScope={cacheScope} />;
   if (!spaceID && spaces.loading && !spaces.items.length)
     return <PageState title="Ładowanie bazy wiedzy" detail="Pobieranie baz wiedzy i artykułów." />;
   if (!spaceID && spaces.error && !spaces.items.length)
@@ -73,7 +74,7 @@ function KnowledgeWorkspace() {
   const spaceList = { moreSpaces: spaces.more, nextSpaces: spaces.next, spacesLoading: spaces.loading, spacesError: spaces.error, retrySpaces: spaces.retry };
   if (!spaceID)
     return <KnowledgeHome spaces={spaces.items} canManage={hasPermission("knowledge.manage")} reload={spaces.reload} {...spaceList} />;
-  return <KnowledgeBase key={spaceID} spaceID={spaceID} pageID={pageID} spaces={spaces.items} reloadSpaces={spaces.reload} {...spaceList} />;
+  return <KnowledgeBase key={spaceID} spaceID={spaceID} pageID={pageID} spaces={spaces.items} reloadSpaces={spaces.reload} cacheScope={cacheScope} {...spaceList} />;
 }
 
 function KnowledgeHome({ spaces, canManage, reload, moreSpaces, nextSpaces, spacesLoading, spacesError, retrySpaces }: { spaces: Space[]; canManage: boolean; reload: () => void; moreSpaces: () => void; nextSpaces?: string; spacesLoading: boolean; spacesError: string | null; retrySpaces: () => void }) {
@@ -162,7 +163,7 @@ function availableView(value: string | null, canWrite: boolean, canManage: boole
   return "all";
 }
 
-function KnowledgeBase({ spaceID, pageID, spaces, reloadSpaces, moreSpaces, nextSpaces, spacesLoading, spacesError, retrySpaces }: { spaceID: string; pageID?: string; spaces: Space[]; reloadSpaces: () => void; moreSpaces: () => void; nextSpaces?: string; spacesLoading: boolean; spacesError: string | null; retrySpaces: () => void }) {
+function KnowledgeBase({ spaceID, pageID, spaces, reloadSpaces, cacheScope, moreSpaces, nextSpaces, spacesLoading, spacesError, retrySpaces }: { spaceID: string; pageID?: string; spaces: Space[]; reloadSpaces: () => void; cacheScope: string; moreSpaces: () => void; nextSpaces?: string; spacesLoading: boolean; spacesError: string | null; retrySpaces: () => void }) {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const { hasPermission } = useAuth();
@@ -170,7 +171,7 @@ function KnowledgeBase({ spaceID, pageID, spaces, reloadSpaces, moreSpaces, next
   const canManage = hasPermission("knowledge.manage");
   const space = useIncidentQuery<Space>(`${base}/spaces/${spaceID}`);
   const [spaceOverride, setSpaceOverride] = useState<Space>();
-  const pages = useRemotePage<PageSummary>(`${base}/spaces/${spaceID}/pages?limit=100`, "pages");
+  const pages = useRemotePage<PageSummary>(`${base}/spaces/${spaceID}/pages?limit=100`, "pages", "after_id", true, cacheScope);
   const [notice, setNotice] = useState<string>();
   const [actionError, setActionError] = useState<string>();
   const [busyAction, setBusyAction] = useState(false);
@@ -242,13 +243,13 @@ function KnowledgeBase({ spaceID, pageID, spaces, reloadSpaces, moreSpaces, next
           {pageID === "new" ? (
             <ArticleEditor space={current} saved={(record) => { pages.reload(); navigate(`/knowledge/${spaceID}/articles/${record.id}`); }} />
           ) : pageID ? (
-            <ArticleDetails pageID={pageID} space={current} canWrite={canWrite && current.status === "ACTIVE"} changed={pages.reload} />
+            <ArticleDetails pageID={pageID} space={current} canWrite={canWrite && current.status === "ACTIVE"} changed={pages.reload} cacheScope={cacheScope} />
           ) : view === "search" ? (
-            <KnowledgeSearch spaceID={spaceID} />
+            <KnowledgeSearch spaceID={spaceID} cacheScope={cacheScope} />
           ) : view === "settings" && canManage ? (
             <KnowledgeBaseSettings space={current} saved={(updated) => { setSpaceOverride(updated); reloadSpaces(); }} />
           ) : view === "expiring" && canWrite ? (
-            <ExpiringArticles spaceID={spaceID} spaceName={current.name} />
+            <ExpiringArticles spaceID={spaceID} spaceName={current.name} cacheScope={cacheScope} />
           ) : (
             <ArticleDirectory spaceName={current.name} spaceID={spaceID} pages={pages.items} filter={view} loading={pages.loading} error={pages.error} retry={pages.retry} more={pages.more} next={pages.next} />
           )}
@@ -280,12 +281,12 @@ function ArticleDirectory({ spaceName, spaceID, pages, filter, loading, error, r
   );
 }
 
-function KnowledgeSearch({ spaceID }: { spaceID?: string }) {
+function KnowledgeSearch({ spaceID, cacheScope }: { spaceID?: string; cacheScope: string }) {
   const [params, setParams] = useSearchParams();
   const query = params.get("q") ?? "";
   const [value, setValue] = useState(query);
   const searchPath = spaceID ? `${base}/spaces/${spaceID}/search` : `${base}/search`;
-  const result = useRemotePage<PageSummary>(`${searchPath}?limit=100&q=${encodeURIComponent(query)}`, "pages", "after_id", query.trim().length > 0);
+  const result = useRemotePage<PageSummary>(`${searchPath}?limit=100&q=${encodeURIComponent(query)}`, "pages", "after_id", query.trim().length > 0, cacheScope);
   return (
     <section className="form-stack"><header className="knowledge-list-heading"><div><p className="eyebrow">Artykuły</p><h2>Wyszukiwanie</h2><p className="muted">{spaceID ? "Wyszukiwanie w tej bazie wiedzy." : "Wyniki ze wszystkich baz wiedzy dostępnych dla Twojej roli."}</p></div>{!spaceID ? <Link className="button button--secondary" to="/knowledge">Wszystkie bazy</Link> : null}</header>
       <form className="knowledge-search" onSubmit={(event) => { event.preventDefault(); const next = new URLSearchParams({ view: "search" }); if (value.trim()) next.set("q", value.trim()); setParams(next); }}>
@@ -296,8 +297,8 @@ function KnowledgeSearch({ spaceID }: { spaceID?: string }) {
   );
 }
 
-function ExpiringArticles({ spaceID, spaceName }: { spaceID: string; spaceName: string }) {
-  const result = useRemotePage<PageSummary>(`${base}/spaces/${spaceID}/attention?limit=100`, "pages");
+function ExpiringArticles({ spaceID, spaceName, cacheScope }: { spaceID: string; spaceName: string; cacheScope: string }) {
+  const result = useRemotePage<PageSummary>(`${base}/spaces/${spaceID}/attention?limit=100&reason=REVIEW_DUE`, "pages", "after_id", true, cacheScope);
   if (result.loading && !result.items.length) return <PageState title="Sprawdzanie ważności artykułów" />;
   if (result.error && !result.items.length) return <div className="form-stack"><PageState title="Nie udało się pobrać wygasających artykułów" detail={result.error} tone="error" /><button className="button button--secondary" onClick={() => void result.retry()}>Spróbuj ponownie</button></div>;
   const expired = result.items.filter((item) => item.attention_reason === "REVIEW_DUE");
@@ -310,19 +311,48 @@ function ArticleSearchResults({ pages, loading, error, next, more, retry }: { pa
 
 function KnowledgeBaseSettings({ space, saved }: { space: Space; saved: (space: Space) => void }) {
   const [draft, setDraft] = useState({ key: space.key, name: space.name, description: space.description, status: space.status, review_interval_days: space.review_interval_days });
+  const [version, setVersion] = useState(space.version);
+  const [conflict, setConflict] = useState<Space>();
   const [busy, setBusy] = useState(false); const [error, setError] = useState<string>(); const [notice, setNotice] = useState<string>();
+  useEffect(() => setVersion(space.version), [space.version]);
   async function submit(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError(undefined); setNotice(undefined);
-    try { const updated = await api<Space>(`${base}/spaces/${space.id}`, { method: "PUT", body: jsonBody({ ...draft, version: space.version }) }); setNotice("Konfiguracja bazy wiedzy została zapisana."); saved(updated); }
-    catch (cause) { setError(errorMessage(cause, "Nie udało się zapisać konfiguracji.")); }
+    try { const updated = await api<Space>(`${base}/spaces/${space.id}`, { method: "PUT", body: jsonBody({ ...draft, version }) }); setConflict(undefined); setNotice("Konfiguracja bazy wiedzy została zapisana."); saved(updated); }
+    catch (cause) {
+      if (cause instanceof ApiError && cause.status === 409) {
+        try { setConflict(await api<Space>(`${base}/spaces/${space.id}`)); }
+        catch (refreshError) { setError(`${errorMessage(cause, "Baza wiedzy zmieniła się.")} ${errorMessage(refreshError, "Nie udało się odczytać aktualnej konfiguracji.")}`); }
+      } else setError(errorMessage(cause, "Nie udało się zapisać konfiguracji."));
+    }
     finally { setBusy(false); }
   }
-  return <form className="panel form-stack" onSubmit={(event) => void submit(event)}><div><p className="eyebrow">Administracja</p><h2>Konfiguracja bazy wiedzy</h2><p className="muted">Archiwizacja ukrywa bazę przed czytelnikami i blokuje edycję artykułów.</p></div><div className="form-grid"><label>Identyfikator<input required pattern="[A-Za-z][A-Za-z0-9]{1,15}" value={draft.key} onChange={(event) => setDraft({ ...draft, key: event.target.value.toUpperCase() })} /></label><label>Nazwa<input required maxLength={160} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label><label>Stan<select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as Space["status"] })}><option value="ACTIVE">Aktywna</option><option value="ARCHIVED">Zarchiwizowana</option></select></label><label>Domyślna ważność (dni)<input type="number" min={0} max={3650} value={draft.review_interval_days} onChange={(event) => setDraft({ ...draft, review_interval_days: Number(event.target.value) })} /></label></div><label>Opis<textarea rows={4} maxLength={10000} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>{error ? <p className="inline-error" role="alert">{error}</p> : null}{notice ? <p className="inline-success" role="status">{notice}</p> : null}<div><button className="button button--primary" disabled={busy}>{busy ? "Zapisywanie…" : "Zapisz konfigurację"}</button></div></form>;
+  return (
+    <form className="panel form-stack" onSubmit={(event) => void submit(event)}>
+      <div><p className="eyebrow">Administracja</p><h2>Konfiguracja bazy wiedzy</h2><p className="muted">Archiwizacja ukrywa bazę przed czytelnikami i blokuje edycję artykułów.</p></div>
+      <div className="form-grid">
+        <label>Identyfikator<input required pattern="[A-Za-z][A-Za-z0-9]{1,15}" value={draft.key} onChange={(event) => setDraft({ ...draft, key: event.target.value.toUpperCase() })} /></label>
+        <label>Nazwa<input required maxLength={160} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
+        <label>Stan<select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as Space["status"] })}><option value="ACTIVE">Aktywna</option><option value="ARCHIVED">Zarchiwizowana</option></select></label>
+        <label>Domyślna ważność (dni)<input type="number" min={0} max={3650} value={draft.review_interval_days} onChange={(event) => setDraft({ ...draft, review_interval_days: Number(event.target.value) })} /></label>
+      </div>
+      <label>Opis<textarea rows={4} maxLength={10000} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
+      {error ? <p className="inline-error" role="alert">{error}</p> : null}
+      {conflict ? <div className="notice" role="alert">
+        <p>Baza została zmieniona przez inną osobę. Twój formularz pozostał bez zmian. Aktualna wersja {conflict.version}: identyfikator {conflict.key}, nazwa „{conflict.name}”, opis „{conflict.description || "—"}”, {conflict.status === "ACTIVE" ? "aktywna" : "zarchiwizowana"}, domyślna ważność {conflict.review_interval_days} dni. Wybierz, jak rozstrzygnąć konflikt.</p>
+        <div className="action-row">
+          <button className="button button--primary" type="button" disabled={busy} onClick={() => { setVersion(conflict.version); setConflict(undefined); setNotice("Zachowano Twój formularz. Następny zapis użyje aktualnej wersji bazy."); }}>Zachowaj mój formularz</button>
+          <button className="button button--secondary" type="button" disabled={busy} onClick={() => { setDraft({ key: conflict.key, name: conflict.name, description: conflict.description, status: conflict.status, review_interval_days: conflict.review_interval_days }); setVersion(conflict.version); setConflict(undefined); setNotice("Wczytano aktualną konfigurację bazy."); }}>Wczytaj aktualną konfigurację</button>
+        </div>
+      </div> : null}
+      {notice ? <p className="inline-success" role="status">{notice}</p> : null}
+      <div><button className="button button--primary" disabled={busy || !!conflict}>{busy ? "Zapisywanie…" : "Zapisz konfigurację"}</button></div>
+    </form>
+  );
 }
 
-function ArticleDetails({ pageID, space, canWrite, changed }: { pageID: string; space: Space; canWrite: boolean; changed: () => void }) {
+function ArticleDetails({ pageID, space, canWrite, changed, cacheScope }: { pageID: string; space: Space; canWrite: boolean; changed: () => void; cacheScope: string }) {
   const detail = useIncidentQuery<KnowledgePageRecord>(`${base}/pages/${pageID}`);
-  const versions = useRemotePage<PageVersion>(`${base}/pages/${pageID}/versions?limit=20`, "versions", "before_version");
+  const versions = useRemotePage<PageVersion>(`${base}/pages/${pageID}/versions?limit=20`, "versions", "before_version", true, cacheScope);
   const [editing, setEditing] = useState(false);
   if (detail.loading && !detail.data) return <PageState title="Ładowanie artykułu" />;
   if (detail.error || !detail.data) return <PageState title="Nie udało się otworzyć artykułu" detail={detail.error} tone="error" />;
@@ -347,15 +377,15 @@ function ArticleEditor({ space, record, saved, cancel }: { space: Space; record?
     };
   });
   const [currentVersion, setCurrentVersion] = useState(record?.version);
-  const [busy, setBusy] = useState(false); const [dirty, setDirty] = useState(Boolean(creation.pending)); const [error, setError] = useState<string>(); const [conflict, setConflict] = useState(false);
-  function update(value: Partial<typeof draft>) { setDraft((current) => ({ ...current, ...value })); setDirty(true); setConflict(false); }
+  const [busy, setBusy] = useState(false); const [dirty, setDirty] = useState(Boolean(creation.pending)); const [error, setError] = useState<string>(); const [notice, setNotice] = useState<string>(); const [conflict, setConflict] = useState(false); const [conflictPage, setConflictPage] = useState<KnowledgePageRecord>();
+  function update(value: Partial<typeof draft>) { setDraft((current) => ({ ...current, ...value })); setDirty(true); setNotice(undefined); }
   async function createPage() {
     const body = { title: draft.title, body: draft.body, status: draft.status, review_due_at: isoDate(draft.review_due_at) };
     const result = await creation.create(createPath, body);
     if (result) { flushSync(() => setDirty(false)); saved(result); }
   }
   async function submit(event: FormEvent) {
-    event.preventDefault(); setError(undefined);
+    event.preventDefault(); setError(undefined); setNotice(undefined);
     const body = { title: draft.title, body: draft.body, status: draft.status, review_due_at: isoDate(draft.review_due_at), ...(currentVersion ? { version: currentVersion } : {}) };
     if (!record) {
       await createPage();
@@ -365,16 +395,60 @@ function ArticleEditor({ space, record, saved, cancel }: { space: Space; record?
     try {
       const result = await api<KnowledgePageRecord>(`${base}/pages/${record.id}`, { method: "PUT", body: jsonBody(body) });
       flushSync(() => setDirty(false)); saved(result);
-    } catch (cause) { if (cause instanceof ApiError && cause.status === 409) setConflict(true); setError(errorMessage(cause, "Nie udało się zapisać artykułu.")); }
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 409) {
+        setConflict(true);
+        setError(errorMessage(cause, "Artykuł ma nowszą wersję."));
+        try { setConflictPage(await api<KnowledgePageRecord>(`${base}/pages/${record.id}`)); }
+        catch (refreshError) { setError(`${errorMessage(cause, "Artykuł ma nowszą wersję.")} ${errorMessage(refreshError, "Nie udało się odczytać aktualnej wersji.")}`); }
+      } else setError(errorMessage(cause, "Nie udało się zapisać artykułu."));
+    }
     finally { setBusy(false); }
   }
   async function loadLatest() {
     if (!record) return;
     setBusy(true); setError(undefined);
-    try { const latest = await api<KnowledgePageRecord>(`${base}/pages/${record.id}`); setDraft({ title: latest.title, body: latest.body, status: latest.status, review_due_at: dateTime(latest.review_due_at) }); setCurrentVersion(latest.version); setDirty(false); setConflict(false); }
+    try { const latest = await api<KnowledgePageRecord>(`${base}/pages/${record.id}`); setDraft({ title: latest.title, body: latest.body, status: latest.status, review_due_at: dateTime(latest.review_due_at) }); setCurrentVersion(latest.version); setDirty(false); setConflict(false); setConflictPage(undefined); setNotice("Wczytano aktualną wersję artykułu."); }
     catch (cause) { setError(errorMessage(cause, "Nie udało się wczytać aktualnego artykułu.")); }
     finally { setBusy(false); }
   }
+  async function keepDraft() {
+    if (!record) return;
+    setBusy(true); setError(undefined);
+    try { const latest = await api<KnowledgePageRecord>(`${base}/pages/${record.id}`); setCurrentVersion(latest.version); setConflict(false); setConflictPage(undefined); setNotice(`Zachowano Twoje zmiany. Następny zapis użyje wersji ${latest.version}.`); }
+    catch (cause) { setError(errorMessage(cause, "Nie udało się odczytać aktualnej wersji artykułu.")); }
+    finally { setBusy(false); }
+  }
   const saving = busy || creation.busy;
-  return <form className="knowledge-editor form-stack" onSubmit={(event) => void submit(event)}><UnsavedGuard dirty={dirty} includeSearch locked={creation.busy || creation.uncertain} onRetry={creation.uncertain && !record ? () => void createPage() : undefined} /><header className="panel-heading"><div><p className="eyebrow">{record ? articleNumber(record.id) : "Nowy rekord"}</p><h2>{record ? "Edytuj artykuł wiedzy" : "Nowy artykuł wiedzy"}</h2></div><div className="action-row">{creation.uncertain ? <span className="muted">Ponów poprzednią próbę zapisu</span> : cancel ? <button type="button" className="button button--secondary" disabled={saving} onClick={cancel}>Anuluj</button> : <button type="button" className="button button--secondary" disabled={saving} onClick={() => navigate(`/knowledge/${space.id}`)}>Anuluj</button>}<button className="button button--primary" disabled={saving}>{saving ? "Zapisywanie…" : creation.uncertain ? "Ponów zapis" : "Zapisz artykuł"}</button></div></header>{error ? <p className="inline-error" role="alert">{error}</p> : null}{creation.error ? <p className="inline-error" role="alert">{creation.error}</p> : null}{creation.uncertain ? <p className="notice" role="status">Odpowiedź serwera nie potwierdziła wyniku. Treść pozostaje zablokowana; ponów zapis, aby bezpiecznie uzgodnić poprzednią próbę.</p> : null}{conflict ? <div className="notice notice--error"><strong>Artykuł ma nowszą wersję.</strong><p>Skopiuj potrzebne zmiany, a następnie wczytaj aktualną wersję przed ponowną edycją.</p><button type="button" className="button button--secondary" disabled={busy} onClick={() => void loadLatest()}>Wczytaj aktualną wersję</button></div> : null}<div className="knowledge-editor-meta"><label>Krótki opis<input disabled={creation.uncertain} required maxLength={200} value={draft.title} onChange={(event) => update({ title: event.target.value })} /></label><label>Stan<select disabled={creation.uncertain} value={draft.status} onChange={(event) => update({ status: event.target.value as ArticleStatus })}><option value="DRAFT">Nieopublikowany</option><option value="PUBLISHED">Opublikowany</option><option value="RETIRED">Wycofany</option></select></label>{draft.status === "PUBLISHED" ? <label>Ważny do<input disabled={creation.uncertain} type="datetime-local" value={draft.review_due_at} onChange={(event) => update({ review_due_at: event.target.value })} /></label> : null}</div><div className="knowledge-editor-columns"><label>Treść artykułu<textarea disabled={creation.uncertain} required rows={24} maxLength={262144} value={draft.body} onChange={(event) => update({ body: event.target.value })} spellCheck /></label><div><span className="knowledge-preview-label">Podgląd artykułu</span><SafeMarkdown source={draft.body} /></div></div></form>;
+  return (
+    <form className="knowledge-editor form-stack" onSubmit={(event) => void submit(event)}>
+      <UnsavedGuard dirty={dirty} includeSearch locked={creation.busy || creation.uncertain} onRetry={creation.uncertain && !record ? () => void createPage() : undefined} />
+      <header className="panel-heading">
+        <div><p className="eyebrow">{record ? articleNumber(record.id) : "Nowy rekord"}</p><h2>{record ? "Edytuj artykuł wiedzy" : "Nowy artykuł wiedzy"}</h2></div>
+        <div className="action-row">{creation.uncertain ? <span className="muted">Ponów poprzednią próbę zapisu</span> : cancel ? <button type="button" className="button button--secondary" disabled={saving} onClick={cancel}>Anuluj</button> : <button type="button" className="button button--secondary" disabled={saving} onClick={() => navigate(`/knowledge/${space.id}`)}>Anuluj</button>}<button className="button button--primary" disabled={saving || (!!record && conflict)}>{saving ? "Zapisywanie…" : creation.uncertain ? "Ponów zapis" : "Zapisz artykuł"}</button></div>
+      </header>
+      {error ? <p className="inline-error" role="alert">{error}</p> : null}
+      {creation.error ? <p className="inline-error" role="alert">{creation.error}</p> : null}
+      {notice ? <p className="inline-success" role="status">{notice}</p> : null}
+      {creation.uncertain ? <p className="notice" role="status">Odpowiedź serwera nie potwierdziła wyniku. Treść pozostaje zablokowana; ponów zapis, aby bezpiecznie uzgodnić poprzednią próbę.</p> : null}
+      {conflict ? <div className="notice notice--error">
+        <strong>Artykuł ma nowszą wersję.</strong>
+        {conflictPage ? <p>Aktualna wersja {conflictPage.version}: „{conflictPage.title}” ({pageStatus[conflictPage.status]}). Twoje edycje formularza pozostają zachowane.</p> : <p>Nie udało się jeszcze odczytać aktualnej wersji. Twoje edycje formularza pozostają zachowane.</p>}
+        <p>Wybierz aktualną wersję do wczytania albo zachowaj swoje zmiany i zastosuj je jawnie do najnowszej wersji.</p>
+        <div className="action-row">
+          <button type="button" className="button button--primary" disabled={busy} onClick={() => void keepDraft()}>Zachowaj moje zmiany</button>
+          <button type="button" className="button button--secondary" disabled={busy} onClick={() => void loadLatest()}>Wczytaj aktualną wersję</button>
+        </div>
+      </div> : null}
+      <div className="knowledge-editor-meta">
+        <label>Krótki opis<input disabled={creation.uncertain} required maxLength={200} value={draft.title} onChange={(event) => update({ title: event.target.value })} /></label>
+        <label>Stan<select disabled={creation.uncertain} value={draft.status} onChange={(event) => update({ status: event.target.value as ArticleStatus })}><option value="DRAFT">Nieopublikowany</option><option value="PUBLISHED">Opublikowany</option><option value="RETIRED">Wycofany</option></select></label>
+        {draft.status === "PUBLISHED" ? <label>Ważny do<input disabled={creation.uncertain} type="datetime-local" value={draft.review_due_at} onChange={(event) => update({ review_due_at: event.target.value })} /></label> : null}
+      </div>
+      <div className="knowledge-editor-columns">
+        <label>Treść artykułu<textarea disabled={creation.uncertain} required rows={24} maxLength={262144} value={draft.body} onChange={(event) => update({ body: event.target.value })} spellCheck /></label>
+        <div><span className="knowledge-preview-label">Podgląd artykułu</span><SafeMarkdown source={draft.body} /></div>
+      </div>
+    </form>
+  );
 }

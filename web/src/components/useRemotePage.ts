@@ -15,9 +15,10 @@ export function useRemotePage<T>(
   collection: string,
   cursor = "after_id",
   enabled = true,
+  cacheScope = "",
 ) {
   const [revision, setRevision] = useState(0);
-  const key = `${enabled}:${path}|${revision}`;
+  const key = `${cacheScope}:${enabled}:${path}|${revision}`;
   const active = useRef(key);
   active.current = key;
   const sequence = useRef(0);

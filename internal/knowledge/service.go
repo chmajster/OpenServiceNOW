@@ -438,7 +438,7 @@ func (s *Service) Page(ctx context.Context, actor Actor, id uint64) (Page, error
 }
 
 func (s *Service) Pages(ctx context.Context, actor Actor, spaceID, after uint64, limit int) (PagePage, error) {
-	return s.pageSummaries(ctx, actor, spaceID, "", after, limit, false)
+	return s.pageSummaries(ctx, actor, spaceID, "", after, limit, false, "")
 }
 
 func (s *Service) Search(ctx context.Context, actor Actor, spaceID uint64, query string, after uint64, limit int) (PagePage, error) {
@@ -446,17 +446,20 @@ func (s *Service) Search(ctx context.Context, actor Actor, spaceID uint64, query
 	if !text(query, 1, 200) {
 		return PagePage{Pages: []PageSummary{}}, ErrInvalid
 	}
-	return s.pageSummaries(ctx, actor, spaceID, query, after, limit, false)
+	return s.pageSummaries(ctx, actor, spaceID, query, after, limit, false, "")
 }
 
-func (s *Service) Attention(ctx context.Context, actor Actor, spaceID, after uint64, limit int) (PagePage, error) {
+func (s *Service) Attention(ctx context.Context, actor Actor, spaceID, after uint64, limit int, reason string) (PagePage, error) {
 	if !canWrite(actor) {
 		return PagePage{Pages: []PageSummary{}}, ErrForbidden
 	}
-	return s.pageSummaries(ctx, actor, spaceID, "", after, limit, true)
+	if reason != "" && reason != AttentionReviewDue {
+		return PagePage{Pages: []PageSummary{}}, ErrInvalid
+	}
+	return s.pageSummaries(ctx, actor, spaceID, "", after, limit, true, reason)
 }
 
-func (s *Service) pageSummaries(ctx context.Context, actor Actor, spaceID uint64, query string, after uint64, limit int, attention bool) (PagePage, error) {
+func (s *Service) pageSummaries(ctx context.Context, actor Actor, spaceID uint64, query string, after uint64, limit int, attention bool, attentionReason string) (PagePage, error) {
 	page := PagePage{Pages: []PageSummary{}}
 	if !canRead(actor) {
 		return page, ErrForbidden
@@ -489,7 +492,11 @@ func (s *Service) pageSummaries(ctx context.Context, actor Actor, spaceID uint64
 		args = append(args, query)
 	}
 	if attention {
-		statement += " AND (p.status='DRAFT' OR (p.status='PUBLISHED' AND p.review_due_at<=UTC_TIMESTAMP(6)))"
+		if attentionReason == AttentionReviewDue {
+			statement += " AND p.status='PUBLISHED' AND p.review_due_at<=UTC_TIMESTAMP(6)"
+		} else {
+			statement += " AND (p.status='DRAFT' OR (p.status='PUBLISHED' AND p.review_due_at<=UTC_TIMESTAMP(6)))"
+		}
 	}
 	statement += " ORDER BY p.id LIMIT ?"
 	args = append(args, limit+1)

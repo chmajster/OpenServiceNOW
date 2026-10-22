@@ -105,6 +105,49 @@ func TestKnowledgeIdentifiersUseDecimalStrings(t *testing.T) {
 	}
 }
 
+func TestKnowledgeUpdateOperationsRequireOptimisticVersion(t *testing.T) {
+	var root map[string]any
+	if err := json.Unmarshal(loadDocument(t), &root); err != nil {
+		t.Fatal(err)
+	}
+	paths := root["paths"].(map[string]any)
+	schemas := root["components"].(map[string]any)["schemas"].(map[string]any)
+	for _, item := range []struct {
+		path, method, schema string
+	}{
+		{"/api/v1/knowledge/spaces/{spaceID}", "put", "KnowledgeSpaceUpdateInput"},
+		{"/api/v1/knowledge/pages/{pageID}", "put", "KnowledgePageUpdateInput"},
+		{"/api/v1/knowledge/spaces", "post", "KnowledgeSpaceInput"},
+		{"/api/v1/knowledge/spaces/{spaceID}/pages", "post", "KnowledgePageInput"},
+	} {
+		operation := paths[item.path].(map[string]any)[item.method].(map[string]any)
+		requestBody := operation["requestBody"].(map[string]any)
+		content := requestBody["content"].(map[string]any)
+		jsonBody := content["application/json"].(map[string]any)
+		ref := jsonBody["schema"].(map[string]any)["$ref"]
+		wantRef := "#/components/schemas/" + item.schema
+		if ref != wantRef {
+			t.Errorf("%s %s schema = %v, want %s", item.method, item.path, ref, wantRef)
+		}
+		schema := schemas[item.schema].(map[string]any)
+		properties := schema["properties"].(map[string]any)
+		_, hasVersion := properties["version"]
+		required := schema["required"].([]any)
+		requiredVersion := false
+		for _, field := range required {
+			if field == "version" {
+				requiredVersion = true
+			}
+		}
+		if item.method == "put" && (!hasVersion || !requiredVersion) {
+			t.Errorf("%s %s schema must require version", item.method, item.path)
+		}
+		if item.method == "post" && hasVersion {
+			t.Errorf("%s %s create schema must not expose version", item.method, item.path)
+		}
+	}
+}
+
 func TestKnowledgeListOperationsDocumentPagination(t *testing.T) {
 	var root map[string]any
 	if err := json.Unmarshal(loadDocument(t), &root); err != nil {
@@ -124,6 +167,10 @@ func TestKnowledgeListOperationsDocumentPagination(t *testing.T) {
 				t.Errorf("GET %s does not document %s pagination", path, name)
 			}
 		}
+	}
+	attention := paths["/api/v1/knowledge/spaces/{spaceID}/attention"].(map[string]any)["get"].(map[string]any)
+	if !hasQueryEnum(attention, "reason", "REVIEW_DUE") {
+		t.Error("GET knowledge attention does not document pre-pagination REVIEW_DUE filtering")
 	}
 }
 
@@ -161,6 +208,24 @@ func hasQueryParameter(operation map[string]any, name string) bool {
 		parameter, _ := raw.(map[string]any)
 		if parameter["in"] == "query" && parameter["name"] == name {
 			return true
+		}
+	}
+	return false
+}
+
+func hasQueryEnum(operation map[string]any, name, expected string) bool {
+	parameters, _ := operation["parameters"].([]any)
+	for _, raw := range parameters {
+		parameter, _ := raw.(map[string]any)
+		if parameter["in"] != "query" || parameter["name"] != name {
+			continue
+		}
+		schema, _ := parameter["schema"].(map[string]any)
+		values, _ := schema["enum"].([]any)
+		for _, value := range values {
+			if value == expected {
+				return true
+			}
 		}
 	}
 	return false

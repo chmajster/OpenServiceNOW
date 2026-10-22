@@ -30,7 +30,7 @@ type APIService interface {
 	Page(context.Context, Actor, uint64) (Page, error)
 	Pages(context.Context, Actor, uint64, uint64, int) (PagePage, error)
 	Search(context.Context, Actor, uint64, string, uint64, int) (PagePage, error)
-	Attention(context.Context, Actor, uint64, uint64, int) (PagePage, error)
+	Attention(context.Context, Actor, uint64, uint64, int, string) (PagePage, error)
 	Versions(context.Context, Actor, uint64, uint64, int) (VersionPage, error)
 	Subscribe(context.Context, Actor, uint64, bool) (Space, error)
 }
@@ -221,7 +221,7 @@ func (handler *Handler) pageList(writer http.ResponseWriter, request *http.Reque
 	case "search":
 		result, err = handler.service.Search(request.Context(), requestActor(request), spaceID, request.URL.Query().Get("q"), after, limit)
 	case "attention":
-		result, err = handler.service.Attention(request.Context(), requestActor(request), spaceID, after, limit)
+		result, err = handler.service.Attention(request.Context(), requestActor(request), spaceID, after, limit, request.URL.Query().Get("reason"))
 	default:
 		result, err = handler.service.Pages(request.Context(), requestActor(request), spaceID, after, limit)
 	}

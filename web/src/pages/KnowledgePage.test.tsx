@@ -139,3 +139,134 @@ it("loads older article versions when the history is paginated", async () => {
     expect(Array.from(container.querySelectorAll("button")).some((button) => button.textContent === "Wczytaj starsze wersje")).toBe(false);
   } finally { await act(async () => root.unmount()); }
 });
+
+it("refreshes a stale base version after a conflict and preserves the unsaved form", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const now = new Date().toISOString();
+  const space = { id: "10", key: "OPS", name: "Operacje", description: "Opis", status: "ACTIVE", review_interval_days: 90, version: "1", page_count: "0", subscribed: false, created_at: now, updated_at: now };
+  const latest = { ...space, name: "Operacje zdalnie", version: "2" };
+  let spaceReads = 0;
+  let updateCount = 0;
+  const updates: Array<Record<string, unknown>> = [];
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(input);
+    let body: unknown;
+    if (path === "/api/v1/setup") body = { required: false };
+    else if (path === "/api/v1/auth/me") body = {
+      user: { id: "1", email: "admin@example.test", display_name: "Admin", version: "1", credential_version: "1" },
+      tenant: { id: "2", name: "Test", slug: "test" },
+      permissions: ["knowledge.manage"], password_change_required: false, expires_at: new Date(Date.now() + 600_000).toISOString(),
+    };
+    else if (path === "/api/v1/knowledge/spaces?limit=100") body = { spaces: [space] };
+    else if (path === "/api/v1/knowledge/spaces/10" && init?.method === "PUT") {
+      updateCount += 1;
+      updates.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+      if (updateCount === 1) return new Response(JSON.stringify({ error: { code: "KNOWLEDGE_CONFLICT", message: "Version conflict" } }), { status: 409, headers: { "Content-Type": "application/json" } });
+      body = { ...latest, name: updates[1]!.name, version: "3" };
+    }
+    else if (path === "/api/v1/knowledge/spaces/10") { spaceReads += 1; body = spaceReads === 1 ? space : latest; }
+    else if (path === "/api/v1/knowledge/spaces/10/pages?limit=100") body = { pages: [] };
+    else throw new Error(`unexpected request: ${path} ${init?.method ?? "GET"}`);
+    return new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
+  }));
+  const router = createMemoryRouter([{ path: "/knowledge/:spaceID", element: <AuthProvider><KnowledgePage /></AuthProvider> }], { initialEntries: ["/knowledge/10?view=settings"] });
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  try {
+    await act(async () => { root.render(<RouterProvider router={router} />); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    const nameInput = Array.from(container.querySelectorAll("label")).find((label) => label.textContent?.startsWith("Nazwa"))?.querySelector("input");
+    expect(nameInput).toBeTruthy();
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      setter?.call(nameInput, "Moja nazwa");
+      nameInput?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const form = container.querySelector<HTMLFormElement>("form.panel.form-stack")!;
+    await act(async () => { form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    expect(updates).toHaveLength(1);
+    const firstUpdate = updates[0]!;
+    expect(firstUpdate.version).toBe("1");
+    expect(container.textContent).toContain("Operacje zdalnie");
+    expect(nameInput?.value).toBe("Moja nazwa");
+    const keepDraft = Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.includes("Zachowaj mój formularz"));
+    expect(keepDraft).toBeTruthy();
+    await act(async () => keepDraft?.click());
+    await act(async () => { form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    expect(updates).toHaveLength(2);
+    const secondUpdate = updates[1]!;
+    expect(secondUpdate.version).toBe("2");
+    expect(secondUpdate.name).toBe("Moja nazwa");
+    expect(container.textContent).toContain("Konfiguracja bazy wiedzy została zapisana.");
+  } finally { await act(async () => root.unmount()); }
+});
+
+it("keeps article conflict resolution visible after edits and rebases the preserved draft", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const now = new Date().toISOString();
+  const space = { id: "10", key: "OPS", name: "Operacje", description: "", status: "ACTIVE", review_interval_days: 30, version: "1", page_count: "1", subscribed: false, created_at: now, updated_at: now };
+  const summary = { id: "20", space_id: "10", title: "Tytuł początkowy", status: "PUBLISHED", version: "1", updated_by: "1", updated_by_name: "Admin", updated_at: now };
+  let current = { id: "20", space_id: "10", title: "Tytuł początkowy", body: "Treść początkowa", status: "PUBLISHED", version: "1", created_by: "1", updated_by: "1", updated_by_name: "Admin", created_at: now, updated_at: now };
+  let updateCount = 0;
+  const updates: Array<Record<string, unknown>> = [];
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(input);
+    let body: unknown;
+    if (path === "/api/v1/setup") body = { required: false };
+    else if (path === "/api/v1/auth/me") body = {
+      user: { id: "1", email: "admin@example.test", display_name: "Admin", version: "1", credential_version: "1" },
+      tenant: { id: "2", name: "Test", slug: "test" },
+      permissions: ["knowledge.manage"], password_change_required: false, expires_at: new Date(Date.now() + 600_000).toISOString(),
+    };
+    else if (path === "/api/v1/knowledge/spaces?limit=100") body = { spaces: [space] };
+    else if (path === "/api/v1/knowledge/spaces/10") body = space;
+    else if (path === "/api/v1/knowledge/spaces/10/pages?limit=100") body = { pages: [summary] };
+    else if (path === "/api/v1/knowledge/pages/20/versions?limit=20") body = { versions: [] };
+    else if (path === "/api/v1/knowledge/pages/20" && init?.method === "PUT") {
+      updateCount += 1;
+      const input = JSON.parse(String(init.body)) as Record<string, unknown>;
+      updates.push(input);
+      if (updateCount === 1) {
+        current = { ...current, title: "Tytuł zdalny", body: "Nowsza treść", version: "2" };
+        return new Response(JSON.stringify({ error: { code: "KNOWLEDGE_CONFLICT", message: "Version conflict" } }), { status: 409, headers: { "Content-Type": "application/json" } });
+      }
+      current = { ...current, title: String(input.title), body: String(input.body), version: "3" };
+      body = current;
+    }
+    else if (path === "/api/v1/knowledge/pages/20") body = current;
+    else throw new Error(`unexpected request: ${path} ${init?.method ?? "GET"}`);
+    return new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
+  }));
+  const router = createMemoryRouter([{ path: "/knowledge/:spaceID/articles/:pageID", element: <AuthProvider><KnowledgePage /></AuthProvider> }], { initialEntries: ["/knowledge/10/articles/20"] });
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  const editField = (value: string) => {
+    const input = Array.from(container.querySelectorAll("label")).find((label) => label.textContent?.startsWith("Krótki opis"))?.querySelector("input");
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    setter?.call(input, value);
+    input?.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+  try {
+    await act(async () => { root.render(<RouterProvider router={router} />); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    const edit = Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.includes("Edytuj artykuł"));
+    await act(async () => edit?.click());
+    await act(async () => editField("Moja zmiana"));
+    const form = container.querySelector<HTMLFormElement>("form.knowledge-editor")!;
+    await act(async () => { form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    expect(updates[0]?.version).toBe("1");
+    expect(container.textContent).toContain("Tytuł zdalny");
+    await act(async () => editField("Moja zmiana zachowana"));
+    expect(container.textContent).toContain("Artykuł ma nowszą wersję.");
+    const save = Array.from(form.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.includes("Zapisz artykuł"));
+    expect(save?.disabled).toBe(true);
+    const keep = Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.includes("Zachowaj moje zmiany"));
+    await act(async () => { keep?.click(); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    expect(container.textContent).not.toContain("Artykuł ma nowszą wersję.");
+    expect(container.querySelector<HTMLInputElement>("input")?.value).not.toBe("Tytuł zdalny");
+    expect(save?.disabled).toBe(false);
+    await act(async () => { form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    expect(updates).toHaveLength(2);
+    expect(updates[1]?.version).toBe("2");
+    expect(updates[1]?.title).toBe("Moja zmiana zachowana");
+    expect(container.textContent).toContain("Moja zmiana zachowana");
+  } finally { await act(async () => root.unmount()); }
+});

@@ -12524,7 +12524,7 @@
         "tags": ["Knowledge"], "operationId": "updateKnowledgeSpace",
         "description": "Requires knowledge.manage and the current optimistic-lock version.",
         "security": [{"sessionCookie": [], "csrfHeader": []}],
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgeSpaceInput"}}}},
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgeSpaceUpdateInput"}}}},
         "responses": {"200": {"description": "Updated space", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgeSpace"}}}}, "400": {"$ref": "#/components/responses/BadRequest"}, "403": {"$ref": "#/components/responses/Forbidden"}, "404": {"$ref": "#/components/responses/NotFound"}, "409": {"$ref": "#/components/responses/Conflict"}}
       }
     },
@@ -12558,8 +12558,8 @@
         "tags": ["Knowledge"], "operationId": "listKnowledgeAttentionPages",
         "description": "Requires knowledge.write or knowledge.manage.",
         "security": [{"sessionCookie": []}],
-        "parameters": [{"name": "after_id", "in": "query", "schema": {"type": "string", "pattern": "^[1-9][0-9]*$"}}, {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 50}}],
-        "responses": {"200": {"description": "Drafts and overdue reviews", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgePages"}}}}, "403": {"$ref": "#/components/responses/Forbidden"}}
+        "parameters": [{"name": "after_id", "in": "query", "schema": {"type": "string", "pattern": "^[1-9][0-9]*$"}}, {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 50}}, {"name": "reason", "in": "query", "description": "Filter before pagination; REVIEW_DUE returns only overdue published articles.", "schema": {"type": "string", "enum": ["REVIEW_DUE"]}}],
+        "responses": {"200": {"description": "Drafts and overdue reviews, optionally filtered to overdue published articles", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgePages"}}}}, "400": {"$ref": "#/components/responses/BadRequest"}, "403": {"$ref": "#/components/responses/Forbidden"}}
       }
     },
     "/api/v1/knowledge/spaces/{spaceID}/subscription": {
@@ -12583,7 +12583,7 @@
         "tags": ["Knowledge"], "operationId": "updateKnowledgePage",
         "description": "Requires knowledge.write or knowledge.manage and the current optimistic-lock version.",
         "security": [{"sessionCookie": [], "csrfHeader": []}],
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgePageInput"}}}},
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgePageUpdateInput"}}}},
         "responses": {"200": {"description": "Updated page", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/KnowledgePage"}}}}, "400": {"$ref": "#/components/responses/BadRequest"}, "403": {"$ref": "#/components/responses/Forbidden"}, "404": {"$ref": "#/components/responses/NotFound"}, "409": {"$ref": "#/components/responses/Conflict"}}
       }
     },
@@ -12683,10 +12683,22 @@
           "name": {"type": "string", "minLength": 1, "maxLength": 160},
           "description": {"type": "string", "maxLength": 10000},
           "status": {"type": "string", "enum": ["ACTIVE", "ARCHIVED"]},
+          "review_interval_days": {"type": "integer", "minimum": 0, "maximum": 3650}
+        },
+        "required": ["key", "name", "description", "status", "review_interval_days"],
+        "additionalProperties": false
+      },
+      "KnowledgeSpaceUpdateInput": {
+        "type": "object",
+        "properties": {
+          "key": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9]{1,15}$"},
+          "name": {"type": "string", "minLength": 1, "maxLength": 160},
+          "description": {"type": "string", "maxLength": 10000},
+          "status": {"type": "string", "enum": ["ACTIVE", "ARCHIVED"]},
           "review_interval_days": {"type": "integer", "minimum": 0, "maximum": 3650},
           "version": {"type": "string", "pattern": "^[1-9][0-9]*$"}
         },
-        "required": ["key", "name", "description", "status", "review_interval_days"],
+        "required": ["key", "name", "description", "status", "review_interval_days", "version"],
         "additionalProperties": false
       },
       "KnowledgeSpaces": {
@@ -12742,10 +12754,21 @@
           "title": {"type": "string", "minLength": 1, "maxLength": 200},
           "body": {"type": "string", "maxLength": 262144},
           "status": {"type": "string", "enum": ["DRAFT", "PUBLISHED", "RETIRED"]},
+          "review_due_at": {"type": "string", "format": "date-time"}
+        },
+        "required": ["title", "body", "status"],
+        "additionalProperties": false
+      },
+      "KnowledgePageUpdateInput": {
+        "type": "object",
+        "properties": {
+          "title": {"type": "string", "minLength": 1, "maxLength": 200},
+          "body": {"type": "string", "maxLength": 262144},
+          "status": {"type": "string", "enum": ["DRAFT", "PUBLISHED", "RETIRED"]},
           "review_due_at": {"type": "string", "format": "date-time"},
           "version": {"type": "string", "pattern": "^[1-9][0-9]*$"}
         },
-        "required": ["title", "body", "status"],
+        "required": ["title", "body", "status", "version"],
         "additionalProperties": false
       },
       "KnowledgePages": {

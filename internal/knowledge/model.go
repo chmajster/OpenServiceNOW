@@ -25,6 +25,8 @@ const (
 	PagePublished = "PUBLISHED"
 	PageRetired   = "RETIRED"
 
+	AttentionReviewDue = "REVIEW_DUE"
+
 	MaxPageBodyBytes = 256 << 10
 )
 
