@@ -78,7 +78,7 @@ function KnowledgeWorkspace() {
     return <PageState title="Nie udało się otworzyć bazy wiedzy" detail={spaces.error} tone="error" />;
   const spaceList = { moreSpaces: spaces.more, nextSpaces: spaces.next, spacesLoading: spaces.loading, spacesError: spaces.error, retrySpaces: spaces.retry };
   if (!spaceID)
-    return <KnowledgeHome spaces={spaces.items} canManage={hasPermission("knowledge.manage")} reload={spaces.reload} {...spaceList} />;
+    return <KnowledgeHome key={cacheScope} spaces={spaces.items} canManage={hasPermission("knowledge.manage")} reload={spaces.reload} {...spaceList} />;
   return <KnowledgeBase key={`${spaceID}:${cacheScope}`} spaceID={spaceID} pageID={pageID} spaces={spaces.items} reloadSpaces={spaces.reload} cacheScope={cacheScope} {...spaceList} />;
 }
 
@@ -139,25 +139,27 @@ function KnowledgeBaseCreate({ saved, onUncertainChange }: { saved: () => void; 
   const [name, setName] = useState(() => typeof restored.name === "string" ? restored.name : "");
   const [description, setDescription] = useState(() => typeof restored.description === "string" ? restored.description : "");
   const [review, setReview] = useState(() => typeof restored.review_interval_days === "number" ? restored.review_interval_days : 180);
+  const [dirty, setDirty] = useState(Boolean(creation.pending));
   useEffect(() => onUncertainChange(creation.uncertain), [creation.uncertain, onUncertainChange]);
-  async function submit(event: FormEvent) {
-    event.preventDefault();
+  async function createBase() {
     const result = await creation.create(`${base}/spaces`, { key, name, description, status: "ACTIVE", review_interval_days: review });
-    if (result) saved();
+    if (result) { flushSync(() => setDirty(false)); saved(); }
   }
+  function submit(event: FormEvent) { event.preventDefault(); void createBase(); }
+  function updateDraft(update: () => void) { update(); setDirty(true); }
   return (
-    <form className="panel form-stack knowledge-base-form" onSubmit={(event) => void submit(event)}>
+    <><UnsavedGuard dirty={dirty} includeSearch locked={creation.busy || creation.uncertain} onRetry={creation.uncertain ? () => void createBase() : undefined} /><form className="panel form-stack knowledge-base-form" onSubmit={submit}>
       <div className="panel-heading"><div><h2>Nowa baza wiedzy</h2><p className="muted">Oddziel artykuły według zespołu, usługi lub odbiorców.</p></div></div>
       <div className="form-grid">
-        <label>Identyfikator<input disabled={creation.uncertain} required pattern="[A-Za-z][A-Za-z0-9]{1,15}" maxLength={16} value={key} onChange={(event) => setKey(event.target.value.toUpperCase())} placeholder="IT" /></label>
-        <label>Nazwa<input disabled={creation.uncertain} required maxLength={160} value={name} onChange={(event) => setName(event.target.value)} placeholder="Wsparcie IT" /></label>
-        <label>Domyślna ważność (dni)<input disabled={creation.uncertain} required type="number" min={0} max={3650} value={review} onChange={(event) => setReview(Number(event.target.value))} /></label>
+        <label>Identyfikator<input disabled={creation.busy || creation.uncertain} required pattern="[A-Za-z][A-Za-z0-9]{1,15}" maxLength={16} value={key} onChange={(event) => updateDraft(() => setKey(event.target.value.toUpperCase()))} placeholder="IT" /></label>
+        <label>Nazwa<input disabled={creation.busy || creation.uncertain} required maxLength={160} value={name} onChange={(event) => updateDraft(() => setName(event.target.value))} placeholder="Wsparcie IT" /></label>
+        <label>Domyślna ważność (dni)<input disabled={creation.busy || creation.uncertain} required type="number" min={0} max={3650} value={review} onChange={(event) => updateDraft(() => setReview(Number(event.target.value)))} /></label>
       </div>
-      <label>Opis<textarea disabled={creation.uncertain} rows={3} maxLength={10000} value={description} onChange={(event) => setDescription(event.target.value)} /></label>
+      <label>Opis<textarea disabled={creation.busy || creation.uncertain} rows={3} maxLength={10000} value={description} onChange={(event) => updateDraft(() => setDescription(event.target.value))} /></label>
       {creation.error ? <p className="inline-error" role="alert">{creation.error}</p> : null}
       {creation.uncertain ? <p className="notice" role="status">Nie można potwierdzić, czy baza została utworzona. Ponów zapis, aby bezpiecznie odczytać wynik poprzedniej próby.</p> : null}
       <div className="action-row"><button className="button button--primary" disabled={creation.busy}>{creation.busy ? "Tworzenie…" : creation.uncertain ? "Ponów zapis" : "Utwórz bazę wiedzy"}</button></div>
-    </form>
+    </form></>
   );
 }
 
@@ -351,7 +353,7 @@ function KnowledgeBaseSettings({ space, saved }: { space: Space; saved: (space: 
         <p>Baza została zmieniona przez inną osobę. Twój formularz pozostał bez zmian. Aktualna wersja {conflict.version}: identyfikator {conflict.key}, nazwa „{conflict.name}”, opis „{conflict.description || "—"}”, {conflict.status === "ACTIVE" ? "aktywna" : "zarchiwizowana"}, domyślna ważność {conflict.review_interval_days} dni. Wybierz, jak rozstrzygnąć konflikt.</p>
         <div className="action-row">
           <button className="button button--primary" type="button" disabled={busy} onClick={() => { setVersion(conflict.version); setConflict(undefined); setDirty(true); setNotice("Zachowano Twój formularz. Następny zapis użyje aktualnej wersji bazy."); }}>Zachowaj mój formularz</button>
-          <button className="button button--secondary" type="button" disabled={busy} onClick={() => { setDraft({ key: conflict.key, name: conflict.name, description: conflict.description, status: conflict.status, review_interval_days: conflict.review_interval_days }); setVersion(conflict.version); setConflict(undefined); setDirty(false); setNotice("Wczytano aktualną konfigurację bazy."); }}>Wczytaj aktualną konfigurację</button>
+          <button className="button button--secondary" type="button" disabled={busy} onClick={() => { setDraft({ key: conflict.key, name: conflict.name, description: conflict.description, status: conflict.status, review_interval_days: conflict.review_interval_days }); setVersion(conflict.version); setConflict(undefined); setDirty(false); setNotice("Wczytano aktualną konfigurację bazy."); saved(conflict); }}>Wczytaj aktualną konfigurację</button>
         </div>
       </div> : null}
       {notice ? <p className="inline-success" role="status">{notice}</p> : null}

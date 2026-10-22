@@ -1,6 +1,6 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { createMemoryRouter, RouterProvider } from "react-router-dom";
+import { createMemoryRouter, Link, RouterProvider } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 import { AuthProvider } from "../auth/AuthContext";
 import { KnowledgePage } from "./KnowledgePage";
@@ -433,5 +433,127 @@ it("retries a knowledge search after its initial request fails", async () => {
     await act(async () => { retry?.click(); await new Promise((resolve) => setTimeout(resolve, 20)); });
     expect(searchReads).toBe(2);
     expect(container.textContent).toContain("Procedura odzyskiwania");
+  } finally { await act(async () => root.unmount()); }
+});
+
+it("protects a new-base draft from navigation while allowing explicit cancellation", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+    const path = String(input);
+    let body: unknown;
+    if (path === "/api/v1/setup") body = { required: false };
+    else if (path === "/api/v1/auth/me") body = {
+      user: { id: "1", email: "admin@example.test", display_name: "Admin", version: "1", credential_version: "1" },
+      tenant: { id: "2", name: "Test", slug: "test" },
+      permissions: ["knowledge.manage"], password_change_required: false, expires_at: new Date(Date.now() + 600_000).toISOString(),
+    };
+    else if (path === "/api/v1/knowledge/spaces?limit=100") body = { spaces: [] };
+    else throw new Error(`unexpected request: ${path}`);
+    return new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
+  }));
+  function KnowledgeRoute() { return <><Link to="/other">Inny moduł</Link><AuthProvider><KnowledgePage /></AuthProvider></>; }
+  const router = createMemoryRouter([
+    { path: "/knowledge", element: <KnowledgeRoute /> },
+    { path: "/other", element: <p>Inny ekran</p> },
+  ], { initialEntries: ["/knowledge"] });
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  try {
+    await act(async () => { root.render(<RouterProvider router={router} />); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    expect(container.querySelector(".knowledge-base-form")).toBeTruthy();
+    const nameInput = Array.from(container.querySelectorAll("label")).find((label) => label.textContent?.startsWith("Nazwa"))?.querySelector<HTMLInputElement>("input");
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      setter?.call(nameInput, "Szkic bazy");
+      nameInput?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const otherModule = Array.from(container.querySelectorAll<HTMLAnchorElement>("a")).find((link) => link.textContent === "Inny moduł");
+    await act(async () => { otherModule?.click(); });
+    expect(container.textContent).toContain("Niezapisana praca");
+    expect(router.state.location.pathname).toBe("/knowledge");
+    expect(nameInput?.value).toBe("Szkic bazy");
+    const stay = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent === "Pozostań na stronie");
+    await act(async () => { stay?.click(); });
+    const cancel = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent === "Anuluj");
+    await act(async () => { cancel?.click(); });
+    expect(container.querySelector(".knowledge-base-form")).toBeNull();
+    expect(container.textContent).toContain("Brak baz wiedzy");
+  } finally { await act(async () => root.unmount()); }
+});
+
+it("clears an open base-creation form when the authenticated session changes", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  let userID = "1";
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+    const path = String(input);
+    let body: unknown;
+    if (path === "/api/v1/setup") body = { required: false };
+    else if (path === "/api/v1/auth/me") body = {
+      user: { id: userID, email: `${userID}@example.test`, display_name: `User ${userID}`, version: "1", credential_version: "1" },
+      tenant: { id: "2", name: "Test", slug: "test" },
+      permissions: userID === "1" ? ["knowledge.manage"] : ["knowledge.read"], password_change_required: false, expires_at: new Date(Date.now() + 600_000).toISOString(),
+    };
+    else if (path === "/api/v1/knowledge/spaces?limit=100") body = { spaces: [] };
+    else throw new Error(`unexpected request: ${path}`);
+    return new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
+  }));
+  const router = createMemoryRouter([{ path: "/knowledge", element: <AuthProvider><KnowledgePage /></AuthProvider> }], { initialEntries: ["/knowledge"] });
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  try {
+    await act(async () => { root.render(<RouterProvider router={router} />); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    const nameInput = Array.from(container.querySelectorAll("label")).find((label) => label.textContent?.startsWith("Nazwa"))?.querySelector<HTMLInputElement>("input");
+    expect(nameInput).toBeTruthy();
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      setter?.call(nameInput, "Poufny szkic poprzedniego użytkownika");
+      nameInput?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    userID = "2";
+    await act(async () => { window.dispatchEvent(new Event("focus")); await new Promise((resolve) => setTimeout(resolve, 40)); });
+    expect(container.querySelector(".knowledge-base-form")).toBeNull();
+    expect(container.textContent).not.toContain("Poufny szkic poprzedniego użytkownika");
+    expect(container.textContent).toContain("Brak baz wiedzy");
+  } finally { await act(async () => root.unmount()); }
+});
+
+it("updates the base view after resolving a configuration conflict with the latest record", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const now = new Date().toISOString();
+  const space = { id: "10", key: "OPS", name: "Operacje", description: "Opis", status: "ACTIVE", review_interval_days: 90, version: "1", page_count: "0", subscribed: false, created_at: now, updated_at: now };
+  const latest = { ...space, name: "Operacje archiwalne", description: "Zamknięty obszar", status: "ARCHIVED", version: "2" };
+  let spaceReads = 0;
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(input);
+    let body: unknown;
+    if (path === "/api/v1/setup") body = { required: false };
+    else if (path === "/api/v1/auth/me") body = {
+      user: { id: "1", email: "admin@example.test", display_name: "Admin", version: "1", credential_version: "1" },
+      tenant: { id: "2", name: "Test", slug: "test" },
+      permissions: ["knowledge.manage"], password_change_required: false, expires_at: new Date(Date.now() + 600_000).toISOString(),
+    };
+    else if (path === "/api/v1/knowledge/spaces?limit=100") body = { spaces: [space] };
+    else if (path === "/api/v1/knowledge/spaces/10" && init?.method === "PUT") return new Response(JSON.stringify({ error: { code: "KNOWLEDGE_CONFLICT", message: "Version conflict" } }), { status: 409, headers: { "Content-Type": "application/json" } });
+    else if (path === "/api/v1/knowledge/spaces/10") { spaceReads += 1; body = spaceReads === 1 ? space : latest; }
+    else if (path === "/api/v1/knowledge/spaces/10/pages?limit=100") body = { pages: [] };
+    else throw new Error(`unexpected request: ${path} ${init?.method ?? "GET"}`);
+    return new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
+  }));
+  const router = createMemoryRouter([{ path: "/knowledge/:spaceID", element: <AuthProvider><KnowledgePage /></AuthProvider> }], { initialEntries: ["/knowledge/10?view=settings"] });
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  try {
+    await act(async () => { root.render(<RouterProvider router={router} />); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    const form = container.querySelector<HTMLFormElement>("form.panel.form-stack")!;
+    await act(async () => { form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    expect(container.textContent).toContain("Baza została zmieniona przez inną osobę.");
+    const loadLatest = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent === "Wczytaj aktualną konfigurację");
+    await act(async () => { loadLatest?.click(); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    expect(container.querySelector(".knowledge-center-header h1")?.textContent).toBe("Operacje archiwalne");
+    expect(container.textContent).toContain("Ta baza wiedzy jest zarchiwizowana");
+    const allArticles = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent === "Wszystkie");
+    await act(async () => { allArticles?.click(); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    expect(container.querySelector(".knowledge-center-header h1")?.textContent).toBe("Operacje archiwalne");
+    expect(container.textContent).toContain("Ta baza wiedzy jest zarchiwizowana");
   } finally { await act(async () => root.unmount()); }
 });
