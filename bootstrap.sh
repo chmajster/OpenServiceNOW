@@ -110,13 +110,18 @@ clone_repository() {
   ok "Downloaded OpenServiceNOW into ${INSTALL_DIR}."
 }
 
-update_repository() {
-  local current_branch current_commit origin remote_commit
+validate_existing_checkout() {
+  local current_branch origin
   origin=$(git -C "$INSTALL_DIR" remote get-url origin 2>/dev/null || true)
   [[ "$origin" == "$REPOSITORY_URL" ]] || fail "Existing checkout origin is '${origin:-missing}', expected '${REPOSITORY_URL}'."
   current_branch=$(git -C "$INSTALL_DIR" symbolic-ref --quiet --short HEAD 2>/dev/null || true)
   [[ "$current_branch" == "$BRANCH" ]] || fail "Existing checkout is on '${current_branch:-a detached HEAD}', expected '${BRANCH}'."
   ensure_clean_checkout
+}
+
+update_repository() {
+  local current_commit remote_commit
+  validate_existing_checkout
   info "Checking GitHub for OpenServiceNOW ${BRANCH} updates."
   env GIT_TERMINAL_PROMPT=0 git -C "$INSTALL_DIR" fetch --prune origin "$BRANCH"
   current_commit=$(git -C "$INSTALL_DIR" rev-parse HEAD)
@@ -134,6 +139,7 @@ update_repository() {
 sync_repository() {
   prepare_install_directory
   if [[ -e "$INSTALL_DIR/.git" ]]; then
+    validate_existing_checkout
     acquire_installer_lock
     update_repository
   else

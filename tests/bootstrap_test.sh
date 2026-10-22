@@ -75,6 +75,18 @@ fi
 grep -q 'expected' "$fixture/origin.log"
 git -C "$INSTALL_DIR" remote set-url origin "$remote"
 
+foreign="$fixture/foreign checkout"
+mkdir -p "$foreign"
+git -C "$foreign" init -b main >/dev/null
+git -C "$foreign" remote add origin "$fixture/untrusted.git"
+INSTALL_DIR="$foreign"
+if (sync_repository) >"$fixture/foreign.log" 2>&1; then
+  echo 'Accepted a foreign Git checkout as the installation target' >&2
+  exit 1
+fi
+grep -q 'expected' "$fixture/foreign.log"
+[[ ! -e "$foreign/.opensnow" ]]
+
 nonempty="$fixture/nonempty"
 mkdir -p "$nonempty"
 printf 'preserve\n' >"$nonempty/user-file"
