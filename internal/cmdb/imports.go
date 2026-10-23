@@ -30,6 +30,7 @@ type Import struct {
 	Version    uint64         `json:"version,string"`
 	JobID      uint64         `json:"job_id,string,omitempty"`
 	JobStatus  string         `json:"job_status"`
+	Progress   uint8          `json:"progress"`
 	Attempts   uint32         `json:"attempts"`
 	CreatedAt  time.Time      `json:"created_at"`
 	UpdatedAt  time.Time      `json:"updated_at"`
@@ -76,7 +77,28 @@ func scanImport(row interface{ Scan(...any) error }) (Import, error) {
 	}
 	err = json.Unmarshal(mapping, &i.Mapping)
 	i.Counts = map[string]int{}
+	if i.State == "PREVIEW_READY" || i.State == "COMPLETED" || i.State == "PARTIAL" {
+		i.Progress = 100
+	}
 	return i, err
+}
+
+func updateImportProgress(i *Import) {
+	if i.State == "PREVIEW_READY" || i.State == "COMPLETED" || i.State == "PARTIAL" {
+		i.Progress = 100
+		return
+	}
+	total := 0
+	resolved := 0
+	for state, count := range i.Counts {
+		total += count
+		if state == "APPLIED" || state == "ERROR" || state == "CONFLICT" {
+			resolved += count
+		}
+	}
+	if total > 0 {
+		i.Progress = uint8(resolved * 100 / total)
+	}
 }
 func (s *Service) importInTx(ctx context.Context, e database.Executor, a Actor, id uint64, lock bool) (Import, error) {
 	q := "SELECT " + importColumns + " FROM inventory_imports i LEFT JOIN jobs j ON j.id=i.job_id WHERE i.tenant_id=? AND i.id=?"
@@ -110,7 +132,11 @@ func (s *Service) GetImport(ctx context.Context, a Actor, id uint64) (Import, er
 		}
 		i.Counts[state] = n
 	}
-	return i, rows.Err()
+	if err = rows.Err(); err != nil {
+		return i, err
+	}
+	updateImportProgress(&i)
+	return i, nil
 }
 func (s *Service) ListImports(ctx context.Context, a Actor, before uint64, limit int) (ImportPage, error) {
 	out := ImportPage{Items: []Import{}}

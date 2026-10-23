@@ -43,6 +43,10 @@
     {
       "name": "Workflow",
       "description": "Durable catalog request workflows and decisions"
+    },
+    {
+      "name": "CMDB and Asset",
+      "description": "Configuration items, IT assets, relations, history and durable CSV imports."
     }
   ],
   "paths": {
@@ -12478,6 +12482,2729 @@
         }
       }
     }
+  ,
+    "/api/v1/cmdb/classes": {
+      "get": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "getCMDBContract",
+        "summary": "Read CMDB classes, validation rules and CSV import contract",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBContract"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "x-any-read-permissions": [
+          "cmdb.read",
+          "cmdb.read_own",
+          "assets.read",
+          "assets.read_own"
+        ]
+      }
+    },
+    "/api/v1/cmdb/lookups/users": {
+      "get": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "searchCMDBOwners",
+        "summary": "Search active organization members for CI and Asset ownership",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBUserChoices"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 254
+            }
+          }
+        ],
+        "x-conditional-authorization": "Asset editor access also permits this lookup when assets.manage and assets.read are both granted.",
+        "x-any-required-permission-sets": [
+          [
+            "cmdb.manage",
+            "cmdb.read"
+          ],
+          [
+            "assets.manage",
+            "assets.read"
+          ]
+        ]
+      }
+    },
+    "/api/v1/cmdb/lookups/assets/{kind}": {
+      "get": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "listAssetCatalogValues",
+        "summary": "List tenant asset catalog values",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBCatalogPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "manufacturers",
+                "models",
+                "locations"
+              ]
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "manufacturer",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          }
+        ],
+        "x-required-permissions": [
+          "assets.read"
+        ]
+      },
+      "post": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "createAssetCatalogValue",
+        "summary": "Create a tenant asset catalog value",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBCatalogValue"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "manufacturers",
+                "models",
+                "locations"
+              ]
+            }
+          }
+        ],
+        "x-required-permissions": [
+          "assets.manage",
+          "assets.read"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CMDBCatalogInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/cis": {
+      "get": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "listConfigurationItems",
+        "summary": "List and prefix-search authorized configuration items",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBCIPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            },
+            "description": "Case-insensitive prefix match against name or identifier."
+          },
+          {
+            "name": "class",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "location",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "owner_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "x-any-read-permissions": [
+          "cmdb.read",
+          "cmdb.read_own"
+        ]
+      },
+      "post": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "createConfigurationItem",
+        "summary": "Create a configuration item",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBCI"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "Retry an identical request with the same key and body."
+          }
+        ],
+        "x-required-permissions": [
+          "cmdb.manage",
+          "cmdb.read"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CMDBCIInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/cis/{id}": {
+      "get": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "getConfigurationItem",
+        "summary": "Read an authorized configuration item",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBCI"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          }
+        ],
+        "x-any-read-permissions": [
+          "cmdb.read",
+          "cmdb.read_own"
+        ]
+      },
+      "put": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "updateConfigurationItem",
+        "summary": "Update a configuration item using its current version",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBCI"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          }
+        ],
+        "x-required-permissions": [
+          "cmdb.manage",
+          "cmdb.read"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CMDBCIUpdate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/cis/{id}/archive": {
+      "post": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "setConfigurationItemArchived",
+        "summary": "Archive or restore a configuration item with an audited reason",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBCI"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          }
+        ],
+        "x-required-permissions": [
+          "cmdb.manage",
+          "cmdb.read"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CMDBArchiveInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/cis/{id}/history": {
+      "get": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "getConfigurationItemHistory",
+        "summary": "Read durable change history and projection status",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBHistoryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "x-any-read-permissions": [
+          "cmdb.read",
+          "cmdb.read_own"
+        ]
+      }
+    },
+    "/api/v1/cmdb/cis/{id}/relations": {
+      "get": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "listConfigurationItemRelations",
+        "summary": "List authorized relations touching a CI",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBRelationPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "x-any-read-permissions": [
+          "cmdb.read",
+          "cmdb.read_own"
+        ]
+      },
+      "post": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "addConfigurationItemRelation",
+        "summary": "Add a typed relation with both CI versions",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBCI"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          }
+        ],
+        "x-required-permissions": [
+          "cmdb.manage",
+          "cmdb.read"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CMDBRelationInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/cis/{id}/relations/{relationID}": {
+      "delete": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "removeConfigurationItemRelation",
+        "summary": "Remove a typed relation using both CI versions",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBCI"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          },
+          {
+            "name": "relationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          }
+        ],
+        "x-required-permissions": [
+          "cmdb.manage",
+          "cmdb.read"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CMDBRelationInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/cis/{id}/graph": {
+      "get": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "getConfigurationItemGraph",
+        "summary": "Read a bounded graph of recorded CI dependencies",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBGraph"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          },
+          {
+            "name": "depth",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5
+            },
+            "description": "Defaults to 2."
+          },
+          {
+            "name": "max_nodes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "description": "Defaults to 50."
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "class",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "x-any-read-permissions": [
+          "cmdb.read",
+          "cmdb.read_own"
+        ]
+      }
+    },
+    "/api/v1/cmdb/cis/{id}/asset": {
+      "get": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "getConfigurationItemAsset",
+        "summary": "Read an asset link only when both records are authorized",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBAssetLink"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          }
+        ],
+        "x-conditional-authorization": "Both CI and Asset read permissions and object scopes are enforced.",
+        "x-required-permission-groups": [
+          [
+            "cmdb.read",
+            "cmdb.read_own"
+          ],
+          [
+            "assets.read",
+            "assets.read_own"
+          ]
+        ]
+      },
+      "put": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "setConfigurationItemAsset",
+        "summary": "Link or unlink an Asset using both current record versions",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBCI"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          }
+        ],
+        "x-required-permissions": [
+          "cmdb.manage",
+          "cmdb.read",
+          "assets.manage",
+          "assets.read"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CMDBAssetLinkInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/cis/{id}/records/{kind}": {
+      "get": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "listConfigurationItemRecords",
+        "summary": "List authorized incidents or requests linked to a CI",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBReferencePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "incidents",
+                "requests"
+              ]
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          }
+        ],
+        "x-conditional-authorization": "The selected incident or request service enforces its own object access policy.",
+        "x-required-permission-groups": [
+          [
+            "cmdb.read",
+            "cmdb.read_own"
+          ],
+          [
+            "incident.read",
+            "incident.read_own",
+            "request.read_own",
+            "request.manage",
+            "request.fulfill"
+          ]
+        ]
+      }
+    },
+    "/api/v1/cmdb/assets": {
+      "get": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "listAssets",
+        "summary": "List and search authorized Assets",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBAssetPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "location",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "owner_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "x-any-read-permissions": [
+          "assets.read",
+          "assets.read_own"
+        ]
+      },
+      "post": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "createAsset",
+        "summary": "Create an Asset",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBAsset"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "Retry an identical request with the same key and body."
+          }
+        ],
+        "x-required-permissions": [
+          "assets.manage",
+          "assets.read"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CMDBAssetInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/assets/{id}": {
+      "get": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "getAsset",
+        "summary": "Read an authorized Asset",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBAsset"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          }
+        ],
+        "x-any-read-permissions": [
+          "assets.read",
+          "assets.read_own"
+        ]
+      },
+      "put": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "updateAsset",
+        "summary": "Update an Asset using its current version",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBAsset"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          }
+        ],
+        "x-required-permissions": [
+          "assets.manage",
+          "assets.read"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CMDBAssetUpdate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/assets/{id}/archive": {
+      "post": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "setAssetArchived",
+        "summary": "Archive or restore an Asset with an audited reason",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBAsset"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          }
+        ],
+        "x-required-permissions": [
+          "assets.manage",
+          "assets.read"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CMDBArchiveInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/assets/{id}/history": {
+      "get": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "getAssetHistory",
+        "summary": "Read durable Asset history and projection status",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBHistoryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "x-any-read-permissions": [
+          "assets.read",
+          "assets.read_own"
+        ]
+      }
+    },
+    "/api/v1/cmdb/assets/{id}/ci": {
+      "get": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "getAssetConfigurationItem",
+        "summary": "Read the linked CI only when both records are authorized",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBCILink"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          }
+        ],
+        "x-conditional-authorization": "Both CI and Asset read permissions and object scopes are enforced.",
+        "x-required-permission-groups": [
+          [
+            "assets.read",
+            "assets.read_own"
+          ],
+          [
+            "cmdb.read",
+            "cmdb.read_own"
+          ]
+        ]
+      }
+    },
+    "/api/v1/cmdb/records/{kind}/{id}/cis": {
+      "get": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "listRecordConfigurationItems",
+        "summary": "List authorized CIs linked to an incident or request",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBRecordCIs"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "incidents",
+                "requests"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "x-conditional-authorization": "The selected incident or request service validates access to the parent record.",
+        "x-required-permission-groups": [
+          [
+            "cmdb.read",
+            "cmdb.read_own"
+          ],
+          [
+            "incident.read",
+            "incident.read_own",
+            "request.read_own",
+            "request.manage",
+            "request.fulfill"
+          ]
+        ]
+      }
+    },
+    "/api/v1/cmdb/records/{kind}/{id}/cis/{ciID}": {
+      "put": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "linkConfigurationItemToRecord",
+        "summary": "Link a CI to an accessible incident or request",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBReference"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "incidents",
+                "requests"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          },
+          {
+            "name": "ciID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          }
+        ],
+        "x-required-permissions": [
+          "cmdb.link"
+        ],
+        "x-conditional-authorization": "The selected incident or request service validates the write action and tenant scope.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CMDBRecordLinkInput"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "unlinkConfigurationItemFromRecord",
+        "summary": "Unlink a CI from an accessible incident or request",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBReference"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "incidents",
+                "requests"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          },
+          {
+            "name": "ciID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          }
+        ],
+        "x-required-permissions": [
+          "cmdb.link"
+        ],
+        "x-conditional-authorization": "The selected incident or request service validates the write action and tenant scope.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CMDBRecordLinkInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/imports": {
+      "get": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "listInventoryImports",
+        "summary": "List durable authorized CI and Asset imports",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBImportPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "x-required-permissions": [
+          "cmdb.import"
+        ],
+        "x-conditional-authorization": "Each import target also requires its domain read and manage permissions."
+      },
+      "post": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "createInventoryImport",
+        "summary": "Upload a bounded UTF-8 CSV and queue its durable preview",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBImport"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "Retry an identical request with the same key and body."
+          }
+        ],
+        "x-required-permissions": [
+          "cmdb.import"
+        ],
+        "x-conditional-authorization": "CI imports additionally require cmdb.manage and cmdb.read; Asset imports require assets.manage and assets.read. CSV is limited to 1 MiB, 500 rows and 40 columns.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "file",
+                  "config"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "config": {
+                    "type": "string",
+                    "description": "JSON-encoded CMDBImportConfig."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cmdb/imports/{id}": {
+      "get": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "getInventoryImport",
+        "summary": "Read durable import state, progress and row counts",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBImport"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          }
+        ],
+        "x-required-permissions": [
+          "cmdb.import"
+        ],
+        "x-conditional-authorization": "Access is restricted to imports whose target the caller can read and manage."
+      }
+    },
+    "/api/v1/cmdb/imports/{id}/rows": {
+      "get": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "listInventoryImportRows",
+        "summary": "Read per-row preview and execution results",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBImportRows"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          },
+          {
+            "name": "after_row",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "x-required-permissions": [
+          "cmdb.import"
+        ],
+        "x-conditional-authorization": "Access is restricted to imports whose target the caller can read and manage."
+      }
+    },
+    "/api/v1/cmdb/imports/{id}/{action}": {
+      "post": {
+        "tags": [
+          "CMDB and Asset"
+        ],
+        "operationId": "actOnInventoryImport",
+        "summary": "Apply, reassess or cancel a durable import using its current version",
+        "description": "The backend derives the actor and tenant from the authenticated session, validates object-level authorization, and returns no-store responses.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CMDBImport"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "apply",
+                "review",
+                "cancel"
+              ]
+            }
+          }
+        ],
+        "x-required-permissions": [
+          "cmdb.import"
+        ],
+        "x-conditional-authorization": "The import target's domain manage and read permissions are checked again on every action.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CMDBImportAction"
+              }
+            }
+          }
+        }
+      }
+    }
   },
   "components": {
     "securitySchemes": {
@@ -17551,7 +20278,1484 @@
         "required": [],
         "additionalProperties": false
       }
-    },
+    ,
+      "CMDBAttribute": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "label",
+          "type",
+          "required",
+          "min",
+          "max"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "TEXT",
+              "INTEGER",
+              "NUMBER",
+              "IP",
+              "URL",
+              "SELECT",
+              "USER_REFERENCE"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "max_length": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2048
+          },
+          "min": {
+            "type": "number"
+          },
+          "max": {
+            "type": "number"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "CMDBClass": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "label",
+          "attributes"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "attributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CMDBAttribute"
+            }
+          }
+        }
+      },
+      "CMDBRelationPair": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source",
+          "target"
+        ],
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          }
+        }
+      },
+      "CMDBRelationDefinition": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "pairs"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "pairs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CMDBRelationPair"
+            }
+          }
+        }
+      },
+      "CMDBContract": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "classes",
+          "ci_fields",
+          "statuses",
+          "environments",
+          "relation_types",
+          "ci_import_fields",
+          "ci_import_required_fields",
+          "ci_import_identity_keys",
+          "asset_import_fields",
+          "asset_import_required_fields",
+          "asset_import_identity_keys",
+          "max_csv_bytes",
+          "max_csv_rows",
+          "max_csv_columns"
+        ],
+        "properties": {
+          "classes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CMDBClass"
+            }
+          },
+          "ci_fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CMDBAttribute"
+            }
+          },
+          "statuses": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "PLANNED",
+                "ACTIVE",
+                "MAINTENANCE",
+                "RETIRED"
+              ]
+            }
+          },
+          "environments": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "DEV",
+                "TEST",
+                "STAGING",
+                "PROD"
+              ]
+            }
+          },
+          "relation_types": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CMDBRelationDefinition"
+            }
+          },
+          "ci_import_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ci_import_required_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ci_import_identity_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "asset_import_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "asset_import_required_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "asset_import_identity_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "max_csv_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1048576
+          },
+          "max_csv_rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "max_csv_columns": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 40
+          }
+        },
+        "description": "Validation, relation and CSV import rules published by the server and used by the UI."
+      },
+      "CMDBCIInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "identifier",
+          "name",
+          "class",
+          "status",
+          "owner_id",
+          "environment"
+        ],
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "class": {
+            "type": "string",
+            "enum": [
+              "PHYSICAL_SERVER",
+              "VM",
+              "NETWORK_DEVICE",
+              "APPLICATION",
+              "SERVICE"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PLANNED",
+              "ACTIVE",
+              "MAINTENANCE",
+              "RETIRED"
+            ]
+          },
+          "owner_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "DEV",
+              "TEST",
+              "STAGING",
+              "PROD"
+            ]
+          },
+          "location": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "attributes": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "version": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              }
+            ]
+          }
+        },
+        "description": "Class-specific attributes are validated against GET /api/v1/cmdb/classes."
+      },
+      "CMDBCIUpdate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CMDBCIInput"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "version"
+            ],
+            "properties": {
+              "version": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$",
+                "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+              }
+            }
+          }
+        ]
+      },
+      "CMDBCI": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "version",
+          "identifier",
+          "name",
+          "class",
+          "status",
+          "owner_id",
+          "owner_name",
+          "environment",
+          "location",
+          "attributes",
+          "archived",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "identifier": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "class": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "owner_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "owner_name": {
+            "type": "string"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "attributes": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CMDBCIPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CMDBCI"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        },
+        "description": "Keyset-paginated CI list. Search uses a case-insensitive prefix on name or identifier."
+      },
+      "CMDBAssetInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "asset_tag",
+          "name",
+          "owner_id",
+          "state",
+          "currency"
+        ],
+        "properties": {
+          "asset_tag": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "owner_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "serial_number": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "vendor": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "location": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "ORDERED",
+              "IN_STOCK",
+              "IN_USE",
+              "IN_REPAIR",
+              "RETIRED",
+              "DISPOSED"
+            ]
+          },
+          "purchase_date": {
+            "oneOf": [
+              {
+                "const": ""
+              },
+              {
+                "type": "string",
+                "format": "date"
+              }
+            ]
+          },
+          "purchase_cost": {
+            "oneOf": [
+              {
+                "const": ""
+              },
+              {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]{0,9})(\\.[0-9]{1,2})?$"
+              }
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "PLN",
+              "EUR",
+              "USD",
+              "GBP",
+              "CZK"
+            ]
+          },
+          "warranty_until": {
+            "oneOf": [
+              {
+                "const": ""
+              },
+              {
+                "type": "string",
+                "format": "date"
+              }
+            ]
+          },
+          "version": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              }
+            ]
+          }
+        }
+      },
+      "CMDBAssetUpdate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CMDBAssetInput"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "version"
+            ],
+            "properties": {
+              "version": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$",
+                "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+              }
+            }
+          }
+        ]
+      },
+      "CMDBAsset": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "version",
+          "asset_tag",
+          "name",
+          "owner_id",
+          "owner_name",
+          "serial_number",
+          "vendor",
+          "model",
+          "location",
+          "state",
+          "purchase_date",
+          "purchase_cost",
+          "currency",
+          "warranty_until",
+          "archived",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "asset_tag": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "owner_name": {
+            "type": "string"
+          },
+          "serial_number": {
+            "type": "string"
+          },
+          "vendor": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "purchase_date": {
+            "type": "string"
+          },
+          "purchase_cost": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "warranty_until": {
+            "type": "string"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CMDBAssetPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CMDBAsset"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      },
+      "CMDBArchiveInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "archived",
+          "reason"
+        ],
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        }
+      },
+      "CMDBRelation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "version",
+          "source_id",
+          "target_id",
+          "type",
+          "source_name",
+          "target_name",
+          "source_class",
+          "target_class"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "source_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "target_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "type": {
+            "type": "string"
+          },
+          "source_name": {
+            "type": "string"
+          },
+          "target_name": {
+            "type": "string"
+          },
+          "source_class": {
+            "type": "string"
+          },
+          "target_class": {
+            "type": "string"
+          }
+        }
+      },
+      "CMDBRelationPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CMDBRelation"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      },
+      "CMDBRelationInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "target_id",
+          "target_version",
+          "type"
+        ],
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "target_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "target_version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "RUNS_ON",
+              "HOSTED_ON",
+              "DEPENDS_ON",
+              "CONNECTS_TO"
+            ]
+          }
+        }
+      },
+      "CMDBGraph": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "nodes",
+          "edges",
+          "truncated",
+          "max_nodes",
+          "max_depth",
+          "max_edges"
+        ],
+        "properties": {
+          "nodes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "name",
+                "class",
+                "status",
+                "archived",
+                "depth"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$",
+                  "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+                },
+                "name": {
+                  "type": "string"
+                },
+                "class": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "archived": {
+                  "type": "boolean"
+                },
+                "depth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 5
+                }
+              }
+            }
+          },
+          "edges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CMDBRelation"
+            }
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "max_nodes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "max_depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5
+          },
+          "max_edges": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        }
+      },
+      "CMDBReference": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "number",
+          "title",
+          "state",
+          "version",
+          "can_link"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "number": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "can_link": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CMDBReferencePage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CMDBReference"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      },
+      "CMDBRecordCIs": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "record",
+          "items"
+        ],
+        "properties": {
+          "record": {
+            "$ref": "#/components/schemas/CMDBReference"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CMDBCI"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      },
+      "CMDBRecordLinkInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "ci_version"
+        ],
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "ci_version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          }
+        }
+      },
+      "CMDBAssetLinkInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "asset_id",
+          "asset_version"
+        ],
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "asset_id": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              }
+            ]
+          },
+          "asset_version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          }
+        },
+        "description": "Use asset_id \"0\" with the linked asset_version to unlink."
+      },
+      "CMDBAssetLink": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+          "asset": {
+            "$ref": "#/components/schemas/CMDBAsset"
+          }
+        }
+      },
+      "CMDBCILink": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+          "ci": {
+            "$ref": "#/components/schemas/CMDBCI"
+          }
+        }
+      },
+      "CMDBHistoryEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "tenant_id",
+          "object_type",
+          "object_id",
+          "type",
+          "actor_name",
+          "summary",
+          "event_time"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "actor_name": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "event_time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "tenant_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "object_type": {
+            "type": "string",
+            "enum": [
+              "ci",
+              "asset"
+            ]
+          },
+          "object_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "type": {
+            "type": "string"
+          },
+          "actor_user_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "source_event_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      },
+      "CMDBHistoryPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "entries",
+          "pending"
+        ],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CMDBHistoryEntry"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "pending": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CMDBUserChoice": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "display_name",
+          "email",
+          "user_active",
+          "membership_active"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "user_active": {
+            "type": "boolean"
+          },
+          "membership_active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CMDBUserChoices": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CMDBUserChoice"
+            }
+          },
+          "next_before_id": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "const": ""
+              }
+            ]
+          }
+        }
+      },
+      "CMDBCatalogValue": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "value"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "MANUFACTURER",
+              "MODEL",
+              "LOCATION"
+            ]
+          },
+          "value": {
+            "type": "string"
+          },
+          "manufacturer": {
+            "type": "string"
+          }
+        }
+      },
+      "CMDBCatalogPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CMDBCatalogValue"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      },
+      "CMDBCatalogInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "value"
+        ],
+        "properties": {
+          "value": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "manufacturer": {
+            "type": "string",
+            "maxLength": 160
+          }
+        }
+      },
+      "CMDBImportConfig": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target",
+          "identity_key",
+          "mapping"
+        ],
+        "properties": {
+          "target": {
+            "type": "string",
+            "enum": [
+              "CI",
+              "ASSET"
+            ]
+          },
+          "identity_key": {
+            "type": "string",
+            "enum": [
+              "identifier",
+              "asset_tag",
+              "serial_number"
+            ]
+          },
+          "mapping": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160,
+              "pattern": "^[^\\u0000-\\u001F\\u007F]{1,160}$"
+            }
+          }
+        }
+      },
+      "CMDBImport": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "target",
+          "identity_key",
+          "mapping",
+          "creator_id",
+          "executor_id",
+          "file_name",
+          "state",
+          "error_code",
+          "version",
+          "job_status",
+          "progress",
+          "attempts",
+          "created_at",
+          "updated_at",
+          "counts"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "CI",
+              "ASSET"
+            ]
+          },
+          "identity_key": {
+            "type": "string"
+          },
+          "mapping": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "creator_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "executor_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "file_name": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "QUEUED_PREVIEW",
+              "PREVIEW_READY",
+              "QUEUED_APPLY",
+              "APPLYING",
+              "COMPLETED",
+              "PARTIAL",
+              "FAILED",
+              "CANCELLED"
+            ]
+          },
+          "error_code": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "job_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "job_status": {
+            "type": "string"
+          },
+          "progress": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "counts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CMDBImportPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CMDBImport"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      },
+      "CMDBImportRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "row_number",
+          "identity_value",
+          "action",
+          "state",
+          "expected_version",
+          "error_code",
+          "error_message"
+        ],
+        "properties": {
+          "row_number": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "identity_value": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "CREATE",
+              "UPDATE",
+              "NO_CHANGE"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "APPLIED",
+              "ERROR",
+              "CONFLICT"
+            ]
+          },
+          "record_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          },
+          "expected_version": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              }
+            ]
+          },
+          "before": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "after": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "error_code": {
+            "type": "string"
+          },
+          "error_message": {
+            "type": "string"
+          }
+        }
+      },
+      "CMDBImportRows": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CMDBImportRow"
+            }
+          },
+          "next_after_row": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          }
+        }
+      },
+      "CMDBImportAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version"
+        ],
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
+          }
+        }
+      }
+  },
     "responses": {
       "HealthOK": {
         "description": "Healthy",

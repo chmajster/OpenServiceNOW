@@ -42,6 +42,53 @@ func TestTypedDependencies(t *testing.T) {
 		}
 	}
 }
+
+func TestSchemaPublishesValidationAndImportRules(t *testing.T) {
+	schema := Schema()
+	required := map[string]bool{}
+	for _, field := range schema.CIFields {
+		if field.Required {
+			required[field.Key] = true
+		}
+	}
+	for _, field := range []string{"identifier", "name", "class", "status", "owner_id", "environment"} {
+		if !required[field] {
+			t.Fatalf("required CI field %q is missing from the schema", field)
+		}
+	}
+	for _, value := range schema.Statuses {
+		if !Status(value) {
+			t.Fatalf("schema status %q is not accepted by the validator", value)
+		}
+	}
+	for _, value := range schema.Environments {
+		if !Environment(value) {
+			t.Fatalf("schema environment %q is not accepted by the validator", value)
+		}
+	}
+	if Status("UNKNOWN") || Environment("UNKNOWN") {
+		t.Fatal("validator accepted a value missing from the schema")
+	}
+	for _, definition := range schema.RelationTypes {
+		for _, pair := range definition.Pairs {
+			if !RelationType(definition.Key, pair.Source, pair.Target) {
+				t.Fatalf("relation contract is not accepted by the validator: %s %s -> %s", definition.Key, pair.Source, pair.Target)
+			}
+		}
+	}
+	for _, field := range schema.CIImportRequiredFields {
+		found := false
+		for _, allowed := range schema.CIImportFields {
+			found = found || field == allowed
+		}
+		if !found {
+			t.Fatalf("required CI import field %q is not mapped", field)
+		}
+	}
+	if schema.MaxCSVBytes != MaxCSVBytes || schema.MaxCSVRows != MaxCSVRows || schema.MaxCSVColumns != MaxCSVColumns {
+		t.Fatalf("published import limits differ from the importer: %+v", schema)
+	}
+}
 func csvConfig() ImportConfig {
 	return ImportConfig{Target: "CI", IdentityKey: "identifier", Mapping: map[string]string{"identifier": "ID", "name": "Name", "class": "Class", "status": "Status", "owner_id": "Owner", "environment": "Env", "attributes.cpu_cores": "CPU"}}
 }

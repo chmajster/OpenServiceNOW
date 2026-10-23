@@ -90,8 +90,8 @@ func (s *Service) List(ctx context.Context, a Actor, f Filter) (Page, error) {
 	params = append(params, args...)
 	q := "SELECT " + columns + " FROM cmdb_cis c JOIN users u ON u.id=c.owner_id WHERE c.tenant_id=? AND " + p
 	if f.Query != "" {
-		q += " AND (c.name LIKE ? OR c.identifier LIKE ?)"
-		v := "%" + f.Query + "%"
+		q += " AND (c.name LIKE ? ESCAPE '=' OR c.identifier LIKE ? ESCAPE '=')"
+		v := "%" + strings.NewReplacer("=", "==", "%", "=%", "_", "=_").Replace(strings.ToLower(f.Query)) + "%"
 		params = append(params, v, v)
 	}
 	for _, filter := range []struct{ column, value string }{{"class", f.Class}, {"status", f.Status}, {"environment", f.Environment}, {"location", f.Location}} {

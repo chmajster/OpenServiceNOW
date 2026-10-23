@@ -165,7 +165,7 @@ func (h *Handler) handle(action string) http.HandlerFunc {
 				err = workrecords.ErrForbidden
 				break
 			}
-			v = map[string]any{"classes": Classes, "ci_import_fields": ImportFields("CI"), "asset_import_fields": ImportFields("ASSET"), "max_csv_bytes": MaxCSVBytes, "max_csv_rows": MaxCSVRows, "max_csv_columns": MaxCSVColumns}
+			v = Schema()
 		case "users":
 			v, err = h.users(ctx, a, q.Get("q"), before, limit)
 		case "asset.catalog.list":

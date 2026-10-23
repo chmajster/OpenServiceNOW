@@ -138,6 +138,27 @@ func TestCMDBAssetImportAndRecordIsolation(t *testing.T) {
 	vm := create("vm", "VM", reader.UserID)
 	app := create("app", "APPLICATION", reader.UserID)
 	service := create("service", "SERVICE", reader.UserID)
+	server.Name = "Production Host"
+	server, err = s.Save(ctx, admin, server.ID, server, "")
+	if err != nil {
+		t.Fatal("rename CI for search coverage", err)
+	}
+	byName, err := s.List(ctx, admin, cmdb.Filter{Query: "PROD", Archived: "false", Limit: 25})
+	if err != nil || len(byName.Items) != 1 || byName.Items[0].ID != server.ID {
+		t.Fatal("case-insensitive name search", byName, err)
+	}
+	byNameFragment, err := s.List(ctx, admin, cmdb.Filter{Query: "DUCTION", Archived: "false", Limit: 25})
+	if err != nil || len(byNameFragment.Items) != 1 || byNameFragment.Items[0].ID != server.ID {
+		t.Fatal("substring name search", byNameFragment, err)
+	}
+	byIdentifier, err := s.List(ctx, admin, cmdb.Filter{Query: "ERVER", Archived: "false", Limit: 25})
+	if err != nil || len(byIdentifier.Items) != 1 || byIdentifier.Items[0].ID != server.ID {
+		t.Fatal("case-insensitive identifier search", byIdentifier, err)
+	}
+	wildcard, err := s.List(ctx, admin, cmdb.Filter{Query: "PROD_", Archived: "false", Limit: 25})
+	if err != nil || len(wildcard.Items) != 0 {
+		t.Fatal("search input wildcard must be literal", wildcard, err)
+	}
 	fresh := func(id uint64) cmdb.Record {
 		t.Helper()
 		r, err := s.Get(ctx, admin, id)
@@ -359,6 +380,9 @@ func TestCMDBAssetImportAndRecordIsolation(t *testing.T) {
 		t.Fatal("changed replay", err)
 	}
 	imp = run(imp.ID, "PREVIEW_READY")
+	if imp.Progress != 100 {
+		t.Fatal("completed preview progress", imp.Progress)
+	}
 	rows, err := s.ImportRows(ctx, admin, imp.ID, 0, 100)
 	if err != nil || len(rows.Items) != 30 || rows.Items[0].Action != "CREATE" {
 		t.Fatal("preview", rows, err)
@@ -371,7 +395,7 @@ func TestCMDBAssetImportAndRecordIsolation(t *testing.T) {
 		t.Fatal(err)
 	}
 	imp = run(imp.ID, "COMPLETED")
-	if imp.Counts["APPLIED"] != 30 {
+	if imp.Counts["APPLIED"] != 30 || imp.Progress != 100 {
 		t.Fatal(imp)
 	}
 	var job jobs.Job
@@ -460,6 +484,12 @@ func TestCMDBAssetImportAndRecordIsolation(t *testing.T) {
 		t.Fatal("catalog search", w.Code, w.Body.String())
 	}
 	path := fmt.Sprintf("/api/v1/cmdb/cis/%d", server.ID)
+	if w := apiCall("GET", "/api/v1/cmdb/classes", nil, false); w.Code != 200 || !strings.Contains(w.Body.String(), "\"ci_fields\"") || !strings.Contains(w.Body.String(), "\"relation_types\"") || !strings.Contains(w.Body.String(), "\"ci_import_required_fields\"") {
+		t.Fatal("authoritative CMDB schema", w.Code, w.Body.String())
+	}
+	if w := apiCall("GET", "/api/v1/cmdb/cis?q=PROD&archived=false&limit=25", nil, false); w.Code != 200 || !strings.Contains(w.Body.String(), fmt.Sprintf("\"id\":\"%d\"", server.ID)) {
+		t.Fatal("server-filtered CI search", w.Code, w.Body.String())
+	}
 	if w := apiCall("GET", path, nil, false); w.Code != 200 || !strings.Contains(w.Body.String(), fmt.Sprintf(`"id":"%d"`, server.ID)) {
 		t.Fatal(w.Code, w.Body.String())
 	}
