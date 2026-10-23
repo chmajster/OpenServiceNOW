@@ -10,6 +10,8 @@ At repository root:
 - `ROADMAP.md` — phased implementation sequence and exit criteria,
 - `TODO.md` — prioritized actionable backlog and in-progress register,
 - `STATUS.md` — current factual repository state,
+- `cmdb.md` — CMDB CI inventory permissions, import operation, migration and delivered boundaries,
+- `docs/cmdb.md` — CMDB CI inventory permissions, import operation, migration and delivered boundaries,
 - `CHANGELOG.md` — notable repository changes,
 - `AGENTS.md` — repository working rules for coding agents.
 

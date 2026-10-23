@@ -94,7 +94,7 @@ September runner-allocation failures (including run #523) and early deployment f
 [P2] [x] Durable catalog workflow and user/group ANY/ALL approval: nine steps, immutable versions, current authorization, transactional commands, inbox/editor/diagnostics and real notifications. Local desktop/mobile, restart and concurrency proof passed; current full CI/review evidence is maintained in PR #22 and STATUS.md.
 [P2] [ ] Extended workflow: parallel/join, subprocesses, scripts, delegation, reminders/escalation and multi-item process coordination.
 [P2] [ ] Change and Problem Management.
-[P2] [ ] CMDB and Asset Management.
+[P2] [-] CMDB and Asset Management. The current worktree delivers the user-facing CI list, contract-driven create/edit, details/relations/graph/history, authorized Asset/incident/request links, global CI search and durable CSV import flow. Complete the remaining Asset lifecycle/software/license/procurement scope and advanced CMDB capabilities; see [docs/cmdb.md](docs/cmdb.md).
 [P2] [ ] Knowledge Base.
 [P2] [x] Deliver independent outbox consumers and incident in-app/optional SMTP notifications with preferences, encrypted secrets/external key, real delivery history, safe retries and working API/UI. Disposable MySQL, real SMTP, unit/build, desktop/mobile and process restart verification passed; current full CI/review/merge evidence is recorded in PR #19 and STATUS.md. No historical notification replay or external exactly-once guarantee is claimed.
 [P2] [ ] Extend notifications with editable templates, webhooks/inbound mail, other integrations and external identity providers.

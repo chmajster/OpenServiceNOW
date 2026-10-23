@@ -333,6 +333,10 @@ Exit criteria:
 
 ## Phase 8 — CMDB and Asset Management
 
+### Partial delivery: user-facing CI inventory
+
+The current worktree connects the existing CMDB backend to React routes for CI search/filter/pagination, contract-driven create/edit, direct-link details, typed relations and bounded graph navigation, authorized Asset and incident/request links, shared history, global CI search, and the durable CSV import preview/apply/review/cancel flow. OpenAPI documents the registered CMDB/Asset routes; migration `000090_cmdb_search_indexes` adds search/filter indexes. This does not complete Phase 8: software/license/procurement and broader Asset lifecycle, dynamic class modeling, automated Discovery and Service Mapping remain future work. Verification limits are recorded in STATUS.md.
+
 CMDB:
 
 - CI classes,

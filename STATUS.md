@@ -1,12 +1,18 @@
 # Current Project Status
 
-Last updated: 2026-10-13
+Last updated: 2026-10-23
 
 ## Current phase
 
-Durable workflow and approvals for catalog requests, following service catalog fulfillment and incident SLA.
+User-facing CMDB inventory for the existing CI, Asset and durable CSV import services. The broader CMDB and Asset Management phase remains in progress.
 
 The repository includes the administration foundation, durable MySQL jobs/worker, scheduler, work-record infrastructure and the core Incident Management API/UI. The full application is deployed through DevBox with real MySQL/Redis readiness. This delivery does not declare every Phase 3 extension or later roadmap phase complete.
+
+## CMDB CI inventory delivery (current worktree)
+
+The React router now exposes the CI list, create, direct-link detail and import screens. The list keeps search, class/status/environment/archive filters and cursor pagination in the URL. Create/edit fields and enumerations come from the authenticated `/api/v1/cmdb/classes` contract. CI details expose typed relations and bounded graph navigation, Asset association, authorized incident/request links and shared projected history. Global search includes tenant-authorized CI results. The import screen uses the existing durable preview/apply/review/cancel API and worker, with saved import status, progress and row outcomes. New OpenAPI paths/schema and contract assertions cover the existing CMDB/Asset routes. Migration `000090_cmdb_search_indexes` adds indexes for CI name search and status/environment filters; no new service secret or external integration is needed.
+
+Local verification on this worktree: `npm.cmd run test` passed 21 files/45 tests; `npm.cmd run build` passed TypeScript checks and the Vite production build; scoped Playwright passed on desktop Chromium and Pixel 7 Chromium, covering list search, direct detail, locale persistence and horizontal overflow. The API route/schema and `$ref` structure was also checked locally. Go tests, migration apply/rollback and real-MySQL/API/worker browser scenarios could not be run here: Go is not installed, the local Docker Engine pipe is unavailable, and E2E credentials are not configured. The Playwright CMDB test stubs API responses and is not evidence of backend end-to-end behavior. The outstanding verification and the partial Phase 8 boundary are tracked in [docs/cmdb.md](docs/cmdb.md).
 
 ## Workflow and approvals delivery (PR #22)
 

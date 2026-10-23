@@ -32,7 +32,7 @@ curl --proto '=https' --tlsv1.2 --fail --silent --show-error --location https://
 
 ## Current state
 
-The administration foundation, shared work platform and core Incident Management process are implemented. Further business modules continue according to the roadmap; an internal library does not imply an available HTTP endpoint or UI screen.
+The administration foundation, shared work platform, core Incident Management process and catalog/request flows are implemented. The current worktree also delivers the first user-facing CMDB CI inventory flow; the broader CMDB and Asset roadmap remains in progress. An internal library does not imply an available HTTP endpoint or UI screen.
 
 Implemented foundation capabilities:
 
@@ -79,6 +79,7 @@ Durable MySQL-backed jobs, worker/scheduler execution and shared work-record inf
 | Incident SLA | Versioned policies/calendars, durable business-time checkpoints, scheduler/worker and idempotent thresholds | Organization administration, authorized batch summaries and history | Policy/calendar forms, incident list/details/history |
 | Workflow and approvals | Immutable versions, durable steps/decisions/deadlines, transactional commands and real jobs | Publication, object-authorized decisions/state/repair | Process form editor, approval inbox, visual state and attempt history |
 | Service catalog and requests | Immutable publications, declarative forms, Request/Requested Item/Task, atomic audit/outbox, idempotency and CAS | Audience-filtered catalog, own requests, scoped fulfillment and request-bound collaboration | Catalog administration/designer/templates, portal, own requests and fulfillment queue |
+| CMDB CI inventory (partial Phase 8 delivery) | Existing CI/Asset persistence and importer, class contract, tenant-scoped links/history/relations and bounded graph; migration 90 adds CI search/filter indexes | Documented `/api/v1/cmdb` routes, including imports and asset/record links | CI list/create/detail/edit, relations/graph/history, Asset link, incident/request links and durable CSV import |
 | Other roadmap business modules | Remaining roadmap work | Not available | Not available |
 
 ## Workflow and approvals
@@ -170,7 +171,13 @@ Replies/notes are append-only. Message and upload retries keep their original ke
 
 MySQL stores file metadata; bytes live in `ATTACHMENT_ROOT` (native default `.opensnow/attachments`). Docker/DevBox API, worker and scheduler share the persistent `attachment-data` volume at `/var/lib/opensnow/attachments`. Rebuilding/recreating containers and ordinary uninstall/reinstall retain it. Back up both SQL and file storage. Native and Docker storage locations are separate: when changing installer modes or storage roots, copy/restore the referenced bytes while the stack is stopped; sharing the SQL volume alone does not migrate files. Explicit Docker data purge removes its file volume too; custom/native storage is never implicitly deleted.
 
-File deletion immediately disables listing/downloads and commits its audit/outbox in MySQL. The scheduler enqueues an hourly attachment cleanup job; the real worker removes managed temporary/orphan/deleted files older than the 24-hour grace period in bounded SQL batches. Confirmed rollback removes newly prepared bytes immediately; ambiguous commits retain them for reconciliation. Timeline projection remains asynchronous and replay-safe, with author, business date/type, decimal version/source-event cursor and explicit refresh. CMDB/service relations, templates and major-incident coordination remain subsequent stages; incident SLA is implemented below.
+File deletion immediately disables listing/downloads and commits its audit/outbox in MySQL. The scheduler enqueues an hourly attachment cleanup job; the real worker removes managed temporary/orphan/deleted files older than the 24-hour grace period in bounded SQL batches. Confirmed rollback removes newly prepared bytes immediately; ambiguous commits retain them for reconciliation. Timeline projection remains asynchronous and replay-safe, with author, business date/type, decimal version/source-event cursor and explicit refresh. CMDB references can now use the tenant-authorized manual CI inventory; external service sources, templates and major-incident coordination remain subsequent work. Incident SLA is implemented below.
+
+## CMDB CI inventory
+
+Open **Elementy konfiguracji (CMDB)** to search and filter configuration items, create one from its backend-defined class contract, or open a CI directly from its URL. Details include class attributes, typed relations and a bounded dependency graph, the linked Asset, authorized incident/request links, and projected history. The **Importy CI i Asset** screen previews CSV changes, applies a confirmed versioned preview through the existing durable importer, and shows progress and per-row outcomes. See [CMDB setup, permissions and current scope](docs/cmdb.md).
+
+No CMDB-specific provider or secret is required for manual entry and CSV import. The normal migration runner applies migration `000090_cmdb_search_indexes`; local development uses `make migrate-up`, and the installers apply pending migrations during upgrade. Classes and allowed values are returned by `/api/v1/cmdb/classes`. This is a manual inventory, not automated Discovery or Service Mapping. Software/license procurement and the rest of the Asset lifecycle remain roadmap work.
 
 ## Notifications and independent event consumers
 
