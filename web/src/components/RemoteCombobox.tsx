@@ -1,9 +1,18 @@
 import { useEffect, useId, useRef, useState } from "react";
-import type { Group, Role, TenantUser } from "../api/types";
 import { useRemotePage } from "./useRemotePage";
 
 export type Choice = { id: string; label: string; disabled?: boolean };
 export type ChoiceKind = "users" | "groups" | "roles";
+type ChoiceItem = {
+  id: string;
+  name?: string;
+  email?: string;
+  display_name?: string;
+  user_active?: boolean;
+  membership_active?: boolean;
+  identifier?: string;
+  asset_tag?: string;
+};
 export function RemoteCombobox({
   kind,
   label,
@@ -17,6 +26,7 @@ export function RemoteCombobox({
   collection,
   cursor = "after_id",
   maxQueryLength = 160,
+  formatChoice,
 }: {
   kind: ChoiceKind;
   label: string;
@@ -30,6 +40,7 @@ export function RemoteCombobox({
   collection?: string;
   cursor?: string;
   maxQueryLength?: number;
+  formatChoice?: (item: ChoiceItem) => string;
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -118,6 +129,7 @@ export function RemoteCombobox({
           endpoint={endpoint}
           collection={collection}
           cursor={cursor}
+          formatChoice={formatChoice}
           allowInactive={allowInactive}
           search={search}
           pending={query !== search}
@@ -144,6 +156,7 @@ function Options({
   endpoint: customEndpoint,
   collection,
   cursor,
+  formatChoice,
   allowInactive,
   search,
   pending,
@@ -156,6 +169,7 @@ function Options({
   endpoint?: string;
   collection?: string;
   cursor: string;
+  formatChoice?: (item: ChoiceItem) => string;
   allowInactive: boolean;
   search: string;
   pending: boolean;
@@ -170,22 +184,21 @@ function Options({
   const url = new URL(endpoint, window.location.origin);
   url.searchParams.set("limit", "50");
   url.searchParams.set("q", search);
-  const page = useRemotePage<Role | Group | TenantUser>(
+  const page = useRemotePage<ChoiceItem>(
     `${url.pathname}${url.search}`,
     collection ?? kind,
     cursor,
   );
   const options: Choice[] = page.items.map((item) =>
-    "email" in item
+    item.email !== undefined
       ? {
           id: item.id,
           label: item.email
-            ? `${item.display_name} — ${item.email}`
-            : item.display_name,
-          disabled:
-            !allowInactive && (!item.user_active || !item.membership_active),
+            ? `${item.display_name ?? item.id} — ${item.email}`
+            : item.display_name ?? item.id,
+          disabled: !allowInactive && (!item.user_active || !item.membership_active),
         }
-      : { id: item.id, label: item.name },
+      : { id: item.id, label: formatChoice?.(item) ?? item.name ?? item.id },
   );
   const active = Math.min(index, options.length - 1);
   useEffect(() => {

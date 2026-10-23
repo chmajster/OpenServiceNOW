@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, ApiError, jsonBody } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { More, PageFeedback } from "../cmdb/components";
+import { InventoryChoice, More, PageFeedback } from "../cmdb/components";
 import { labels, text, type Asset, type CI } from "../cmdb/contracts";
 import { InventoryCatalogCombobox } from "../components/InventoryCatalogCombobox";
 import { PageState } from "../components/PageState";
@@ -205,7 +205,7 @@ function AssetDetails({ id }: { id: string }) {
             <SummaryCard label="Ostatnia zmiana" value={new Date(asset.updated_at).toLocaleString("pl-PL")} />
           </div>
 
-          {hasPermission("cmdb.read") || hasPermission("cmdb.read_own") ? <LinkedCI asset={asset} /> : null}
+          {hasPermission("cmdb.read") || hasPermission("cmdb.read_own") ? <LinkedCI asset={asset} onChanged={setAsset} /> : null}
           <ArchiveControl asset={asset} onChanged={setAsset} />
           <section className="panel mt-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -343,19 +343,94 @@ function ArchiveControl({ asset, onChanged }: { asset: Asset; onChanged: (asset:
   );
 }
 
-function LinkedCI({ asset }: { asset: Asset }) {
+function LinkedCI({ asset, onChanged }: { asset: Asset; onChanged: (asset: Asset) => void }) {
+  const { hasPermission } = useAuth();
   const result = useIncidentQuery<{ ci?: CI }>(`/api/v1/cmdb/assets/${asset.id}/ci`, asset.version);
+  const [choice, setChoice] = useState<Choice | null>(null);
+  const selected = useIncidentQuery<CI>(choice ? `/api/v1/cmdb/cis/${choice.id}` : null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  const [notice, setNotice] = useState<string>();
+  const pending = useRef(false);
+  const canManage = hasPermission("assets.read") && hasPermission("assets.manage") &&
+    hasPermission("cmdb.read") && hasPermission("cmdb.manage") && !asset.archived;
+
+  async function refreshRecords() {
+    result.reload();
+    const updated = await api<Asset>(`/api/v1/cmdb/assets/${asset.id}`);
+    onChanged(updated);
+  }
+
+  async function saveLink(ci: CI | undefined) {
+    if (pending.current) return;
+    if (!result.data?.ci && (!ci || !selected.data || selected.data.archived)) {
+      setError("Wybierz aktywny element konfiguracji CMDB.");
+      return;
+    }
+    const currentCI = result.data?.ci ?? ci!;
+    if (currentCI.archived) {
+      setError("Przywróć element konfiguracji przed zmianą powiązania.");
+      return;
+    }
+    pending.current = true;
+    setBusy(true);
+    setError(undefined);
+    setNotice(undefined);
+    try {
+      await api<CI>(`/api/v1/cmdb/cis/${currentCI.id}/asset`, {
+        method: "PUT",
+        body: jsonBody({
+          version: currentCI.version,
+          asset_id: result.data?.ci ? "0" : asset.id,
+          asset_version: asset.version,
+        }),
+      });
+      setChoice(null);
+      setNotice(result.data?.ci ? "Odłączono element CMDB od zasobu." : "Powiązano zasób z elementem CMDB.");
+      try {
+        await refreshRecords();
+      } catch (cause) {
+        setError(`Powiązanie zapisano, ale nie udało się odświeżyć danych: ${text(cause)}`);
+      }
+    } catch (cause) {
+      setError(cause instanceof ApiError && cause.status === 409
+        ? `${cause.message} Odśwież dane przed ponowieniem.`
+        : text(cause));
+      try { await refreshRecords(); } catch { /* Keep the original operation error visible. */ }
+    } finally {
+      pending.current = false;
+      setBusy(false);
+    }
+  }
+
   if (result.loading) return <section className="panel mt-5"><PageState title="Sprawdzanie powiązania z CMDB…" /></section>;
   return (
     <section className="panel mt-5">
       <h2 className="text-lg font-semibold">Element konfiguracji CMDB</h2>
-      {result.error ? <><PageState title="Nie udało się odczytać powiązania" detail={result.error} tone="error" /><button className="button button--secondary mt-3" onClick={result.reload}>Spróbuj ponownie</button></> : result.data?.ci ? (
+      {(result.error || error) && <PageState title={result.error && !error ? "Nie udało się odczytać powiązania" : "Nie udało się zmienić powiązania"} detail={error ?? result.error} tone="error" />}
+      {notice && <PageState title={notice} tone="success" />}
+      {result.error && <button className="button button--secondary mt-3" onClick={() => { void refreshRecords().then(() => setError(undefined)).catch((cause) => setError(text(cause))); }}>Spróbuj ponownie</button>}
+      {result.data?.ci ? (
         <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-          <strong>{result.data.ci.name}</strong><span className="text-slate-500">{result.data.ci.identifier}</span>
+          <Link className="font-semibold text-sn-teal hover:underline" to={`/cmdb/${result.data.ci.id}`}>{result.data.ci.name}</Link>
+          <span className="text-slate-500">{result.data.ci.identifier}</span>
           <span className="tag">{labels[result.data.ci.class] ?? result.data.ci.class}</span>
           <span className="tag">{labels[result.data.ci.status] ?? result.data.ci.status}</span>
+          {canManage && <button className="button button--secondary" type="button" disabled={busy || result.data.ci.archived} onClick={() => void saveLink(undefined)}>Odłącz</button>}
+          {!canManage && !asset.archived && <p className="muted">Zmiana powiązania wymaga uprawnień do zarządzania zasobami i CMDB.</p>}
+          {asset.archived && <p className="muted">Przywróć zasób, aby zmienić powiązanie.</p>}
+          {!asset.archived && result.data.ci.archived && <p className="muted">Przywróć element CMDB, aby zmienić powiązanie.</p>}
         </div>
-      ) : <p className="mt-2 text-sm text-slate-600">Ten zasób nie jest powiązany z CI.</p>}
+      ) : !result.error ? <p className="mt-2 text-sm text-slate-600">Ten zasób nie jest powiązany z elementem konfiguracji.</p> : null}
+      {canManage && !result.data?.ci && !result.error && (
+        <form className="mt-4 grid gap-3 md:grid-cols-[minmax(16rem,1fr)_auto] md:items-end" onSubmit={(event) => { event.preventDefault(); void saveLink(selected.data); }}>
+          <InventoryChoice label="Wybierz element konfiguracji" value={choice} onChange={(next) => { setChoice(next); setError(undefined); }} endpoint="/api/v1/cmdb/cis?archived=false" disabled={busy} />
+          {selected.error && <PageState title="Nie udało się otworzyć wybranego CI" detail={selected.error} tone="error" />}
+          <button className="button button--primary" disabled={busy || !selected.data || selected.loading || selected.data.archived}>{busy ? "Zapisywanie…" : "Powiąż z CMDB"}</button>
+        </form>
+      )}
+      {!result.data?.ci && !result.error && asset.archived && <p className="mt-2 text-sm text-slate-600">Przywróć zasób, aby móc powiązać go z elementem CMDB.</p>}
+      {!canManage && !asset.archived && !result.data?.ci && !result.error && <p className="mt-2 text-sm text-slate-600">Zmiana powiązania wymaga uprawnień do zarządzania zasobami i CMDB.</p>}
     </section>
   );
 }

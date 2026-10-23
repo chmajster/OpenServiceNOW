@@ -6,7 +6,7 @@ The application exposes `/cmdb` for the CI list, `/cmdb/new` for creation, `/cmd
 
 Built-in CI classes cover physical servers, virtual machines, network devices, user workstations, printers, storage devices, mobile devices, peripherals, UPS units, applications and services. Hardware classes expose typed manufacturer or vendor, model, serial and asset identifiers, plus category-specific details such as CPU/RAM, IP/MAC addresses, printer or storage type, firmware, rack position and UPS capacity. `CONNECTS_TO` records links between networked hardware and VMs. Link a CI to an Asset when purchase cost, warranty or financial lifecycle data is needed; those Asset fields remain the source for that information.
 
-CI details provide basic/class data, optimistic-lock edits, typed relations, bounded dependency-graph navigation, Asset association, incident/request references, archive/restore and shared activity history. A relation or record link checks permissions at both ends. A link does not grant the viewer permission to open the other record. Asset financial or lifecycle state is not copied into the CI's operational status. Graph views represent manually recorded relations; they do not run Discovery or Service Mapping.
+CI and Asset detail workspaces both show the linked record and let authorized users create or remove the one-to-one association. CI details also provide basic/class data, optimistic-lock edits, typed relations, bounded dependency-graph navigation, incident/request references, archive/restore and shared activity history. A relation or record link checks permissions at both ends. A link does not grant the viewer permission to open the other record. Asset financial or lifecycle state is not copied into the CI's operational status. Graph views represent manually recorded relations; they do not run Discovery or Service Mapping.
 
 The import screen uses the persistent `inventory_imports` records and the existing `cmdb.import` worker job. Upload creates a preview and does not mutate CI or Asset records. Apply uses the approved preview/version; users can review a changed plan, cancel an eligible import, and inspect progress and durable per-row outcomes after navigating away or refreshing. The backend contract publishes the active byte, row and column limits. Row-level conflicts are reported as outcomes rather than silently overwriting newer versions.
 
@@ -20,7 +20,7 @@ Grant permissions through the existing organization roles and RBAC administratio
 | Create, edit, archive or restore a CI; edit CI relations | `cmdb.manage` and `cmdb.read` |
 | Read an Asset | `assets.read` or `assets.read_own`, with the Asset service's own object filtering |
 | Create or change an Asset | `assets.manage` and `assets.read` |
-| Link/unlink a CI and Asset | CI write access and Asset write access; both record versions and archive states are checked |
+| Link/unlink a CI and Asset from either detail workspace | `cmdb.manage` + `cmdb.read` and `assets.manage` + `assets.read`; both record versions and archive states are checked |
 | Link/unlink a CI and an incident/request | `cmdb.link`, plus the incident/request domain's current authorization for that exact record |
 | Import CI or Asset CSV | `cmdb.import` plus write access for the selected target (`cmdb.manage` + `cmdb.read` for CI; `assets.manage` + `assets.read` for Asset) |
 

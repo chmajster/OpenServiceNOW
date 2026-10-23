@@ -31,6 +31,10 @@ export function InventoryChoice({
       endpoint={endpoint}
       collection="items"
       cursor="before_id"
+      formatChoice={(item) => {
+        const identifier = item.identifier ?? item.asset_tag;
+        return identifier ? `${identifier} · ${item.name ?? item.id}` : item.name ?? item.id;
+      }}
       disabled={disabled}
     />
   );

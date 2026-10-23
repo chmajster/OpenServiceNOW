@@ -516,3 +516,64 @@ func TestCMDBAssetImportAndRecordIsolation(t *testing.T) {
 		t.Fatal("history replay", count, err)
 	}
 }
+
+func TestAssetCIReverseLookup(t *testing.T) {
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	db, err := database.OpenMySQL(ctx, cfg.MySQL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	tx := database.NewTxManager(db)
+	identities := identity.NewMySQLRepository(db)
+	audits := audit.NewMySQLRepository()
+	suffix := fmt.Sprint(time.Now().UnixNano())
+	root, err := identity.NewBootstrapper(identities, tx, audits).Run(ctx, identity.BootstrapInput{
+		TenantSlug: "itam-" + suffix, TenantName: "ITAM", AdminEmail: "itam" + suffix + "@example.test", AdminName: "Root", AdminPassword: "itam-test-administrator",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_, _ = db.ExecContext(context.Background(), "DELETE FROM audit_events WHERE tenant_id=?", root.TenantID)
+		if _, err := db.ExecContext(context.Background(), "DELETE FROM tenants WHERE id=?", root.TenantID); err != nil {
+			t.Error(err)
+		}
+		if _, err := db.ExecContext(context.Background(), "DELETE FROM users WHERE id=?", root.UserID); err != nil {
+			t.Error(err)
+		}
+	}()
+	permissions, err := identities.ListPermissions(ctx, root.TenantID, root.UserID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	admin := cmdb.Actor{Actor: workrecords.Actor{TenantID: root.TenantID, UserID: root.UserID, RequestID: "itam-link-test"}, Permissions: map[string]bool{}}
+	for _, permission := range permissions {
+		admin.Permissions[permission] = true
+	}
+	service := cmdb.NewService(db, nil, nil)
+	ci, err := service.Save(ctx, admin, 0, cmdb.Record{Fields: cmdb.Fields{
+		Identifier: "itam-workstation", Name: "ITAM Workstation", Class: "WORKSTATION", Status: "ACTIVE", OwnerID: root.UserID, Environment: "PROD",
+	}}, "itam-ci-"+suffix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	asset, err := service.Assets.Save(ctx, admin, 0, assets.Record{Fields: assets.Fields{
+		AssetTag: "itam-laptop-" + suffix, Name: "ITAM Laptop", OwnerID: root.UserID, Vendor: "Lenovo", Model: "T14", State: "IN_USE", Currency: "PLN",
+	}}, "itam-asset-"+suffix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetAsset(ctx, admin, ci.ID, cmdb.AssetLinkInput{Version: ci.Version, AssetID: asset.ID, AssetVersion: asset.Version}); err != nil {
+		t.Fatal(err)
+	}
+	link, err := service.AssetCI(ctx, admin, asset.ID)
+	if err != nil || link.CI == nil || link.CI.ID != ci.ID {
+		t.Fatal("asset workspace should resolve its linked CI", link, err)
+	}
+}
