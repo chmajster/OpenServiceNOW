@@ -1,0 +1,21 @@
+CREATE TABLE service_portfolio_relations (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ tenant_id BIGINT UNSIGNED NOT NULL,
+ source_item_id BIGINT UNSIGNED NOT NULL,
+ target_item_id BIGINT UNSIGNED NULL,
+ target_ci_id BIGINT UNSIGNED NULL,
+ target_item_key BIGINT UNSIGNED GENERATED ALWAYS AS (COALESCE(target_item_id,0)) STORED,
+ target_ci_key BIGINT UNSIGNED GENERATED ALWAYS AS (COALESCE(target_ci_id,0)) STORED,
+ relation_type ENUM('REALIZES','DEPENDS_ON','MAPS_TO_CI') NOT NULL,
+ version BIGINT UNSIGNED NOT NULL DEFAULT 1,
+ created_by BIGINT UNSIGNED NOT NULL,
+ created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ UNIQUE KEY service_portfolio_relation_key(tenant_id,source_item_id,relation_type,target_item_key,target_ci_key),
+ KEY service_portfolio_relation_source(tenant_id,source_item_id,id),
+ KEY service_portfolio_relation_target(tenant_id,target_item_id,id),
+ CONSTRAINT service_portfolio_relation_source FOREIGN KEY(tenant_id,source_item_id) REFERENCES service_portfolio_items(tenant_id,id) ON DELETE CASCADE,
+ CONSTRAINT service_portfolio_relation_target_item FOREIGN KEY(tenant_id,target_item_id) REFERENCES service_portfolio_items(tenant_id,id),
+ CONSTRAINT service_portfolio_relation_target_ci FOREIGN KEY(tenant_id,target_ci_id) REFERENCES cmdb_cis(tenant_id,id),
+ CONSTRAINT service_portfolio_relation_creator FOREIGN KEY(created_by) REFERENCES users(id),
+ CONSTRAINT service_portfolio_relation_one_target CHECK((target_item_id IS NOT NULL AND target_ci_id IS NULL) OR (target_item_id IS NULL AND target_ci_id IS NOT NULL))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

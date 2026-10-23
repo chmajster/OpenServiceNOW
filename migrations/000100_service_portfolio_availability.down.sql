@@ -1,0 +1,1 @@
+DROP TABLE service_portfolio_component_availability;

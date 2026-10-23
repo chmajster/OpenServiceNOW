@@ -45,6 +45,29 @@ func main() {
 	}
 	defer func() { _, _ = m.Close() }()
 
+	if command == "down" || command == "down-all" {
+		version, _, versionErr := m.Version()
+		if errors.Is(versionErr, migrate.ErrNilVersion) {
+			versionErr = nil
+		}
+		if versionErr != nil {
+			logger.Error("read migration version before downgrade", "error", versionErr)
+			os.Exit(1)
+		}
+		for _, table := range portfolioDataTablesForDowngrade(uint(version), command) {
+			var hasData bool
+			query := "SELECT EXISTS(SELECT 1 FROM " + table + " LIMIT 1)"
+			if err := db.QueryRowContext(context.Background(), query).Scan(&hasData); err != nil {
+				logger.Error("check portfolio data before downgrade", "table", table, "error", err)
+				os.Exit(1)
+			}
+			if hasData {
+				logger.Error("migration downgrade blocked to protect tenant service portfolio data; export and explicitly remove the records before retrying", "table", table)
+				os.Exit(1)
+			}
+		}
+	}
+
 	switch command {
 	case "up":
 		err = m.Up()
@@ -62,6 +85,36 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf("migration %s complete\n", command)
+}
+
+func portfolioDataTablesForDowngrade(version uint, command string) []string {
+	tables := map[uint]string{
+		97:  "service_portfolio_org_refs",
+		98:  "service_portfolio_items",
+		99:  "service_portfolio_relations",
+		100: "service_portfolio_component_availability",
+		101: "service_portfolio_offers",
+		102: "service_portfolio_offer_audience_groups",
+	}
+	if command == "down" {
+		if table, ok := tables[version]; ok {
+			return []string{table}
+		}
+		return nil
+	}
+	if command != "down-all" || version < 97 {
+		return nil
+	}
+	if version > 102 {
+		version = 102
+	}
+	result := make([]string, 0, version-96)
+	for current := uint(97); current <= version; current++ {
+		if table, ok := tables[current]; ok {
+			result = append(result, table)
+		}
+	}
+	return result
 }
 
 func usage(logger *slog.Logger) {

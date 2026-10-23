@@ -1,0 +1,1 @@
+DROP TABLE service_portfolio_offer_audience_groups;

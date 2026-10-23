@@ -195,7 +195,7 @@ func (s *Service) Nodes(ctx context.Context, a Actor, kind string, after uint64,
 		if kind == "catalogs" {
 			parent = "c.catalog_id=n.id"
 		}
-		q += " AND EXISTS(SELECT 1 FROM catalog_categories c JOIN catalog_items i ON i.tenant_id=c.tenant_id AND i.category_id=c.id JOIN catalog_item_versions v ON v.tenant_id=i.tenant_id AND v.item_id=i.id AND v.version=i.published_version WHERE c.tenant_id=n.tenant_id AND " + parent + " AND " + AudienceSQL("v") + ")"
+		q += " AND EXISTS(SELECT 1 FROM catalog_categories c JOIN catalog_items i ON i.tenant_id=c.tenant_id AND i.category_id=c.id JOIN catalog_item_versions v ON v.tenant_id=i.tenant_id AND v.item_id=i.id AND v.version=i.published_version WHERE c.tenant_id=n.tenant_id AND " + parent + " AND " + AudienceSQL("v") + " AND " + PortfolioOfferAvailableSQL("i") + ")"
 		args = append(args, a.UserID)
 	}
 	q += " ORDER BY id LIMIT ?"
@@ -402,7 +402,11 @@ func (s *Service) Publish(ctx context.Context, a Actor, id, version uint64, with
 	return item, err
 }
 func AudienceSQL(alias string) string {
-	return "(COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(" + alias + ".definition,'$.audience_group_id')) AS UNSIGNED),0)=0 OR EXISTS(SELECT 1 FROM group_memberships gm JOIN `groups` g ON g.tenant_id=gm.tenant_id AND g.id=gm.group_id AND g.active=TRUE WHERE gm.tenant_id=" + alias + ".tenant_id AND gm.user_id=? AND gm.group_id=CAST(JSON_UNQUOTE(JSON_EXTRACT(" + alias + ".definition,'$.audience_group_id')) AS UNSIGNED)))"
+	return "(COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(" + alias + ".definition,'$.audience_group_id')) AS UNSIGNED),0)=0 OR EXISTS(SELECT 1 FROM group_memberships gm JOIN `groups` g ON g.tenant_id=gm.tenant_id AND g.id=gm.group_id AND g.active=TRUE JOIN tenant_memberships tm ON tm.tenant_id=gm.tenant_id AND tm.user_id=gm.user_id AND tm.active=TRUE JOIN users u ON u.id=gm.user_id AND u.active=TRUE WHERE gm.tenant_id=" + alias + ".tenant_id AND gm.user_id=? AND gm.group_id=CAST(JSON_UNQUOTE(JSON_EXTRACT(" + alias + ".definition,'$.audience_group_id')) AS UNSIGNED)))"
+}
+
+func PortfolioOfferAvailableSQL(itemAlias string) string {
+	return "NOT EXISTS(SELECT 1 FROM service_portfolio_offers po JOIN service_portfolio_items ps ON ps.tenant_id=po.tenant_id AND ps.id=po.parent_service_id WHERE po.tenant_id=" + itemAlias + ".tenant_id AND po.catalog_item_id=" + itemAlias + ".id AND (po.lifecycle<>'ACTIVE' OR ps.lifecycle<>'ACTIVE'))"
 }
 
 // Published pins exactly the version which was offered to the requester. It is
@@ -410,7 +414,7 @@ func AudienceSQL(alias string) string {
 func Published(ctx context.Context, e database.Executor, a Actor, id, version uint64) (Publication, Definition, error) {
 	var category, v uint64
 	var data []byte
-	err := e.QueryRowContext(ctx, "SELECT i.category_id,v.version,v.definition FROM catalog_items i JOIN catalog_item_versions v ON v.tenant_id=i.tenant_id AND v.item_id=i.id AND v.version=i.published_version WHERE i.tenant_id=? AND i.id=? AND "+AudienceSQL("v"), a.TenantID, id, a.UserID).Scan(&category, &v, &data)
+	err := e.QueryRowContext(ctx, "SELECT i.category_id,v.version,v.definition FROM catalog_items i JOIN catalog_item_versions v ON v.tenant_id=i.tenant_id AND v.item_id=i.id AND v.version=i.published_version WHERE i.tenant_id=? AND i.id=? AND "+AudienceSQL("v")+" AND "+PortfolioOfferAvailableSQL("i"), a.TenantID, id, a.UserID).Scan(&category, &v, &data)
 	if err != nil {
 		return Publication{}, Definition{}, Missing(err)
 	}
@@ -456,6 +460,7 @@ func (s *Service) Items(ctx context.Context, a Actor, admin bool, q string, cate
 	}
 	if !admin {
 		query += " AND " + AudienceSQL("v")
+		query += " AND " + PortfolioOfferAvailableSQL("i")
 		args = append(args, a.UserID)
 	}
 	col := "i.draft"

@@ -150,6 +150,18 @@ func main() {
 		logger.Error("register asset catalog projection failed", "error", err)
 		os.Exit(1)
 	}
+	for eventType, label := range map[string]string{
+		"service_portfolio.item.changed":        "Zmieniono usługę w portfelu",
+		"service_portfolio.item.classified":      "Sklasyfikowano CI w portfelu usług",
+		"service_portfolio.offer.changed":        "Zmieniono ofertę usługi",
+		"service_portfolio.org_ref.changed":      "Zmieniono dane organizacyjne portfela",
+		"service_portfolio.availability.changed": "Zmieniono obserwację dostępności",
+	} {
+		if err := dispatcher.Register(eventType, projector.Handler(eventType, label)); err != nil {
+			logger.Error("register service portfolio activity handler", "event_type", eventType, "error", err)
+			os.Exit(1)
+		}
+	}
 	if err := incidents.RegisterEventHandlers(dispatcher, incidents.NewRepository(db), projector); err != nil {
 		logger.Error("register incident activity handlers", "error", err)
 		os.Exit(1)

@@ -61,6 +61,27 @@ func TestOpenAPIContractParsesAndContainsImplementedRoutes(t *testing.T) {
 		"/api/v1/incidents/{incidentID}/transition",
 		"/api/v1/incidents/{incidentID}/priority",
 		"/api/v1/incidents/{incidentID}/history",
+		"/api/v1/service-portfolio/items",
+		"/api/v1/service-portfolio/items/{id}",
+		"/api/v1/service-portfolio/items/{id}/history",
+		"/api/v1/service-portfolio/items/{id}/relations",
+		"/api/v1/service-portfolio/items/{id}/relations/{relationID}",
+		"/api/v1/service-portfolio/items/{id}/lifecycle/{action}",
+		"/api/v1/service-portfolio/items/{id}/retirement-impact",
+		"/api/v1/service-portfolio/items/{id}/impact",
+		"/api/v1/service-portfolio/items/{id}/records/{kind}",
+		"/api/v1/service-portfolio/cis/{ciID}/impact",
+		"/api/v1/service-portfolio/availability/{kind}/{id}",
+		"/api/v1/service-portfolio/availability",
+		"/api/v1/service-portfolio/quality",
+		"/api/v1/service-portfolio/lookups/{kind}",
+		"/api/v1/service-portfolio/classification/preview",
+		"/api/v1/service-portfolio/classification",
+		"/api/v1/service-portfolio/offers",
+		"/api/v1/service-portfolio/offers/{id}",
+		"/api/v1/service-portfolio/offers/{id}/lifecycle/{action}",
+		"/api/v1/service-portfolio/org-refs",
+		"/api/v1/service-portfolio/org-refs/{id}",
 	}
 	for _, path := range requiredPaths {
 		if _, ok := doc.Paths[path]; !ok {
@@ -69,6 +90,59 @@ func TestOpenAPIContractParsesAndContainsImplementedRoutes(t *testing.T) {
 	}
 	if len(doc.Components) == 0 {
 		t.Fatal("OpenAPI components are missing")
+	}
+}
+
+func TestServicePortfolioOpenAPISecurityAndVersionContracts(t *testing.T) {
+	var root map[string]any
+	if err := json.Unmarshal(loadDocument(t), &root); err != nil {
+		t.Fatal(err)
+	}
+	paths := root["paths"].(map[string]any)
+	for _, item := range []struct {
+		path, method string
+		write        bool
+	}{
+		{"/api/v1/service-portfolio/items", "get", false},
+		{"/api/v1/service-portfolio/items", "post", true},
+		{"/api/v1/service-portfolio/items/{id}", "put", true},
+		{"/api/v1/service-portfolio/items/{id}/relations", "post", true},
+		{"/api/v1/service-portfolio/items/{id}/relations/{relationID}", "delete", true},
+		{"/api/v1/service-portfolio/items/{id}/lifecycle/{action}", "post", true},
+		{"/api/v1/service-portfolio/availability", "post", true},
+		{"/api/v1/service-portfolio/classification", "post", true},
+		{"/api/v1/service-portfolio/offers", "post", true},
+		{"/api/v1/service-portfolio/offers/{id}", "put", true},
+	} {
+		operation := paths[item.path].(map[string]any)[item.method].(map[string]any)
+		security := operation["security"].([]any)[0].(map[string]any)
+		if _, ok := security["sessionCookie"]; !ok {
+			t.Fatalf("%s %s lacks session authentication", item.method, item.path)
+		}
+		_, csrf := security["csrfHeader"]
+		if csrf != item.write {
+			t.Fatalf("%s %s CSRF=%t", item.method, item.path, csrf)
+		}
+		if item.write {
+			if _, ok := operation["x-required-permissions"]; !ok {
+				t.Fatalf("%s %s lacks server permission contract", item.method, item.path)
+			}
+		}
+	}
+	for _, schema := range []string{"ServicePortfolioItem", "ServicePortfolioRelation", "ServicePortfolioOffer", "ServicePortfolioAvailability"} {
+		if _, ok := root["components"].(map[string]any)["schemas"].(map[string]any)[schema]; !ok {
+			t.Fatalf("missing service portfolio schema %s", schema)
+		}
+	}
+	for _, pointer := range []string{
+		"#/components/schemas/ServicePortfolioItem/properties/id",
+		"#/components/schemas/ServicePortfolioItem/properties/version",
+		"#/components/schemas/ServicePortfolioOffer/properties/version",
+	} {
+		value, err := resolveLocalRef(root, pointer)
+		if err != nil || value.(map[string]any)["type"] != "string" {
+			t.Fatalf("%s must preserve BIGINT precision as a string", pointer)
+		}
 	}
 }
 

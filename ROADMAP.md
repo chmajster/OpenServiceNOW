@@ -337,6 +337,10 @@ Exit criteria:
 
 The current worktree connects the existing CMDB backend to React routes for CI search/filter/pagination, contract-driven create/edit, direct-link details, typed relations and bounded graph navigation, authorized Asset and incident/request links, shared history, global CI search, and the durable CSV import preview/apply/review/cancel flow. OpenAPI documents the registered CMDB/Asset routes; migration `000090_cmdb_search_indexes` adds search/filter indexes. This does not complete Phase 8: software/license/procurement and broader Asset lifecycle, dynamic class modeling, automated Discovery and Service Mapping remain future work. Verification limits are recorded in STATUS.md.
 
+### Service Portfolio and CSDM subset (Module 05)
+
+The current worktree adds separate tenant-scoped business application, service instance, technical service and business service records, separate service offers, explicit mapping to existing CIs, typed version-checked relations, bounded impact, manual availability and redundancy rules, portfolio quality checks, lifecycle and catalog visibility integration. This is a CSDM-inspired subset, not full CSDM conformance. Migration and real API/database/worker verification remain outstanding; see [docs/service-portfolio.md](docs/service-portfolio.md) and STATUS.md.
+
 CMDB:
 
 - CI classes,

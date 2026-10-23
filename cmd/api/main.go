@@ -30,6 +30,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/rbac"
 	"github.com/chmajster/OpenServiceNOW/internal/requests"
 	"github.com/chmajster/OpenServiceNOW/internal/sla"
+	"github.com/chmajster/OpenServiceNOW/internal/serviceportfolio"
 	"github.com/chmajster/OpenServiceNOW/internal/tenants"
 	"github.com/chmajster/OpenServiceNOW/internal/users"
 	"github.com/chmajster/OpenServiceNOW/internal/workflow"
@@ -117,7 +118,9 @@ func main() {
 	requestService := requests.NewService(db, files)
 	requestHandler := requests.NewHandler(requestService, catalog.NewService(db), identityService)
 	workflowHandler := workflow.NewHandler(workflow.NewService(db, requestService), identityService)
-	inventoryHandler := cmdb.NewHandler(cmdb.NewService(db, files, map[string]cmdb.RecordDomain{"incidents": incidents.NewCMDBDomain(incidentService), "requests": requests.NewCMDBDomain(requestService)}), identityService)
+	cmdbService := cmdb.NewService(db, files, map[string]cmdb.RecordDomain{"incidents": incidents.NewCMDBDomain(incidentService), "requests": requests.NewCMDBDomain(requestService)})
+	inventoryHandler := cmdb.NewHandler(cmdbService, identityService)
+	servicePortfolioHandler := serviceportfolio.NewHandler(serviceportfolio.NewService(db, cmdbService), identityService)
 	notificationHandler := notifications.NewHandler(notifications.NewService(db, cfg.NotificationKey, cfg.SMTPAllowInsecure), outboxRepo)
 
 	healthHandler := health.New(
@@ -158,6 +161,7 @@ func main() {
 			func(r chi.Router) { requests.RegisterRoutes(r, requestHandler, identityMiddleware) },
 			func(r chi.Router) { workflow.RegisterRoutes(r, workflowHandler, identityMiddleware) },
 			func(r chi.Router) { cmdb.RegisterRoutes(r, inventoryHandler, identityMiddleware) },
+			func(r chi.Router) { serviceportfolio.RegisterRoutes(r, servicePortfolioHandler, identityMiddleware) },
 			func(r chi.Router) {
 				sla.RegisterRoutes(r, sla.NewHandler(sla.NewService(db), identityService), identityMiddleware)
 			},
