@@ -55,21 +55,105 @@ type Contract struct {
 }
 
 var Classes = []Class{
-	{"PHYSICAL_SERVER", "Serwer fizyczny", []Attribute{{Key: "manufacturer", Label: "Producent", Type: "TEXT", MaxLength: 160}, {Key: "model", Label: "Model", Type: "TEXT", MaxLength: 160}, {Key: "cpu_cores", Label: "Rdzenie CPU", Type: "INTEGER", Min: 1, Max: 4096}, {Key: "memory_gb", Label: "Pamięć RAM (GB)", Type: "INTEGER", Min: 1, Max: 1048576}, {Key: "os", Label: "System operacyjny", Type: "TEXT", MaxLength: 160}, {Key: "management_ip", Label: "Adres zarządzania", Type: "IP"}}},
-	{"VM", "Maszyna wirtualna", []Attribute{{Key: "vcpu", Label: "vCPU", Type: "INTEGER", Min: 1, Max: 1024}, {Key: "memory_gb", Label: "Pamięć RAM (GB)", Type: "INTEGER", Min: 1, Max: 1048576}, {Key: "os", Label: "System operacyjny", Type: "TEXT", MaxLength: 160}, {Key: "ip_address", Label: "Adres IP", Type: "IP"}}},
-	{"NETWORK_DEVICE", "Urządzenie sieciowe", []Attribute{{Key: "vendor", Label: "Producent", Type: "TEXT", MaxLength: 160}, {Key: "model", Label: "Model", Type: "TEXT", MaxLength: 160}, {Key: "management_ip", Label: "Adres zarządzania", Type: "IP"}, {Key: "port_count", Label: "Liczba portów", Type: "INTEGER", Min: 1, Max: 65535}}},
-	{"APPLICATION", "Aplikacja", []Attribute{{Key: "version", Label: "Wersja aplikacji", Type: "TEXT", MaxLength: 160}, {Key: "url", Label: "Adres aplikacji", Type: "URL"}}},
-	{"SERVICE", "Usługa", []Attribute{{Key: "tier", Label: "Ważność usługi", Type: "SELECT", Options: []string{"CRITICAL", "HIGH", "NORMAL"}}, {Key: "availability_target", Label: "Docelowa dostępność (%)", Type: "NUMBER", Min: 0, Max: 100}}},
+	{"PHYSICAL_SERVER", "Serwer fizyczny", withAttributes(commonHardwareAttributes(), []Attribute{
+		textAttribute("rack", "Szafa rack", 100), integerAttribute("rack_unit", "Jednostka rack (U)", 1, 60),
+		integerAttribute("cpu_cores", "Rdzenie CPU", 1, 4096), integerAttribute("memory_gb", "Pamięć RAM (GB)", 1, 1048576),
+		integerAttribute("storage_gb", "Pojemność dysków (GB)", 1, 1048576), textAttribute("os", "System operacyjny", 160), ipAttribute("management_ip", "Adres zarządzania"),
+	})},
+	{"VM", "Maszyna wirtualna", []Attribute{
+		integerAttribute("vcpu", "vCPU", 1, 1024), integerAttribute("memory_gb", "Pamięć RAM (GB)", 1, 1048576),
+		textAttribute("os", "System operacyjny", 160), ipAttribute("ip_address", "Adres IP"),
+	}},
+	{"NETWORK_DEVICE", "Urządzenie sieciowe", withAttributes([]Attribute{
+		textAttribute("vendor", "Producent", 160), textAttribute("model", "Model", 160), textAttribute("serial_number", "Numer seryjny", 160), textAttribute("asset_tag", "Numer ewidencyjny", 100),
+	}, []Attribute{
+		selectAttribute("device_type", "Typ urządzenia", "ROUTER", "SWITCH", "FIREWALL", "ACCESS_POINT", "LOAD_BALANCER", "MODEM", "CONTROLLER", "OTHER"),
+		textAttribute("firmware_version", "Wersja firmware", 160), ipAttribute("management_ip", "Adres zarządzania"), macAttribute(), integerAttribute("port_count", "Liczba portów", 1, 65535),
+	})},
+	{"WORKSTATION", "Komputer użytkownika", withAttributes(commonHardwareAttributes(), []Attribute{
+		selectAttribute("form_factor", "Rodzaj komputera", "DESKTOP", "LAPTOP", "THIN_CLIENT"),
+		integerAttribute("cpu_cores", "Rdzenie CPU", 1, 4096), integerAttribute("memory_gb", "Pamięć RAM (GB)", 1, 1048576),
+		integerAttribute("storage_gb", "Pojemność dysku (GB)", 1, 1048576), textAttribute("os", "System operacyjny", 160), macAttribute(), ipAttribute("ip_address", "Adres IP"),
+	})},
+	{"PRINTER", "Drukarka", withAttributes(commonHardwareAttributes(), []Attribute{
+		selectAttribute("printer_type", "Typ drukarki", "LASER", "INKJET", "THERMAL", "LABEL", "MULTIFUNCTION", "THREE_D"),
+		ipAttribute("ip_address", "Adres IP"), macAttribute(),
+	})},
+	{"STORAGE_DEVICE", "Urządzenie pamięci masowej", withAttributes(commonHardwareAttributes(), []Attribute{
+		selectAttribute("storage_type", "Rodzaj pamięci masowej", "DAS", "NAS", "SAN"),
+		integerAttribute("capacity_gb", "Pojemność (GB)", 1, 1000000000),
+		selectAttribute("protocol", "Protokół", "SAS", "SATA", "NVME", "FIBRE_CHANNEL", "ISCSI", "NFS", "SMB"), ipAttribute("management_ip", "Adres zarządzania"),
+	})},
+	{"MOBILE_DEVICE", "Urządzenie mobilne", withAttributes(commonHardwareAttributes(), []Attribute{
+		selectAttribute("device_type", "Typ urządzenia", "SMARTPHONE", "TABLET"), textAttribute("os", "System operacyjny", 160),
+	})},
+	{"PERIPHERAL_DEVICE", "Urządzenie peryferyjne", withAttributes(commonHardwareAttributes(), []Attribute{
+		selectAttribute("device_type", "Typ urządzenia", "MONITOR", "DOCK", "SCANNER", "WEBCAM", "KEYBOARD", "MOUSE", "HEADSET", "OTHER"),
+		selectAttribute("connection_type", "Rodzaj połączenia", "USB", "USB_C", "BLUETOOTH", "HDMI", "DISPLAYPORT", "THUNDERBOLT", "OTHER"),
+	})},
+	{"UPS", "Zasilacz awaryjny UPS", withAttributes(commonHardwareAttributes(), []Attribute{
+		integerAttribute("capacity_va", "Moc pozorna (VA)", 1, 1000000), ipAttribute("management_ip", "Adres zarządzania"),
+	})},
+	{"APPLICATION", "Aplikacja", []Attribute{
+		textAttribute("version", "Wersja aplikacji", 160), {Key: "url", Label: "Adres aplikacji", Type: "URL"},
+	}},
+	{"SERVICE", "Usługa", []Attribute{
+		selectAttribute("tier", "Ważność usługi", "CRITICAL", "HIGH", "NORMAL"), {Key: "availability_target", Label: "Docelowa dostępność (%)", Type: "NUMBER", Min: 0, Max: 100},
+	}},
+}
+
+func commonHardwareAttributes() []Attribute {
+	return []Attribute{
+		textAttribute("manufacturer", "Producent", 160), textAttribute("model", "Model", 160),
+		textAttribute("serial_number", "Numer seryjny", 160), textAttribute("asset_tag", "Numer ewidencyjny", 100),
+	}
+}
+
+func withAttributes(common, specific []Attribute) []Attribute {
+	attributes := make([]Attribute, 0, len(common)+len(specific))
+	attributes = append(attributes, common...)
+	return append(attributes, specific...)
+}
+
+func textAttribute(key, label string, maxLength int) Attribute {
+	return Attribute{Key: key, Label: label, Type: "TEXT", MaxLength: maxLength}
+}
+
+func integerAttribute(key, label string, min, max float64) Attribute {
+	return Attribute{Key: key, Label: label, Type: "INTEGER", Min: min, Max: max}
+}
+
+func ipAttribute(key, label string) Attribute {
+	return Attribute{Key: key, Label: label, Type: "IP"}
+}
+
+func macAttribute() Attribute {
+	return Attribute{Key: "mac_address", Label: "Adres MAC", Type: "MAC", MaxLength: 17}
+}
+
+func selectAttribute(key, label string, options ...string) Attribute {
+	return Attribute{Key: key, Label: label, Type: "SELECT", Options: options}
 }
 
 var statuses = []string{"PLANNED", "ACTIVE", "MAINTENANCE", "RETIRED"}
 var environments = []string{"DEV", "TEST", "STAGING", "PROD"}
 
 var relationDefinitions = []RelationDefinition{
-	{Key: "RUNS_ON", Pairs: []RelationPair{{Source: "APPLICATION", Target: "VM"}}},
+	{Key: "RUNS_ON", Pairs: []RelationPair{{Source: "APPLICATION", Target: "VM"}, {Source: "APPLICATION", Target: "PHYSICAL_SERVER"}, {Source: "APPLICATION", Target: "WORKSTATION"}}},
 	{Key: "HOSTED_ON", Pairs: []RelationPair{{Source: "VM", Target: "PHYSICAL_SERVER"}}},
 	{Key: "DEPENDS_ON", Pairs: []RelationPair{{Source: "SERVICE", Target: "APPLICATION"}, {Source: "SERVICE", Target: "SERVICE"}, {Source: "APPLICATION", Target: "APPLICATION"}}},
-	{Key: "CONNECTS_TO", Pairs: []RelationPair{{Source: "NETWORK_DEVICE", Target: "NETWORK_DEVICE"}, {Source: "NETWORK_DEVICE", Target: "PHYSICAL_SERVER"}, {Source: "NETWORK_DEVICE", Target: "VM"}}},
+	{Key: "CONNECTS_TO", Pairs: connectivityPairs()},
+}
+
+func connectivityPairs() []RelationPair {
+	classes := []string{"NETWORK_DEVICE", "PHYSICAL_SERVER", "WORKSTATION", "PRINTER", "STORAGE_DEVICE", "MOBILE_DEVICE", "PERIPHERAL_DEVICE", "UPS", "VM"}
+	pairs := make([]RelationPair, 0, len(classes)*len(classes))
+	for _, source := range classes {
+		for _, target := range classes {
+			pairs = append(pairs, RelationPair{Source: source, Target: target})
+		}
+	}
+	return pairs
 }
 
 // Schema exposes the same validation and import contract used by the services.
@@ -206,6 +290,11 @@ func validateAttribute(rule Attribute, raw json.RawMessage) error {
 			}
 		case "IP":
 			if net.ParseIP(s) == nil {
+				return ErrInvalid
+			}
+		case "MAC":
+			address, err := net.ParseMAC(s)
+			if err != nil || len(address) != 6 || len(s) > rule.MaxLength {
 				return ErrInvalid
 			}
 		case "URL":

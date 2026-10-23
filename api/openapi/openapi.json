@@ -20304,6 +20304,7 @@
               "INTEGER",
               "NUMBER",
               "IP",
+              "MAC",
               "URL",
               "SELECT",
               "USER_REFERENCE"
@@ -20532,6 +20533,12 @@
               "PHYSICAL_SERVER",
               "VM",
               "NETWORK_DEVICE",
+              "WORKSTATION",
+              "PRINTER",
+              "STORAGE_DEVICE",
+              "MOBILE_DEVICE",
+              "PERIPHERAL_DEVICE",
+              "UPS",
               "APPLICATION",
               "SERVICE"
             ]

@@ -4,6 +4,8 @@
 
 The application exposes `/cmdb` for the CI list, `/cmdb/new` for creation, `/cmdb/:id` for direct-link details, and `/cmdb/imports` for CSV imports. List filters, search, sorting cursor and return URL are preserved in browser navigation. The class catalog, required attributes, types and enum values come from `GET /api/v1/cmdb/classes`; the browser does not maintain a second validation schema.
 
+Built-in CI classes cover physical servers, virtual machines, network devices, user workstations, printers, storage devices, mobile devices, peripherals, UPS units, applications and services. Hardware classes expose typed manufacturer or vendor, model, serial and asset identifiers, plus category-specific details such as CPU/RAM, IP/MAC addresses, printer or storage type, firmware, rack position and UPS capacity. `CONNECTS_TO` records links between networked hardware and VMs. Link a CI to an Asset when purchase cost, warranty or financial lifecycle data is needed; those Asset fields remain the source for that information.
+
 CI details provide basic/class data, optimistic-lock edits, typed relations, bounded dependency-graph navigation, Asset association, incident/request references, archive/restore and shared activity history. A relation or record link checks permissions at both ends. A link does not grant the viewer permission to open the other record. Asset financial or lifecycle state is not copied into the CI's operational status. Graph views represent manually recorded relations; they do not run Discovery or Service Mapping.
 
 The import screen uses the persistent `inventory_imports` records and the existing `cmdb.import` worker job. Upload creates a preview and does not mutate CI or Asset records. Apply uses the approved preview/version; users can review a changed plan, cancel an eligible import, and inspect progress and durable per-row outcomes after navigating away or refreshing. The backend contract publishes the active byte, row and column limits. Row-level conflicts are reported as outcomes rather than silently overwriting newer versions.
@@ -34,7 +36,7 @@ Local development applies pending schema changes through the existing migration 
 make migrate-up
 ```
 
-The native and Docker installers apply pending migrations during installation/upgrade. Migration `000090_cmdb_search_indexes` adds indexes to the existing `cmdb_cis` table for tenant-scoped name search and status/environment filters. It adds no records and does not rename identifiers or modify CI/Asset state. Its paired down migration removes only those indexes. Apply the repository's pending migrations with the normal upgrade procedure; do not manually edit migration history.
+The native and Docker installers apply pending migrations during installation/upgrade. Migration `000090_cmdb_search_indexes` adds indexes to the existing `cmdb_cis` table for tenant-scoped name search and status/environment filters. Migration `000096_cmdb_hardware_classes` expands the allowed CI class values so physical device types can be stored. Neither migration adds records or renames identifiers. Apply the repository's pending migrations with the normal upgrade procedure; do not manually edit migration history.
 
 The full API contract is in [`api/openapi/openapi.json`](../api/openapi/openapi.json), under the CMDB and Asset tag. Registered API routes include class metadata, CIs, relations/graph/history, Asset and incident/request links, lookups and durable imports.
 

@@ -32,11 +32,96 @@ func TestClassAttributesAreStrict(t *testing.T) {
 		t.Fatal(string(raw))
 	}
 }
+func TestPhysicalHardwareClassesArePublishedAndTyped(t *testing.T) {
+	wanted := []string{"WORKSTATION", "PRINTER", "STORAGE_DEVICE", "MOBILE_DEVICE", "PERIPHERAL_DEVICE", "UPS"}
+	schema := Schema()
+	classOptions := map[string]bool{}
+	for _, field := range schema.CIFields {
+		if field.Key == "class" {
+			for _, option := range field.Options {
+				classOptions[option] = true
+			}
+		}
+	}
+	for _, key := range wanted {
+		definition, ok := ClassDefinition(key)
+		if !ok || !classOptions[key] {
+			t.Fatalf("hardware class %q is not published", key)
+		}
+		attributeKeys := map[string]bool{}
+		for _, attribute := range definition.Attributes {
+			attributeKeys[attribute.Key] = true
+		}
+		for _, common := range []string{"manufacturer", "model", "serial_number", "asset_tag"} {
+			if !attributeKeys[common] {
+				t.Fatalf("hardware class %q lacks %q", key, common)
+			}
+		}
+	}
+
+	workstation, ok := ClassDefinition("WORKSTATION")
+	if !ok {
+		t.Fatal("workstation class missing")
+	}
+	var macField Attribute
+	for _, field := range workstation.Attributes {
+		if field.Key == "mac_address" {
+			macField = field
+		}
+	}
+	if macField.Type != "MAC" {
+		t.Fatal("workstation MAC address must use the MAC validator")
+	}
+	for _, raw := range []string{`"AA:BB:CC:DD:EE:FF"`, `"aabb.ccdd.eeff"`} {
+		f := validCI()
+		f.Class = "WORKSTATION"
+		f.Attributes = map[string]json.RawMessage{"mac_address": json.RawMessage(raw), "form_factor": json.RawMessage(`"LAPTOP"`)}
+		if _, err := Normalize(f); err != nil {
+			t.Fatalf("valid workstation attributes rejected: %s: %v", raw, err)
+		}
+	}
+	for _, raw := range []string{`"not-a-mac"`, `"01:02:03:04:05:06:07:08"`} {
+		f := validCI()
+		f.Class = "WORKSTATION"
+		f.Attributes = map[string]json.RawMessage{"mac_address": json.RawMessage(raw)}
+		if _, err := Normalize(f); err == nil {
+			t.Fatalf("invalid MAC address accepted: %s", raw)
+		}
+	}
+	f := validCI()
+	f.Class = "WORKSTATION"
+	f.Attributes = map[string]json.RawMessage{"form_factor": json.RawMessage(`"SERVER_RACK"`)}
+	if _, err := Normalize(f); err == nil {
+		t.Fatal("unknown workstation form factor accepted")
+	}
+}
+
+func TestCSVImportAcceptsWorkstationAttributes(t *testing.T) {
+	config := csvConfig()
+	config.Mapping["attributes.form_factor"] = "Type"
+	config.Mapping["attributes.mac_address"] = "MAC"
+	rows, err := ReadCSV([]byte("ID,Name,Class,Status,Owner,Env,CPU,Type,MAC\nws-1,Workstation,WORKSTATION,ACTIVE,1,PROD,8,LAPTOP,00:11:22:33:44:55\n"), config)
+	if err != nil || len(rows) != 1 || rows[0].Error != "" {
+		t.Fatalf("workstation CSV row rejected: %+v, %v", rows, err)
+	}
+	raw, err := csvFields(config, rows[0], nil)
+	if err != nil {
+		t.Fatalf("workstation CSV fields rejected: %v", err)
+	}
+	var fields Fields
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		t.Fatal(err)
+	}
+	if string(fields.Attributes["form_factor"]) != `"LAPTOP"` || string(fields.Attributes["mac_address"]) != `"00:11:22:33:44:55"` {
+		t.Fatalf("workstation attributes were not imported: %s", raw)
+	}
+}
+
 func TestTypedDependencies(t *testing.T) {
 	for _, c := range []struct {
 		kind, source, target string
 		valid                bool
-	}{{"RUNS_ON", "APPLICATION", "VM", true}, {"HOSTED_ON", "VM", "PHYSICAL_SERVER", true}, {"DEPENDS_ON", "SERVICE", "APPLICATION", true}, {"DEPENDS_ON", "SERVICE", "SERVICE", true}, {"RUNS_ON", "VM", "APPLICATION", false}, {"HOSTED_ON", "VM", "VM", false}, {"UNKNOWN", "SERVICE", "APPLICATION", false}} {
+	}{{"RUNS_ON", "APPLICATION", "VM", true}, {"RUNS_ON", "APPLICATION", "PHYSICAL_SERVER", true}, {"RUNS_ON", "APPLICATION", "WORKSTATION", true}, {"HOSTED_ON", "VM", "PHYSICAL_SERVER", true}, {"DEPENDS_ON", "SERVICE", "APPLICATION", true}, {"DEPENDS_ON", "SERVICE", "SERVICE", true}, {"CONNECTS_TO", "WORKSTATION", "NETWORK_DEVICE", true}, {"CONNECTS_TO", "NETWORK_DEVICE", "PRINTER", true}, {"CONNECTS_TO", "PHYSICAL_SERVER", "STORAGE_DEVICE", true}, {"RUNS_ON", "VM", "APPLICATION", false}, {"HOSTED_ON", "VM", "VM", false}, {"UNKNOWN", "SERVICE", "APPLICATION", false}} {
 		if RelationType(c.kind, c.source, c.target) != c.valid {
 			t.Fatal(c)
 		}

@@ -43,7 +43,7 @@ func Ping(ctx context.Context, db *sql.DB, timeout time.Duration) error {
 	return db.PingContext(pingCtx)
 }
 
-const RequiredSchemaVersion uint64 = 85
+const RequiredSchemaVersion uint64 = 96
 
 func SchemaReady(ctx context.Context, db *sql.DB, timeout time.Duration) error {
 	checkCtx, cancel := context.WithTimeout(ctx, timeout)
