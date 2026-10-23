@@ -4,6 +4,7 @@ import { api, ApiError, jsonBody } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { More, PageFeedback } from "../cmdb/components";
 import { labels, text, type Asset, type CI } from "../cmdb/contracts";
+import { InventoryCatalogCombobox } from "../components/InventoryCatalogCombobox";
 import { PageState } from "../components/PageState";
 import { RemoteCombobox, type Choice } from "../components/RemoteCombobox";
 import { useRemotePage } from "../components/useRemotePage";
@@ -282,16 +283,16 @@ function AssetEditor({ initial, onCancel, onSaved }: { initial?: Asset; onCancel
   const allowedStates = initial ? [initial.state, ...(transitions[initial.state] ?? [])] : stateOptions;
   return (
     <form className="panel space-y-5" onSubmit={(event) => void submit(event)}>
-      <div><h2 className="text-xl font-semibold">{initial ? "Edycja zasobu" : "Nowy zasób IT"}</h2><p className="muted">Dane zapisywane są w ewidencji organizacji; każda zmiana trafia do audytu.</p></div>
+      <div><h2 className="text-xl font-semibold">{initial ? "Edycja zasobu" : "Nowy zasób IT"}</h2><p className="muted">Dane zapisywane są w ewidencji organizacji; każda zmiana trafia do audytu.</p><p className="muted text-sm">Producent, model i lokalizacja korzystają ze wspólnych list organizacji. Wybierz zapisaną wartość albo dodaj nową z pola; właściciela wyszukasz po nazwisku lub e-mailu.</p></div>
       {error && <PageState title="Nie zapisano zasobu" detail={error} tone="error" />}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <label>Tag zasobu<input required maxLength={100} pattern="[A-Za-z0-9][A-Za-z0-9._:-]{0,99}" title="Użyj liter, cyfr oraz znaków . _ : -; tag musi zaczynać się od litery lub cyfry." value={draft.asset_tag} onChange={(event) => set("asset_tag", event.target.value)} /></label>
         <label>Nazwa<input required maxLength={160} value={draft.name} onChange={(event) => set("name", event.target.value)} /></label>
-        <RemoteCombobox kind="users" label="Właściciel" value={draft.owner} onChange={(owner) => set("owner", owner)} endpoint="/api/v1/cmdb/lookups/users" collection="items" cursor="before_id" disabled={busy} />
+        <RemoteCombobox kind="users" label="Właściciel" value={draft.owner} onChange={(owner) => set("owner", owner)} endpoint="/api/v1/cmdb/lookups/users" collection="items" cursor="before_id" maxQueryLength={254} disabled={busy} />
         <label>Numer seryjny<input maxLength={128} pattern="[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}" title="Numer seryjny może zawierać litery, cyfry oraz znaki . _ : / - ." value={draft.serial_number} onChange={(event) => set("serial_number", event.target.value)} /></label>
-        <label>Producent<input maxLength={160} value={draft.vendor} onChange={(event) => set("vendor", event.target.value)} /></label>
-        <label>Model<input maxLength={160} value={draft.model} onChange={(event) => set("model", event.target.value)} /></label>
-        <label>Lokalizacja<input maxLength={160} value={draft.location} onChange={(event) => set("location", event.target.value)} /></label>
+        <InventoryCatalogCombobox kind="manufacturers" value={draft.vendor} onChange={(vendor) => { setDraft((current) => ({ ...current, vendor, model: vendor === current.vendor ? current.model : "" })); setError(undefined); }} disabled={busy} />
+        <InventoryCatalogCombobox kind="models" value={draft.model} manufacturer={draft.vendor} onChange={(model) => set("model", model)} disabled={busy} />
+        <InventoryCatalogCombobox kind="locations" value={draft.location} onChange={(location) => set("location", location)} disabled={busy} />
         <label>Stan<select value={draft.state} onChange={(event) => set("state", event.target.value)}>{allowedStates.map((value) => <option key={value} value={value}>{labels[value]}</option>)}</select></label>
         <label>Data zakupu<input type="date" value={draft.purchase_date} onChange={(event) => set("purchase_date", event.target.value)} /></label>
         <label>Koszt zakupu<input inputMode="decimal" maxLength={13} placeholder="0,00" value={draft.purchase_cost} onChange={(event) => set("purchase_cost", event.target.value.replace(",", "."))} /></label>

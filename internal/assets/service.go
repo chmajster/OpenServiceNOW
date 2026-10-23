@@ -157,6 +157,19 @@ func (s *Service) SaveInTx(ctx context.Context, e database.Executor, a Actor, id
 		}
 		return Record{}, fmt.Errorf("%w: właściciel nie jest aktywnym członkiem organizacji", ErrInvalid)
 	}
+	for _, item := range []struct {
+		kind         CatalogKind
+		value        string
+		manufacturer string
+	}{
+		{CatalogManufacturer, in.Vendor, ""},
+		{CatalogModel, in.Model, in.Vendor},
+		{CatalogLocation, in.Location, ""},
+	} {
+		if err := ensureCatalogValue(ctx, e, a.TenantID, item.kind, item.value, item.manufacturer); err != nil {
+			return Record{}, err
+		}
+	}
 	var before *Record
 	if id > 0 {
 		old, err := s.GetInTx(ctx, e, a, id, true)

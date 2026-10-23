@@ -183,14 +183,47 @@ func TestCMDBAssetImportAndRecordIsolation(t *testing.T) {
 	if _, err := s.AddRelation(ctx, reader, vm.ID, cmdb.RelationInput{Version: fresh(vm.ID).Version, TargetID: server.ID, TargetVersion: fresh(server.ID).Version, Type: "HOSTED_ON"}); !errors.Is(err, workrecords.ErrForbidden) {
 		t.Fatal("read-only mutation", err)
 	}
+	vendor, err := s.Assets.CreateCatalogValue(ctx, admin, assets.CatalogManufacturer, "Lenovo", "")
+	if err != nil {
+		t.Fatal("create manufacturer", err)
+	}
+	duplicateVendor, err := s.Assets.CreateCatalogValue(ctx, admin, assets.CatalogManufacturer, " lenovo ", "")
+	if err != nil || duplicateVendor.ID != vendor.ID {
+		t.Fatal("manufacturer should be unique within tenant", duplicateVendor, err)
+	}
+	if _, err := s.Assets.CreateCatalogValue(ctx, admin, assets.CatalogModel, "ThinkPad T14", "Unknown vendor"); !errors.Is(err, assets.ErrInvalid) {
+		t.Fatal("model should require a known manufacturer", err)
+	}
+	model, err := s.Assets.CreateCatalogValue(ctx, admin, assets.CatalogModel, "ThinkPad T14", vendor.Value)
+	if err != nil {
+		t.Fatal("create model", err)
+	}
+	if _, err := s.Assets.CreateCatalogValue(ctx, admin, assets.CatalogLocation, "Warszawa", ""); err != nil {
+		t.Fatal("create location", err)
+	}
+	models, err := s.Assets.ListCatalog(ctx, admin, assets.CatalogFilter{Kind: assets.CatalogModel, Manufacturer: "Lenovo", Limit: 25})
+	if err != nil || len(models.Items) != 1 || models.Items[0].ID != model.ID {
+		t.Fatal("manufacturer-scoped model lookup", models, err)
+	}
+	foreignCatalog, err := s.Assets.ListCatalog(ctx, other, assets.CatalogFilter{Kind: assets.CatalogManufacturer, Limit: 25})
+	if err != nil || len(foreignCatalog.Items) != 0 {
+		t.Fatal("catalog must be tenant scoped", foreignCatalog, err)
+	}
+	if _, err := s.Assets.CreateCatalogValue(ctx, operator, assets.CatalogManufacturer, "Forbidden", ""); !errors.Is(err, workrecords.ErrForbidden) {
+		t.Fatal("catalog mutation must require inventory management", err)
+	}
 	invalid := fresh(vm.ID)
 	invalid.Class = "APPLICATION"
 	if _, err := s.Save(ctx, admin, vm.ID, invalid, ""); !errors.Is(err, cmdb.ErrConflict) {
 		t.Fatal("class mutation", err)
 	}
-	asset, err := s.Assets.Save(ctx, admin, 0, assets.Record{Fields: assets.Fields{AssetTag: "hardware", Name: "Server Asset", OwnerID: admin.UserID, SerialNumber: "serial1", State: "IN_USE", Currency: "PLN", PurchaseCost: "9999999999.99"}}, "create-hardware")
+	asset, err := s.Assets.Save(ctx, admin, 0, assets.Record{Fields: assets.Fields{AssetTag: "hardware", Name: "Server Asset", OwnerID: admin.UserID, SerialNumber: "serial1", Vendor: "Dell", Model: "Latitude 7440", Location: "Gdańsk", State: "IN_USE", Currency: "PLN", PurchaseCost: "9999999999.99"}}, "create-hardware")
 	if err != nil {
 		t.Fatal(err)
+	}
+	dellCatalog, err := s.Assets.ListCatalog(ctx, admin, assets.CatalogFilter{Kind: assets.CatalogManufacturer, Query: "Dell", Limit: 25})
+	if err != nil || len(dellCatalog.Items) != 1 {
+		t.Fatal("asset save should register a reusable manufacturer", dellCatalog, err)
 	}
 	if _, err = s.SetAsset(ctx, admin, vm.ID, cmdb.AssetLinkInput{Version: fresh(vm.ID).Version, AssetID: asset.ID, AssetVersion: asset.Version}); err != nil {
 		t.Fatal(err)
@@ -412,6 +445,19 @@ func TestCMDBAssetImportAndRecordIsolation(t *testing.T) {
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, r)
 		return w
+	}
+	lookupEmail := "cmdb" + suffix + "@example.test"
+	if w := apiCall("GET", "/api/v1/cmdb/lookups/users?q="+lookupEmail, nil, false); w.Code != 200 || !strings.Contains(w.Body.String(), lookupEmail) || !strings.Contains(w.Body.String(), "display_name") {
+		t.Fatal("owner lookup should search by tenant user email", w.Code, w.Body.String())
+	}
+	if w := apiCall("POST", "/api/v1/cmdb/lookups/assets/manufacturers", map[string]string{"value": "API Manufacturer"}, false); w.Code != 403 {
+		t.Fatal("catalog creation requires CSRF", w.Code, w.Body.String())
+	}
+	if w := apiCall("POST", "/api/v1/cmdb/lookups/assets/manufacturers", map[string]string{"value": "API Manufacturer"}, true); w.Code != 200 || !strings.Contains(w.Body.String(), "API Manufacturer") {
+		t.Fatal("catalog creation", w.Code, w.Body.String())
+	}
+	if w := apiCall("GET", "/api/v1/cmdb/lookups/assets/manufacturers?q=API", nil, false); w.Code != 200 || !strings.Contains(w.Body.String(), "API Manufacturer") {
+		t.Fatal("catalog search", w.Code, w.Body.String())
 	}
 	path := fmt.Sprintf("/api/v1/cmdb/cis/%d", server.ID)
 	if w := apiCall("GET", path, nil, false); w.Code != 200 || !strings.Contains(w.Body.String(), fmt.Sprintf(`"id":"%d"`, server.ID)) {

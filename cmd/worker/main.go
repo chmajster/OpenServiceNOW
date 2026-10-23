@@ -146,6 +146,10 @@ func main() {
 			os.Exit(1)
 		}
 	}
+	if err := dispatcher.Register("asset_catalog_value.changed", projector.Handler("asset_catalog_value.changed", "Dodano wpis do słownika assetów")); err != nil {
+		logger.Error("register asset catalog projection failed", "error", err)
+		os.Exit(1)
+	}
 	if err := incidents.RegisterEventHandlers(dispatcher, incidents.NewRepository(db), projector); err != nil {
 		logger.Error("register incident activity handlers", "error", err)
 		os.Exit(1)

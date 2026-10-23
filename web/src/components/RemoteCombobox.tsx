@@ -16,6 +16,7 @@ export function RemoteCombobox({
   className,
   collection,
   cursor = "after_id",
+  maxQueryLength = 160,
 }: {
   kind: ChoiceKind;
   label: string;
@@ -28,6 +29,7 @@ export function RemoteCombobox({
   className?: string;
   collection?: string;
   cursor?: string;
+  maxQueryLength?: number;
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -62,7 +64,7 @@ export function RemoteCombobox({
             open && index >= 0 ? `${id}-option-${index}` : undefined
           }
           autoComplete="off"
-          maxLength={200}
+          maxLength={maxQueryLength}
           disabled={disabled}
           value={open ? query : (value?.label ?? "")}
           onFocus={() => {

@@ -56,6 +56,8 @@ func RegisterRoutes(r chi.Router, h *Handler, m *identity.Middleware) {
 		r.Use(m.Authenticate, h.context)
 		r.Get("/classes", h.handle("classes"))
 		r.Get("/lookups/users", h.handle("users"))
+		r.Get("/lookups/assets/{kind:manufacturers|models|locations}", h.handle("asset.catalog.list"))
+		r.With(m.RequireCSRF).Post("/lookups/assets/{kind:manufacturers|models|locations}", h.handle("asset.catalog.create"))
 		r.Get("/cis", h.handle("ci.list"))
 		r.Get("/cis/{id}", h.handle("ci.get"))
 		r.With(m.RequireCSRF).Post("/cis", h.handle("ci.save"))
@@ -166,6 +168,27 @@ func (h *Handler) handle(action string) http.HandlerFunc {
 			v = map[string]any{"classes": Classes, "ci_import_fields": ImportFields("CI"), "asset_import_fields": ImportFields("ASSET"), "max_csv_bytes": MaxCSVBytes, "max_csv_rows": MaxCSVRows, "max_csv_columns": MaxCSVColumns}
 		case "users":
 			v, err = h.users(ctx, a, q.Get("q"), before, limit)
+		case "asset.catalog.list":
+			kind, valid := assets.CatalogKindFromPath(chi.URLParam(r, "kind"))
+			if !valid {
+				err = ErrInvalid
+				break
+			}
+			v, err = h.service.Assets.ListCatalog(ctx, a, assets.CatalogFilter{Kind: kind, Query: q.Get("q"), Manufacturer: q.Get("manufacturer"), Before: before, Limit: limit})
+		case "asset.catalog.create":
+			kind, valid := assets.CatalogKindFromPath(chi.URLParam(r, "kind"))
+			if !valid {
+				err = ErrInvalid
+				break
+			}
+			var body struct {
+				Value        string `json:"value"`
+				Manufacturer string `json:"manufacturer"`
+			}
+			if !decode(w, r, &body) {
+				return
+			}
+			v, err = h.service.Assets.CreateCatalogValue(ctx, a, kind, body.Value, body.Manufacturer)
 		case "ci.list":
 			var owner uint64
 			owner, err = number(q.Get("owner_id"), true)
@@ -349,14 +372,14 @@ func (h *Handler) users(ctx context.Context, a Actor, q string, before uint64, l
 	if !Writable(a) && !assets.Writable(a) {
 		return nil, workrecords.ErrForbidden
 	}
-	if !assets.Text(q, 0, 160) {
+	if !assets.Text(q, 0, 254) {
 		return nil, ErrInvalid
 	}
-	query := `SELECT u.id,u.display_name FROM users u JOIN tenant_memberships m ON m.user_id=u.id WHERE m.tenant_id=? AND m.active=TRUE AND u.active=TRUE`
+	query := `SELECT u.id,u.display_name,u.email,u.active,m.active FROM users u JOIN tenant_memberships m ON m.user_id=u.id WHERE m.tenant_id=? AND m.active=TRUE AND u.active=TRUE`
 	args := []any{a.TenantID}
 	if q != "" {
-		query += " AND u.display_name LIKE ?"
-		args = append(args, "%"+q+"%")
+		query += " AND (LOCATE(?,u.display_name)>0 OR LOCATE(?,u.email)>0)"
+		args = append(args, q, q)
 	}
 	if before > 0 {
 		query += " AND u.id<?"
@@ -370,13 +393,16 @@ func (h *Handler) users(ctx context.Context, a Actor, q string, before uint64, l
 	}
 	defer rows.Close()
 	type choice struct {
-		ID   uint64 `json:"id,string"`
-		Name string `json:"name"`
+		ID               uint64 `json:"id,string"`
+		DisplayName      string `json:"display_name"`
+		Email            string `json:"email"`
+		UserActive       bool   `json:"user_active"`
+		MembershipActive bool   `json:"membership_active"`
 	}
 	items := []choice{}
 	for rows.Next() {
 		var c choice
-		if err = rows.Scan(&c.ID, &c.Name); err != nil {
+		if err = rows.Scan(&c.ID, &c.DisplayName, &c.Email, &c.UserActive, &c.MembershipActive); err != nil {
 			return nil, err
 		}
 		items = append(items, c)
