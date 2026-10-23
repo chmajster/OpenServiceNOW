@@ -95,6 +95,18 @@ const navigationGroups: NavGroup[] = [
         icon: "grid",
         anyPermissions: ["cmdb.read", "cmdb.read_own"],
       },
+      {
+        to: "/service-portfolio",
+        label: "Portfel usług (CSDM)",
+        icon: "activity",
+        anyPermissions: ["service_portfolio.read", "service_portfolio.read_own", "service_portfolio.manage"],
+      },
+      {
+        to: "/service-portfolio/offers",
+        label: "Oferty usług",
+        icon: "grid",
+        anyPermissions: ["service_portfolio.offer.read", "catalog.read", "service_portfolio.read", "service_portfolio.manage"],
+      },
     ],
   },
   {
@@ -383,7 +395,8 @@ export function AppShell() {
   ].some(
     (root) =>
       location.pathname === root || location.pathname.startsWith(root + "/"),
-  ) || isAssetRoute || isCMDBRoute;
+  ) || isAssetRoute || isCMDBRoute || location.pathname === "/service-portfolio" || location.pathname.startsWith("/service-portfolio/");
+  const isPortfolioRoute = location.pathname === "/service-portfolio" || location.pathname.startsWith("/service-portfolio/");
 
   const query = navigationFilter.trim().toLocaleLowerCase("pl-PL");
   const visibleGroups = navigationGroups
@@ -642,7 +655,11 @@ export function AppShell() {
               ) : isCollectionRoute ? (
                 <>
                   <span aria-hidden="true">/</span>
-                  {location.pathname.split("/").length === 2 || location.pathname === "/cmdb/imports" ? (
+                  {isPortfolioRoute ? (
+                    location.pathname === "/service-portfolio" || location.pathname === "/service-portfolio/offers" || location.pathname === "/service-portfolio/quality" || location.pathname === "/service-portfolio/classification" || location.pathname === "/service-portfolio/impact/ci" ? (
+                      <span aria-current="page">{location.pathname.endsWith("/offers") ? "Oferty usług" : location.pathname.endsWith("/quality") ? "Jakość danych" : location.pathname.endsWith("/classification") ? "Klasyfikacja CI" : current?.label ?? "Portfel usług (CSDM)"}</span>
+                    ) : <><Link to="/service-portfolio">{current?.label ?? "Portfel usług (CSDM)"}</Link><span aria-hidden="true">/</span><span aria-current="page">#{location.pathname.split("/").at(-1)}</span></>
+                  ) : location.pathname.split("/").length === 2 || location.pathname === "/cmdb/imports" ? (
                     <span aria-current="page">{current?.label}</span>
                   ) : (
                     <>

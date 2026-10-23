@@ -67,6 +67,12 @@ const CMDBImportsPage = lazy(() =>
 const CMDBImportDetailPage = lazy(() =>
   import("./pages/CMDBImportsPage").then((m) => ({ default: m.CMDBImportDetailPage })),
 );
+const ServicePortfolioListPage = lazy(() => import("./pages/ServicePortfolioPage").then((m) => ({ default: m.ServicePortfolioListPage })));
+const ServicePortfolioDetailPage = lazy(() => import("./pages/ServicePortfolioPage").then((m) => ({ default: m.ServicePortfolioDetailPage })));
+const ServicePortfolioOffersPage = lazy(() => import("./pages/ServicePortfolioPage").then((m) => ({ default: m.ServicePortfolioOffersPage })));
+const ServicePortfolioQualityPage = lazy(() => import("./pages/ServicePortfolioPage").then((m) => ({ default: m.ServicePortfolioQualityPage })));
+const ServicePortfolioClassificationPage = lazy(() => import("./pages/ServicePortfolioPage").then((m) => ({ default: m.ServicePortfolioClassificationPage })));
+const ServicePortfolioCIImpactPage = lazy(() => import("./pages/ServicePortfolioPage").then((m) => ({ default: m.ServicePortfolioCIImpactPage })));
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -98,6 +104,12 @@ const router = createBrowserRouter(
         <Route path="cmdb/imports" element={<RequirePermission permission="cmdb.import"><CMDBImportsPage /></RequirePermission>} />
         <Route path="cmdb/imports/:importID" element={<RequirePermission permission="cmdb.import"><CMDBImportDetailPage /></RequirePermission>} />
         <Route path="cmdb/:ciID" element={<RequireAnyPermission permissions={["cmdb.read", "cmdb.read_own"]}><CMDBDetailPage /></RequireAnyPermission>} />
+        <Route path="service-portfolio" element={<RequireAnyPermission permissions={["service_portfolio.read", "service_portfolio.read_own", "service_portfolio.manage"]}><ServicePortfolioListPage /></RequireAnyPermission>} />
+        <Route path="service-portfolio/offers" element={<RequireAnyPermission permissions={["service_portfolio.offer.read", "catalog.read", "service_portfolio.read", "service_portfolio.manage"]}><ServicePortfolioOffersPage /></RequireAnyPermission>} />
+        <Route path="service-portfolio/quality" element={<RequireAnyPermission permissions={["service_portfolio.read", "service_portfolio.read_own", "service_portfolio.manage"]}><ServicePortfolioQualityPage /></RequireAnyPermission>} />
+        <Route path="service-portfolio/classification" element={<RequireAnyPermission permissions={["service_portfolio.manage"]}><ServicePortfolioClassificationPage /></RequireAnyPermission>} />
+        <Route path="service-portfolio/impact/ci/:ciID" element={<RequireAnyPermission permissions={["service_portfolio.read", "service_portfolio.read_own", "service_portfolio.manage"]}><RequireAnyPermission permissions={["cmdb.read", "cmdb.read_own"]}><ServicePortfolioCIImpactPage /></RequireAnyPermission></RequireAnyPermission>} />
+        <Route path="service-portfolio/:id" element={<RequireAnyPermission permissions={["service_portfolio.read", "service_portfolio.read_own", "service_portfolio.manage"]}><ServicePortfolioDetailPage /></RequireAnyPermission>} />
         <Route path="catalog" element={<CatalogPage />} />
         <Route path="catalog/:itemID" element={<CatalogPage />} />
         <Route path="requests" element={<RequestsPage />} />
