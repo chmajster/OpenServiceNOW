@@ -7,16 +7,24 @@ import { useIncidentTitleFocus } from "../incidents/hooks";
 import type { IncidentSummary } from "../incidents/contracts";
 import type { Request, Publication } from "../requests/contracts";
 import type { Asset } from "../cmdb/contracts";
-import type { TenantUser } from "../api/types";
+import type { Group, TenantUser } from "../api/types";
+import type { Task } from "../requests/contracts";
 
-type SearchItem = IncidentSummary | Request | Publication | Asset | TenantUser;
+type SearchItem =
+  | IncidentSummary
+  | Request
+  | Publication
+  | Asset
+  | TenantUser
+  | Group
+  | Task;
 
 export function GlobalSearchPage() {
   const heading = useIncidentTitleFocus();
   const [params] = useSearchParams();
   const query = (params.get("q") ?? "").trim();
   const { hasPermission } = useAuth();
-  if (!query) return <PageState title="Wpisz frazę w wyszukiwarce globalnej" detail="Wyszukiwarka znajduje dostępne zgłoszenia, zasoby, usługi katalogowe i użytkowników." />;
+  if (!query) return <PageState title="Wpisz frazę w wyszukiwarce globalnej" detail="Wyszukuj incydenty, wnioski, zadania, usługi katalogowe, assety, użytkowników i grupy, do których masz dostęp." />;
   if (Array.from(query).length > 160) return <PageState title="Fraza jest za długa" detail="Wyszukiwanie obsługuje maksymalnie 160 znaków." tone="error" />;
 
   const q = new URLSearchParams({ q: query, limit: "10" });
@@ -24,8 +32,8 @@ export function GlobalSearchPage() {
   if (hasPermission("incident.read") || hasPermission("incident.read_own")) {
     buckets.push(<SearchBucket<IncidentSummary> key="incidents" title="Incydenty" path={`/api/v1/incidents/?${q}`} collection="incidents" cursor="after_id" allTo={`/incidents?q=${encodeURIComponent(query)}`} render={(item) => <Link to={`/incidents/${item.id}`}><strong>{item.number}</strong><span>{item.title}</span><small>{item.state} · P{item.priority}</small></Link>} />);
   }
-  if (hasPermission("request.read_own") || hasPermission("request.manage")) {
-    const view = hasPermission("request.manage") ? "all" : "mine";
+  if (hasPermission("request.read_own") || hasPermission("request.fulfill") || hasPermission("request.manage")) {
+    const view = hasPermission("request.manage") || hasPermission("request.fulfill") ? "all" : "mine";
     const requestQuery = new URLSearchParams({ q: query, limit: "10", view });
     buckets.push(<SearchBucket<Request> key="requests" title="Wnioski" path={`/api/v1/requests/?${requestQuery}`} collection="items" cursor="before_id" allTo={`/requests?q=${encodeURIComponent(query)}&view=${view}`} render={(item) => <Link to={`/requests/${item.id}`}><strong>{item.number}</strong><span>{item.items.map((entry) => entry.snapshot.title).join(", ") || "Wniosek o usługę"}</span><small>{item.state}</small></Link>} />);
   }
@@ -36,8 +44,15 @@ export function GlobalSearchPage() {
     const assetQuery = new URLSearchParams({ q: query, limit: "10" });
     buckets.push(<SearchBucket<Asset> key="assets" title="Zasoby IT" path={`/api/v1/cmdb/assets?${assetQuery}`} collection="items" cursor="before_id" allTo={`/assets?q=${encodeURIComponent(query)}`} render={(item) => <Link to={`/assets/${item.id}`}><strong>{item.asset_tag} · {item.name}</strong><span>{[item.vendor, item.model, item.serial_number].filter(Boolean).join(" · ")}</span><small>{item.owner_name} · {item.state}{item.archived ? " · Archiwum" : ""}</small></Link>} />);
   }
+  if (hasPermission("request.fulfill") || hasPermission("request.manage")) {
+    const taskQuery = new URLSearchParams({ q: query, limit: "10", view: "group" });
+    buckets.push(<SearchBucket<Task> key="tasks" title="Zadania realizacji" path={`/api/v1/fulfillment/?${taskQuery}`} collection="items" cursor="before_id" allTo={`/fulfillment?q=${encodeURIComponent(query)}&view=group`} render={(item) => <Link to={`/fulfillment/${item.id}`}><strong>{item.number} · {item.request_number}</strong><span>{item.title}</span><small>{item.state} · {item.group_name || "Bez grupy"}{item.assigned_name ? ` · ${item.assigned_name}` : ""}</small></Link>} />);
+  }
+  if (hasPermission("admin.rbac.manage")) {
+    buckets.push(<SearchBucket<Group> key="groups" title="Grupy" path={`/api/v1/admin/rbac/groups?${q}`} collection="groups" cursor="after_id" allTo={`/rbac?kind=groups&q=${encodeURIComponent(query)}`} render={(item) => <Link to={`/rbac?${new URLSearchParams({ kind: "groups", id: item.id })}`}><strong>{item.name}</strong><span>{item.description || "Grupa organizacji"}</span><small>{item.member_count} członków</small></Link>} />);
+  }
   if (hasPermission("admin.users.manage")) {
-    buckets.push(<SearchBucket<TenantUser> key="users" title="Użytkownicy" path={`/api/v1/admin/users/?${q}`} collection="users" cursor="after_id" allTo={`/users?q=${encodeURIComponent(query)}`} render={(item) => <Link to={`/users?q=${encodeURIComponent(query)}`}><strong>{item.display_name}</strong><span>{item.email}</span><small>{item.membership_active ? "Aktywne członkostwo" : "Nieaktywne członkostwo"}</small></Link>} />);
+    buckets.push(<SearchBucket<TenantUser> key="users" title="Użytkownicy" path={`/api/v1/admin/users/?${q}`} collection="users" cursor="after_id" allTo={`/users?q=${encodeURIComponent(query)}`} render={(item) => <Link to={`/users/${item.id}`}><strong>{item.display_name}</strong><span>{item.email}</span><small>{item.membership_active ? "Aktywne członkostwo" : "Nieaktywne członkostwo"}</small></Link>} />);
   }
 
   return (

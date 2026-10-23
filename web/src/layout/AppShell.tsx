@@ -461,7 +461,7 @@ export function AppShell() {
             <input
               type="search"
               aria-label="Szukaj globalnie"
-              placeholder="Szukaj zgłoszeń, zasobów…"
+              placeholder="Szukaj INC, grup, użytkowników, assetów, zadań…"
               value={globalSearch}
               maxLength={160}
               onChange={(event) => setGlobalSearch(event.target.value)}
