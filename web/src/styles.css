@@ -287,6 +287,15 @@ textarea {
   color: #344054;
 }
 
+.button--danger {
+  background: #b42318;
+  color: #fff;
+}
+
+.button--danger:hover:not(:disabled) {
+  background: #912018;
+}
+
 .button--ghost {
   border-color: #2c3749;
   background: transparent;
@@ -1574,6 +1583,71 @@ body {
 
 .button--primary:hover:not(:disabled) {
   background: var(--primary-hover);
+}
+
+.cmdb-tabs {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  margin: 1.25rem 0;
+}
+
+.cmdb-tabs button {
+  flex: 0 0 auto;
+  border-bottom: 2px solid transparent;
+  padding: 0.7rem 0.85rem;
+  color: #475467;
+}
+
+.cmdb-tabs button[aria-selected="true"] {
+  border-bottom-color: var(--primary);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.cmdb-graph {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  background: #f8fafc;
+  padding: 0.75rem;
+}
+
+.cmdb-graph svg {
+  display: block;
+  min-width: 27.5rem;
+  width: 100%;
+  height: auto;
+  color: #52657a;
+}
+
+.cmdb-graph line {
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.cmdb-graph rect {
+  fill: #fff;
+  stroke: #94a3b8;
+  stroke-width: 1.5;
+}
+
+.cmdb-graph text {
+  fill: #1f2937;
+  font-size: 12px;
+}
+
+.cmdb-node-list,
+.cmdb-edge-list {
+  display: grid;
+  gap: 0.5rem;
+  padding-left: 1.25rem;
+}
+
+.cmdb-node-list li,
+.cmdb-edge-list li {
+  overflow-wrap: anywhere;
 }
 
 input,

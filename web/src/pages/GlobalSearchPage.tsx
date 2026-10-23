@@ -6,7 +6,7 @@ import { useRemotePage } from "../components/useRemotePage";
 import { useIncidentTitleFocus } from "../incidents/hooks";
 import type { IncidentSummary } from "../incidents/contracts";
 import type { Request, Publication } from "../requests/contracts";
-import type { Asset } from "../cmdb/contracts";
+import type { Asset, CI } from "../cmdb/contracts";
 import type { Group, TenantUser } from "../api/types";
 import type { Task } from "../requests/contracts";
 
@@ -15,6 +15,7 @@ type SearchItem =
   | Request
   | Publication
   | Asset
+  | CI
   | TenantUser
   | Group
   | Task;
@@ -43,6 +44,11 @@ export function GlobalSearchPage() {
   if (hasPermission("assets.read") || hasPermission("assets.read_own")) {
     const assetQuery = new URLSearchParams({ q: query, limit: "10" });
     buckets.push(<SearchBucket<Asset> key="assets" title="Zasoby IT" path={`/api/v1/cmdb/assets?${assetQuery}`} collection="items" cursor="before_id" allTo={`/assets?q=${encodeURIComponent(query)}`} render={(item) => <Link to={`/assets/${item.id}`}><strong>{item.asset_tag} · {item.name}</strong><span>{[item.vendor, item.model, item.serial_number].filter(Boolean).join(" · ")}</span><small>{item.owner_name} · {item.state}{item.archived ? " · Archiwum" : ""}</small></Link>} />);
+  }
+  if (hasPermission("cmdb.read") || hasPermission("cmdb.read_own")) {
+    const ciQuery = new URLSearchParams({ q: query, limit: "10" });
+    const returnTo = "/cmdb?q=" + encodeURIComponent(query);
+    buckets.push(<SearchBucket<CI> key="cmdb" title="Elementy konfiguracji (CMDB)" path={"/api/v1/cmdb/cis?" + ciQuery.toString()} collection="items" cursor="before_id" allTo={"/cmdb?q=" + encodeURIComponent(query)} render={(item) => <Link to={"/cmdb/" + item.id + "?return=" + encodeURIComponent(returnTo)}><strong>{item.identifier} · {item.name}</strong><span>{item.owner_name} · {item.location || "Brak lokalizacji"}</span><small>{item.class} · {item.status}{item.archived ? " · Archiwum" : ""}</small></Link>} />);
   }
   if (hasPermission("request.fulfill") || hasPermission("request.manage")) {
     const taskQuery = new URLSearchParams({ q: query, limit: "10", view: "group" });

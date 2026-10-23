@@ -205,7 +205,7 @@ function AssetDetails({ id }: { id: string }) {
             <SummaryCard label="Ostatnia zmiana" value={new Date(asset.updated_at).toLocaleString("pl-PL")} />
           </div>
 
-          {hasPermission("cmdb.read") ? <LinkedCI asset={asset} /> : null}
+          {hasPermission("cmdb.read") || hasPermission("cmdb.read_own") ? <LinkedCI asset={asset} /> : null}
           <ArchiveControl asset={asset} onChanged={setAsset} />
           <section className="panel mt-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

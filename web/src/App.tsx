@@ -7,7 +7,7 @@ import {
   Route,
 } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
-import { RequireAuth, RequirePermission } from "./auth/RouteGuards";
+import { RequireAnyPermission, RequireAuth, RequirePermission } from "./auth/RouteGuards";
 import { AppShell } from "./layout/AppShell";
 import { AuditPage } from "./pages/AuditPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -52,6 +52,21 @@ const GlobalSearchPage = lazy(() =>
     default: m.GlobalSearchPage,
   })),
 );
+const CMDBListPage = lazy(() =>
+  import("./pages/CMDBPage").then((m) => ({ default: m.CMDBListPage })),
+);
+const CMDBCreatePage = lazy(() =>
+  import("./pages/CMDBPage").then((m) => ({ default: m.CMDBCreatePage })),
+);
+const CMDBDetailPage = lazy(() =>
+  import("./pages/CMDBPage").then((m) => ({ default: m.CMDBDetailPage })),
+);
+const CMDBImportsPage = lazy(() =>
+  import("./pages/CMDBImportsPage").then((m) => ({ default: m.CMDBImportsPage })),
+);
+const CMDBImportDetailPage = lazy(() =>
+  import("./pages/CMDBImportsPage").then((m) => ({ default: m.CMDBImportDetailPage })),
+);
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -78,6 +93,11 @@ const router = createBrowserRouter(
         <Route path="search" element={<GlobalSearchPage />} />
         <Route path="assets" element={<AssetsPage />} />
         <Route path="assets/:assetID" element={<AssetsPage />} />
+        <Route path="cmdb" element={<RequireAnyPermission permissions={["cmdb.read", "cmdb.read_own"]}><CMDBListPage /></RequireAnyPermission>} />
+        <Route path="cmdb/new" element={<RequireAnyPermission permissions={["cmdb.read", "cmdb.read_own"]}><CMDBCreatePage /></RequireAnyPermission>} />
+        <Route path="cmdb/imports" element={<RequirePermission permission="cmdb.import"><CMDBImportsPage /></RequirePermission>} />
+        <Route path="cmdb/imports/:importID" element={<RequirePermission permission="cmdb.import"><CMDBImportDetailPage /></RequirePermission>} />
+        <Route path="cmdb/:ciID" element={<RequireAnyPermission permissions={["cmdb.read", "cmdb.read_own"]}><CMDBDetailPage /></RequireAnyPermission>} />
         <Route path="catalog" element={<CatalogPage />} />
         <Route path="catalog/:itemID" element={<CatalogPage />} />
         <Route path="requests" element={<RequestsPage />} />

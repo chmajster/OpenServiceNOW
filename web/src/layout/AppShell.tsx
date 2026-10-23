@@ -8,6 +8,7 @@ import {
 import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { NotificationBadge } from "../notifications/NotificationBadge";
+import { setCMDBLocale, useCMDBLocale } from "../cmdb/messages";
 
 type NavIconName =
   | "home"
@@ -33,6 +34,7 @@ type NavItem = {
   icon: NavIconName;
   permission?: string;
   anyPermissions?: string[];
+  anyPermissionSets?: string[][];
 };
 
 type NavGroup = {
@@ -87,6 +89,12 @@ const navigationGroups: NavGroup[] = [
         icon: "grid",
         anyPermissions: ["assets.read", "assets.read_own"],
       },
+      {
+        to: "/cmdb",
+        label: "Elementy konfiguracji (CMDB)",
+        icon: "grid",
+        anyPermissions: ["cmdb.read", "cmdb.read_own"],
+      },
     ],
   },
   {
@@ -99,6 +107,16 @@ const navigationGroups: NavGroup[] = [
   {
     label: "Administracja",
     items: [
+      {
+        to: "/cmdb/imports",
+        label: "Importy CI i Asset",
+        icon: "list",
+        permission: "cmdb.import",
+        anyPermissionSets: [
+          ["cmdb.manage", "cmdb.read"],
+          ["assets.manage", "assets.read"],
+        ],
+      },
       {
         to: "/catalog-admin",
         label: "Administracja katalogiem",
@@ -302,6 +320,7 @@ export function AppShell() {
   const [navigationFilter, setNavigationFilter] = useState("");
   const [globalSearch, setGlobalSearch] = useState("");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const cmdbLocale = useCMDBLocale();
 
   useEffect(() => {
     if (location.pathname === "/search")
@@ -328,7 +347,9 @@ export function AppShell() {
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, []);
 
-  const current = navigation.find((item) => {
+  const current = [...navigation]
+    .sort((left, right) => right.to.split("?")[0]!.length - left.to.split("?")[0]!.length)
+    .find((item) => {
     const path = item.to.split("?")[0] ?? item.to;
     const nestedRoute = [
       "/incidents",
@@ -337,14 +358,23 @@ export function AppShell() {
       "/fulfillment",
       "/approvals",
       "/assets",
+      "/cmdb",
+      "/cmdb/imports",
     ].includes(path);
     const matchesPath =
       path === location.pathname ||
       (nestedRoute && location.pathname.startsWith(path + "/"));
     return matchesPath && (!item.to.includes("kind=") || item.to.endsWith(kind));
-  });
+    });
   const isAssetRoute =
     location.pathname === "/assets" || location.pathname.startsWith("/assets/");
+  const isCMDBRoute =
+    location.pathname === "/cmdb" || location.pathname.startsWith("/cmdb/");
+  const isCMDBImportRoute =
+    location.pathname === "/cmdb/imports" || location.pathname.startsWith("/cmdb/imports/");
+  useEffect(() => {
+    document.documentElement.lang = isCMDBRoute ? cmdbLocale : "pl";
+  }, [cmdbLocale, isCMDBRoute]);
   const isCollectionRoute = [
     "/incidents",
     "/catalog",
@@ -353,7 +383,7 @@ export function AppShell() {
   ].some(
     (root) =>
       location.pathname === root || location.pathname.startsWith(root + "/"),
-  ) || isAssetRoute;
+  ) || isAssetRoute || isCMDBRoute;
 
   const query = navigationFilter.trim().toLocaleLowerCase("pl-PL");
   const visibleGroups = navigationGroups
@@ -363,7 +393,9 @@ export function AppShell() {
         const permitted = session?.password_change_required
           ? item.to === "/account"
           : (!item.permission || hasPermission(item.permission)) &&
-            (!item.anyPermissions || item.anyPermissions.some(hasPermission));
+            (!item.anyPermissions || item.anyPermissions.some(hasPermission)) &&
+            (!item.anyPermissionSets ||
+              item.anyPermissionSets.some((set) => set.every(hasPermission)));
         return permitted && item.label.toLocaleLowerCase("pl-PL").includes(query);
       }),
     }))
@@ -471,6 +503,16 @@ export function AppShell() {
         ) : null}
 
         <div className="topbar-actions">
+          {isCMDBRoute && (
+            <button
+              className="button button--small button--secondary"
+              type="button"
+              aria-label={cmdbLocale === "en" ? "Change CMDB language to Polish" : "Zmień język CMDB na angielski"}
+              onClick={() => setCMDBLocale(cmdbLocale === "en" ? "pl" : "en")}
+            >
+              {cmdbLocale === "en" ? "Polski" : "English"}
+            </button>
+          )}
           {session ? (
             <div className="tenant-context">
               <strong>{session.tenant.name}</strong>
@@ -600,7 +642,7 @@ export function AppShell() {
               ) : isCollectionRoute ? (
                 <>
                   <span aria-hidden="true">/</span>
-                  {location.pathname.split("/").length === 2 ? (
+                  {location.pathname.split("/").length === 2 || location.pathname === "/cmdb/imports" ? (
                     <span aria-current="page">{current?.label}</span>
                   ) : (
                     <>
@@ -610,8 +652,10 @@ export function AppShell() {
                         {location.pathname.endsWith("/new")
                           ? isAssetRoute
                             ? "Nowy zasób"
-                            : "Nowy incydent"
-                          : "#" + location.pathname.split("/")[2]}
+                            : isCMDBRoute
+                              ? "Nowy CI"
+                              : "Nowy incydent"
+                          : "#" + (isCMDBImportRoute ? location.pathname.split("/")[3] : location.pathname.split("/")[2])}
                       </span>
                     </>
                   )}

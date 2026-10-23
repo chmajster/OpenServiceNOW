@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 
-type Page<T> = { items: T[]; next?: string };
+type Page<T> = { items: T[]; next?: string; response?: Record<string, unknown> };
 type State<T> = Page<T> & {
   key: string;
   loading: boolean;
@@ -44,8 +44,8 @@ export function useRemotePage<T>(
       try {
         const url = new URL(path, window.location.origin);
         if (after) url.searchParams.set(cursor, after);
-        const result = await api<Record<string, T[] | string | undefined>>(
-          `${url.pathname}${url.search}`,
+        const result = await api<Record<string, unknown>>(
+          url.pathname + url.search,
           { signal: controller.signal },
         );
         if (
@@ -58,7 +58,8 @@ export function useRemotePage<T>(
         setState((previous) => ({
           key,
           items: after ? [...previous.items, ...items] : items,
-          next: result[`next_${cursor}`] as string | undefined,
+          next: result["next_" + cursor] as string | undefined,
+          response: result,
           loading: false,
           error: null,
         }));
@@ -89,11 +90,11 @@ export function useRemotePage<T>(
       sequence.current += 1;
     };
   }, [load]);
-  const current = !enabled
-    ? { items: [] as T[], loading: false, error: null, next: undefined }
+  const current: Page<T> & Pick<State<T>, "loading" | "error"> = !enabled
+    ? { items: [], loading: false, error: null }
     : state.key === key
       ? state
-      : { items: [] as T[], loading: true, error: null, next: undefined };
+      : { items: [], loading: true, error: null };
   return {
     ...current,
     more: () => load(current.next),

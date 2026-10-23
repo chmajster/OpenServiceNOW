@@ -7,7 +7,7 @@ import { GlobalSearchPage } from "./GlobalSearchPage";
 
 afterEach(() => vi.unstubAllGlobals());
 
-it("searches permitted records across incidents, requests, tasks, assets, groups and users", async () => {
+it("searches permitted records across incidents, requests, tasks, CI, assets, groups and users", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const requests: string[] = [];
   vi.stubGlobal("fetch", vi.fn(async (path: string) => {
@@ -24,6 +24,7 @@ it("searches permitted records across incidents, requests, tasks, assets, groups
               "request.fulfill",
               "catalog.read",
               "assets.read",
+              "cmdb.read",
               "admin.users.manage",
               "admin.rbac.manage",
             ],
@@ -34,6 +35,8 @@ it("searches permitted records across incidents, requests, tasks, assets, groups
           ? { incidents: [{ id: "12", number: "INC0012", title: "VPN niedostępny", state: "OPEN", priority: 2 }], next_after_id: "" }
           : path.startsWith("/api/v1/cmdb/assets?")
             ? { items: [{ id: "31", version: "1", asset_tag: "vpn-gw-01", name: "Brama VPN", owner_id: "7", owner_name: "Ala Kowalska", serial_number: "GW-01", vendor: "Net", model: "Edge", location: "Warszawa", state: "IN_USE", purchase_date: "", purchase_cost: "", currency: "PLN", warranty_until: "", archived: false, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" }] }
+            : path.startsWith("/api/v1/cmdb/cis?")
+              ? { items: [{ id: "72", version: "1", identifier: "vpn-gw-ci", name: "VPN gateway CI", class: "VM", status: "ACTIVE", owner_id: "7", owner_name: "Ala Kowalska", environment: "PROD", location: "Warszawa", attributes: {}, archived: false, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" }] }
             : path.startsWith("/api/v1/requests/")
               ? { items: [{ id: "41", number: "REQ0041", state: "SUBMITTED", items: [{ snapshot: { title: "VPN access" } }] }] }
               : path.startsWith("/api/v1/fulfillment/")
@@ -62,15 +65,18 @@ it("searches permitted records across incidents, requests, tasks, assets, groups
 
     expect(container.textContent).toContain("VPN niedostępny");
     expect(container.textContent).toContain("vpn-gw-01");
+    expect(container.textContent).toContain("vpn-gw-ci");
     expect(container.textContent).toContain("Provision VPN");
     expect(container.textContent).toContain("IT Operations");
     expect(container.textContent).toContain("Jan Operator");
     expect(container.querySelector('a[href="/incidents/12"]')).not.toBeNull();
     expect(container.querySelector('a[href="/assets/31"]')).not.toBeNull();
+    expect(container.querySelector('a[href="/cmdb/72?return=%2Fcmdb%3Fq%3DVPN"]')).not.toBeNull();
     expect(container.querySelector('a[href="/fulfillment/64"]')).not.toBeNull();
     expect(container.querySelector('a[href="/rbac?kind=groups&id=51"]')).not.toBeNull();
     expect(container.querySelector('a[href="/users/8"]')).not.toBeNull();
     expect(requests).toContain("/api/v1/incidents/?q=VPN&limit=10");
+    expect(requests).toContain("/api/v1/cmdb/cis?q=VPN&limit=10");
     expect(requests).toContain("/api/v1/fulfillment/?q=VPN&limit=10&view=group");
     expect(requests.some((path) => path.startsWith("/api/v1/admin/rbac/groups?"))).toBe(true);
     expect(requests.some((path) => path.startsWith("/api/v1/admin/users/?"))).toBe(true);

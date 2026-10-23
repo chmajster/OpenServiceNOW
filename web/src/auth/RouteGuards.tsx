@@ -51,3 +51,20 @@ export function RequirePermission({
   }
   return children;
 }
+
+export function RequireAnyPermission({
+  permissions,
+  children,
+}: PropsWithChildren<{ permissions: string[] }>) {
+  const { hasPermission } = useAuth();
+  if (!permissions.some(hasPermission)) {
+    return (
+      <PageState
+        title="Brak uprawnień"
+        detail={"Ta sekcja wymaga jednego z uprawnień: " + permissions.join(", ")}
+        tone="error"
+      />
+    );
+  }
+  return children;
+}
