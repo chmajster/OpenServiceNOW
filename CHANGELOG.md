@@ -4,6 +4,12 @@ All notable repository changes are documented here.
 
 The project is pre-release and currently in architecture/foundation development.
 
+## 2026-10-23 - Service Portfolio and CSDM subset
+
+- Added tenant-scoped portfolio concepts beside the CMDB, typed relations, explicit CI classification, audience-aware service offers, bounded impact and manual availability rules, quality checks and lifecycle operations.
+- Integrated catalog offer visibility, existing Incident/Request links, ITAM locations, outbox/activity projections and responsive portfolio screens. Migrations 000097–000104, OpenAPI contracts, ADR-0004 and the module guide document the implementation and boundaries.
+- Local Go package tests, frontend tests, typecheck/build and mocked desktop/mobile Playwright pass. Isolated MySQL migration and real API/database/worker verification remain outstanding.
+
 ## 2026-10-22 — One-line installation and updates
 
 - Added an HTTPS bootstrap that clones the GitHub `main` branch into `/opt/OpenServiceNow` and delegates to the complete Docker installer.
