@@ -1,6 +1,6 @@
 export type WorkReference = {
   tenant_id: string;
-  object_type: "incident" | "fulfillment_task";
+  object_type: "incident" | "fulfillment_task" | "incident_action";
   object_id: string;
 };
 

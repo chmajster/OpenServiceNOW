@@ -1,3 +1,6 @@
+import { useCMDBLocale } from "../cmdb/messages";
+import { MajorPanel } from "./MajorPanel";
+import { majorMessages } from "./majorMessages";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
@@ -60,7 +63,8 @@ export function IncidentWorkspace({
   embedded?: boolean;
   onDirtyChange?: (dirty: boolean) => void;
 }) {
-  const [record, setRecord] = useState(initial);
+  const locale=useCMDBLocale();const majorText=majorMessages[locale];
+ const [record, setRecord] = useState(initial);
   const [draftTabs, setDraftTabs] = useState<Record<string, boolean>>({});
   const retain = useCallback((tab: string, needed: boolean) => {
     setDraftTabs((current) =>
@@ -143,7 +147,8 @@ export function IncidentWorkspace({
       label: "Obserwatorzy i powiązania",
       available: true,
     },
-    { value: "history", label: "Historia", available: true },
+    { value: "major", label: majorText.coordination, available: true },
+ { value: "history", label: "Historia", available: true },
   ];
   const activeTab =
     tabs.find((t) => t.value === tab && t.available)?.value ?? "form";
@@ -354,7 +359,8 @@ export function IncidentWorkspace({
           heading={activeTab === "form" ? "Notatki" : "Komunikacja i pliki"}
         />
       </div>
-      {activeTab === "participants" && (
+      <div hidden={activeTab!=="major"} className="panel"><MajorPanel record={record} retain={retain}/></div>
+ {activeTab === "participants" && (
         <div className="panel">
           <ParticipantsPanel record={record} />
         </div>
@@ -492,7 +498,7 @@ function IncidentRecordForm({
         <div className="grid min-w-0 grid-cols-1 gap-x-8 gap-y-4 p-3 sm:p-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(18rem,1fr)]">
           <div className="grid min-w-0 content-start gap-2">
             <RecordDatum label="Numer" value={record.number} />
-            <IncidentFields
+            <IncidentFields historical
               layout="record"
               draft={form.draft}
               change={form.setDraft}
@@ -613,7 +619,7 @@ function EditIncident({
           })
         }
       >
-        <IncidentFields
+        <IncidentFields historical
           draft={form.draft}
           change={form.setDraft}
           metadata={metadata}
@@ -637,8 +643,9 @@ function EditIncident({
     </>
   );
 }
-type AssignmentDraft = { group: Choice | null; user: Choice | null };
+type AssignmentDraft = { group: Choice | null; user: Choice | null; reason:string };
 const assignmentOf = (r: Incident): AssignmentDraft => ({
+ reason:"",
   group: r.assignment.assignment_group_id
     ? { id: r.assignment.assignment_group_id, label: r.group_name }
     : null,
@@ -667,6 +674,7 @@ function AssignIncident({ record, busy, setBusy, saved, retain }: EditorProps) {
   return (
     <>
       <h2>Przypisanie incydentu</h2>
+ <label>{majorMessages[useCMDBLocale()].override}<textarea value={form.draft.reason} onChange={e=>form.setDraft({...form.draft,reason:e.target.value})} maxLength={2000}/></label>
       <BlockedProposal allowed={record.actions.assign} />
       <p>
         Użytkownik musi mieć aktywne konto i członkostwo w organizacji. W
@@ -686,6 +694,7 @@ function AssignIncident({ record, busy, setBusy, saved, retain }: EditorProps) {
               return {
                 assigned_to: form.draft.user?.id ?? null,
                 assignment_group_id: form.draft.group?.id ?? null,
+ reason:form.draft.reason,
               };
             },
           )
@@ -698,7 +707,7 @@ function AssignIncident({ record, busy, setBusy, saved, retain }: EditorProps) {
             endpoint="/api/v1/incidents/lookups/groups"
             disabled={busy}
             value={form.draft.group}
-            onChange={(group) => form.setDraft({ group, user: null })}
+            onChange={(group) => form.setDraft({ group, user: null,reason:form.draft.reason })}
           />
           <RemoteCombobox
             kind="users"

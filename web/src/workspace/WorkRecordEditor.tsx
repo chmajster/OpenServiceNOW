@@ -1,3 +1,4 @@
+import { CoordinationActionEditor } from "../incidents/CoordinationActionEditor";
 import { useCallback } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { PageState } from "../components/PageState";
@@ -19,7 +20,8 @@ export function WorkRecordEditor({
     [onDirtyChange, reference.key],
   );
 
-  if (reference.object_type === "incident") {
+  if(reference.object_type==="incident_action")return <CoordinationActionEditor id={reference.object_id} onDirtyChange={reportDirty}/>;
+ if (reference.object_type === "incident") {
     return (
       <IncidentRecordEditor
         id={reference.object_id}

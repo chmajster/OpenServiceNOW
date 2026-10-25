@@ -1,3 +1,4 @@
+import { majorMessages } from "../incidents/majorMessages";
 import {
   Link,
   Outlet,
@@ -59,6 +60,9 @@ const navigationGroups: NavGroup[] = [
   {
     label: "Moja praca",
     items: [
+ {to:"/workspace/major",label:"Duże awarie",icon:"alert",anyPermissions:["incident.major.read","incident.major.manage"]},
+ {to:"/workspace/major?view=actions",label:"Moje działania",icon:"check",anyPermissions:["incident.read","incident.read_own"]},
+ {to:"/incidents/admin",label:"Administracja incydentami",icon:"list",permission:"admin.metadata.manage"},
       { to: "/", label: "Przegląd", icon: "home" },
       {
         to: "/workspace",
@@ -722,7 +726,7 @@ export function AppShell() {
                     onClick={() => setMobileNavOpen(false)}
                   >
                     <NavIcon name={item.icon} />
-                    <span>{item.label}</span>
+                    <span>{item.to==="/workspace/major"?majorMessages[cmdbLocale].title:item.to==="/workspace/major?view=actions"?majorMessages[cmdbLocale].actions:item.to==="/incidents/admin"?majorMessages[cmdbLocale].process:item.label}</span>
                   </Link>
                 );
               })}

@@ -1,3 +1,7 @@
+import { useIncidentQuery } from "../incidents/hooks";
+import type { Metadata as IncidentMetadata } from "../incidents/contracts";
+import { majorMessages } from "../incidents/majorMessages";
+import { useCMDBLocale } from "../cmdb/messages";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
@@ -43,7 +47,7 @@ function safeReferences(value: unknown, tenantID: string): SavedReference[] {
     const candidate = entry as Partial<SavedReference>;
     if (
       candidate.tenant_id !== tenantID ||
-      (candidate.object_type !== "incident" && candidate.object_type !== "fulfillment_task") ||
+      (candidate.object_type !== "incident" && candidate.object_type !== "fulfillment_task" && candidate.object_type !== "incident_action") ||
       typeof candidate.object_id !== "string" ||
       !/^[1-9][0-9]{0,19}$/.test(candidate.object_id) ||
       typeof candidate.number !== "string" ||
@@ -89,7 +93,7 @@ function safeQuery(value: unknown): Partial<WorkQuery> | undefined {
   if (typeof candidate.view === "string" && views.includes(candidate.view as WorkQuery["view"])) safe.view = candidate.view as WorkQuery["view"];
   if (typeof candidate.sort === "string" && sorts.includes(candidate.sort as WorkQuery["sort"])) safe.sort = candidate.sort as WorkQuery["sort"];
   if (typeof candidate.group_by === "string" && ["", "object_type", "state", "state_category", "priority", "assignment_group_id"].includes(candidate.group_by)) safe.group_by = candidate.group_by;
-  if (Array.isArray(candidate.types)) safe.types = candidate.types.filter((type): type is WorkReference["object_type"] => type === "incident" || type === "fulfillment_task");
+  if (Array.isArray(candidate.types)) safe.types = candidate.types.filter((type): type is WorkReference["object_type"] => type === "incident" || type === "fulfillment_task" || type === "incident_action");
   const safeColumns = (input: unknown) => Array.isArray(input) ? input.filter((column): column is string => typeof column === "string" && column.length <= 100).slice(0, 100) : undefined;
   const columns = safeColumns(candidate.columns);
   const order = safeColumns(candidate.column_order);
@@ -139,7 +143,8 @@ function referenceKey(ref: WorkReference) {
 
 function recordPath(ref: WorkReference) {
   const segment = encodeURIComponent(ref.object_id);
-  return ref.object_type === "incident" ? `/incidents/${segment}` : `/fulfillment/${segment}`;
+  if(ref.object_type==="incident_action")return `/workspace/major?view=actions&action_id=${segment}`;
+ return ref.object_type === "incident" ? `/incidents/${segment}` : `/fulfillment/${segment}`;
 }
 
 function stateLabel(state: string) {
@@ -147,7 +152,11 @@ function stateLabel(state: string) {
 }
 
 export function WorkspacePage() {
+  const module08Text=majorMessages[useCMDBLocale()];
   const { session, hasPermission } = useAuth();
+  const incidentOptions=useIncidentQuery<IncidentMetadata>(hasPermission("incident.read")||hasPermission("incident.read_own")?"/api/v1/incidents/metadata":null);
+  const [holdReason,setHoldReason]=useState("");
+
   const [urlParams] = useSearchParams();
   const tenantID = session?.tenant.id ?? "0";
   const userID = session?.user.id ?? "0";
@@ -156,7 +165,7 @@ export function WorkspacePage() {
   const canTasks = hasPermission("request.fulfill") || hasPermission("request.manage");
   const canShare = hasPermission("admin.rbac.manage");
   const allowedTypes = useMemo<NonNullable<WorkQuery["types"]>>(() => [
-    ...(canIncidents ? (["incident"] as const) : []),
+    ...(canIncidents ? (["incident","incident_action"] as const) : []),
     ...(canTasks ? (["fulfillment_task"] as const) : []),
   ], [canIncidents, canTasks]);
   const savedLocal = useMemo(() => safeRead(storageKey, tenantID), [storageKey, tenantID]);
@@ -191,6 +200,7 @@ export function WorkspacePage() {
   const [bulkState, setBulkState] = useState("IN_PROGRESS");
   const [reason, setReason] = useState("");
   const [resolutionCode, setResolutionCode] = useState("FIXED");
+  useEffect(()=>{const active=incidentOptions.data?.resolution_codes.filter(o=>!o.retired);if(active&&!active.some(o=>o.value===resolutionCode))setResolutionCode(active[0]?.value??"")},[incidentOptions.data,resolutionCode]);
   const [resolutionDescription, setResolutionDescription] = useState("");
   const [results, setResults] = useState<ActionResult[]>([]);
   const [actionBusy, setActionBusy] = useState(false);
@@ -388,7 +398,7 @@ export function WorkspacePage() {
       const response = await runWorkAction({
         action,
         items: targets.map((item) => ({ tenant_id: item.tenant_id, object_type: item.object_type, object_id: item.object_id, version: item.version, assignment_group_id: item.assignment_group_id })),
-        ...(action === "assign" ? { assigned_to: userID } : { state, reason, ...(state === "RESOLVED" ? { resolution_code: resolutionCode, resolution_description: resolutionDescription } : {}) }),
+        ...(action === "assign" ? { assigned_to: userID,reason } : { state, reason,hold_reason:holdReason, ...(state === "RESOLVED" ? { resolution_code: resolutionCode, resolution_description: resolutionDescription } : {}) }),
       });
       setResults(response.results);setSelectedRows([]);setRefreshKey((value) => value + 1);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Nie udało się wykonać akcji."); }
@@ -491,11 +501,12 @@ export function WorkspacePage() {
             <label>Akcja<select value={bulkAction} onChange={(event) => setBulkAction(event.target.value as "assign"|"transition")}><option value="assign">Przypisz do mnie</option><option value="transition">Zmień stan</option></select></label>
             {bulkAction === "transition" ? <label>Docelowy stan<select value={bulkState} onChange={(event) => setBulkState(event.target.value)}>{states.map((state) => <option key={state} value={state}>{stateLabel(state)}</option>)}</select></label> : null}
             {bulkAction === "transition" ? <label>Uzasadnienie<input value={reason} maxLength={10000} onChange={(event) => setReason(event.target.value)} /></label> : null}
-            {bulkAction === "transition" && bulkState === "RESOLVED" ? <><label>Kod rozwiązania<select value={resolutionCode} onChange={(event) => setResolutionCode(event.target.value)}><option value="FIXED">Naprawiono</option><option value="WORKAROUND">Obejście</option><option value="DUPLICATE">Duplikat</option><option value="NOT_REPRODUCIBLE">Nie odtworzono</option></select></label><label>Opis rozwiązania<input value={resolutionDescription} maxLength={20000} onChange={(event) => setResolutionDescription(event.target.value)} /></label></> : null}
-            <button className="button" type="button" disabled={actionBusy || !selectedItems.length || (bulkAction==="transition"&&((bulkState==="ON_HOLD"||bulkState==="CANCELLED"||bulkState==="COMPLETED")&&!reason.trim()||bulkState==="RESOLVED"&&(!resolutionDescription.trim()||!reason.trim())))} onClick={() => void applyAction(selectedItems,bulkAction)}>{actionBusy ? "Zapisuję…" : "Zastosuj dla zaznaczonych"}</button>
+            {bulkAction === "transition" && bulkState === "RESOLVED" ? <><label>Kod rozwiązania<select value={resolutionCode} onChange={(event) => setResolutionCode(event.target.value)}>{incidentOptions.data?.resolution_codes.filter(o=>!o.retired).map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select></label><label>Opis rozwiązania<input value={resolutionDescription} maxLength={20000} onChange={(event) => setResolutionDescription(event.target.value)} /></label></> : null}
+            <button className="button" type="button" disabled={actionBusy || !selectedItems.length || (bulkAction==="assign"&&!reason.trim())} onClick={() => void applyAction(selectedItems,bulkAction)}>{actionBusy ? "Zapisuję…" : "Zastosuj dla zaznaczonych"}</button>
           </section> : null}
 
-          {Object.values(inlineStates).includes("RESOLVED") ? <section className="panel workspace-inline-resolution"><h2>Dane wymagane do rozwiązania</h2><label>Kod rozwiązania<select value={resolutionCode} onChange={(event)=>setResolutionCode(event.target.value)}><option value="FIXED">Naprawiono</option><option value="WORKAROUND">Obejście</option><option value="DUPLICATE">Duplikat</option><option value="NOT_REPRODUCIBLE">Nie odtworzono</option></select></label><label>Opis rozwiązania<input value={resolutionDescription} maxLength={20000} onChange={(event)=>setResolutionDescription(event.target.value)} /></label><label>Uzasadnienie<input value={reason} maxLength={10000} onChange={(event)=>setReason(event.target.value)} /></label></section> : null}
+          <section className="panel"><label>{module08Text.override}<input value={reason} maxLength={2000} onChange={e=>setReason(e.target.value)}/></label><label>{module08Text.holdReason}<select value={holdReason} onChange={e=>setHoldReason(e.target.value)}><option value="">—</option>{incidentOptions.data?.hold_reasons?.filter(o=>!o.retired).map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select></label>{incidentOptions.error&&<p role="alert">{incidentOptions.error}</p>}</section>
+          {Object.values(inlineStates).includes("RESOLVED") ? <section className="panel workspace-inline-resolution"><h2>Dane wymagane do rozwiązania</h2><label>Kod rozwiązania<select value={resolutionCode} onChange={(event)=>setResolutionCode(event.target.value)}>{incidentOptions.data?.resolution_codes.filter(o=>!o.retired).map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select></label><label>Opis rozwiązania<input value={resolutionDescription} maxLength={20000} onChange={(event)=>setResolutionDescription(event.target.value)} /></label><label>Uzasadnienie<input value={reason} maxLength={10000} onChange={(event)=>setReason(event.target.value)} /></label></section> : null}
 
           <section className="panel workspace-list" aria-label="Moja praca">
             <div className="workspace-list-heading"><h2>Moja praca</h2><span>{items.length}{loading ? " · ładowanie" : ""}</span><button className="button button--secondary" type="button" disabled={loading || exportBusy} onClick={() => void exportQueue()}>{exportBusy ? "Przygotowuję…" : "Eksportuj CSV"}</button></div>
@@ -506,7 +517,7 @@ export function WorkspacePage() {
               {displayGroups(items,baseQuery.group_by).flatMap((group)=>([{kind:"header" as const,key:`group:${group.label}`,label:group.label},...group.items.map((item)=>({kind:"item" as const,key:referenceKey(item),item}))])).map((entry)=><Fragment key={entry.key}>{entry.kind==="header"&&baseQuery.group_by?<tr className="workspace-group-row"><th colSpan={visibleColumns.length+2}>{entry.label}</th></tr>:null}{entry.kind==="item"?<tr className={selectedKey===referenceKey(entry.item)?"is-selected":""}>
                 <td><input type="checkbox" aria-label={`Zaznacz ${entry.item.number}`} checked={selectedRows.includes(referenceKey(entry.item))} onChange={()=>toggleRow(entry.item)} /></td>
                 {visibleColumns.map((column)=><td key={column} style={{width:baseQuery.column_widths?.[column]}}>{renderColumn(entry.item,column,()=>openItem(entry.item))}</td>)}
-                <td className="workspace-row-actions"><button className="button button--small button--secondary" type="button" onClick={()=>openItem(entry.item)}>Podgląd</button>{entry.item.capabilities.includes("assign")?<button className="button button--small button--secondary" type="button" disabled={actionBusy} onClick={()=>void applyAction([entry.item],"assign")}>Przypisz mi</button>:null}<select aria-label={`Zmień stan ${entry.item.number}`} value={inlineStates[referenceKey(entry.item)]??""} onChange={(event)=>setInlineStates((current)=>({...current,[referenceKey(entry.item)]:event.target.value}))}><option value="">Stan…</option>{entry.item.capabilities.filter((cap)=>cap.startsWith("transition:")).map((cap)=><option key={cap} value={cap.slice("transition:".length)}>{stateLabel(cap.slice("transition:".length))}</option>)}</select><button className="button button--small button--secondary" type="button" disabled={!inlineStates[referenceKey(entry.item)]||actionBusy||(["ON_HOLD","CANCELLED","COMPLETED"].includes(inlineStates[referenceKey(entry.item)]??"")&&!reason.trim())||(inlineStates[referenceKey(entry.item)]==="RESOLVED"&&(!reason.trim()||!resolutionDescription.trim()))} onClick={()=>void applyAction([entry.item],"transition",inlineStates[referenceKey(entry.item)]!)}>Zastosuj</button></td>
+                <td className="workspace-row-actions"><button className="button button--small button--secondary" type="button" onClick={()=>openItem(entry.item)}>Podgląd</button>{entry.item.capabilities.includes("assign")?<button className="button button--small button--secondary" type="button" disabled={actionBusy||!reason.trim()} onClick={()=>void applyAction([entry.item],"assign")}>Przypisz mi</button>:null}<select aria-label={`Zmień stan ${entry.item.number}`} value={inlineStates[referenceKey(entry.item)]??""} onChange={(event)=>setInlineStates((current)=>({...current,[referenceKey(entry.item)]:event.target.value}))}><option value="">Stan…</option>{entry.item.capabilities.filter((cap)=>cap.startsWith("transition:")).map((cap)=><option key={cap} value={cap.slice("transition:".length)}>{stateLabel(cap.slice("transition:".length))}</option>)}</select><button className="button button--small button--secondary" type="button" disabled={!inlineStates[referenceKey(entry.item)]||actionBusy} onClick={()=>void applyAction([entry.item],"transition",inlineStates[referenceKey(entry.item)]!)}>Zastosuj</button></td>
               </tr>:null}</Fragment>)}
             </tbody></table></div>{nextCursor?<button className="button button--secondary mt-3" type="button" disabled={moreBusy} onClick={()=>void loadMore()}>{moreBusy?"Ładowanie…":"Pokaż więcej"}</button>:null}</> : null}
             {exportError ? <p role="alert" className="error-text">{exportError}</p> : null}

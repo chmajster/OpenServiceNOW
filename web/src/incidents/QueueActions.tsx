@@ -1,3 +1,5 @@
+import { useCMDBLocale } from "../cmdb/messages";
+import { majorMessages } from "./majorMessages";
 import { useEffect, useRef, useState } from "react";
 import { api, jsonBody } from "../api/client";
 import type { IncidentSummary } from "./contracts";
@@ -25,6 +27,8 @@ export function QueueActions({
   busy: boolean;
   setBusy: (busy: boolean) => void;
 }) {
+  const t=majorMessages[useCMDBLocale()];
+  const [reason,setReason]=useState("");
   const [results, setResults] = useState<Result[]>([]),
     [error, setError] = useState<string>();
   const mounted = useRef(true),
@@ -56,7 +60,7 @@ export function QueueActions({
         {
           method: "POST",
           body: jsonBody({
-            action,
+            action,reason,
             items: items.map(({ id, version }) => ({ id, version })),
           }),
           signal: request.current.signal,
@@ -85,10 +89,11 @@ export function QueueActions({
   return (
     <div className="queue-toolbar">
       <strong>Wybrano: {Object.keys(selection).length}</strong>
+      {canAssign&&<label>{t.override}<input maxLength={2000} value={reason} onChange={e=>setReason(e.target.value)}/></label>}
       {canAssign && (
         <button
           className="button button--primary"
-          disabled={busy || loading || !Object.keys(selection).length}
+          disabled={busy || loading || !Object.keys(selection).length || !reason.trim()}
           onClick={() => void run("assign_self")}
         >
           Przypisz wybrane do siebie

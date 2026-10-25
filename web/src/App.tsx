@@ -1,3 +1,5 @@
+import { MajorIncidentsPage } from "./pages/MajorIncidentsPage";
+import { IncidentAdminPage } from "./pages/IncidentAdminPage";
 import {
   createBrowserRouter,
   createRoutesFromElements,
@@ -106,7 +108,9 @@ const router = createBrowserRouter(
         <Route index element={<OverviewPage />} />
         <Route path="account" element={<AccountPage />} />
         <Route path="search" element={<GlobalSearchPage />} />
-        <Route path="workspace" element={<RequireAnyPermission permissions={["incident.read", "incident.read_own", "request.fulfill", "request.manage"]}><WorkspacePage /></RequireAnyPermission>} />
+        <Route path="workspace/major" element={<RequireAnyPermission permissions={["incident.read","incident.read_own"]}><MajorIncidentsPage/></RequireAnyPermission>}/>
+<Route path="incidents/admin" element={<RequirePermission permission="admin.metadata.manage"><IncidentAdminPage/></RequirePermission>}/>
+<Route path="workspace" element={<RequireAnyPermission permissions={["incident.read", "incident.read_own", "request.fulfill", "request.manage"]}><WorkspacePage /></RequireAnyPermission>} />
         <Route path="assets" element={<AssetsPage />} />
         <Route path="assets/:assetID" element={<AssetsPage />} />
         <Route path="cmdb" element={<RequireAnyPermission permissions={["cmdb.read", "cmdb.read_own"]}><CMDBListPage /></RequireAnyPermission>} />

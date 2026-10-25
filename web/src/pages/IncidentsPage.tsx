@@ -509,14 +509,16 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
 
 function NewIncident({ metadata }: { metadata: Metadata }) {
   const { session } = useAuth();
+  const initialCategory=metadata.categories.find(c=>c.value==="other"&&!c.retired)??metadata.categories.find(c=>!c.retired);
+  const initialSubcategory=initialCategory?.subcategories.find(c=>c.value==="other"&&!c.retired)??initialCategory?.subcategories.find(c=>!c.retired);
   const [draft, setDraft] = useState<FieldDraft>(() => ({
     title: "",
     description: "",
     affected: session
       ? { id: session.user.id, label: session.user.display_name }
       : null,
-    category: "other",
-    subcategory: "other",
+    category: initialCategory?.value??"",
+    subcategory: initialSubcategory?.value??"",
     impact: "3",
     urgency: "3",
     custom_fields: {},

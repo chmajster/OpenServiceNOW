@@ -1,8 +1,10 @@
+import type { IncidentTemplate } from "./majorContracts";
 import type { Choice } from "../components/RemoteCombobox";
 import type { MetadataSchema } from "../metadata/contracts";
 import { formatDateTime } from "../metadata/format";
-export type Option = { value: string; label: string; labels?: Partial<Record<"pl" | "en", string>> };
+export type Option = { retired?:boolean; value: string; label: string; labels?: Partial<Record<"pl" | "en", string>> };
 export type Metadata = {
+ templates?:IncidentTemplate[];
   categories: (Option & { subcategories: Option[] })[];
   states: Option[];
   resolution_codes: Option[];
@@ -40,6 +42,7 @@ export type IncidentSummary = {
   updated_at: string;
 };
 export type Incident = IncidentSummary & {
+ service_id?:string|null; location?:string; template_key?:string;template_version?:string;assignment_origin?:string;assignment_reason?:string;
   description: string;
   subcategory: string;
   impact: number;
@@ -68,6 +71,7 @@ export type IncidentPage = {
   next_after_priority?: string;
 };
 export type FieldDraft = {
+ service_id?:string;location?:string;template_key?:string;template_version?:string;
   title: string;
   description: string;
   affected: Choice | null;
@@ -80,7 +84,8 @@ export type FieldDraft = {
 };
 export function draftOf(record: Incident): FieldDraft {
   return {
-    title: record.title,
+    service_id:record.service_id??"",location:record.location??"",template_key:record.template_key??"",template_version:record.template_version??"0",
+ title: record.title,
     description: record.description,
     affected: { id: record.affected_user_id, label: record.affected_user_name },
     category: record.category,
@@ -103,7 +108,8 @@ export function fieldsOf(draft: FieldDraft) {
     throw new Error("Opis wymaga 1–20000 znaków.");
   if (!draft.affected) throw new Error("Wybierz osobę dotkniętą problemem.");
   return {
-    title,
+    service_id:draft.service_id||null,location:draft.location??"",template_key:draft.template_key??"",template_version:draft.template_version??"0",
+ title,
     description,
     affected_user_id: draft.affected.id,
     category: draft.category,

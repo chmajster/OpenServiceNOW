@@ -2023,3 +2023,29 @@ table a {
   .workspace-preview dl { grid-template-columns: minmax(0, 1fr); gap: 0.2rem; }
   .workspace-preview dd { margin-bottom: 0.55rem; }
 }
+
+.module08-major {display:grid;gap:1.25rem;min-width:0}
+.module08-major form,.module08-rule {border:1px solid var(--color-sn-border,#d7dfe7);border-radius:.5rem;padding:1rem;margin-block:1rem}
+.module08-chips {display:flex;flex-wrap:wrap;gap:.5rem;list-style:none;padding:0}
+.module08-chips li {padding:.3rem .6rem;background:var(--color-sn-surface,#f4f7fa);border-radius:.4rem}
+.module08-feed,.module08-actions {list-style:none;padding:0;display:grid;gap:1rem}
+.module08-feed li,.module08-actions li {border-inline-start:3px solid #0f766e;padding-inline-start:1rem;overflow-wrap:anywhere}
+.module08-dictionary {display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:.6rem;margin-block:.6rem;align-items:end}
+@media(max-width:680px){.module08-dictionary{grid-template-columns:1fr}.module08-major .action-row{flex-wrap:wrap}.module08-major input,.module08-major select{max-width:100%}}
+
+.module08-page { display: grid; gap: 1rem; min-width: 0; }
+.module08-page .section-header, .module08-major .section-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .75rem; }
+.module08-page > .tabs { gap: .5rem; padding-bottom: .5rem; }
+/* Keep shared header controls distinct on narrow coordination/workspace views. */
+.topbar-brand { flex: 1 1 12rem; overflow: hidden; }
+.topbar .brand { min-width: 0; flex: 1 1 auto; }
+.topbar .brand-copy { min-width: 0; overflow: hidden; }
+.topbar .brand-copy strong { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topbar-actions { flex: 0 0 auto; }
+@media (max-width: 1280px) { .topbar-product, .topbar-divider { display: none; } }
+@media (max-width: 520px) {
+  .topbar-brand { flex: 0 0 auto; overflow: visible; }
+  .topbar .brand-copy { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+  .topbar-global-search { flex: 1 1 0; min-width: 0; max-width: none; margin-inline: 0; }
+  .topbar-global-search input { width: 100%; min-width: 0; }
+}

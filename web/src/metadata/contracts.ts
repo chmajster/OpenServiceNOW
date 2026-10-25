@@ -1,5 +1,6 @@
+import type { IncidentProcess } from "../incidents/majorContracts";
 export type Locale = "pl" | "en";
-export type Option = { value: string; labels: Record<Locale, string> };
+export type Option = { retired?: boolean; value: string; labels: Record<Locale, string> };
 export type Expression = {
   op: string;
   field?: string;
@@ -55,6 +56,7 @@ export type Organization = {
   logo_url?: string;
 };
 export type Configuration = {
+ incident_process?: IncidentProcess;
   organization: Organization;
   record_types: Record<string, RecordType>;
   dictionaries: Record<string, Option[]>;

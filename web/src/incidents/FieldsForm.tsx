@@ -1,3 +1,5 @@
+import { useAuth } from "../auth/AuthContext";
+import { majorMessages } from "./majorMessages";
 import type { ReactNode } from "react";
 import { ConflictNotice } from "../components/ConflictNotice";
 import { RemoteCombobox } from "../components/RemoteCombobox";
@@ -18,14 +20,17 @@ export function IncidentFields({
   metadata,
   disabled,
   layout = "standard",
+ historical = false,
 }: {
   draft: FieldDraft;
   change: (draft: FieldDraft) => void;
   metadata: Metadata;
   disabled: boolean;
   layout?: "standard" | "record";
+ historical?: boolean;
 }) {
   const locale = useCMDBLocale();
+ const t=majorMessages[locale];const {hasPermission}=useAuth();
   const category = metadata.categories.find((c) => c.value === draft.category);
   const recordLayout = layout === "record";
   const labelClassName = recordLayout
@@ -62,6 +67,9 @@ export function IncidentFields({
       }
       disabled={disabled}
     >
+      {!recordLayout&&!historical&&Boolean(metadata.templates?.length)&&<label>{t.template}<select value={draft.template_key??""} onChange={e=>{const v=metadata.templates?.find(x=>x.key===e.target.value);if(!v){change({...draft,template_key:"",template_version:"0"});return;}change({...draft,title:v.title,description:v.description,category:v.category,subcategory:v.subcategory,impact:String(v.impact),urgency:String(v.urgency),service_id:v.service_id,location:v.location,template_key:v.key,template_version:v.version,custom_fields:v.custom_fields??{}});}}><option value="">{t.noTemplate}</option>{metadata.templates?.map(v=><option key={v.key} value={v.key}>{v.labels[locale]} · {v.version}</option>)}</select></label>}
+      {(hasPermission("service_portfolio.read")||hasPermission("service_portfolio.manage"))&&<RemoteCombobox kind="users" collection="items" cursor="before_id" label={t.service} endpoint="/api/v1/service-portfolio/items?lifecycle=ACTIVE" value={draft.service_id?{id:draft.service_id,label:draft.service_id}:null} onChange={v=>change({...draft,service_id:v?.id??""})} disabled={disabled}/>}
+      <label className={labelClassName}>{t.location}<input maxLength={160} value={draft.location??""} onChange={e=>change({...draft,location:e.target.value})}/></label>
       {!recordLayout ? titleField : null}
       {!recordLayout ? descriptionField : null}
       <RemoteCombobox
@@ -97,11 +105,11 @@ export function IncidentFields({
               change({
                 ...draft,
                 category: e.target.value,
-                subcategory: next?.subcategories[0]?.value ?? "",
+                subcategory: next?.subcategories.find(v=>!v.retired)?.value ?? "",
               });
             }}
           >
-            {metadata.categories.map((c) => (
+            {metadata.categories.filter(c=>!c.retired||historical&&c.value===draft.category).map((c) => (
               <option key={c.value} value={c.value}>
               {c.labels?.[locale] || c.label}
               </option>
@@ -115,7 +123,7 @@ export function IncidentFields({
             value={draft.subcategory}
             onChange={(e) => change({ ...draft, subcategory: e.target.value })}
           >
-            {category?.subcategories.map((o) => (
+            {category?.subcategories.filter(o=>!o.retired||historical&&o.value===draft.subcategory).map((o) => (
               <option key={o.value} value={o.value}>
                 {optionLabel([o], o.value)}
               </option>
