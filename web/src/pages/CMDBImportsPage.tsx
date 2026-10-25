@@ -12,6 +12,7 @@ import type { Import, ImportConfig, ImportRow, Metadata } from "../cmdb/contract
 const terminalStates = new Set(["COMPLETED", "PARTIAL", "FAILED", "CANCELLED"]);
 const workingStates = new Set(["QUEUED_PREVIEW", "QUEUED_APPLY", "APPLYING"]);
 const t = (key: string, locale: "pl" | "en") => cmdbText(key, locale);
+type CSVSource = { id: string; name: string; source_type: string; state: string };
 
 export function parseCSVHeader(source: string): string[] {
   const input = source.replace(/^\uFEFF/, "");
@@ -70,6 +71,8 @@ export function CMDBImportsPage() {
   const page = useRemotePage<Import>("/api/v1/cmdb/imports?limit=25", "items", "before_id");
   const canImportCI = hasPermission("cmdb.import") && hasPermission("cmdb.manage") && hasPermission("cmdb.read");
   const canImportAsset = hasPermission("cmdb.import") && hasPermission("assets.manage") && hasPermission("assets.read");
+  const canManageIRE = hasPermission("cmdb.ire.manage") && hasPermission("cmdb.manage") && hasPermission("cmdb.read");
+  const csvSources = useIncidentQuery<{ items: CSVSource[] }>(canManageIRE ? "/api/v1/cmdb/ire/sources?limit=100" : null);
 
   if (!canImportCI && !canImportAsset) return <PageState title={locale === "en" ? "Import permission required" : "Brak uprawnień do importu"} tone="error" />;
 
@@ -84,6 +87,10 @@ export function CMDBImportsPage() {
         metadata={schema.data}
         canImportCI={canImportCI}
         canImportAsset={canImportAsset}
+        canManageIRE={canManageIRE}
+        csvSources={csvSources.data?.items.filter((source) => source.source_type === "CSV" && source.state === "ACTIVE") ?? []}
+        csvSourcesLoading={csvSources.loading}
+        csvSourcesError={csvSources.error}
         onCreated={(record) => navigate("/cmdb/imports/" + record.id)}
       />}
       <section className="panel mt-5">
@@ -109,11 +116,19 @@ function ImportCreateForm({
   metadata,
   canImportCI,
   canImportAsset,
+  canManageIRE,
+  csvSources,
+  csvSourcesLoading,
+  csvSourcesError,
   onCreated,
 }: {
   metadata: Metadata;
   canImportCI: boolean;
   canImportAsset: boolean;
+  canManageIRE: boolean;
+  csvSources: CSVSource[];
+  csvSourcesLoading: boolean;
+  csvSourcesError?: string;
   onCreated: (record: Import) => void;
 }) {
   const locale = useCMDBLocale();
@@ -126,6 +141,7 @@ function ImportCreateForm({
   const [file, setFile] = useState<File | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<Record<string, string>>({});
+  const [sourceID, setSourceID] = useState("");
   const [fileError, setFileError] = useState<string>();
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -134,6 +150,7 @@ function ImportCreateForm({
 
   function changeTarget(value: "CI" | "ASSET") {
     setTarget(value);
+    if (value !== "CI") setSourceID("");
     const choices = value === "CI" ? metadata.ci_import_identity_keys : metadata.asset_import_identity_keys;
     setIdentity(choices[0] ?? "");
     setMapping({});
@@ -172,8 +189,13 @@ function ImportCreateForm({
     pending.current = true;
     setBusy(true);
     setError(undefined);
-    const config: ImportConfig = { target, identity_key: identity, mapping: Object.fromEntries(Object.entries(mapping).filter(([, value]) => value)) };
-    const signature = target + ":" + identity + ":" + file.name + ":" + file.size + ":" + JSON.stringify(config.mapping);
+    const config: ImportConfig = {
+      target,
+      identity_key: identity,
+      mapping: Object.fromEntries(Object.entries(mapping).filter(([, value]) => value)),
+      ...(target === "CI" && canManageIRE && sourceID ? { source_id: sourceID } : {}),
+    };
+    const signature = target + ":" + identity + ":" + file.name + ":" + file.size + ":" + JSON.stringify(config);
     if (!operation.current || operation.current.signature !== signature) operation.current = { signature, key: crypto.randomUUID() };
     const body = new FormData();
     body.set("file", file);
@@ -205,6 +227,10 @@ function ImportCreateForm({
         {canImportAsset && <option value="ASSET">{t("targetAsset", locale)}</option>}
       </select></label>
       <label>{t("identity", locale)}<select value={identity} disabled={busy} onChange={(event) => setIdentity(event.target.value)}>{identityOptions.map((key) => <option key={key} value={key}>{key}</option>)}</select></label>
+      {canManageIRE && target === "CI" && <label>{t("importSource", locale)}<select value={sourceID} disabled={busy || csvSourcesLoading || Boolean(csvSourcesError)} onChange={(event) => setSourceID(event.target.value)}>
+        <option value="">{t("defaultImportSource", locale)}</option>
+        {csvSources.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}
+      </select>{csvSourcesError && <small role="status" className="text-amber-800">{t("importSourceLoadError", locale)} {csvSourcesError}</small>}</label>}
       <label>{t("file", locale)}<input type="file" accept=".csv,text/csv" disabled={busy} onChange={(event) => void selectFile(event)} /><small>{locale === "en" ? "Maximum " : "Maksymalnie "}{metadata.max_csv_bytes} {locale === "en" ? "bytes, " : "bajtów, "}{metadata.max_csv_rows} {locale === "en" ? "rows and " : "wierszy i "}{metadata.max_csv_columns} {locale === "en" ? "columns." : "kolumn."}</small></label>
       {file && <p className="muted">{file.name} · {file.size} B · {headers.length ? headers.join(", ") : ""}</p>}
       {fileError && <PageState title={locale === "en" ? "CSV header could not be read" : "Nie można odczytać nagłówka CSV"} detail={fileError} tone="error" />}
@@ -213,8 +239,11 @@ function ImportCreateForm({
         {visibleFields.map((field) => {
           const usedByOther = new Set(Object.entries(mapping).filter(([key, value]) => key !== field && value).map(([, value]) => value));
           const isRequired = requiredFields.includes(field);
+          const customKey = field.startsWith("custom_fields.") ? field.slice("custom_fields.".length) : "";
+          const customDefinition = customKey ? metadata.custom_fields_schema.fields.find((item) => item.key === customKey) : undefined;
+          const fieldLabel = customDefinition?.labels[locale] || customDefinition?.labels.pl || field;
           return <label key={field}>
-            {field}{isRequired ? " *" : ""}
+            {fieldLabel}{customDefinition ? <small className="ml-1 text-slate-500">{field}</small> : null}{isRequired ? " *" : ""}
             <select value={mapping[field] ?? ""} disabled={busy} onChange={(event) => setMapping((current) => ({ ...current, [field]: event.target.value }))}>
               <option value="">{t("unmapped", locale)}</option>
               {headers.map((header) => <option key={header} value={header} disabled={usedByOther.has(header)}>{header}</option>)}

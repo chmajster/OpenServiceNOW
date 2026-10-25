@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/chmajster/OpenServiceNOW/internal/metadata"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 )
@@ -196,9 +197,22 @@ func (r *Repository) List(ctx context.Context, a Actor, f Filter) (Page, error) 
 		}
 	}
 	if f.Query != "" {
-		query += " AND (i.number LIKE ? ESCAPE '!' OR i.title LIKE ? ESCAPE '!')"
-		escaped := strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(f.Query)
-		args = append(args, "%"+escaped+"%", "%"+escaped+"%")
+		searches:=[]string{};escaped:=strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(f.Query);systemPattern:=escaped+"%";customPattern:=strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(f.Query)+"%"
+		for _,key:=range f.SearchFields {
+			switch key {
+			case "number","title","category","state": searches=append(searches,"i."+key+" LIKE ? ESCAPE '!'" );args=append(args,systemPattern)
+			default:
+				fieldType,ok:=f.SearchableTypes[key];if !ok{return Page{},ErrInvalid};field:=metadata.Field{Key:key,Type:fieldType,Active:true}
+				clause,values,err:=metadata.SearchClause("incident","i",field,a.TenantID,customPattern);if err!=nil{return Page{},err};searches=append(searches,clause);args=append(args,values...)
+			}
+		}
+		if len(searches)==0{return Page{},ErrInvalid};query+=" AND ("+strings.Join(searches," OR ")+")"
+	}
+	for _,filter:=range f.CustomFields {
+		clause,values,err:=metadata.QueryClause("incident","i",filter,a.TenantID)
+		if err!=nil{return Page{},err}
+		query+=" AND "+clause
+		args=append(args,values...)
 	}
 	if f.AfterID > 0 {
 		switch f.Sort {

@@ -34,3 +34,21 @@ func TestDeclarativeForms(t *testing.T) {
 		t.Fatal("script execution configuration accepted")
 	}
 }
+
+func TestValidateValuesWithMetadataPreservesPublishedCatalogSemantics(t *testing.T) {
+	fields := []Field{
+		{Key:"requested",Label:"Wniosek",Type:"checkbox"},
+		{Key:"details",Label:"Opis",Type:"longtext",Required:true,VisibleWhen:&Condition{Field:"requested",Equals:json.RawMessage("true")}},
+		{Key:"quantity",Label:"Ilość",Type:"number",Required:true,RequiredWhen:&Condition{Field:"requested",Equals:json.RawMessage("true")}},
+		{Key:"choice",Label:"Wybór",Type:"select",Options:[]string{"one","two"}},
+	}
+	var values map[string]json.RawMessage
+	if err:=json.Unmarshal([]byte(`{"requested":true,"details":"Opis","quantity":2.5,"choice":"one"}`),&values);err!=nil{t.Fatal(err)}
+	got,err:=ValidateValuesWithMetadata(fields,values);if err!=nil{t.Fatal(err)}
+	var number json.Number
+	if err=json.Unmarshal(got["quantity"],&number);err!=nil||number.String()!="2.5"{t.Fatalf("normalized quantity = %s, err = %v",got["quantity"],err)}
+	for _,raw:=range []string{`{"details":"hidden"}`,`{"requested":false,"details":"hidden"}`,`{"unknown":"value"}`,`{"requested":true,"details":"Opis","quantity":1000000000001}`} {
+		var input map[string]json.RawMessage;_ = json.Unmarshal([]byte(raw),&input)
+		if _,err:=ValidateValuesWithMetadata(fields,input);err==nil{t.Errorf("accepted historical form input %s",raw)}
+	}
+}

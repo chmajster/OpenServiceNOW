@@ -7,6 +7,7 @@ import { useRemotePage } from "../components/useRemotePage";
 import { PageState } from "../components/PageState";
 import { useIncidentQuery } from "../incidents/hooks";
 import { cmdbLabel, cmdbText, useCMDBLocale } from "./messages";
+import { formatDateTime } from "../metadata/format";
 import type { Asset, CI, Graph, Metadata, Reference, Relation } from "./contracts";
 
 export function InventoryChoice({
@@ -127,9 +128,7 @@ export function InventoryHistory({ path }: { path: string }) {
           <li key={entry.id}>
             <strong>{entry.summary}</strong>
             <p>
-              {entry.actor_name} - {new Date(entry.event_time).toLocaleString(
-                locale === "en" ? "en-GB" : "pl-PL",
-              )}
+              {entry.actor_name} - {formatDateTime(entry.event_time, locale)}
             </p>
             <details>
               <summary>{cmdbText("historyDetails", locale)}</summary>

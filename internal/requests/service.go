@@ -119,7 +119,7 @@ func (s *Service) Create(ctx context.Context, a Actor, in Submission, key string
 			if err := catalog.ActiveGroup(ctx, e, a.TenantID, d.GroupID); err != nil {
 				return err
 			}
-			values, err := catalog.ValidateValues(d.Fields, item.Values)
+			values, err := catalog.ValidateValuesWithMetadata(d.Fields, item.Values)
 			if err != nil {
 				return err
 			}

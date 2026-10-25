@@ -23,11 +23,13 @@ type AssetLinkInput struct {
 }
 
 func (s *Service) AssetLink(ctx context.Context, a Actor, id uint64) (AssetLink, error) {
-	if _, err := s.Get(ctx, a, id); err != nil {
+	ci, err := s.Get(ctx, a, id)
+	if err != nil {
 		return AssetLink{}, err
 	}
+	id = ci.ID
 	var aid uint64
-	err := s.DB.QueryRowContext(ctx, "SELECT asset_id FROM cmdb_ci_assets WHERE tenant_id=? AND ci_id=?", a.TenantID, id).Scan(&aid)
+	err = s.DB.QueryRowContext(ctx, "SELECT asset_id FROM cmdb_ci_assets WHERE tenant_id=? AND ci_id=?", a.TenantID, id).Scan(&aid)
 	if errors.Is(err, sql.ErrNoRows) {
 		return AssetLink{}, nil
 	}

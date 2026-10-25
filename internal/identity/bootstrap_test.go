@@ -39,7 +39,7 @@ func TestPlatformAdminIncludesITAMPermissions(t *testing.T) {
 	for _, permission := range platformAdminPermissions {
 		permissions[permission.Key] = true
 	}
-	for _, key := range []string{"assets.read", "assets.manage"} {
+	for _, key := range []string{"assets.read", "assets.manage", "admin.metadata.manage"} {
 		if !permissions[key] {
 			t.Errorf("platform administrator is missing %q", key)
 		}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ApiError, api, jsonBody } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -10,12 +10,42 @@ import { useIncidentQuery, useIncidentTitleFocus } from "../incidents/hooks";
 import { AssetPanel, InventoryHistory, LinkedRecords, PageFeedback, RelationsPanel } from "../cmdb/components";
 import { cmdbAttributeLabel, cmdbLabel, cmdbText, useCMDBLocale } from "../cmdb/messages";
 import type { Attribute, CI, Class, Metadata } from "../cmdb/contracts";
+import { MetadataFields } from "../metadata/MetadataFields";
+import { formatDateTime, formatMetadataValue } from "../metadata/format";
+
+const CIProvenancePanel = lazy(() => import("./CMDBIREPage").then((module) => ({ default: module.CIProvenancePanel })));
 
 const pageSize = "25";
 const listPath = "/cmdb";
 
 function t(key: string, locale: "pl" | "en") {
   return cmdbText(key, locale);
+}
+
+function ciDictionaryLabel(metadata: Metadata | undefined, key: string, value: string, locale: "pl" | "en") {
+  const option = metadata?.custom_fields_schema?.configuration?.dictionaries[key]?.find((item) => item.value === value);
+  return option?.labels[locale] || option?.labels.pl || cmdbLabel(value, locale);
+}
+
+function layoutKeys(schema: import("../metadata/contracts").MetadataSchema, defaults: string[], hasPermission: (key: string) => boolean) {
+  const roleViews = Object.entries(schema.list.role_views ?? {}).filter(([permission]) => hasPermission(permission));
+  const selected = roleViews.length ? [...new Set(roleViews.flatMap(([, keys]) => keys))] : defaults;
+  return selected.filter((key) => schema.fields.some((field) => field.key === key && field.active));
+}
+
+const legacyListColumns = ["identifier", "name", "class", "status"];
+
+function ciColumnLabel(key: string, locale: "pl" | "en") {
+  const labels: Record<string, [string, string]> = {
+    identifier: ["Identyfikator", "Identifier"],
+    name: ["Nazwa", "Name"],
+    class: ["Klasa", "Class"],
+    status: ["Stan", "Status"],
+    environment: ["Środowisko", "Environment"],
+    owner_id: ["Właściciel", "Owner"],
+    location: ["Lokalizacja", "Location"],
+  };
+  return labels[key]?.[locale === "en" ? 1 : 0] ?? key;
 }
 
 function canReadCMDB(hasPermission: (key: string) => boolean) {
@@ -40,6 +70,11 @@ export function CMDBListPage() {
   const location = useLocation();
   const [params, setParams] = useSearchParams();
   const schema = useIncidentQuery<Metadata>("/api/v1/cmdb/classes");
+  const metadataSchema = schema.data?.custom_fields_schema;
+  const listColumns = metadataSchema
+    ? layoutKeys(metadataSchema, metadataSchema.list.columns, hasPermission)
+    : legacyListColumns;
+  const configuredFilters = metadataSchema?.list.filters ?? [];
   const [queryDraft, setQueryDraft] = useState(params.get("q") ?? "");
   const [locationDraft, setLocationDraft] = useState(params.get("location") ?? "");
   const query = new URLSearchParams();
@@ -48,6 +83,12 @@ export function CMDBListPage() {
     if (key === "archived" && value === "any") continue;
     if (value) query.set(key, value);
   }
+  for (const key of configuredFilters) {
+    const value = params.get(`cf.${key}`);
+    if (value) query.set(`cf.${key}`, value);
+  }
+  const defaultSort = metadataSchema?.list.default_sort ?? "newest";
+  if (defaultSort !== "newest") query.set("sort", defaultSort);
   query.set("limit", pageSize);
   const page = useRemotePage<CI>("/api/v1/cmdb/cis?" + query.toString(), "items", "before_id");
   const canRead = canReadCMDB(hasPermission);
@@ -81,6 +122,18 @@ export function CMDBListPage() {
     setQueryDraft("");
     setLocationDraft("");
     setParams(new URLSearchParams());
+  }
+
+  function filterCustom(values: Record<string, unknown>) {
+    const next = new URLSearchParams(params);
+    next.delete("before_id");
+    for (const key of configuredFilters) {
+      const value = values[`cf.${key}`];
+      const encoded = value === undefined || value === null ? "" : String(value);
+      if (encoded) next.set(`cf.${key}`, encoded);
+      else next.delete(`cf.${key}`);
+    }
+    setParams(next);
   }
 
   if (!canRead) return <PageState title={t("noPermission", locale)} detail={t("noPermissionDetail", locale)} tone="error" />;
@@ -117,14 +170,14 @@ export function CMDBListPage() {
           {t("status", locale)}
           <select value={params.get("status") ?? ""} disabled={schema.loading || !schema.data} onChange={(event) => setFilter("status", event.target.value)}>
             <option value="">{t("all", locale)}</option>
-            {schema.data?.statuses.map((value) => <option key={value} value={value}>{cmdbLabel(value, locale)}</option>)}
+            {schema.data?.statuses.map((value) => <option key={value} value={value}>{ciDictionaryLabel(schema.data, "ci.status", value, locale)}</option>)}
           </select>
         </label>
         <label>
           {t("environment", locale)}
           <select value={params.get("environment") ?? ""} disabled={schema.loading || !schema.data} onChange={(event) => setFilter("environment", event.target.value)}>
             <option value="">{t("all", locale)}</option>
-            {schema.data?.environments.map((value) => <option key={value} value={value}>{cmdbLabel(value, locale)}</option>)}
+            {schema.data?.environments.map((value) => <option key={value} value={value}>{ciDictionaryLabel(schema.data, "ci.environment", value, locale)}</option>)}
           </select>
         </label>
         <label>
@@ -139,6 +192,13 @@ export function CMDBListPage() {
           {t("location", locale)}
           <input value={locationDraft} maxLength={160} onChange={(event) => setLocationDraft(event.target.value)} />
         </label>
+        {metadataSchema && <MetadataFields
+          schema={metadataSchema}
+          values={Object.fromEntries([...params.entries()].filter(([key]) => key.startsWith("cf.")))}
+          onChange={filterCustom}
+          locale={locale}
+          filterable
+        />}
         <div className="action-row">
           <button className="button button--primary" type="submit">{t("applyFilters", locale)}</button>
           <button className="button button--secondary" type="button" onClick={resetFilters}>{t("resetFilters", locale)}</button>
@@ -157,12 +217,11 @@ export function CMDBListPage() {
       {page.items.length > 0 && (
         <div className="table-wrap">
           <table>
-            <thead><tr><th>{t("identifier", locale)}</th><th>{t("name", locale)}</th><th>{t("class", locale)}</th><th>{t("status", locale)}</th><th>{t("environment", locale)}</th><th>{t("location", locale)}</th></tr></thead>
+            <thead><tr>{listColumns.map((key) => { const field = metadataSchema?.fields.find((item) => item.key === key); return <th key={key}>{field?.labels[locale] || field?.labels.pl || ciColumnLabel(key, locale)}</th>; })}</tr></thead>
             <tbody>
               {page.items.map((record) => (
                 <tr key={record.id}>
-                  <td><Link to={carryReturn("/cmdb/" + record.id, returnTo)}>{record.identifier}</Link>{record.archived && <span className="ml-2 text-xs text-amber-700">{t("archivedRecords", locale)}</span>}</td>
-                  <td>{record.name}</td><td>{cmdbLabel(record.class, locale)}</td><td>{cmdbLabel(record.status, locale)}</td><td>{cmdbLabel(record.environment, locale)}</td><td>{record.location || "—"}</td>
+                  {listColumns.map((key) => { const field = metadataSchema?.fields.find((item) => item.key === key); return <td key={key}>{key === "identifier" ? <><Link to={carryReturn("/cmdb/" + record.id, returnTo)}>{record.identifier}</Link>{record.archived && <span className="ml-2 text-xs text-amber-700">{t("archivedRecords", locale)}</span>}</> : key === "name" ? record.name : key === "class" ? cmdbLabel(record.class, locale) : key === "status" ? ciDictionaryLabel(schema.data, "ci.status", record.status, locale) : key === "environment" ? ciDictionaryLabel(schema.data, "ci.environment", record.environment, locale) : key === "owner_id" ? record.owner_name : key === "location" ? record.location || "—" : displayCustomValue(record.custom_fields?.[key], locale, field?.type)}</td>; })}
                 </tr>
               ))}
             </tbody>
@@ -203,6 +262,8 @@ export function CMDBCreatePage() {
 
 type Draft = Pick<CI, "identifier" | "name" | "class" | "status" | "owner_id" | "environment" | "location"> & {
   attributes: Record<string, unknown>;
+  custom_fields: Record<string, unknown>;
+  custom_fields_version: string;
 };
 
 function makeDraft(metadata: Metadata, record?: CI, owner?: Choice): Draft {
@@ -216,6 +277,8 @@ function makeDraft(metadata: Metadata, record?: CI, owner?: Choice): Draft {
       environment: record.environment,
       location: record.location,
       attributes: { ...record.attributes },
+      custom_fields: { ...(record.custom_fields ?? {}) },
+      custom_fields_version: record.custom_fields_version,
     };
   }
   return {
@@ -227,6 +290,8 @@ function makeDraft(metadata: Metadata, record?: CI, owner?: Choice): Draft {
     environment: metadata.environments[0] ?? "",
     location: "",
     attributes: {},
+    custom_fields: {},
+    custom_fields_version: metadata.custom_fields_schema.version,
   };
 }
 
@@ -301,6 +366,14 @@ function CIEditor({
       else delete attributes[key];
     }
     merged.attributes = attributes;
+    const customFields = { ...currentDraft.custom_fields };
+    const customKeys = new Set([...Object.keys(base.custom_fields), ...Object.keys(draft.custom_fields)]);
+    for (const key of customKeys) {
+      if (JSON.stringify(base.custom_fields[key]) === JSON.stringify(draft.custom_fields[key])) continue;
+      if (Object.prototype.hasOwnProperty.call(draft.custom_fields, key)) customFields[key] = draft.custom_fields[key];
+      else delete customFields[key];
+    }
+    merged.custom_fields = customFields;
     return merged;
   }
 
@@ -420,6 +493,14 @@ function CIEditor({
           />
         ))}
       </fieldset>}
+      <MetadataFields
+        schema={metadata.custom_fields_schema}
+        values={draft.custom_fields}
+        baseValues={{ identifier: draft.identifier, name: draft.name, class: draft.class, status: draft.status, owner_id: owner?.id ?? draft.owner_id, environment: draft.environment, location: draft.location }}
+        onChange={(custom_fields) => setDraft((current) => ({ ...current, custom_fields }))}
+        locale={locale}
+        disabled={busy || Boolean(latest)}
+      />
       <div className="action-row">
         <button className="button button--primary" disabled={busy || Boolean(latest) || Boolean(record?.archived) || !owner} type="submit">{busy ? t("saving", locale) : t("save", locale)}</button>
         <button className="button button--secondary" disabled={busy} type="button" onClick={onCancel}>{t("cancel", locale)}</button>
@@ -476,7 +557,7 @@ function FormField({
   );
 }
 
-const tabs = ["overview", "relations", "asset", "records", "history"] as const;
+const tabs = ["overview", "relations", "asset", "records", "history", "provenance"] as const;
 type TabKey = (typeof tabs)[number];
 
 export function CMDBDetailPage() {
@@ -597,7 +678,7 @@ export function CMDBDetailPage() {
         <label>{t("archiveReason", locale)}<input maxLength={1000} value={archiveReason} disabled={busy} onChange={(event) => setArchiveReason(event.target.value)} /></label>
       </div>}
       <div className="cmdb-tabs" role="tablist" aria-label={t("detail", locale)}>
-        {tabs.map((tab) => <button key={tab} id={`cmdb-tab-${tab}`} type="button" role="tab" aria-controls={`cmdb-panel-${tab}`} aria-selected={active === tab} tabIndex={active === tab ? 0 : -1} onClick={() => selectTab(tab)}>{t(tab, locale)}</button>)}
+        {tabs.map((tab) => <button key={tab} id={`cmdb-tab-${tab}`} type="button" role="tab" aria-controls={`cmdb-panel-${tab}`} aria-selected={active === tab} tabIndex={active === tab ? 0 : -1} onClick={() => selectTab(tab)}>{tab === "provenance" ? (locale === "en" ? "Data provenance" : "Pochodzenie danych") : t(tab, locale)}</button>)}
       </div>
       <div id={`cmdb-panel-${active}`} role="tabpanel" aria-labelledby={`cmdb-tab-${active}`} tabIndex={0}>
       {active === "overview" && (editing && canManage ? (
@@ -608,6 +689,7 @@ export function CMDBDetailPage() {
       {active === "asset" && <AssetPanel record={record} busy={busy} save={save} />}
       {active === "records" && <LinkedRecords id={record.id} />}
       {active === "history" && <InventoryHistory path={"/api/v1/cmdb/cis/" + record.id + "/history"} />}
+      {active === "provenance" && <Suspense fallback={<PageFeedback loading error="" empty={false} />}><CIProvenancePanel ciID={record.id} version={record.version} canManage={canManage && !record.archived} onVersionChange={(version) => setRecord((current) => current ? { ...current, version } : current)} /></Suspense>}
       </div>
     </section>
   );
@@ -627,8 +709,8 @@ function CIOverview({ record, metadata, locale }: { record: CI; metadata?: Metad
           <Summary label={t("environment", locale)} value={cmdbLabel(record.environment, locale) ?? record.environment} />
           <Summary label={t("owner_id", locale)} value={record.owner_name} />
           <Summary label={t("location", locale)} value={record.location || "—"} />
-          <Summary label={t("created", locale)} value={new Date(record.created_at).toLocaleString(locale === "en" ? "en-GB" : "pl-PL")} />
-          <Summary label={t("updated", locale)} value={new Date(record.updated_at).toLocaleString(locale === "en" ? "en-GB" : "pl-PL")} />
+          <Summary label={t("created", locale)} value={formatDateTime(record.created_at, locale)} />
+          <Summary label={t("updated", locale)} value={formatDateTime(record.updated_at, locale)} />
         </dl>
       </section>
       <section className="panel">
@@ -641,10 +723,20 @@ function CIOverview({ record, metadata, locale }: { record: CI; metadata?: Metad
           })}
         </dl>
       </section>
+      {metadata && Object.keys(record.custom_fields ?? {}).length > 0 && <section className="panel lg:col-span-2">
+        <h2 className="text-lg font-semibold">{locale === "en" ? "Additional information" : "Informacje dodatkowe"}</h2>
+        <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+          {metadata.custom_fields_schema.fields.filter((field) => field.active && !field.system && record.custom_fields?.[field.key] !== undefined).map((field) => <Summary key={field.key} label={field.labels[locale] || field.labels.pl || field.key} value={displayCustomValue(record.custom_fields?.[field.key], locale, field.type)} />)}
+        </dl>
+      </section>}
     </div>
   );
 }
 
 function Summary({ label, value }: { label: string; value: string }) {
   return <div><dt className="text-sm text-slate-500">{label}</dt><dd className="font-medium break-words">{value}</dd></div>;
+}
+
+function displayCustomValue(value: unknown, locale: "pl" | "en" = "pl", type?: string): string {
+  return formatMetadataValue(value, locale, type);
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/events"
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
 	"github.com/chmajster/OpenServiceNOW/internal/incidents"
+	"github.com/chmajster/OpenServiceNOW/internal/metadata"
 	"github.com/chmajster/OpenServiceNOW/internal/notifications"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/cache"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
@@ -29,12 +30,13 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/platform/requestinfo"
 	"github.com/chmajster/OpenServiceNOW/internal/rbac"
 	"github.com/chmajster/OpenServiceNOW/internal/requests"
-	"github.com/chmajster/OpenServiceNOW/internal/sla"
 	"github.com/chmajster/OpenServiceNOW/internal/serviceportfolio"
+	"github.com/chmajster/OpenServiceNOW/internal/sla"
 	"github.com/chmajster/OpenServiceNOW/internal/tenants"
 	"github.com/chmajster/OpenServiceNOW/internal/users"
 	"github.com/chmajster/OpenServiceNOW/internal/workflow"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
+	"github.com/chmajster/OpenServiceNOW/internal/workspace"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -86,6 +88,7 @@ func main() {
 		identity.NewInstaller(identity.NewBootstrapper(identityRepo, txManager, auditRepo), identityService),
 		ratelimit.New(redisClient, "opensnow:"), cfg.Session,
 	)
+	metadataService := metadata.NewService(db)
 
 	rbacRepo := rbac.NewMySQLRepository(db)
 	rbacService := rbac.NewService(rbacRepo, txManager, auditRepo, adminSafety)
@@ -103,6 +106,7 @@ func main() {
 	incidentService := incidents.NewService(incidents.NewRepository(db), txManager,
 		workrecords.NewAllocator(txManager), workrecords.NewService(workrecords.NewRepository(db), txManager, outboxRepo),
 		auditRepo, outboxRepo, activity.NewRepository(db))
+	incidentService.WithMetadata(metadataService)
 	storage, err := attachments.NewLocalStorage(cfg.AttachmentRoot)
 	if err != nil {
 		logger.Error("attachment storage unavailable", "error", err)
@@ -117,8 +121,10 @@ func main() {
 	incidentHandler := incidents.NewHandler(incidentService, identityService)
 	requestService := requests.NewService(db, files)
 	requestHandler := requests.NewHandler(requestService, catalog.NewService(db), identityService)
+	workspaceService := workspace.NewService(db, incidentService, requestService, files, identity.NewMySQLRepository(db)).WithMetadata(metadataService)
+	workspaceHandler := workspace.NewHandler(workspaceService, identityService)
 	workflowHandler := workflow.NewHandler(workflow.NewService(db, requestService), identityService)
-	cmdbService := cmdb.NewService(db, files, map[string]cmdb.RecordDomain{"incidents": incidents.NewCMDBDomain(incidentService), "requests": requests.NewCMDBDomain(requestService)})
+	cmdbService := cmdb.NewService(db, files, map[string]cmdb.RecordDomain{"incidents": incidents.NewCMDBDomain(incidentService), "requests": requests.NewCMDBDomain(requestService)}).WithMetadata(metadataService)
 	inventoryHandler := cmdb.NewHandler(cmdbService, identityService)
 	servicePortfolioHandler := serviceportfolio.NewHandler(serviceportfolio.NewService(db, cmdbService), identityService)
 	notificationHandler := notifications.NewHandler(notifications.NewService(db, cfg.NotificationKey, cfg.SMTPAllowInsecure), outboxRepo)
@@ -157,8 +163,12 @@ func main() {
 			func(r chi.Router) {
 				incidents.RegisterRoutes(r, incidentHandler, identityMiddleware)
 			},
+			func(r chi.Router) {
+				metadata.RegisterRoutes(r, metadata.NewHandler(metadataService, identityService), identityMiddleware)
+			},
 			func(r chi.Router) { notifications.RegisterRoutes(r, notificationHandler, identityMiddleware) },
 			func(r chi.Router) { requests.RegisterRoutes(r, requestHandler, identityMiddleware) },
+			func(r chi.Router) { workspace.RegisterRoutes(r, workspaceHandler, identityMiddleware) },
 			func(r chi.Router) { workflow.RegisterRoutes(r, workflowHandler, identityMiddleware) },
 			func(r chi.Router) { cmdb.RegisterRoutes(r, inventoryHandler, identityMiddleware) },
 			func(r chi.Router) { serviceportfolio.RegisterRoutes(r, servicePortfolioHandler, identityMiddleware) },

@@ -20,6 +20,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
 	"github.com/chmajster/OpenServiceNOW/internal/incidents"
 	"github.com/chmajster/OpenServiceNOW/internal/jobs"
+	"github.com/chmajster/OpenServiceNOW/internal/metadata"
 	"github.com/chmajster/OpenServiceNOW/internal/notifications"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
@@ -28,6 +29,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/systemjobs"
 	"github.com/chmajster/OpenServiceNOW/internal/workflow"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
+	"github.com/chmajster/OpenServiceNOW/internal/workspace"
 )
 
 func main() {
@@ -136,8 +138,22 @@ func main() {
 		logger.Error("inventory storage unavailable")
 		os.Exit(1)
 	}
-	if err := jobWorker.Register("cmdb.import", cmdb.NewService(db, files, nil).ImportHandler); err != nil {
+	workspaceService := workspace.NewService(db, nil, nil, files, identity.NewMySQLRepository(db)).WithMetadata(metadata.NewService(db))
+	if err := jobWorker.Register(workspace.ExportJobType, workspaceService.ExportJobHandler); err != nil {
+		logger.Error("register workspace export worker", "error", err)
+		os.Exit(1)
+	}
+	cmdbService := cmdb.NewService(db, files, nil).WithMetadata(metadata.NewService(db))
+	if err := jobWorker.Register("cmdb.import", cmdbService.ImportHandler); err != nil {
 		logger.Error("register inventory import failed")
+		os.Exit(1)
+	}
+	if err := jobWorker.Register("cmdb.ire", cmdbService.IREJobHandler); err != nil {
+		logger.Error("register CMDB reconciliation worker failed", "error", err)
+		os.Exit(1)
+	}
+	if err := jobWorker.Register(cmdb.QualityJobType, cmdbService.QualityJobHandler); err != nil {
+		logger.Error("register CMDB quality worker failed", "error", err)
 		os.Exit(1)
 	}
 	for kind, label := range map[string]string{"ci.changed": "Zmieniono element konfiguracji", "asset.changed": "Zmieniono zasób majątkowy"} {
@@ -151,7 +167,7 @@ func main() {
 		os.Exit(1)
 	}
 	for eventType, label := range map[string]string{
-		"service_portfolio.item.changed":        "Zmieniono usługę w portfelu",
+		"service_portfolio.item.changed":         "Zmieniono usługę w portfelu",
 		"service_portfolio.item.classified":      "Sklasyfikowano CI w portfelu usług",
 		"service_portfolio.offer.changed":        "Zmieniono ofertę usługi",
 		"service_portfolio.org_ref.changed":      "Zmieniono dane organizacyjne portfela",
@@ -172,6 +188,10 @@ func main() {
 	}
 
 	if *once {
+		if _, err := cmdbService.ScheduleQuality(rootCtx, time.Now().UTC()); err != nil {
+			logger.Error("schedule CMDB quality checks failed", "error", err)
+			os.Exit(1)
+		}
 		jobProcessed, err := jobWorker.RunOnce(rootCtx)
 		if err != nil {
 			logger.Error("worker one-shot job failed", "error", err)
@@ -192,6 +212,20 @@ func main() {
 	errCh := make(chan error, 2)
 	go func() { errCh <- jobWorker.Run(runCtx) }()
 	go func() { errCh <- dispatcher.Run(runCtx) }()
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-runCtx.Done():
+				return
+			case now := <-ticker.C:
+				if _, err := cmdbService.ScheduleQuality(runCtx, now.UTC()); err != nil {
+					logger.Error("schedule CMDB quality checks failed", "error", err)
+				}
+			}
+		}
+	}()
 
 	select {
 	case <-rootCtx.Done():

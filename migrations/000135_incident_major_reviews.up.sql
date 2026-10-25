@@ -1,0 +1,20 @@
+CREATE TABLE incident_major_reviews (
+ tenant_id BIGINT UNSIGNED NOT NULL,
+ incident_id BIGINT UNSIGNED NOT NULL,
+ detected_at DATETIME(6) NOT NULL,
+ restored_at DATETIME(6) NOT NULL,
+ impact_summary VARCHAR(8000) NOT NULL,
+ known_causes VARCHAR(8000) NOT NULL,
+ what_worked VARCHAR(8000) NOT NULL,
+ completed_at DATETIME(6) NULL,
+ completed_by BIGINT UNSIGNED NULL,
+ version BIGINT UNSIGNED NOT NULL DEFAULT 1,
+ updated_by BIGINT UNSIGNED NOT NULL,
+ updated_at DATETIME(6) NOT NULL,
+ PRIMARY KEY(tenant_id,incident_id),
+ CONSTRAINT incident_major_review_case FOREIGN KEY(tenant_id,incident_id) REFERENCES incident_major_cases(tenant_id,incident_id) ON DELETE CASCADE,
+ CONSTRAINT incident_major_review_actor FOREIGN KEY(tenant_id,updated_by) REFERENCES tenant_memberships(tenant_id,user_id),
+ CONSTRAINT incident_major_review_completer FOREIGN KEY(tenant_id,completed_by) REFERENCES tenant_memberships(tenant_id,user_id),
+ CONSTRAINT incident_major_review_version CHECK(version>=1),
+ CONSTRAINT incident_major_review_time CHECK(restored_at>=detected_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

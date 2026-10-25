@@ -6,9 +6,22 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { api, jsonBody } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { NotificationBadge } from "../notifications/NotificationBadge";
 import { setCMDBLocale, useCMDBLocale } from "../cmdb/messages";
+import type { Locale } from "../metadata/contracts";
+
+type LocalePreferences = { locale?: Locale; time_zone?: string; version: string; organization_name: string; brand_color: string; logo_url?: string; default_locale: Locale; default_time_zone: string; default_date_format: string; default_number_format: string; default_currency: string };
+
+function brandTextColor(color: string) {
+  const match = /^#([0-9a-f]{6})$/i.exec(color);
+  if (!match) return "#1e3538";
+  const channels = [0, 2, 4].map((index) => parseInt(match[1]!.slice(index, index + 2), 16) / 255);
+  const luminance = channels.map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
+    .reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index]!, 0);
+  return luminance > 0.179 ? "#111827" : "#ffffff";
+}
 
 type NavIconName =
   | "home"
@@ -47,6 +60,12 @@ const navigationGroups: NavGroup[] = [
     label: "Moja praca",
     items: [
       { to: "/", label: "Przegląd", icon: "home" },
+      {
+        to: "/workspace",
+        label: "Workspace operatora",
+        icon: "inbox",
+        anyPermissions: ["incident.read", "incident.read_own", "request.fulfill", "request.manage"],
+      },
       {
         to: "/approvals",
         label: "Moje akceptacje",
@@ -130,6 +149,12 @@ const navigationGroups: NavGroup[] = [
         ],
       },
       {
+        to: "/cmdb/ire",
+        label: "Uzgadnianie CI i jakość CMDB (IRE)",
+        icon: "list",
+        anyPermissions: ["cmdb.ire.manage", "cmdb.quality.read", "cmdb.quality.manage"],
+      },
+      {
         to: "/catalog-admin",
         label: "Administracja katalogiem",
         icon: "grid",
@@ -146,6 +171,12 @@ const navigationGroups: NavGroup[] = [
         label: "Dostarczanie powiadomień",
         icon: "send",
         permission: "admin.notifications.manage",
+      },
+      {
+        to: "/metadata",
+        label: "Słowniki i formularze",
+        icon: "list",
+        permission: "admin.metadata.manage",
       },
       {
         to: "/tenant",
@@ -332,6 +363,10 @@ export function AppShell() {
   const [navigationFilter, setNavigationFilter] = useState("");
   const [globalSearch, setGlobalSearch] = useState("");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [localePreferences, setLocalePreferences] = useState<LocalePreferences>();
+  const [logoFailed, setLogoFailed] = useState(false);
+  const [savingLocale, setSavingLocale] = useState(false);
+  const [localeError, setLocaleError] = useState<string>();
   const cmdbLocale = useCMDBLocale();
 
   useEffect(() => {
@@ -385,10 +420,51 @@ export function AppShell() {
   const isCMDBImportRoute =
     location.pathname === "/cmdb/imports" || location.pathname.startsWith("/cmdb/imports/");
   useEffect(() => {
-    document.documentElement.lang = isCMDBRoute ? cmdbLocale : "pl";
-  }, [cmdbLocale, isCMDBRoute]);
+    document.documentElement.lang = cmdbLocale;
+  }, [cmdbLocale]);
+  useEffect(() => {
+    if (!session) {
+      setLocalePreferences(undefined);
+      delete document.documentElement.dataset.timeZone;
+      delete document.documentElement.dataset.dateFormat;
+      delete document.documentElement.dataset.numberFormat;
+      document.documentElement.style.removeProperty("--organization-brand-color");
+      document.documentElement.style.removeProperty("--organization-brand-contrast");
+      return;
+    }
+    let requestController: AbortController | undefined;
+    const loadPreferences = () => {
+      requestController?.abort();
+      const controller = new AbortController();
+      requestController = controller;
+      setLocaleError(undefined);
+      void api<LocalePreferences>("/api/v1/metadata/preferences", { signal: controller.signal })
+        .then((preferences) => {
+          if (controller.signal.aborted) return;
+          setLocalePreferences(preferences);
+          setCMDBLocale(preferences.locale || preferences.default_locale);
+          document.documentElement.dataset.timeZone = preferences.time_zone || preferences.default_time_zone;
+          document.documentElement.dataset.dateFormat = preferences.default_date_format;
+          document.documentElement.dataset.numberFormat = preferences.default_number_format;
+          const brandColor = /^#[0-9a-f]{6}$/i.test(preferences.brand_color) ? preferences.brand_color : "#0f766e";
+          document.documentElement.style.setProperty("--organization-brand-color", brandColor);
+          document.documentElement.style.setProperty("--organization-brand-contrast", brandTextColor(brandColor));
+          setLogoFailed(false);
+        })
+        .catch((cause) => {
+          if (!controller.signal.aborted) setLocaleError(cause instanceof Error ? cause.message : String(cause));
+        });
+    };
+    window.addEventListener("opensnow:metadata-published", loadPreferences);
+    loadPreferences();
+    return () => {
+      window.removeEventListener("opensnow:metadata-published", loadPreferences);
+      requestController?.abort();
+    };
+  }, [session?.tenant.id, session?.user.id]);
   const isCollectionRoute = [
     "/incidents",
+    "/workspace",
     "/catalog",
     "/requests",
     "/fulfillment",
@@ -427,6 +503,24 @@ export function AppShell() {
     } finally {
       setLoggingOut(false);
     }
+  }
+
+  async function changeLocale() {
+    const next: Locale = cmdbLocale === "en" ? "pl" : "en";
+    setCMDBLocale(next);
+    setLocaleError(undefined);
+    if (!session || !localePreferences || savingLocale) return;
+    setSavingLocale(true);
+    try {
+      const updated = await api<LocalePreferences>("/api/v1/metadata/preferences", {
+        method: "PUT",
+        body: jsonBody({ version: localePreferences.version, locale: next, time_zone: localePreferences.time_zone ?? "" }),
+      });
+      setLocalePreferences(updated);
+      setCMDBLocale(updated.locale || updated.default_locale);
+    } catch (cause) {
+      setLocaleError(cause instanceof Error ? cause.message : "Nie udało się zapisać preferencji języka.");
+    } finally { setSavingLocale(false); }
   }
 
   const displayName = session?.user.display_name ?? "Użytkownik";
@@ -472,9 +566,9 @@ export function AppShell() {
           </button>
 
           <div className="brand">
-            <span className="brand-mark">OS</span>
+            <span className="brand-mark">{localePreferences?.logo_url && !logoFailed ? <img src={localePreferences.logo_url} alt="" onError={() => setLogoFailed(true)} /> : "OS"}</span>
             <span className="brand-copy">
-              <strong>OpenServiceNOW</strong>
+              <strong>{localePreferences?.organization_name || "OpenServiceNOW"}</strong>
               <small>IT Service Platform</small>
             </span>
           </div>
@@ -516,12 +610,14 @@ export function AppShell() {
         ) : null}
 
         <div className="topbar-actions">
-          {isCMDBRoute && (
+          {session && !session.password_change_required && (
             <button
               className="button button--small button--secondary"
               type="button"
-              aria-label={cmdbLocale === "en" ? "Change CMDB language to Polish" : "Zmień język CMDB na angielski"}
-              onClick={() => setCMDBLocale(cmdbLocale === "en" ? "pl" : "en")}
+              aria-label={cmdbLocale === "en" ? "Change application language to Polish" : "Zmień język aplikacji na angielski"}
+              disabled={savingLocale || !localePreferences}
+              title={localeError}
+              onClick={() => void changeLocale()}
             >
               {cmdbLocale === "en" ? "Polski" : "English"}
             </button>
@@ -646,7 +742,7 @@ export function AppShell() {
             <Link to={session?.password_change_required ? "/account" : "/"}>
               {session?.password_change_required ? "Moje konto" : "Przegląd"}
             </Link>
-            {location.pathname !== "/" ? (
+          {location.pathname !== "/" ? (
               location.pathname === "/search" ? (
                 <>
                   <span aria-hidden="true">/</span>
@@ -659,7 +755,7 @@ export function AppShell() {
                     location.pathname === "/service-portfolio" || location.pathname === "/service-portfolio/offers" || location.pathname === "/service-portfolio/quality" || location.pathname === "/service-portfolio/classification" || location.pathname === "/service-portfolio/impact/ci" ? (
                       <span aria-current="page">{location.pathname.endsWith("/offers") ? "Oferty usług" : location.pathname.endsWith("/quality") ? "Jakość danych" : location.pathname.endsWith("/classification") ? "Klasyfikacja CI" : current?.label ?? "Portfel usług (CSDM)"}</span>
                     ) : <><Link to="/service-portfolio">{current?.label ?? "Portfel usług (CSDM)"}</Link><span aria-hidden="true">/</span><span aria-current="page">#{location.pathname.split("/").at(-1)}</span></>
-                  ) : location.pathname.split("/").length === 2 || location.pathname === "/cmdb/imports" ? (
+                  ) : location.pathname.split("/").length === 2 || location.pathname === "/cmdb/imports" || location.pathname === "/cmdb/ire" ? (
                     <span aria-current="page">{current?.label}</span>
                   ) : (
                     <>

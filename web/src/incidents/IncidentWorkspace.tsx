@@ -52,9 +52,13 @@ function tabHref(
 export function IncidentWorkspace({
   initial,
   metadata,
+  embedded = false,
+  onDirtyChange,
 }: {
   initial: Incident;
   metadata: Metadata;
+  embedded?: boolean;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const [record, setRecord] = useState(initial);
   const [draftTabs, setDraftTabs] = useState<Record<string, boolean>>({});
@@ -71,6 +75,10 @@ export function IncidentWorkspace({
   const location = useLocation();
   const controller = useRef<AbortController | null>(null);
   const mounted = useRef(true);
+  const dirty = Object.values(draftTabs).some(Boolean);
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -153,7 +161,7 @@ export function IncidentWorkspace({
     (location.state as { listSearch?: string } | null)?.listSearch ?? "";
   return (
     <section className="page incident-page">
-      <UnsavedGuard dirty={Object.values(draftTabs).some(Boolean)} />
+      {!embedded ? <UnsavedGuard dirty={dirty} /> : null}
       {activeTab !== "form" ? (
         <div className="page-heading">
           <div>
@@ -722,6 +730,7 @@ function AssignIncident({ record, busy, setBusy, saved, retain }: EditorProps) {
 type TransitionDraft = {
   state: string;
   reason: string;
+  hold_reason: string;
   resolution_code: string;
   resolution_description: string;
 };
@@ -734,6 +743,7 @@ const transitionOf = (
       ? preferredState
       : (r.actions.transitions[0] ?? ""),
   reason: "",
+  hold_reason: "",
   resolution_code: "FIXED",
   resolution_description: "",
 });
@@ -755,7 +765,6 @@ function TransitionIncident({
   useRetainedDraft(form, "state", retain);
   const draft = form.draft;
   const reasonRequired =
-    draft.state === "ON_HOLD" ||
     draft.state === "CANCELLED" ||
     (draft.state === "IN_PROGRESS" &&
       (record.state === "RESOLVED" || record.state === "CLOSED"));
@@ -781,6 +790,8 @@ function TransitionIncident({
                 throw new Error(
                   "Wybierz dozwolony stan dla aktualnego incydentu.",
                 );
+              if (draft.state === "ON_HOLD" && !draft.hold_reason)
+                throw new Error("Wybierz aktywny powód wstrzymania.");
               if (
                 reasonRequired &&
                 (!draft.reason.trim() ||
@@ -797,6 +808,7 @@ function TransitionIncident({
               return {
                 state: draft.state,
                 reason: reasonRequired ? draft.reason.trim() : "",
+                hold_reason: draft.state === "ON_HOLD" ? draft.hold_reason : "",
                 resolution_code: resolved ? draft.resolution_code : "",
                 resolution_description: resolved
                   ? draft.resolution_description.trim()
@@ -817,6 +829,7 @@ function TransitionIncident({
                   ...draft,
                   state: e.target.value,
                   reason: "",
+                  hold_reason: "",
                   resolution_description: "",
                 })
               }
@@ -834,6 +847,22 @@ function TransitionIncident({
               ))}
             </select>
           </label>
+          {draft.state === "ON_HOLD" && (
+            <label>
+              Powód wstrzymania
+              <select
+                aria-label="Powód wstrzymania"
+                required
+                value={draft.hold_reason}
+                onChange={(e) => form.setDraft({ ...draft, hold_reason: e.target.value })}
+              >
+                <option value="">Wybierz powód</option>
+                {metadata.hold_reasons.map((option) => (
+                  <option key={option.value} value={option.value}>{optionLabel([option], option.value)}</option>
+                ))}
+              </select>
+            </label>
+          )}
           {reasonRequired && (
             <label>
               Powód zmiany
@@ -861,7 +890,7 @@ function TransitionIncident({
                 >
                   {metadata.resolution_codes.map((o) => (
                     <option key={o.value} value={o.value}>
-                      {o.label}
+                      {optionLabel([o], o.value)}
                     </option>
                   ))}
                 </select>

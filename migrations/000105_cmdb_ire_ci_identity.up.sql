@@ -1,0 +1,1 @@
+ALTER TABLE cmdb_cis ADD COLUMN last_seen_at DATETIME(6) NULL, ADD COLUMN redirect_ci_id BIGINT UNSIGNED NULL, ADD KEY ci_ire_last_seen(tenant_id,last_seen_at), ADD KEY ci_redirect(tenant_id,redirect_ci_id), ADD CONSTRAINT ci_redirect_target FOREIGN KEY(tenant_id,redirect_ci_id) REFERENCES cmdb_cis(tenant_id,id);

@@ -1,0 +1,1 @@
+ALTER TABLE fulfillment_tasks DROP KEY idx_fulfillment_tasks_workspace_updated, DROP KEY idx_fulfillment_tasks_workspace_state_updated;

@@ -19,6 +19,8 @@ const ci = {
 
 test("CMDB list, URL-backed search, detail and locale switch work on desktop and mobile", async ({ page }) => {
   const requests: string[] = [];
+  let userLocale = "";
+  let preferenceVersion = "0";
   await page.route("**/api/v1/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname + url.search;
@@ -34,6 +36,23 @@ test("CMDB list, URL-backed search, detail and locale switch work on desktop and
         permissions: ["cmdb.read", "cmdb.manage", "cmdb.import"],
         password_change_required: false,
         expires_at: new Date(Date.now() + 600_000).toISOString(),
+      };
+    } else if (url.pathname === "/api/v1/metadata/preferences") {
+      if (route.request().method() === "PUT") {
+        userLocale = String(route.request().postDataJSON().locale ?? "");
+        preferenceVersion = "1";
+      }
+      payload = {
+        locale: userLocale,
+        time_zone: "",
+        version: preferenceVersion,
+        organization_name: "Example tenant",
+        brand_color: "#0F766E",
+        default_locale: "pl",
+        default_time_zone: "UTC",
+        default_date_format: "YYYY-MM-DD",
+        default_number_format: "1,234.56",
+        default_currency: "USD",
       };
     } else if (path === "/api/v1/cmdb/classes") {
       payload = {
@@ -72,6 +91,8 @@ test("CMDB list, URL-backed search, detail and locale switch work on desktop and
 
   await page.goto("/cmdb");
   await expect(page.getByRole("heading", { name: "Elementy konfiguracji (CMDB)" })).toBeVisible();
+  await expect(page.locator(".topbar .brand-copy strong")).toHaveText("Example tenant");
+  await expect.poll(() => page.locator(".topbar .brand-mark").evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(15, 118, 110)");
   await expect(page.getByText("VPN gateway CI")).toBeVisible();
   await expect.poll(() => requests.some((path) => path.startsWith("/api/v1/cmdb/cis?archived=false"))).toBe(true);
 
@@ -83,7 +104,7 @@ test("CMDB list, URL-backed search, detail and locale switch work on desktop and
   await page.getByRole("link", { name: "vpn-gw-ci" }).click();
   await expect(page).toHaveURL(/\/cmdb\/72/);
   await expect(page.getByRole("heading", { name: "VPN gateway CI" })).toBeVisible();
-  await page.getByRole("button", { name: "Zmień język CMDB na angielski" }).click();
+  await page.getByRole("button", { name: "Zmień język aplikacji na angielski" }).click();
   await expect(page.getByRole("tab", { name: "Overview" })).toBeVisible();
   await expect.poll(() => page.evaluate(() => document.documentElement.lang)).toBe("en");
   await page.reload();

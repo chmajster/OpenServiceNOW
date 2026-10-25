@@ -1,11 +1,15 @@
 import type { Choice } from "../components/RemoteCombobox";
-export type Option = { value: string; label: string };
+import type { MetadataSchema } from "../metadata/contracts";
+import { formatDateTime } from "../metadata/format";
+export type Option = { value: string; label: string; labels?: Partial<Record<"pl" | "en", string>> };
 export type Metadata = {
   categories: (Option & { subcategories: Option[] })[];
   states: Option[];
   resolution_codes: Option[];
+  hold_reasons: Option[];
   priority_matrix: number[][];
   can_create: boolean;
+  custom_fields_schema: MetadataSchema;
 };
 export type Assignment = {
   assigned_to?: string;
@@ -23,10 +27,15 @@ export type IncidentSummary = {
   affected_user_id: string;
   affected_user_name: string;
   category: string;
+  subcategory: string;
+  impact: number;
+  urgency: number;
   assignment: Assignment;
   assigned_name: string;
   group_name: string;
   version: string;
+  custom_fields?: Record<string, unknown>;
+  custom_fields_version: string;
   created_at: string;
   updated_at: string;
 };
@@ -66,6 +75,8 @@ export type FieldDraft = {
   subcategory: string;
   impact: string;
   urgency: string;
+  custom_fields: Record<string, unknown>;
+  custom_fields_version: string;
 };
 export function draftOf(record: Incident): FieldDraft {
   return {
@@ -76,6 +87,8 @@ export function draftOf(record: Incident): FieldDraft {
     subcategory: record.subcategory,
     impact: String(record.impact),
     urgency: String(record.urgency),
+    custom_fields: record.custom_fields ?? {},
+    custom_fields_version: record.custom_fields_version,
   };
 }
 export function fieldsOf(draft: FieldDraft) {
@@ -97,6 +110,8 @@ export function fieldsOf(draft: FieldDraft) {
     subcategory: draft.subcategory,
     impact: Number(draft.impact),
     urgency: Number(draft.urgency),
+    custom_fields: draft.custom_fields,
+    custom_fields_version: draft.custom_fields_version,
   };
 }
 export function calculatedPriority(
@@ -107,9 +122,12 @@ export function calculatedPriority(
   return metadata.priority_matrix[Number(impact) - 1]?.[Number(urgency) - 1];
 }
 export const dateLabel = (value: string | null) =>
-  value ? new Date(value).toLocaleString("pl-PL") : "—";
-export const optionLabel = (options: Option[], value: string) =>
-  options.find((o) => o.value === value)?.label ?? value;
+  formatDateTime(value, typeof document !== "undefined" && document.documentElement.lang === "en" ? "en" : "pl");
+export const optionLabel = (options: Option[], value: string) => {
+  const option = options.find((o) => o.value === value);
+  const locale = typeof document !== "undefined" && document.documentElement.lang === "en" ? "en" : "pl";
+  return option?.labels?.[locale] || option?.label || value;
+};
 export type HistoryEntry = {
   id: string;
   type: string;

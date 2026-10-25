@@ -27,9 +27,11 @@ func (s *Service) Relations(ctx context.Context, a Actor, id, before uint64, lim
 	if limit < 1 || limit > 100 {
 		return page, ErrInvalid
 	}
-	if _, err := s.Get(ctx, a, id); err != nil {
+	root, err := s.Get(ctx, a, id)
+	if err != nil {
 		return page, err
 	}
+	id = root.ID
 	p, args := relationAccess(a)
 	params := []any{a.TenantID, id, id}
 	params = append(params, args...)
@@ -171,6 +173,7 @@ func (s *Service) Graph(ctx context.Context, a Actor, id uint64, f GraphFilter) 
 	if err != nil {
 		return out, err
 	}
+	id = root.ID
 	out.Nodes = append(out.Nodes, GraphNode{root.ID, root.Name, root.Class, root.Status, root.Archived, 0})
 	visited := map[uint64]bool{id: true}
 	seen := map[uint64]bool{}

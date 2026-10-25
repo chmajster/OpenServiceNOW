@@ -12,6 +12,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/attachments"
 	"github.com/chmajster/OpenServiceNOW/internal/audit"
 	"github.com/chmajster/OpenServiceNOW/internal/jobs"
+	"github.com/chmajster/OpenServiceNOW/internal/metadata"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 	"io"
@@ -38,16 +39,17 @@ type Import struct {
 	sourceID   uint64
 }
 type ImportRow struct {
-	Number    int             `json:"row_number"`
-	Identity  string          `json:"identity_value"`
-	Action    string          `json:"action"`
-	State     string          `json:"state"`
-	RecordID  uint64          `json:"record_id,string,omitempty"`
-	Version   uint64          `json:"expected_version,string"`
-	Before    json.RawMessage `json:"before"`
-	After     json.RawMessage `json:"after"`
-	ErrorCode string          `json:"error_code"`
-	Error     string          `json:"error_message"`
+	Number      int             `json:"row_number"`
+	Identity    string          `json:"identity_value"`
+	Action      string          `json:"action"`
+	State       string          `json:"state"`
+	RecordID    uint64          `json:"record_id,string,omitempty"`
+	Version     uint64          `json:"expected_version,string"`
+	RuleVersion uint64          `json:"identity_rule_version,string"`
+	Before      json.RawMessage `json:"before"`
+	After       json.RawMessage `json:"after"`
+	ErrorCode   string          `json:"error_code"`
+	Error       string          `json:"error_message"`
 }
 type ImportPage struct {
 	Items []Import `json:"items"`
@@ -75,7 +77,11 @@ func scanImport(row interface{ Scan(...any) error }) (Import, error) {
 	if err != nil {
 		return i, assets.Missing(err)
 	}
-	err = json.Unmarshal(mapping, &i.Mapping)
+	if err = json.Unmarshal(mapping, &i.ImportConfig); err == nil && i.Mapping != nil {
+		// Versioned rows persist the pinned metadata version and allowlist.
+	} else {
+		err = json.Unmarshal(mapping, &i.Mapping)
+	}
 	i.Counts = map[string]int{}
 	if i.State == "PREVIEW_READY" || i.State == "COMPLETED" || i.State == "PARTIAL" {
 		i.Progress = 100
@@ -174,11 +180,11 @@ func (s *Service) ListImports(ctx context.Context, a Actor, before uint64, limit
 	return out, rows.Err()
 }
 
-const importRowColumns = `source_row,identity_value,action,state,COALESCE(record_id,0),expected_version,before_value,after_value,error_code,error_message`
+const importRowColumns = `source_row,identity_value,action,state,COALESCE(record_id,0),expected_version,ire_rule_version,before_value,after_value,error_code,error_message`
 
 func scanImportRow(row interface{ Scan(...any) error }) (ImportRow, error) {
 	var r ImportRow
-	err := row.Scan(&r.Number, &r.Identity, &r.Action, &r.State, &r.RecordID, &r.Version, &r.Before, &r.After, &r.ErrorCode, &r.Error)
+	err := row.Scan(&r.Number, &r.Identity, &r.Action, &r.State, &r.RecordID, &r.Version, &r.RuleVersion, &r.Before, &r.After, &r.ErrorCode, &r.Error)
 	return r, err
 }
 func (s *Service) ImportRows(ctx context.Context, a Actor, id uint64, after, limit int) (ImportRows, error) {
@@ -226,6 +232,35 @@ func (s *Service) CreateImport(ctx context.Context, a Actor, c ImportConfig, nam
 	if !importAllowed(a, c.Target) {
 		return out, workrecords.ErrForbidden
 	}
+	if c.SourceID > 0 && !canManageIRE(a) {
+		return out, workrecords.ErrForbidden
+	}
+	if c.Target == "CI" {
+		c.CustomFields = []string{}
+		c.CustomFieldsVersion = 0
+		if s.Metadata != nil {
+			version, configuration, err := s.Metadata.Published(ctx, s.DB, a.TenantID)
+			if err != nil {
+				return out, err
+			}
+			schema, err := metadata.BuildSchema("ci", version, configuration)
+			if err != nil {
+				return out, err
+			}
+			c.CustomFieldsVersion = version
+			for _, field := range schema.Fields {
+				if field.Active && !field.System {
+					c.CustomFields = append(c.CustomFields, field.Key)
+				}
+			}
+		}
+	} else {
+		c.CustomFields = nil
+		c.CustomFieldsVersion = 0
+	}
+	if err := ValidateImportConfig(c); err != nil {
+		return out, err
+	}
 	data, err := io.ReadAll(io.LimitReader(content, MaxCSVBytes+1))
 	if err != nil {
 		return out, err
@@ -250,6 +285,11 @@ func (s *Service) CreateImport(ctx context.Context, a Actor, c ImportConfig, nam
 		if !importAllowed(a, c.Target) {
 			return workrecords.ErrForbidden
 		}
+		if c.SourceID > 0 {
+			if !canManageIRE(a) {
+				return workrecords.ErrForbidden
+			}
+		}
 		existing, err := workrecords.ReserveOperation(ctx, e, a.Actor, key, "inventory_import", sha256.Sum256(hashInput))
 		if err != nil {
 			return err
@@ -258,7 +298,12 @@ func (s *Service) CreateImport(ctx context.Context, a Actor, c ImportConfig, nam
 			out, err = s.importInTx(ctx, e, a, existing, false)
 			return err
 		}
-		mapping, _ := json.Marshal(c.Mapping)
+		if c.SourceID > 0 {
+			if _, err := s.csvImportSource(ctx, e, a, c.SourceID); err != nil {
+				return err
+			}
+		}
+		mapping, _ := json.Marshal(c)
 		result, err := e.ExecContext(ctx, "INSERT INTO inventory_imports(tenant_id,creator_id,executor_id,target,identity_key,mapping,file_name) VALUES(?,?,?,?,?,?,?)", a.TenantID, a.UserID, a.UserID, c.Target, c.IdentityKey, mapping, name)
 		if err != nil {
 			return err
@@ -393,7 +438,7 @@ func rowFailure(r *ImportRow, code string, err error) {
 		r.After = json.RawMessage(`null`)
 	}
 }
-func (s *Service) previewRow(ctx context.Context, e database.Executor, a Actor, i Import, c CSVRow) (ImportRow, error) {
+func (s *Service) previewRow(ctx context.Context, e database.Executor, a Actor, i Import, c CSVRow, schema metadata.Schema, source DataSource) (ImportRow, error) {
 	r := ImportRow{Number: c.Number, Identity: c.Identity, State: "PENDING", Action: "CREATE", Before: json.RawMessage(`null`), After: json.RawMessage(`null`)}
 	if c.Error != "" {
 		rowFailure(&r, "INVALID_ROW", errors.New(c.Error))
@@ -434,10 +479,61 @@ func (s *Service) previewRow(ctx context.Context, e database.Executor, a Actor, 
 		}
 		r.Before, _ = json.Marshal(old)
 	}
-	r.After, err = csvFields(i.ImportConfig, c, old)
+	r.After, err = csvFields(i.ImportConfig, c, old, schema)
 	if err != nil {
 		rowFailure(&r, "VALIDATION", err)
 		return r, nil
+	}
+	if i.Target == "CI" && i.CustomFieldsVersion > 0 && s.Metadata != nil {
+		var record Fields
+		if json.Unmarshal(r.After, &record) != nil {
+			rowFailure(&r, "VALIDATION", ErrInvalid)
+			return r, nil
+		}
+		mapped := map[string]json.RawMessage{}
+		for key := range c.Values {
+			if !strings.HasPrefix(key, "custom_fields.") {
+				continue
+			}
+			fieldKey := strings.TrimPrefix(key, "custom_fields.")
+			if value, ok := record.CustomFields[fieldKey]; ok {
+				mapped[fieldKey] = value
+			}
+		}
+		values, pinnedSchema, validationErr := s.Metadata.PrepareValuesAtVersion(ctx, e, metadataActor(a), "ci", r.RecordID, mapped, metadataBaseValues(record), i.CustomFieldsVersion)
+		if validationErr != nil {
+			rowFailure(&r, "VALIDATION", validationErr)
+			return r, nil
+		}
+		record.CustomFields = map[string]json.RawMessage{}
+		for _, field := range pinnedSchema.Fields {
+			if field.Active && !field.System {
+				if value, ok := values[field.Key]; ok {
+					record.CustomFields[field.Key] = value
+				}
+			}
+		}
+		record.CustomFieldsVersion = i.CustomFieldsVersion
+		r.After, err = json.Marshal(record)
+		if err != nil {
+			return r, err
+		}
+	}
+	if i.Target == "CI" {
+		var record Fields
+		if json.Unmarshal(r.After, &record) != nil {
+			rowFailure(&r, "VALIDATION", ErrInvalid)
+			return r, nil
+		}
+		resolved, resolveErr := s.resolveObservation(ctx, e, a, source, Observation{NativeKey: c.Identity, ScopeKey: source.ScopeKey, ObservedAt: time.Now().UTC(), Values: observationValues(record)}, 0)
+		if resolveErr != nil {
+			return r, resolveErr
+		}
+		if resolved.state == "CONFLICT" || resolved.state == "MULTIPLE" || resolved.state == "INSUFFICIENT" || resolved.state == "MATCH" && resolved.ciID != r.RecordID || resolved.state == "NEW" && r.RecordID > 0 {
+			rowFailure(&r, "IDENTITY_CONFLICT", fmt.Errorf("%s: %s", resolved.why, resolved.text))
+			return r, nil
+		}
+		r.RuleVersion = resolved.rule.Version
 	}
 	if archived {
 		rowFailure(&r, "ARCHIVED", errors.New("Rekord jest zarchiwizowany; przywróć go świadomie przed importem"))
@@ -483,6 +579,17 @@ func (s *Service) previewImport(ctx context.Context, a Actor, i Import) error {
 	if err != nil {
 		return err
 	}
+	var schema metadata.Schema
+	if i.Target == "CI" && i.CustomFieldsVersion > 0 && s.Metadata != nil {
+		version, versionErr := s.Metadata.Version(ctx, metadataActor(a), i.CustomFieldsVersion)
+		if versionErr != nil {
+			return versionErr
+		}
+		schema, versionErr = metadata.BuildSchema("ci", version.Version, version.Config)
+		if versionErr != nil {
+			return versionErr
+		}
+	}
 	return s.ActorTx(ctx, a, func(e database.Executor, a Actor) error {
 		current, err := s.importInTx(ctx, e, a, i.ID, true)
 		if err != nil {
@@ -490,6 +597,13 @@ func (s *Service) previewImport(ctx context.Context, a Actor, i Import) error {
 		}
 		if current.JobID != i.JobID || current.State != "QUEUED_PREVIEW" {
 			return nil
+		}
+		var csvSource DataSource
+		if current.Target == "CI" {
+			csvSource, err = s.csvImportSource(ctx, e, a, current.SourceID)
+			if err != nil {
+				return err
+			}
 		}
 		for _, c := range rows {
 			var state string
@@ -500,11 +614,11 @@ func (s *Service) previewImport(ctx context.Context, a Actor, i Import) error {
 			if state == "APPLIED" {
 				continue
 			}
-			r, err := s.previewRow(ctx, e, a, i, c)
+			r, err := s.previewRow(ctx, e, a, current, c, schema, csvSource)
 			if err != nil {
 				return err
 			}
-			if _, err = e.ExecContext(ctx, `INSERT INTO inventory_import_rows(tenant_id,import_id,source_row,identity_value,action,state,record_id,expected_version,before_value,after_value,error_code,error_message) VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE identity_value=VALUES(identity_value),action=VALUES(action),state=VALUES(state),record_id=VALUES(record_id),expected_version=VALUES(expected_version),before_value=VALUES(before_value),after_value=VALUES(after_value),error_code=VALUES(error_code),error_message=VALUES(error_message)`, a.TenantID, i.ID, r.Number, r.Identity, r.Action, r.State, nullableID(r.RecordID), r.Version, []byte(r.Before), []byte(r.After), r.ErrorCode, r.Error); err != nil {
+			if _, err = e.ExecContext(ctx, `INSERT INTO inventory_import_rows(tenant_id,import_id,source_row,identity_value,action,state,record_id,expected_version,ire_rule_version,before_value,after_value,error_code,error_message) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE identity_value=VALUES(identity_value),action=VALUES(action),state=VALUES(state),record_id=VALUES(record_id),expected_version=VALUES(expected_version),ire_rule_version=VALUES(ire_rule_version),before_value=VALUES(before_value),after_value=VALUES(after_value),error_code=VALUES(error_code),error_message=VALUES(error_message)`, a.TenantID, i.ID, r.Number, r.Identity, r.Action, r.State, nullableID(r.RecordID), r.Version, r.RuleVersion, []byte(r.Before), []byte(r.After), r.ErrorCode, r.Error); err != nil {
 				return err
 			}
 		}
@@ -519,7 +633,7 @@ func nullableID(id uint64) any {
 	return id
 }
 
-func (s *Service) applyRow(ctx context.Context, e database.Executor, a Actor, i Import, r ImportRow) (uint64, error) {
+func (s *Service) applyRow(ctx context.Context, e database.Executor, a Actor, i Import, r ImportRow, source DataSource) (uint64, error) {
 	if r.RecordID > 0 {
 		if i.Target == "CI" {
 			old, err := s.GetInTx(ctx, e, a, r.RecordID, true)
@@ -547,9 +661,7 @@ func (s *Service) applyRow(ctx context.Context, e database.Executor, a Actor, i 
 		if err := json.Unmarshal(r.After, &record.Fields); err != nil {
 			return 0, ErrInvalid
 		}
-		record.Version = r.Version
-		out, err := s.SaveInTx(ctx, e, a, r.RecordID, record)
-		return out.ID, err
+		return s.applyCSVCIObservation(ctx, e, a, i, r, record, source)
 	}
 	var record assets.Record
 	if err := json.Unmarshal(r.After, &record.Fields); err != nil {
@@ -573,6 +685,13 @@ func (s *Service) applyImport(ctx context.Context, a Actor, i Import) error {
 			if current.JobID != i.JobID || (current.State != "QUEUED_APPLY" && current.State != "APPLYING") {
 				done = true
 				return nil
+			}
+			var csvSource DataSource
+			if current.Target == "CI" {
+				csvSource, err = s.csvImportSource(ctx, e, a, current.SourceID)
+				if err != nil {
+					return err
+				}
 			}
 			r, err := scanImportRow(e.QueryRowContext(ctx, "SELECT "+importRowColumns+" FROM inventory_import_rows WHERE tenant_id=? AND import_id=? AND state='PENDING' ORDER BY source_row LIMIT 1 FOR UPDATE", a.TenantID, i.ID))
 			if errors.Is(err, sql.ErrNoRows) {
@@ -598,7 +717,7 @@ func (s *Service) applyImport(ctx context.Context, a Actor, i Import) error {
 			if _, err = e.ExecContext(ctx, "SAVEPOINT import_row"); err != nil {
 				return err
 			}
-			recordID, err := s.applyRow(ctx, e, a, current, r)
+			recordID, err := s.applyRow(ctx, e, a, current, r, csvSource)
 			state, code, message := "APPLIED", "", ""
 			if err != nil {
 				if !errors.Is(err, ErrInvalid) && !errors.Is(err, ErrConflict) && !errors.Is(err, ErrDuplicate) && !errors.Is(err, ErrNotFound) {

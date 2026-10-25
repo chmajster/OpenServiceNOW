@@ -11,21 +11,130 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/assets"
 	"github.com/chmajster/OpenServiceNOW/internal/attachments"
 	"github.com/chmajster/OpenServiceNOW/internal/audit"
+	"github.com/chmajster/OpenServiceNOW/internal/metadata"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 	"strings"
 )
 
 type Service struct {
-	DB      *sql.DB
-	tx      *database.TxManager
-	Assets  *assets.Service
-	Files   *attachments.Service
-	Domains map[string]RecordDomain
+	DB       *sql.DB
+	tx       *database.TxManager
+	Assets   *assets.Service
+	Files    *attachments.Service
+	Domains  map[string]RecordDomain
+	Metadata *metadata.Service
 }
 
 func NewService(db *sql.DB, files *attachments.Service, domains map[string]RecordDomain) *Service {
-	return &Service{db, database.NewTxManager(db), assets.NewService(db), files, domains}
+	return &Service{DB: db, tx: database.NewTxManager(db), Assets: assets.NewService(db), Files: files, Domains: domains}
+}
+func (s *Service) WithMetadata(service *metadata.Service) *Service { s.Metadata = service; return s }
+
+func metadataActor(a Actor) metadata.Actor {
+	return metadata.Actor{TenantID: a.TenantID, UserID: a.UserID, Permissions: a.Permissions, RequestID: a.RequestID, IPAddress: a.IPAddress}
+}
+
+func metadataBaseValues(f Fields) map[string]json.RawMessage {
+	values := map[string]json.RawMessage{}
+	for key, value := range map[string]any{"identifier": f.Identifier, "name": f.Name, "class": f.Class, "status": f.Status, "owner_id": fmt.Sprint(f.OwnerID), "environment": f.Environment, "location": f.Location} {
+		if raw, err := json.Marshal(value); err == nil {
+			values[key] = raw
+		}
+	}
+	return values
+}
+
+func dictionaryValues(configuration metadata.Configuration, key string, fallback []string) []string {
+	options := configuration.Dictionaries[key]
+	if len(options) == 0 {
+		return fallback
+	}
+	values := make([]string, 0, len(options))
+	for _, option := range options {
+		values = append(values, option.Value)
+	}
+	return values
+}
+
+func (s *Service) normalize(ctx context.Context, e database.Executor, a Actor, f Fields) (Fields, error) {
+	if s.Metadata == nil {
+		return Normalize(f)
+	}
+	_, configuration, err := s.Metadata.Published(ctx, e, a.TenantID)
+	if err != nil {
+		return f, err
+	}
+	return NormalizeWithOptions(f, dictionaryValues(configuration, "ci.status", statuses), dictionaryValues(configuration, "ci.environment", environments))
+}
+
+func (s *Service) SchemaForTenant(ctx context.Context, tenant uint64) (Contract, error) {
+	contract := Schema()
+	if s.Metadata == nil {
+		return contract, nil
+	}
+	version, configuration, err := s.Metadata.Published(ctx, s.DB, tenant)
+	if err != nil {
+		return Contract{}, err
+	}
+	contract.CustomFieldsSchema, err = metadata.BuildSchema("ci", version, configuration)
+	if err != nil {
+		return Contract{}, err
+	}
+	for _, field := range contract.CustomFieldsSchema.Fields {
+		if field.Active && !field.System {
+			contract.CIImportFields = append(contract.CIImportFields, "custom_fields."+field.Key)
+		}
+	}
+	contract.Statuses = dictionaryValues(configuration, "ci.status", statuses)
+	contract.Environments = dictionaryValues(configuration, "ci.environment", environments)
+	for index := range contract.CIFields {
+		switch contract.CIFields[index].Key {
+		case "status":
+			contract.CIFields[index].Options = contract.Statuses
+		case "environment":
+			contract.CIFields[index].Options = contract.Environments
+		}
+	}
+	return contract, nil
+}
+
+func (s *Service) loadCustomFields(ctx context.Context, e database.Executor, a Actor, r *Record) error {
+	if s.Metadata == nil {
+		return nil
+	}
+	version, _, err := s.Metadata.Published(ctx, e, a.TenantID)
+	if err != nil {
+		return err
+	}
+	r.CustomFieldsVersion = version
+	values, err := metadata.ReadValues(ctx, e, a.TenantID, "ci", []uint64{r.ID})
+	if err != nil {
+		return err
+	}
+	r.CustomFields = values[r.ID]
+	if r.CustomFields == nil {
+		r.CustomFields = map[string]json.RawMessage{}
+	}
+	return nil
+}
+
+func (s *Service) prepareCustomFields(ctx context.Context, e database.Executor, a Actor, id uint64, f Fields, pinnedVersion uint64) (uint64, map[string]json.RawMessage, metadata.Schema, error) {
+	if s.Metadata == nil {
+		return 0, map[string]json.RawMessage{}, metadata.Schema{}, nil
+	}
+	var values map[string]json.RawMessage
+	var schema metadata.Schema
+	var err error
+	if pinnedVersion > 0 {
+		if f.CustomFieldsVersion != 0 && f.CustomFieldsVersion != pinnedVersion {
+			return 0, nil, metadata.Schema{}, ErrConflict
+		}
+		values, schema, err = s.Metadata.PrepareValuesAtVersion(ctx, e, metadataActor(a), "ci", id, f.CustomFields, metadataBaseValues(f), pinnedVersion)
+	} else {
+		values, schema, err = s.Metadata.PrepareValues(ctx, e, metadataActor(a), "ci", id, f.CustomFields, metadataBaseValues(f), f.CustomFieldsVersion)
+	}
+	return schema.Version, values, schema, err
 }
 func Access(a Actor, alias string) (string, []any) {
 	if a.Has("cmdb.read") {
@@ -67,14 +176,63 @@ func (s *Service) GetInTx(ctx context.Context, e database.Executor, a Actor, id 
 	if lock {
 		q += " FOR UPDATE"
 	}
-	return scan(e.QueryRowContext(ctx, q, params...))
+	record, err := scan(e.QueryRowContext(ctx, q, params...))
+	if err != nil {
+		return record, err
+	}
+	if err = s.loadCustomFields(ctx, e, a, &record); err != nil {
+		return Record{}, err
+	}
+	return record, nil
 }
 func (s *Service) Get(ctx context.Context, a Actor, id uint64) (Record, error) {
-	return s.GetInTx(ctx, s.DB, a, id, false)
+	canonical, err := s.canonicalCIID(ctx, s.DB, a.TenantID, id)
+	if err != nil {
+		return Record{}, err
+	}
+	return s.GetInTx(ctx, s.DB, a, canonical, false)
 }
 func (s *Service) List(ctx context.Context, a Actor, f Filter) (Page, error) {
 	page := Page{Items: []Record{}}
-	if f.Limit < 1 || f.Limit > 100 || !assets.Text(f.Query, 0, 160) || !assets.Text(f.Location, 0, 160) || f.Status != "" && !Status(f.Status) || f.Environment != "" && !Environment(f.Environment) || f.Archived != "" && f.Archived != "true" && f.Archived != "false" {
+	allowedStatuses, allowedEnvironments := statuses, environments
+	var configuration metadata.Configuration
+	var schema metadata.Schema
+	if s.Metadata != nil {
+		version, loaded, err := s.Metadata.Published(ctx, s.DB, a.TenantID)
+		if err != nil {
+			return page, err
+		}
+		configuration = loaded
+		allowedStatuses = dictionaryValues(configuration, "ci.status", statuses)
+		allowedEnvironments = dictionaryValues(configuration, "ci.environment", environments)
+		typeConfig, ok := configuration.RecordTypes["ci"]
+		if !ok {
+			return page, ErrInvalid
+		}
+		if f.Sort == "" {
+			f.Sort = typeConfig.List.DefaultSort
+		}
+		f.SearchFields = append([]string{}, typeConfig.List.SearchFields...)
+		schema, err = metadata.BuildSchema("ci", version, configuration)
+		if err != nil {
+			return page, err
+		}
+		f.SearchableTypes = map[string]string{}
+		for _, field := range schema.Fields {
+			if !field.System {
+				f.SearchableTypes[field.Key] = field.Type
+			}
+		}
+	} else {
+		f.SearchFields = []string{"identifier", "name"}
+	}
+	if f.Sort == "" {
+		f.Sort = "newest"
+	}
+	if f.Limit < 1 || f.Limit > 100 || !assets.Text(f.Query, 0, 160) || !assets.Text(f.Location, 0, 160) || f.Status != "" && !containsValue(allowedStatuses, f.Status) || f.Environment != "" && !containsValue(allowedEnvironments, f.Environment) || f.Archived != "" && f.Archived != "true" && f.Archived != "false" {
+		return page, ErrInvalid
+	}
+	if f.Sort != "newest" && f.Sort != "oldest" {
 		return page, ErrInvalid
 	}
 	if f.Class != "" {
@@ -88,11 +246,37 @@ func (s *Service) List(ctx context.Context, a Actor, f Filter) (Page, error) {
 	p, args := Access(a, "c")
 	params := []any{a.TenantID}
 	params = append(params, args...)
-	q := "SELECT " + columns + " FROM cmdb_cis c JOIN users u ON u.id=c.owner_id WHERE c.tenant_id=? AND " + p
+	q := "SELECT " + columns + " FROM cmdb_cis c JOIN users u ON u.id=c.owner_id WHERE c.tenant_id=? AND c.redirect_ci_id IS NULL AND " + p
 	if f.Query != "" {
-		q += " AND (c.name LIKE ? ESCAPE '=' OR c.identifier LIKE ? ESCAPE '=')"
-		v := "%" + strings.NewReplacer("=", "==", "%", "=%", "_", "=_").Replace(strings.ToLower(f.Query)) + "%"
-		params = append(params, v, v)
+		searches := []string{}
+		systemPattern := strings.NewReplacer("=", "==", "%", "=%", "_", "=_").Replace(strings.ToLower(f.Query)) + "%"
+		customPattern := strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(f.Query) + "%"
+		fieldByKey := map[string]metadata.Field{}
+		for _, field := range schema.Fields {
+			fieldByKey[field.Key] = field
+		}
+		for _, key := range f.SearchFields {
+			switch key {
+			case "identifier", "name", "class", "status", "environment", "location":
+				searches = append(searches, "c."+key+" LIKE ? ESCAPE '='")
+				params = append(params, systemPattern)
+			default:
+				field, ok := fieldByKey[key]
+				if !ok || field.System {
+					return page, ErrInvalid
+				}
+				clause, values, err := metadata.SearchClause("ci", "c", field, a.TenantID, customPattern)
+				if err != nil {
+					return page, err
+				}
+				searches = append(searches, clause)
+				params = append(params, values...)
+			}
+		}
+		if len(searches) == 0 {
+			return page, ErrInvalid
+		}
+		q += " AND (" + strings.Join(searches, " OR ") + ")"
 	}
 	for _, filter := range []struct{ column, value string }{{"class", f.Class}, {"status", f.Status}, {"environment", f.Environment}, {"location", f.Location}} {
 		if filter.value != "" {
@@ -109,10 +293,29 @@ func (s *Service) List(ctx context.Context, a Actor, f Filter) (Page, error) {
 		params = append(params, f.Archived == "true")
 	}
 	if f.Before > 0 {
-		q += " AND c.id<?"
+		if f.Sort == "oldest" {
+			q += " AND c.id>?"
+		} else {
+			q += " AND c.id<?"
+		}
 		params = append(params, f.Before)
 	}
-	q += " ORDER BY c.id DESC LIMIT ?"
+	if s.Metadata != nil {
+		for _, filter := range f.CustomFields {
+			clause, values, err := metadata.QueryClause("ci", "c", filter, a.TenantID)
+			if err != nil {
+				return page, err
+			}
+			q += " AND " + clause
+			params = append(params, values...)
+		}
+	}
+	if f.Sort == "oldest" {
+		q += " ORDER BY c.id ASC"
+	} else {
+		q += " ORDER BY c.id DESC"
+	}
+	q += " LIMIT ?"
 	params = append(params, f.Limit+1)
 	rows, err := s.DB.QueryContext(ctx, q, params...)
 	if err != nil {
@@ -130,13 +333,61 @@ func (s *Service) List(ctx context.Context, a Actor, f Filter) (Page, error) {
 		page.Items = page.Items[:f.Limit]
 		page.Next = page.Items[f.Limit-1].ID
 	}
-	return page, rows.Err()
+	if err := rows.Err(); err != nil {
+		return page, err
+	}
+	if s.Metadata != nil {
+		ids := make([]uint64, 0, len(page.Items))
+		for _, item := range page.Items {
+			ids = append(ids, item.ID)
+		}
+		version, _, err := s.Metadata.Published(ctx, s.DB, a.TenantID)
+		if err != nil {
+			return page, err
+		}
+		values, err := metadata.ReadValues(ctx, s.DB, a.TenantID, "ci", ids)
+		if err != nil {
+			return page, err
+		}
+		for index := range page.Items {
+			page.Items[index].CustomFieldsVersion = version
+			page.Items[index].CustomFields = values[page.Items[index].ID]
+			if page.Items[index].CustomFields == nil {
+				page.Items[index].CustomFields = map[string]json.RawMessage{}
+			}
+		}
+	}
+	return page, nil
 }
 func (s *Service) SaveInTx(ctx context.Context, e database.Executor, a Actor, id uint64, in Record) (Record, error) {
+	return s.saveInTx(ctx, e, a, id, in, 0)
+}
+
+func (s *Service) SaveInTxAtMetadataVersion(ctx context.Context, e database.Executor, a Actor, id uint64, in Record, version uint64) (Record, error) {
+	if version == 0 {
+		return in, ErrInvalid
+	}
+	return s.saveInTx(ctx, e, a, id, in, version)
+}
+
+func (s *Service) saveInTx(ctx context.Context, e database.Executor, a Actor, id uint64, in Record, pinnedVersion uint64) (Record, error) {
 	if !Writable(a) {
 		return in, workrecords.ErrForbidden
 	}
-	f, err := Normalize(in.Fields)
+	var f Fields
+	var err error
+	if pinnedVersion > 0 {
+		if s.Metadata == nil {
+			return in, ErrInvalid
+		}
+		configuration, configErr := s.Metadata.ConfigurationAtVersion(ctx, a.TenantID, pinnedVersion)
+		if configErr != nil {
+			return in, configErr
+		}
+		f, err = NormalizeWithOptions(in.Fields, dictionaryValues(configuration, "ci.status", statuses), dictionaryValues(configuration, "ci.environment", environments))
+	} else {
+		f, err = s.normalize(ctx, e, a, in.Fields)
+	}
 	if err != nil {
 		return in, err
 	}
@@ -164,6 +415,11 @@ func (s *Service) SaveInTx(ctx context.Context, e database.Executor, a Actor, id
 		}
 		before = &old
 	}
+	customVersion, customFields, customSchema, err := s.prepareCustomFields(ctx, e, a, id, in.Fields, pinnedVersion)
+	if err != nil {
+		return in, err
+	}
+	in.CustomFields = customFields
 	raw, _ := json.Marshal(in.Attributes)
 	args := []any{in.Identifier, in.Name, in.Class, in.Status, in.OwnerID, in.Environment, in.Location, raw}
 	if id == 0 {
@@ -191,9 +447,19 @@ func (s *Service) SaveInTx(ctx context.Context, e database.Executor, a Actor, id
 			return in, ErrConflict
 		}
 	}
+	if s.Metadata != nil {
+		if err := s.Metadata.SaveValues(ctx, e, a.TenantID, "ci", id, customVersion, customSchema, customFields); err != nil {
+			return in, err
+		}
+	}
 	out, err := s.GetInTx(ctx, e, a, id, false)
 	if err != nil {
 		return in, err
+	}
+	if before != nil {
+		if err := s.loadCustomFields(ctx, e, a, before); err != nil {
+			return out, err
+		}
 	}
 	return out, assets.Changed(ctx, e, a, "ci", id, out.Version, before, out, []string{"data"})
 }
@@ -204,7 +470,7 @@ func (s *Service) Save(ctx context.Context, a Actor, id uint64, in Record, key s
 			return workrecords.ErrForbidden
 		}
 		if id == 0 {
-			f, err := Normalize(in.Fields)
+			f, err := s.normalize(ctx, e, a, in.Fields)
 			if err != nil {
 				return err
 			}
@@ -258,6 +524,13 @@ func (s *Service) Archive(ctx context.Context, a Actor, id, version uint64, flag
 	err := s.ActorTx(ctx, a, func(e database.Executor, a Actor) error {
 		if !Writable(a) {
 			return workrecords.ErrForbidden
+		}
+		canonical, canonicalErr := s.canonicalCIID(ctx, e, a.TenantID, id)
+		if canonicalErr != nil {
+			return canonicalErr
+		}
+		if canonical != id {
+			return ErrConflict
 		}
 		r, err := s.GetInTx(ctx, e, a, id, true)
 		if err != nil {

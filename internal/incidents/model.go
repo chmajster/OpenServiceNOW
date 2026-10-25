@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/chmajster/OpenServiceNOW/internal/metadata"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 )
 
@@ -49,6 +50,8 @@ type Record struct {
 	ResolutionDescription string                 `json:"resolution_description"`
 	CancellationReason    string                 `json:"cancellation_reason"`
 	Version               uint64                 `json:"version,string"`
+	CustomFieldVersion    uint64                 `json:"custom_fields_version,string"`
+	CustomFields          map[string]json.RawMessage `json:"custom_fields,omitempty"`
 	CreatedAt             time.Time              `json:"created_at"`
 	UpdatedAt             time.Time              `json:"updated_at"`
 	StartedAt             *time.Time             `json:"started_at"`
@@ -74,6 +77,8 @@ type Fields struct {
 	Subcategory    string `json:"subcategory"`
 	Impact         int    `json:"impact"`
 	Urgency        int    `json:"urgency"`
+	CustomFields   map[string]json.RawMessage `json:"custom_fields,omitempty"`
+	CustomFieldVersion uint64 `json:"custom_fields_version,string,omitempty"`
 }
 type UpdateInput struct {
 	Fields
@@ -88,6 +93,7 @@ type TransitionInput struct {
 	Version               uint64 `json:"version,string"`
 	State                 string `json:"state"`
 	Reason                string `json:"reason"`
+	HoldReason            string `json:"hold_reason"`
 	ResolutionCode        string `json:"resolution_code"`
 	ResolutionDescription string `json:"resolution_description"`
 }
@@ -104,6 +110,9 @@ type Filter struct {
 	AfterID                            uint64
 	AfterPriority                      int
 	Limit                              int
+	CustomFields                       []metadata.QueryFilter
+	SearchFields                       []string
+	SearchableTypes                    map[string]string
 }
 type Page struct {
 	Incidents    []Summary `json:"incidents"`
@@ -121,16 +130,21 @@ type Summary struct {
 	AffectedUserID   uint64                 `json:"affected_user_id,string"`
 	AffectedUserName string                 `json:"affected_user_name"`
 	Category         string                 `json:"category"`
+	Subcategory      string                 `json:"subcategory"`
+	Impact           int                    `json:"impact"`
+	Urgency          int                    `json:"urgency"`
 	Assignment       workrecords.Assignment `json:"assignment"`
 	AssignedName     string                 `json:"assigned_name"`
 	GroupName        string                 `json:"group_name"`
 	Version          uint64                 `json:"version,string"`
+	CustomFields     map[string]json.RawMessage `json:"custom_fields,omitempty"`
+	CustomFieldVersion uint64                `json:"custom_fields_version,string"`
 	CreatedAt        time.Time              `json:"created_at"`
 	UpdatedAt        time.Time              `json:"updated_at"`
 }
 
 func summary(r Record) Summary {
-	return Summary{r.ID, r.Number, r.Title, r.State, r.Priority, r.ReporterID, r.ReporterName, r.AffectedUserID, r.AffectedUserName, r.Category, r.Assignment, r.AssignedName, r.GroupName, r.Version, r.CreatedAt, r.UpdatedAt}
+	return Summary{ID:r.ID,Number:r.Number,Title:r.Title,State:r.State,Priority:r.Priority,ReporterID:r.ReporterID,ReporterName:r.ReporterName,AffectedUserID:r.AffectedUserID,AffectedUserName:r.AffectedUserName,Category:r.Category,Subcategory:r.Subcategory,Impact:r.Impact,Urgency:r.Urgency,Assignment:r.Assignment,AssignedName:r.AssignedName,GroupName:r.GroupName,Version:r.Version,CustomFields:r.CustomFields,CustomFieldVersion:r.CustomFieldVersion,CreatedAt:r.CreatedAt,UpdatedAt:r.UpdatedAt}
 }
 
 // Snapshot is independent of read-time action metadata and user display names.
@@ -171,7 +185,7 @@ func snapshot(r Record) Snapshot {
 	return Snapshot{Fields: fields(r), ID: r.ID, Number: r.Number, ReporterID: r.ReporterID, Priority: r.Priority, PriorityOverride: r.PriorityOverride, PriorityReason: r.PriorityReason, State: r.State, HoldReason: r.HoldReason, ResolutionCode: r.ResolutionCode, ResolutionDescription: r.ResolutionDescription, CancellationReason: r.CancellationReason, AssignedTo: r.Assignment.AssignedTo, AssignmentGroupID: r.Assignment.AssignmentGroupID, Version: r.Version, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, StartedAt: r.StartedAt, ResolvedAt: r.ResolvedAt, ClosedAt: r.ClosedAt, CancelledAt: r.CancelledAt}
 }
 func fields(r Record) Fields {
-	return Fields{r.Title, r.Description, r.AffectedUserID, r.Category, r.Subcategory, r.Impact, r.Urgency}
+	return Fields{Title:r.Title,Description:r.Description,AffectedUserID:r.AffectedUserID,Category:r.Category,Subcategory:r.Subcategory,Impact:r.Impact,Urgency:r.Urgency,CustomFields:r.CustomFields,CustomFieldVersion:r.CustomFieldVersion}
 }
 
 type HistoryEntry struct {

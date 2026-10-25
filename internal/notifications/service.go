@@ -44,7 +44,7 @@ func (s *Service) currentActor(ctx context.Context, e database.Executor, tenant,
 	return a, err
 }
 func (s *Service) Register(d *events.Dispatcher) error {
-	for _, kind := range []string{"incident.assigned", "work.comment.added", "work.work_note.added", "incident.state.changed", "incident.reopened", "incident.resolved", "incident.closed", "incident.cancelled", "sla.warning", "sla.breached", "workflow.approval.requested", "workflow.notification"} {
+	for _, kind := range []string{"incident.assigned", "work.comment.added", "work.work_note.added", "incident.state.changed", "incident.reopened", "incident.resolved", "incident.closed", "incident.cancelled", "sla.warning", "sla.breached", "incident.major.update.published", "incident.major.reminder.due", "workflow.approval.requested", "workflow.notification"} {
 		if err := d.RegisterConsumer(ConsumerID, kind, s.HandleEvent); err != nil {
 			return err
 		}
@@ -79,6 +79,9 @@ func kindEnabled(p Preference, kind string) bool {
 func (s *Service) HandleEvent(ctx context.Context, event events.Event) error {
 	if !event.NotificationEligible {
 		return nil
+	}
+	if event.Type == "incident.major.update.published" || event.Type == "incident.major.reminder.due" {
+		return s.handleMajorEvent(ctx, event)
 	}
 	if event.Type == "workflow.approval.requested" || event.Type == "workflow.notification" {
 		return s.handleWorkflow(ctx, event)

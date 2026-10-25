@@ -3,6 +3,7 @@ package incidents
 import (
 	"context"
 	"strings"
+	"github.com/chmajster/OpenServiceNOW/internal/metadata"
 )
 
 type Choice struct {
@@ -113,15 +114,23 @@ func (s *Service) Choices(ctx context.Context, a Actor, kind, purpose, q string,
 	}
 	return result, nil
 }
-func (s *Service) Metadata(a Actor) (any, error) {
+func (s *Service) Metadata(ctx context.Context, a Actor) (any, error) {
 	if !a.Has("read") && !a.Has("read_own") {
 		return nil, ErrForbidden
 	}
+	version, configuration, err := s.tenantMetadata(ctx, s.repo.db, a)
+	if err != nil { return nil, err }
+	fieldSchema,err:=metadata.BuildSchema("incident",version,configuration);if err!=nil{return nil,err}
 	return struct {
 		Categories      []Category `json:"categories"`
 		States          []Option   `json:"states"`
 		ResolutionCodes []Option   `json:"resolution_codes"`
+		HoldReasons     []Option   `json:"hold_reasons"`
 		PriorityMatrix  [3][3]int  `json:"priority_matrix"`
 		CanCreate       bool       `json:"can_create"`
-	}{Categories, States, ResolutionCodes, PriorityMatrix, a.Has("create")}, nil
+		FieldSchema metadata.Schema `json:"custom_fields_schema"`
+	}{
+		Categories:incidentCategories(configuration),States:incidentOptions(configuration,"incident.state"),ResolutionCodes:incidentOptions(configuration,"incident.resolution_code"),HoldReasons:incidentOptions(configuration,"incident.hold_reason"),PriorityMatrix:configuration.PriorityMatrix,CanCreate:a.Has("create"),
+		FieldSchema:fieldSchema,
+	}, nil
 }

@@ -1,4 +1,5 @@
 import { cmdbLabel } from "./messages";
+import type { MetadataSchema } from "../metadata/contracts";
 
 export type CI = {
   id: string;
@@ -12,6 +13,8 @@ export type CI = {
   environment: string;
   location: string;
   attributes: Record<string, unknown>;
+  custom_fields?: Record<string, unknown>;
+  custom_fields_version: string;
   archived: boolean;
   created_at: string;
   updated_at: string;
@@ -75,6 +78,7 @@ export type Metadata = {
   max_csv_bytes: number;
   max_csv_rows: number;
   max_csv_columns: number;
+  custom_fields_schema: MetadataSchema;
 };
 
 export type Relation = {
@@ -118,6 +122,9 @@ export type ImportConfig = {
   target: "CI" | "ASSET";
   identity_key: string;
   mapping: Record<string, string>;
+  source_id?: string;
+  custom_fields_version?: string;
+  custom_fields?: string[];
 };
 
 export type Import = ImportConfig & {

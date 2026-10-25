@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/chmajster/OpenServiceNOW/internal/assets"
+	"github.com/chmajster/OpenServiceNOW/internal/metadata"
 	"math"
 	"net"
 	"net/url"
@@ -52,6 +53,7 @@ type Contract struct {
 	MaxCSVBytes               int                  `json:"max_csv_bytes"`
 	MaxCSVRows                int                  `json:"max_csv_rows"`
 	MaxCSVColumns             int                  `json:"max_csv_columns"`
+	CustomFieldsSchema        metadata.Schema      `json:"custom_fields_schema"`
 }
 
 var Classes = []Class{
@@ -174,18 +176,18 @@ func Schema() Contract {
 			{Key: "environment", Label: "Środowisko", Type: "SELECT", Required: true, Options: environments},
 			{Key: "location", Label: "Lokalizacja", Type: "TEXT", MaxLength: 160},
 		},
-		Statuses:                   statuses,
-		Environments:               environments,
-		RelationTypes:              relationDefinitions,
-		CIImportFields:             ImportFields("CI"),
-		CIImportRequiredFields:     []string{"identifier", "name", "class", "status", "owner_id", "environment"},
-		CIImportIdentityKeys:       []string{"identifier"},
-		AssetImportFields:          ImportFields("ASSET"),
-		AssetImportRequiredFields:  []string{"asset_tag", "name", "owner_id", "state", "currency"},
-		AssetImportIdentityKeys:    []string{"asset_tag", "serial_number"},
-		MaxCSVBytes:                MaxCSVBytes,
-		MaxCSVRows:                 MaxCSVRows,
-		MaxCSVColumns:              MaxCSVColumns,
+		Statuses:                  statuses,
+		Environments:              environments,
+		RelationTypes:             relationDefinitions,
+		CIImportFields:            ImportFields("CI"),
+		CIImportRequiredFields:    []string{"identifier", "name", "class", "status", "owner_id", "environment"},
+		CIImportIdentityKeys:      []string{"identifier"},
+		AssetImportFields:         ImportFields("ASSET"),
+		AssetImportRequiredFields: []string{"asset_tag", "name", "owner_id", "state", "currency"},
+		AssetImportIdentityKeys:   []string{"asset_tag", "serial_number"},
+		MaxCSVBytes:               MaxCSVBytes,
+		MaxCSVRows:                MaxCSVRows,
+		MaxCSVColumns:             MaxCSVColumns,
 	}
 }
 
@@ -214,11 +216,14 @@ func Environment(s string) bool {
 	return false
 }
 func Normalize(f Fields) (Fields, error) {
+	return NormalizeWithOptions(f, statuses, environments)
+}
+func NormalizeWithOptions(f Fields, allowedStatuses, allowedEnvironments []string) (Fields, error) {
 	f.Identifier = strings.ToLower(strings.TrimSpace(f.Identifier))
 	f.Name = strings.TrimSpace(f.Name)
 	f.Location = strings.TrimSpace(f.Location)
 	c, ok := ClassDefinition(f.Class)
-	if !ok || !assets.Identifier(f.Identifier) || !assets.Text(f.Name, 1, 160) || f.OwnerID == 0 || !Status(f.Status) || !Environment(f.Environment) || !assets.Text(f.Location, 0, 160) {
+	if !ok || !assets.Identifier(f.Identifier) || !assets.Text(f.Name, 1, 160) || f.OwnerID == 0 || !containsValue(allowedStatuses, f.Status) || !containsValue(allowedEnvironments, f.Environment) || !assets.Text(f.Location, 0, 160) {
 		return f, ErrInvalid
 	}
 	if f.Attributes == nil {
@@ -261,6 +266,15 @@ func Normalize(f Fields) (Fields, error) {
 		}
 	}
 	return f, nil
+}
+
+func containsValue(options []string, value string) bool {
+	for _, option := range options {
+		if option == value {
+			return true
+		}
+	}
+	return false
 }
 func validateAttribute(rule Attribute, raw json.RawMessage) error {
 	switch rule.Type {

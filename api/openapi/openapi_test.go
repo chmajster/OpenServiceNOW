@@ -61,6 +61,39 @@ func TestOpenAPIContractParsesAndContainsImplementedRoutes(t *testing.T) {
 		"/api/v1/incidents/{incidentID}/transition",
 		"/api/v1/incidents/{incidentID}/priority",
 		"/api/v1/incidents/{incidentID}/history",
+		"/api/v1/metadata/schema/{type}",
+		"/api/v1/metadata/references/{type}",
+		"/api/v1/metadata/configuration",
+		"/api/v1/metadata/configuration/impact",
+		"/api/v1/metadata/configuration/draft",
+		"/api/v1/metadata/configuration/publish",
+		"/api/v1/metadata/configuration/test",
+		"/api/v1/metadata/configuration/versions",
+		"/api/v1/metadata/configuration/versions/{version}",
+		"/api/v1/metadata/configuration/versions/{from}/compare/{to}",
+		"/api/v1/metadata/configuration/versions/{version}/restore",
+		"/api/v1/metadata/preferences",
+		"/api/v1/cmdb/ire/sources",
+		"/api/v1/cmdb/ire/sources/{id}",
+		"/api/v1/cmdb/ire/rules",
+		"/api/v1/cmdb/ire/rules/{class}",
+		"/api/v1/cmdb/ire/policies",
+		"/api/v1/cmdb/ire/match",
+		"/api/v1/cmdb/ire/runs",
+		"/api/v1/cmdb/ire/runs/{id}",
+		"/api/v1/cmdb/ire/runs/{id}/rows",
+		"/api/v1/cmdb/ire/runs/{id}/{action}",
+		"/api/v1/cmdb/ire/conflicts",
+		"/api/v1/cmdb/ire/conflicts/{id}/{action}",
+		"/api/v1/cmdb/ire/merges/plan",
+		"/api/v1/cmdb/ire/merges/apply",
+		"/api/v1/cmdb/ire/quality/config",
+		"/api/v1/cmdb/ire/quality/summary",
+		"/api/v1/cmdb/ire/quality/findings",
+		"/api/v1/cmdb/ire/quality/run",
+		"/api/v1/cmdb/ire/cis/{id}/provenance",
+		"/api/v1/cmdb/ire/cis/{id}/overrides",
+		"/api/v1/cmdb/ire/cis/{id}/overrides/{field}/clear",
 		"/api/v1/service-portfolio/items",
 		"/api/v1/service-portfolio/items/{id}",
 		"/api/v1/service-portfolio/items/{id}/history",
@@ -90,6 +123,46 @@ func TestOpenAPIContractParsesAndContainsImplementedRoutes(t *testing.T) {
 	}
 	if len(doc.Components) == 0 {
 		t.Fatal("OpenAPI components are missing")
+	}
+}
+
+func TestCMDBIREOpenAPISecurityAndCSRFContracts(t *testing.T) {
+	var root map[string]any
+	if err := json.Unmarshal(loadDocument(t), &root); err != nil {
+		t.Fatal(err)
+	}
+	paths := root["paths"].(map[string]any)
+	for _, item := range []struct {
+		path, method string
+		write        bool
+	}{
+		{"/api/v1/cmdb/ire/sources", "get", false},
+		{"/api/v1/cmdb/ire/sources", "post", true},
+		{"/api/v1/cmdb/ire/rules/{class}", "put", true},
+		{"/api/v1/cmdb/ire/match", "post", true},
+		{"/api/v1/cmdb/ire/runs", "post", true},
+		{"/api/v1/cmdb/ire/runs/{id}/{action}", "post", true},
+		{"/api/v1/cmdb/ire/conflicts/{id}/{action}", "post", true},
+		{"/api/v1/cmdb/ire/merges/apply", "post", true},
+		{"/api/v1/cmdb/ire/quality/config", "put", true},
+		{"/api/v1/cmdb/ire/quality/run", "post", true},
+		{"/api/v1/cmdb/ire/cis/{id}/provenance", "get", false},
+		{"/api/v1/cmdb/ire/cis/{id}/overrides", "post", true},
+	} {
+		operation := paths[item.path].(map[string]any)[item.method].(map[string]any)
+		security := operation["security"].([]any)[0].(map[string]any)
+		if _, ok := security["sessionCookie"]; !ok {
+			t.Fatalf("%s %s lacks session authentication", item.method, item.path)
+		}
+		_, csrf := security["csrfHeader"]
+		if csrf != item.write {
+			t.Fatalf("%s %s CSRF=%t", item.method, item.path, csrf)
+		}
+		if item.write {
+			if _, ok := operation["x-required-permissions"]; !ok {
+				t.Fatalf("%s %s lacks server permission contract", item.method, item.path)
+			}
+		}
 	}
 }
 
@@ -141,6 +214,59 @@ func TestServicePortfolioOpenAPISecurityAndVersionContracts(t *testing.T) {
 	} {
 		value, err := resolveLocalRef(root, pointer)
 		if err != nil || value.(map[string]any)["type"] != "string" {
+			t.Fatalf("%s must preserve BIGINT precision as a string", pointer)
+		}
+	}
+}
+
+func TestMetadataOpenAPISecurityAndVersionContracts(t *testing.T) {
+	var root map[string]any
+	if err := json.Unmarshal(loadDocument(t), &root); err != nil {
+		t.Fatal(err)
+	}
+	paths := root["paths"].(map[string]any)
+	for _, item := range []struct {
+		path, method string
+		write        bool
+		permission   bool
+	}{
+		{"/api/v1/metadata/schema/{type}", "get", false, false},
+		{"/api/v1/metadata/references/{type}", "get", false, false},
+		{"/api/v1/metadata/configuration", "get", false, true},
+		{"/api/v1/metadata/configuration/draft", "put", true, true},
+		{"/api/v1/metadata/configuration/publish", "post", true, true},
+		{"/api/v1/metadata/configuration/test", "post", true, true},
+		{"/api/v1/metadata/configuration/versions/{version}/restore", "post", true, true},
+		{"/api/v1/metadata/preferences", "get", false, false},
+		{"/api/v1/metadata/preferences", "put", true, false},
+	} {
+		operation := paths[item.path].(map[string]any)[item.method].(map[string]any)
+		security := operation["security"].([]any)[0].(map[string]any)
+		if _, ok := security["sessionCookie"]; !ok {
+			t.Fatalf("%s lacks session security", item.path)
+		}
+		_, csrf := security["csrfHeader"]
+		if csrf != item.write {
+			t.Fatalf("%s %s CSRF=%t", item.method, item.path, csrf)
+		}
+		_, required := operation["x-required-permissions"]
+		if required != item.permission {
+			t.Fatalf("%s %s explicit permission=%t", item.method, item.path, required)
+		}
+	}
+	for _, pointer := range []string{
+		"#/components/schemas/MetadataHead/properties/version",
+		"#/components/schemas/MetadataHead/properties/draft_version",
+		"#/components/schemas/MetadataField/properties/key",
+		"#/components/schemas/MetadataPreferences/properties/version",
+		"#/components/schemas/MetadataPreferences/properties/organization_name",
+		"#/components/schemas/MetadataPreferences/properties/brand_color",
+	} {
+		value, err := resolveLocalRef(root, pointer)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if value.(map[string]any)["type"] != "string" {
 			t.Fatalf("%s must preserve BIGINT precision as a string", pointer)
 		}
 	}

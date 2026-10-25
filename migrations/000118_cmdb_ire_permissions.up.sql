@@ -1,0 +1,1 @@
+INSERT INTO permissions(permission_key,description) VALUES('cmdb.ire.manage','Manage CMDB sources, identity rules, reconciliation, conflicts and merges'),('cmdb.quality.read','Read CMDB data quality findings'),('cmdb.quality.manage','Configure and run CMDB data quality checks');

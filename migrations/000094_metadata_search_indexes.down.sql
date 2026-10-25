@@ -1,0 +1,1 @@
+ALTER TABLE metadata_record_values DROP KEY metadata_custom_long_text;

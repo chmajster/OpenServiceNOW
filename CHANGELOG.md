@@ -10,6 +10,18 @@ The project is pre-release and currently in architecture/foundation development.
 - Integrated catalog offer visibility, existing Incident/Request links, ITAM locations, outbox/activity projections and responsive portfolio screens. Migrations 000097–000104, OpenAPI contracts, ADR-0004 and the module guide document the implementation and boundaries.
 - Local Go package tests, frontend tests, typecheck/build and mocked desktop/mobile Playwright pass. Isolated MySQL migration and real API/database/worker verification remain outstanding.
 
+## 2026-10-23 - CI identification and reconciliation (Module 06)
+
+- Added tenant-scoped source identities, versioned matching and field policies, durable dry-run/apply jobs, provenance, manual overrides, conflict resolution and guarded CI merges.
+- Routed CSV CI updates through IRE, added privileged selection of distinct active tenant CSV sources, and added scheduled quality findings and metrics, including invalid custom references and relation types. Migrations 000105-000123, OpenAPI, UI and module guide are included.
+- Go tests, frontend tests, typecheck and production build pass locally. MySQL migration/worker end-to-end and live Playwright verification remain outstanding because no isolated database or running app is available.
+
+## 2026-10-23 - Tenant data dictionary and configurable forms
+
+- Added tenant-scoped versioned metadata configuration, typed Incident/CI custom fields, dictionaries, layout/search/filter controls, references, configuration history and user locale preferences.
+- Added a metadata administration screen and connected published fields to Incident/CI forms and lists, CI imports and catalog validation. Added migrations 000086-000089 and 000091-000095, OpenAPI contracts, ADR and module documentation.
+- Local frontend tests, typecheck and production build pass. Go/MySQL migration and real API end-to-end verification remain unavailable in this environment.
+
 ## 2026-10-22 — One-line installation and updates
 
 - Added an HTTPS bootstrap that clones the GitHub `main` branch into `/opt/OpenServiceNow` and delegates to the complete Docker installer.

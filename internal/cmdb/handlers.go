@@ -8,6 +8,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/assets"
 	"github.com/chmajster/OpenServiceNOW/internal/attachments"
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
+	"github.com/chmajster/OpenServiceNOW/internal/metadata"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/httpapi"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/requestinfo"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
@@ -86,6 +87,7 @@ func RegisterRoutes(r chi.Router, h *Handler, m *identity.Middleware) {
 		r.Get("/imports/{id}", h.handle("import.get"))
 		r.Get("/imports/{id}/rows", h.handle("import.rows"))
 		r.With(m.RequireCSRF).Post("/imports/{id}/{action:apply|review|cancel}", h.handle("import.action"))
+		registerIRERoutes(r, h, m)
 	})
 }
 func number(v string, optional bool) (uint64, error) {
@@ -123,16 +125,23 @@ func reply(w http.ResponseWriter, r *http.Request, value any, err error) {
 	}
 	status, code, message := 500, "INVENTORY_FAILED", "Nie udało się wykonać operacji ewidencji"
 	switch {
-	case errors.Is(err, ErrInvalid), errors.Is(err, workrecords.ErrInvalid), errors.Is(err, attachments.ErrInvalid):
+	case errors.Is(err, ErrInvalid), errors.Is(err, workrecords.ErrInvalid), errors.Is(err, attachments.ErrInvalid), errors.Is(err, metadata.ErrInvalid):
 		status, code, message = 400, "INVALID_REQUEST", err.Error()
-	case errors.Is(err, ErrNotFound), errors.Is(err, workrecords.ErrNotFound):
+	case errors.Is(err, ErrNotFound), errors.Is(err, workrecords.ErrNotFound), errors.Is(err, metadata.ErrNotFound):
 		status, code, message = 404, "NOT_FOUND", "Nie znaleziono dostępnego rekordu"
 	case errors.Is(err, workrecords.ErrForbidden):
 		status, code, message = 403, "FORBIDDEN", "Brak uprawnień do tej operacji"
 	case errors.Is(err, ErrConflict), errors.Is(err, ErrDuplicate), errors.Is(err, workrecords.ErrOperationConflict):
 		status, code, message = 409, "VERSION_CONFLICT", err.Error()
+	case errors.Is(err, metadata.ErrConflict):
+		status, code, message = 409, "VERSION_CONFLICT", err.Error()
 	case errors.Is(err, attachments.ErrTooLarge):
 		status, code, message = 413, "REQUEST_TOO_LARGE", "Plik przekracza limit"
+	}
+	var fieldError metadata.FieldError
+	if errors.As(err, &fieldError) {
+		httpapi.WriteJSON(w, status, map[string]any{"error": map[string]any{"code": "FIELD_VALIDATION", "message": fieldError.Error(), "field": fieldError.Field, "reason_code": fieldError.Code, "request_id": middleware.GetReqID(r.Context())}})
+		return
 	}
 	httpapi.WriteError(w, r, status, code, message)
 }
@@ -165,7 +174,7 @@ func (h *Handler) handle(action string) http.HandlerFunc {
 				err = workrecords.ErrForbidden
 				break
 			}
-			v = Schema()
+			v, err = h.service.SchemaForTenant(ctx, a.TenantID)
 		case "users":
 			v, err = h.users(ctx, a, q.Get("q"), before, limit)
 		case "asset.catalog.list":
@@ -193,7 +202,17 @@ func (h *Handler) handle(action string) http.HandlerFunc {
 			var owner uint64
 			owner, err = number(q.Get("owner_id"), true)
 			if err == nil {
-				v, err = h.service.List(ctx, a, Filter{Query: q.Get("q"), Class: q.Get("class"), Status: q.Get("status"), Environment: q.Get("environment"), Location: q.Get("location"), Archived: q.Get("archived"), OwnerID: owner, Before: before, Limit: limit})
+				f := Filter{Query: q.Get("q"), Class: q.Get("class"), Status: q.Get("status"), Environment: q.Get("environment"), Location: q.Get("location"), Archived: q.Get("archived"), Sort: q.Get("sort"), OwnerID: owner, Before: before, Limit: limit}
+				if h.service.Metadata != nil {
+					var schema metadata.Schema
+					schema, err = h.service.Metadata.Schema(ctx, a.TenantID, "ci")
+					if err == nil {
+						f.CustomFields, err = metadata.ParseFilters(schema, q)
+					}
+				}
+				if err == nil {
+					v, err = h.service.List(ctx, a, f)
+				}
 			}
 		case "asset.list":
 			var owner uint64
@@ -208,12 +227,13 @@ func (h *Handler) handle(action string) http.HandlerFunc {
 		case "ci.save":
 			var body struct {
 				Fields
-				Version uint64 `json:"version,string"`
+				Version      uint64 `json:"version,string"`
+				ManualReason string `json:"manual_reason"`
 			}
 			if !decode(w, r, &body) {
 				return
 			}
-			v, err = h.service.Save(ctx, a, id, Record{Fields: body.Fields, Version: body.Version}, r.Header.Get("Idempotency-Key"))
+			v, err = h.service.SaveManual(ctx, a, id, Record{Fields: body.Fields, Version: body.Version}, r.Header.Get("Idempotency-Key"), body.ManualReason)
 		case "asset.save":
 			var body struct {
 				assets.Fields

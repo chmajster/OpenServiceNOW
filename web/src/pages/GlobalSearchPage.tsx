@@ -1,5 +1,5 @@
 import { Link, useSearchParams } from "react-router-dom";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { PageState } from "../components/PageState";
 import { useRemotePage } from "../components/useRemotePage";
@@ -9,6 +9,8 @@ import type { Request, Publication } from "../requests/contracts";
 import type { Asset, CI } from "../cmdb/contracts";
 import type { Group, TenantUser } from "../api/types";
 import type { Task } from "../requests/contracts";
+import { queryWork } from "../workspace/api";
+import type { WorkItem } from "../workspace/contracts";
 
 type SearchItem =
   | IncidentSummary
@@ -54,6 +56,9 @@ export function GlobalSearchPage() {
     const taskQuery = new URLSearchParams({ q: query, limit: "10", view: "group" });
     buckets.push(<SearchBucket<Task> key="tasks" title="Zadania realizacji" path={`/api/v1/fulfillment/?${taskQuery}`} collection="items" cursor="before_id" allTo={`/fulfillment?q=${encodeURIComponent(query)}&view=group`} render={(item) => <Link to={`/fulfillment/${item.id}`}><strong>{item.number} · {item.request_number}</strong><span>{item.title}</span><small>{item.state} · {item.group_name || "Bez grupy"}{item.assigned_name ? ` · ${item.assigned_name}` : ""}</small></Link>} />);
   }
+  if (hasPermission("incident.read") || hasPermission("incident.read_own") || hasPermission("request.fulfill") || hasPermission("request.manage")) {
+    buckets.push(<WorkSearchBucket key="workspace" query={query} />);
+  }
   if (hasPermission("admin.rbac.manage")) {
     buckets.push(<SearchBucket<Group> key="groups" title="Grupy" path={`/api/v1/admin/rbac/groups?${q}`} collection="groups" cursor="after_id" allTo={`/rbac?kind=groups&q=${encodeURIComponent(query)}`} render={(item) => <Link to={`/rbac?${new URLSearchParams({ kind: "groups", id: item.id })}`}><strong>{item.name}</strong><span>{item.description || "Grupa organizacji"}</span><small>{item.member_count} członków</small></Link>} />);
   }
@@ -67,6 +72,30 @@ export function GlobalSearchPage() {
         <div><p className="eyebrow">Wyszukiwanie globalne</p><h1 ref={heading} tabIndex={-1}>Wyniki wyszukiwania</h1><p className="muted">Fraza: <strong className="text-slate-800">{query}</strong></p></div>
       </div>
       {buckets.length ? <div className="grid gap-4 xl:grid-cols-2">{buckets}</div> : <PageState title="Brak dostępnych obszarów wyszukiwania" detail="Konto nie ma uprawnień do odczytu żadnego obsługiwanego modułu." />}
+    </section>
+  );
+}
+
+function WorkSearchBucket({ query }: { query: string }) {
+  const [items, setItems] = useState<WorkItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true); setError("");
+    void queryWork({ view: "all", query, sort: "rank", limit: 10 }, controller.signal)
+      .then((page) => { if (!controller.signal.aborted) setItems(page.items); })
+      .catch((cause) => { if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Nie udało się przeszukać kolejki."); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [query]);
+  return (
+    <section className="panel min-w-0">
+      <div className="mb-3 flex items-center justify-between gap-3"><h2 className="text-lg font-semibold">Moja praca</h2><Link className="text-sm font-semibold text-sn-teal hover:underline" to={`/workspace?q=${encodeURIComponent(query)}`}>Otwórz workspace</Link></div>
+      {loading ? <PageState title="Szukanie w kolejce pracy…" /> : null}
+      {error ? <PageState title="Nie udało się przeszukać kolejki" detail={error} tone="error" /> : null}
+      {!loading && !error && !items.length ? <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">Brak dopasowań.</p> : null}
+      {items.length ? <ul className="divide-y divide-slate-100">{items.map((item) => <li key={`${item.tenant_id}:${item.object_type}:${item.object_id}`} className="py-3 first:pt-0 last:pb-0 [&_a]:grid [&_a]:gap-1 [&_a]:rounded [&_a]:p-2 [&_a]:hover:bg-slate-50 [&_a]:focus-visible:outline-2 [&_a]:focus-visible:outline-sn-teal [&_small]:text-slate-500"><Link to={item.record_path}><strong>{item.number} · {item.object_type === "incident" ? "Incydent" : "SCTASK"}</strong><span>{item.title}</span><small>{item.state} · {item.assigned_name || "Nieprzypisany"}{item.group_name ? ` · ${item.group_name}` : ""}</small></Link></li>)}</ul> : null}
     </section>
   );
 }

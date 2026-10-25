@@ -45,10 +45,25 @@
       "description": "Durable catalog request workflows and decisions"
     },
     {
+      "name": "CMDB IRE",
+      "description": "Tenant-scoped CI identity, reconciliation, provenance, conflicts, merge and quality."
+    },
+    {
       "name": "CMDB and Asset",
       "description": "Configuration items, IT assets, relations, history and durable CSV imports."
     },
-    {"name":"Service Portfolio and CSDM","description":"Business and technical services, service offerings, dependencies, impact, availability and lifecycle."}
+    {
+      "name": "Service Portfolio and CSDM",
+      "description": "Business and technical services, service offerings, dependencies, impact, availability and lifecycle."
+    },
+    {
+      "name": "Metadata and Localization",
+      "description": "Tenant-scoped dictionaries, typed custom fields, layouts, publication history and user locale preferences."
+    },
+    {
+      "name": "Operator workspace",
+      "description": "Shared, authorization-preserving operator queue for registered work adapters."
+    }
   ],
   "paths": {
     "/health/live": {
@@ -12482,8 +12497,7 @@
           }
         }
       }
-    }
-  ,
+    },
     "/api/v1/cmdb/classes": {
       "get": {
         "tags": [
@@ -15206,6 +15220,1000 @@
         }
       }
     },
+    "/api/v1/metadata/schema/{type}": {
+      "get": {
+        "tags": [
+          "Metadata and Localization"
+        ],
+        "operationId": "getMetadataSchema",
+        "summary": "Read the published tenant schema",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read the published tenant schema",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "incident",
+                "ci"
+              ]
+            }
+          }
+        ],
+        "x-any-read-permissions": [
+          "incident.read",
+          "incident.read_own",
+          "incident.create",
+          "cmdb.read",
+          "cmdb.read_own"
+        ]
+      }
+    },
+    "/api/v1/metadata/references/{type}": {
+      "get": {
+        "tags": [
+          "Metadata and Localization"
+        ],
+        "operationId": "searchMetadataReferences",
+        "summary": "Search tenant-scoped records permitted to the current user",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search tenant-scoped records permitted to the current user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataReferencePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "user",
+                "group",
+                "incident",
+                "request",
+                "ci",
+                "asset"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Search authorized reference labels.",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "description": "Exclusive descending decimal BIGINT cursor.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/metadata/configuration": {
+      "get": {
+        "tags": [
+          "Metadata and Localization"
+        ],
+        "operationId": "getMetadataConfiguration",
+        "summary": "Read tenant draft and published configuration",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-permissions": [
+          "admin.metadata.manage"
+        ],
+        "responses": {
+          "200": {
+            "description": "Read tenant draft and published configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataHead"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/metadata/configuration/impact": {
+      "get": {
+        "tags": [
+          "Metadata and Localization"
+        ],
+        "operationId": "getMetadataImpact",
+        "summary": "Analyze draft impact before publication",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-permissions": [
+          "admin.metadata.manage"
+        ],
+        "responses": {
+          "200": {
+            "description": "Analyze draft impact before publication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataImpact"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/metadata/configuration/draft": {
+      "put": {
+        "tags": [
+          "Metadata and Localization"
+        ],
+        "operationId": "putMetadataDraft",
+        "summary": "Save a version-checked tenant configuration draft",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-permissions": [
+          "admin.metadata.manage"
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataHead"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Configuration version conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetadataSaveDraftRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/metadata/configuration/publish": {
+      "post": {
+        "tags": [
+          "Metadata and Localization"
+        ],
+        "operationId": "publishMetadata",
+        "summary": "Validate and atomically publish the current draft",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-permissions": [
+          "admin.metadata.manage"
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataHead"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Impact or configuration conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetadataVersionRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/metadata/configuration/test": {
+      "post": {
+        "tags": [
+          "Metadata and Localization"
+        ],
+        "operationId": "testMetadataRule",
+        "summary": "Evaluate a bounded declarative rule against sample values",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-permissions": [
+          "admin.metadata.manage"
+        ],
+        "responses": {
+          "200": {
+            "description": "Evaluate a bounded declarative rule against sample values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataRuleTestResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetadataTestRuleRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/metadata/configuration/versions": {
+      "get": {
+        "tags": [
+          "Metadata and Localization"
+        ],
+        "operationId": "listMetadataVersions",
+        "summary": "List tenant configuration history",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-permissions": [
+          "admin.metadata.manage"
+        ],
+        "responses": {
+          "200": {
+            "description": "List tenant configuration history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataVersionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "before_version_id",
+            "in": "query",
+            "required": false,
+            "description": "Exclusive descending version cursor.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/metadata/configuration/versions/{version}": {
+      "get": {
+        "tags": [
+          "Metadata and Localization"
+        ],
+        "operationId": "getMetadataVersion",
+        "summary": "Read a versioned tenant configuration",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-permissions": [
+          "admin.metadata.manage"
+        ],
+        "responses": {
+          "200": {
+            "description": "Read a versioned tenant configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataVersion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/metadata/configuration/versions/{from}/compare/{to}": {
+      "get": {
+        "tags": [
+          "Metadata and Localization"
+        ],
+        "operationId": "compareMetadataVersions",
+        "summary": "Compare two tenant configuration versions",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "x-required-permissions": [
+          "admin.metadata.manage"
+        ],
+        "responses": {
+          "200": {
+            "description": "Compare two tenant configuration versions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "from": {
+                      "$ref": "#/components/schemas/MetadataVersion"
+                    },
+                    "to": {
+                      "$ref": "#/components/schemas/MetadataVersion"
+                    },
+                    "changed_paths": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "from",
+                    "to",
+                    "changed_paths"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "from",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "to",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/metadata/configuration/versions/{version}/restore": {
+      "post": {
+        "tags": [
+          "Metadata and Localization"
+        ],
+        "operationId": "restoreMetadataVersion",
+        "summary": "Copy a historic configuration into a new draft",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "x-required-permissions": [
+          "admin.metadata.manage"
+        ],
+        "responses": {
+          "200": {
+            "description": "Copy a historic configuration into a new draft",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataHead"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetadataVersionRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/metadata/preferences": {
+      "get": {
+        "tags": [
+          "Metadata and Localization"
+        ],
+        "operationId": "getMetadataPreferences",
+        "summary": "Read current user's locale and time-zone preferences",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read current user's locale and time-zone preferences",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataPreferences"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Metadata and Localization"
+        ],
+        "operationId": "putMetadataPreferences",
+        "summary": "Save current user's version-checked preferences",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataPreferences"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Preference version conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetadataPreferencesRequest"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/service-portfolio/items": {
       "get": {
         "tags": [
@@ -17909,6 +18917,2411 @@
             }
           }
         }
+      }
+    },
+    "/api/v1/cmdb/ire/sources": {
+      "get": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "listIREDataSources",
+        "summary": "List tenant data sources",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREDataSourcePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.ire.manage"
+        ],
+        "parameters": [
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "description": "Return rows with ids below this cursor."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "createIREDataSource",
+        "summary": "Create a tenant data source",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREDataSource"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.ire.manage",
+          "cmdb.manage",
+          "cmdb.read"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IREDataSourceInput"
+              }
+            }
+          }
+        },
+        "x-requires-csrf": true
+      }
+    },
+    "/api/v1/cmdb/ire/sources/{id}": {
+      "put": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "updateIREDataSource",
+        "summary": "Update a tenant data source using its current version",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREDataSource"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.ire.manage",
+          "cmdb.manage",
+          "cmdb.read"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IREDataSourceInput"
+              }
+            }
+          }
+        },
+        "x-requires-csrf": true
+      }
+    },
+    "/api/v1/cmdb/ire/rules": {
+      "get": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "listIREIdentityRules",
+        "summary": "List active class identity rules",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREIdentityRuleList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.ire.manage"
+        ]
+      }
+    },
+    "/api/v1/cmdb/ire/rules/{class}": {
+      "put": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "publishIREIdentityRule",
+        "summary": "Publish a new version of a class identity rule",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREIdentityRule"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.ire.manage",
+          "cmdb.manage",
+          "cmdb.read"
+        ],
+        "parameters": [
+          {
+            "name": "class",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_]*$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IREIdentityRuleInput"
+              }
+            }
+          }
+        },
+        "x-requires-csrf": true
+      }
+    },
+    "/api/v1/cmdb/ire/policies": {
+      "get": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "listIREFieldPolicies",
+        "summary": "List field reconciliation policies",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREFieldPolicyList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.ire.manage"
+        ]
+      },
+      "post": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "saveIREFieldPolicy",
+        "summary": "Create or update a field reconciliation policy",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREFieldPolicy"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.ire.manage",
+          "cmdb.manage",
+          "cmdb.read"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IREFieldPolicy"
+              }
+            }
+          }
+        },
+        "x-requires-csrf": true
+      }
+    },
+    "/api/v1/cmdb/ire/match": {
+      "post": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "testIREMatch",
+        "summary": "Dry-run identity resolution for one observation",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREMatchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.ire.manage",
+          "cmdb.manage",
+          "cmdb.read"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IREMatchRequest"
+              }
+            }
+          }
+        },
+        "x-requires-csrf": true
+      }
+    },
+    "/api/v1/cmdb/ire/runs": {
+      "get": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "listIRERuns",
+        "summary": "List reconciliation runs",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREReconciliationRunPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.ire.manage"
+        ],
+        "parameters": [
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "createIRERun",
+        "summary": "Create an idempotent dry-run reconciliation batch",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREReconciliationRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.ire.manage",
+          "cmdb.manage",
+          "cmdb.read"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IREReconciliationRunInput"
+              }
+            }
+          }
+        },
+        "x-requires-csrf": true
+      }
+    },
+    "/api/v1/cmdb/ire/runs/{id}": {
+      "get": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "getIRERun",
+        "summary": "Get run status and per-row counts",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREReconciliationRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.ire.manage"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/cmdb/ire/runs/{id}/rows": {
+      "get": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "listIRERunRows",
+        "summary": "List paged observation results",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREObservationPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.ire.manage"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          },
+          {
+            "name": "after_row",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/cmdb/ire/runs/{id}/{action}": {
+      "post": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "actOnIRERun",
+        "summary": "Apply a dry-run or cancel an eligible run",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREReconciliationRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.ire.manage",
+          "cmdb.manage",
+          "cmdb.read"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "apply",
+                "cancel"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IRERunAction"
+              }
+            }
+          }
+        },
+        "x-requires-csrf": true
+      }
+    },
+    "/api/v1/cmdb/ire/conflicts": {
+      "get": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "listIREConflicts",
+        "summary": "List identity and reconciliation conflicts",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREConflictPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.ire.manage"
+        ],
+        "parameters": [
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "RESOLVED",
+                "DISMISSED"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/cmdb/ire/conflicts/{id}/{action}": {
+      "post": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "resolveIREConflict",
+        "summary": "Resolve or dismiss a conflict with an audited reason",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREConflict"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.ire.manage",
+          "cmdb.manage",
+          "cmdb.read"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "resolve",
+                "dismiss"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IREConflictAction"
+              }
+            }
+          }
+        },
+        "x-requires-csrf": true
+      }
+    },
+    "/api/v1/cmdb/ire/merges/plan": {
+      "post": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "planCIMerge",
+        "summary": "Preflight CI references, collisions and merge blockers",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREMergePlan"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.ire.manage",
+          "cmdb.manage",
+          "cmdb.read"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IREMergePlanRequest"
+              }
+            }
+          }
+        },
+        "x-requires-csrf": true
+      }
+    },
+    "/api/v1/cmdb/ire/merges/apply": {
+      "post": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "applyCIMerge",
+        "summary": "Apply a versioned, preflighted CI merge",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREMergePlan"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.ire.manage",
+          "cmdb.manage",
+          "cmdb.read"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IREMergeInput"
+              }
+            }
+          }
+        },
+        "x-requires-csrf": true
+      }
+    },
+    "/api/v1/cmdb/ire/quality/config": {
+      "get": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "getCMDBQualityConfig",
+        "summary": "Get tenant quality schedule and required fields",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREQualityConfig"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.quality.read",
+          "cmdb.quality.manage",
+          "cmdb.ire.manage"
+        ]
+      },
+      "put": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "saveCMDBQualityConfig",
+        "summary": "Save tenant quality configuration",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREQualityConfig"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.quality.manage",
+          "cmdb.ire.manage",
+          "cmdb.manage",
+          "cmdb.read"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IREQualityConfig"
+              }
+            }
+          }
+        },
+        "x-requires-csrf": true
+      }
+    },
+    "/api/v1/cmdb/ire/quality/summary": {
+      "get": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "getCMDBQualitySummary",
+        "summary": "Get per-rule valid numerator, denominator and open count",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREQualitySummaryList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.quality.read",
+          "cmdb.quality.manage",
+          "cmdb.ire.manage"
+        ]
+      }
+    },
+    "/api/v1/cmdb/ire/quality/findings": {
+      "get": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "listCMDBQualityFindings",
+        "summary": "List quality findings with class, owner, rule and state filters",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREQualityFindingPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.quality.read",
+          "cmdb.quality.manage",
+          "cmdb.ire.manage"
+        ],
+        "x-conditional-authorization": "CI rows are additionally filtered by CMDB read scope.",
+        "parameters": [
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "class",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "rule",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "RESOLVED"
+              ]
+            }
+          },
+          {
+            "name": "owner_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "description": "Requires cmdb.read; otherwise CMDB read-own scope is enforced."
+          }
+        ]
+      }
+    },
+    "/api/v1/cmdb/ire/quality/run": {
+      "post": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "runCMDBQualityCheck",
+        "summary": "Queue an idempotent tenant quality evaluation",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREQualityRunResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.quality.manage",
+          "cmdb.ire.manage",
+          "cmdb.manage",
+          "cmdb.read"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IREEmptyObject"
+              }
+            }
+          }
+        },
+        "x-requires-csrf": true
+      }
+    },
+    "/api/v1/cmdb/ire/cis/{id}/provenance": {
+      "get": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "getCIFieldProvenance",
+        "summary": "Get current field provenance, overrides and last-seen time",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREProvenancePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.read"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          }
+        ],
+        "x-conditional-authorization": "The caller must have access to this CI under CMDB read scope."
+      }
+    },
+    "/api/v1/cmdb/ire/cis/{id}/overrides": {
+      "post": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "setCIManualOverride",
+        "summary": "Set a reasoned temporary or permanent field override",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREProvenancePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.manage",
+          "cmdb.read"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IREManualOverrideInput"
+              }
+            }
+          }
+        },
+        "x-requires-csrf": true
+      }
+    },
+    "/api/v1/cmdb/ire/cis/{id}/overrides/{field}/clear": {
+      "post": {
+        "tags": [
+          "CMDB IRE"
+        ],
+        "operationId": "clearCIManualOverride",
+        "summary": "Clear an active field override with a reason",
+        "description": "Tenant-scoped IRE operation. The server derives actor and tenant from the authenticated session and performs authorization and validation.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IREProvenancePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-required-permissions": [
+          "cmdb.manage",
+          "cmdb.read"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          },
+          {
+            "name": "field",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_.]{0,63}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IREOverrideClearInput"
+              }
+            }
+          }
+        },
+        "x-requires-csrf": true
+      }
+    },
+    "/api/v1/workspace/fields": {
+      "get": {
+        "tags": [
+          "Operator workspace"
+        ],
+        "operationId": "workspaceFields",
+        "summary": "List filterable fields and registered work types",
+        "description": "The server derives tenant and actor from the authenticated session. Object access is checked for every result; saved views never expand data access.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceFields"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/workspace/references/{kind}": {
+      "get": {
+        "tags": [
+          "Operator workspace"
+        ],
+        "operationId": "workspaceReferences",
+        "summary": "Search tenant-safe filter references",
+        "description": "Only active tenant users/groups visible to the actor are returned. Query is bounded and pagination is limited to 50.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceReferencePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "users",
+                "groups"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "after_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/workspace/queue": {
+      "post": {
+        "tags": [
+          "Operator workspace"
+        ],
+        "operationId": "queryWorkspaceQueue",
+        "summary": "Query the combined incident and fulfillment queue",
+        "description": "Applies tenant and object authorization before filtering and pagination. Uses stable type-aware cursor ordering. CSRF protection is required.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceQueuePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceQuery"
+              }
+            }
+          }
+        },
+        "x-csrf-protection": true,
+        "x-conditional-authorization": "incident.read or incident.read_own for incidents; request.fulfill active group membership or request.manage for fulfillment tasks."
+      }
+    },
+    "/api/v1/workspace/items/{type}/{id}": {
+      "get": {
+        "tags": [
+          "Operator workspace"
+        ],
+        "operationId": "getWorkspaceItem",
+        "summary": "Read an authorized queue record preview",
+        "description": "The object type and decimal ID are resolved under the authenticated tenant. Unauthorized and missing records both return 404.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceWorkItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "incident",
+                "fulfillment_task"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/workspace/views": {
+      "get": {
+        "tags": [
+          "Operator workspace"
+        ],
+        "operationId": "listWorkspaceViews",
+        "summary": "List private and shared saved views",
+        "description": "The server derives tenant and actor from the authenticated session. Object access is checked for every result; saved views never expand data access.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceViewList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Operator workspace"
+        ],
+        "operationId": "createWorkspaceView",
+        "summary": "Save a private or authorized shared view",
+        "description": "The saved definition never grants record access. Sharing requires admin.rbac.manage. CSRF protection is required.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceView"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceSaveView"
+              }
+            }
+          }
+        },
+        "x-csrf-protection": true
+      }
+    },
+    "/api/v1/workspace/views/{id}": {
+      "put": {
+        "tags": [
+          "Operator workspace"
+        ],
+        "operationId": "updateWorkspaceView",
+        "summary": "Update a saved view with optimistic locking",
+        "description": "Owner or authorized administrator only. Version mismatch returns 409. CSRF protection is required.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceView"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceSaveView"
+              }
+            }
+          }
+        },
+        "x-csrf-protection": true,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Operator workspace"
+        ],
+        "operationId": "deleteWorkspaceView",
+        "summary": "Delete a saved view with optimistic locking",
+        "description": "Version is required as a query parameter. CSRF protection is required.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "x-csrf-protection": true,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/workspace/actions": {
+      "post": {
+        "tags": [
+          "Operator workspace"
+        ],
+        "operationId": "runWorkspaceActions",
+        "summary": "Run registered per-record assignment or transition commands",
+        "description": "Each item rechecks current object access, domain permissions, workflow requirements and expected version. Results are independent. CSRF protection is required.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceActionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceActionInput"
+              }
+            }
+          }
+        },
+        "x-csrf-protection": true
+      }
+    },
+    "/api/v1/workspace/exports": {
+      "post": {
+        "tags": [
+          "Operator workspace"
+        ],
+        "operationId": "createWorkspaceExport",
+        "summary": "Queue an authorized CSV export",
+        "description": "Creates a durable workspace.export.v1 job. Export fields are limited to safe queue columns. Requires Idempotency-Key and CSRF protection.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceExportStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceQuery"
+              }
+            }
+          }
+        },
+        "x-csrf-protection": true,
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/workspace/exports/{id}": {
+      "get": {
+        "tags": [
+          "Operator workspace"
+        ],
+        "operationId": "getWorkspaceExport",
+        "summary": "Read status of the caller-owned export job",
+        "description": "The server derives tenant and actor from the authenticated session. Object access is checked for every result; saved views never expand data access.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceExportStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/workspace/exports/{id}/file": {
+      "get": {
+        "tags": [
+          "Operator workspace"
+        ],
+        "operationId": "downloadWorkspaceExport",
+        "summary": "Download an export after current access revalidation",
+        "description": "The caller must own the completed job. Current ACL is rechecked for every exported object before the existing attachment is streamed.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CSV file",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ]
       }
     }
   },
@@ -21849,8 +25262,8 @@
               "assignment",
               "reply",
               "state",
-                "resolution",
-                "approval"
+              "resolution",
+              "approval"
             ]
           },
           "summary": {
@@ -22983,8 +26396,7 @@
         },
         "required": [],
         "additionalProperties": false
-      }
-    ,
+      },
       "CMDBAttribute": {
         "type": "object",
         "additionalProperties": false,
@@ -24225,6 +27637,11 @@
               "serial_number"
             ]
           },
+          "source_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Optional active tenant CSV source for privileged CMDB IRE managers. Omit to use the system CSV source."
+          },
           "mapping": {
             "type": "object",
             "additionalProperties": {
@@ -24272,6 +27689,11 @@
           },
           "identity_key": {
             "type": "string"
+          },
+          "source_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "CSV identity source used by this import; absent for the system CSV source."
           },
           "mapping": {
             "type": "object",
@@ -24467,6 +27889,833 @@
             "description": "Decimal string; identifiers may exceed JavaScript's safe integer range."
           }
         }
+      },
+      "MetadataOption": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "description": "Stable dictionary value."
+          },
+          "labels": {
+            "type": "object",
+            "properties": {
+              "pl": {
+                "type": "string",
+                "description": "Polish label."
+              },
+              "en": {
+                "type": "string",
+                "description": "English label."
+              }
+            },
+            "required": [
+              "pl",
+              "en"
+            ]
+          }
+        },
+        "required": [
+          "value",
+          "labels"
+        ]
+      },
+      "MetadataExpression": {
+        "type": "object",
+        "properties": {
+          "op": {
+            "type": "string",
+            "description": "AND, OR, EQ, NE, GT, GTE, LT, LTE, CONTAINS, IS_EMPTY or IS_NOT_EMPTY."
+          },
+          "field": {
+            "type": "string",
+            "description": "Stable field key."
+          },
+          "value": {},
+          "children": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "$ref": "#/components/schemas/MetadataExpression"
+            }
+          }
+        },
+        "required": [
+          "op"
+        ],
+        "description": "Bounded declarative expression. It cannot execute arbitrary code."
+      },
+      "MetadataField": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Stable key preserved when labels change.",
+            "pattern": "^[a-z][a-z0-9_]{0,47}$"
+          },
+          "labels": {
+            "type": "object",
+            "properties": {
+              "pl": {
+                "type": "string",
+                "description": "Polish label."
+              },
+              "en": {
+                "type": "string",
+                "description": "English label."
+              }
+            },
+            "required": [
+              "pl",
+              "en"
+            ]
+          },
+          "description": {
+            "type": "object",
+            "properties": {
+              "pl": {
+                "type": "string",
+                "description": "Polish description."
+              },
+              "en": {
+                "type": "string",
+                "description": "English description."
+              }
+            }
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "TEXT",
+              "LONG_TEXT",
+              "BOOLEAN",
+              "INTEGER",
+              "DECIMAL",
+              "DATE",
+              "DATETIME",
+              "CHOICE",
+              "MULTI_CHOICE",
+              "REFERENCE"
+            ]
+          },
+          "max_length": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "precision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "scale": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6
+          },
+          "min": {},
+          "max": {},
+          "default": {},
+          "required": {
+            "type": "boolean"
+          },
+          "unique": {
+            "type": "boolean"
+          },
+          "options": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "$ref": "#/components/schemas/MetadataOption"
+            }
+          },
+          "reference_type": {
+            "type": "string",
+            "enum": [
+              "user",
+              "group",
+              "incident",
+              "request",
+              "ci",
+              "asset"
+            ]
+          },
+          "parent_key": {
+            "type": "string",
+            "description": "Optional inherited field key."
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "system": {
+            "type": "boolean"
+          },
+          "visible_when": {
+            "$ref": "#/components/schemas/MetadataExpression"
+          },
+          "required_when": {
+            "$ref": "#/components/schemas/MetadataExpression"
+          }
+        },
+        "required": [
+          "key",
+          "labels",
+          "type",
+          "required",
+          "active"
+        ]
+      },
+      "MetadataFormSection": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Stable section key."
+          },
+          "label": {
+            "type": "string",
+            "description": "Fallback section label."
+          },
+          "labels": {
+            "type": "object",
+            "properties": {
+              "pl": {
+                "type": "string",
+                "description": "Polish label."
+              },
+              "en": {
+                "type": "string",
+                "description": "English label."
+              }
+            }
+          },
+          "fields": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "description": "Field key."
+            }
+          },
+          "columns": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "fields",
+          "columns"
+        ]
+      },
+      "MetadataFormLayout": {
+        "type": "object",
+        "properties": {
+          "sections": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "$ref": "#/components/schemas/MetadataFormSection"
+            }
+          },
+          "tabs": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "description": "Section key shown as a tab."
+            }
+          },
+          "role_views": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "string",
+                "description": "Visible field key."
+              }
+            }
+          }
+        },
+        "required": [
+          "sections",
+          "tabs"
+        ]
+      },
+      "MetadataListLayout": {
+        "type": "object",
+        "properties": {
+          "columns": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "type": "string",
+              "description": "Field key."
+            }
+          },
+          "default_sort": {
+            "type": "string",
+            "description": "Supported domain sort key."
+          },
+          "search_fields": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "description": "Indexed text/choice field key."
+            }
+          },
+          "filters": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "description": "Indexed filter field key."
+            }
+          },
+          "role_views": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "string",
+                "description": "Visible field key."
+              }
+            }
+          }
+        },
+        "required": [
+          "columns",
+          "default_sort",
+          "search_fields",
+          "filters"
+        ]
+      },
+      "MetadataRecordType": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Record type key."
+          },
+          "labels": {
+            "type": "object",
+            "properties": {
+              "pl": {
+                "type": "string",
+                "description": "Polish label."
+              },
+              "en": {
+                "type": "string",
+                "description": "English label."
+              }
+            }
+          },
+          "parent": {
+            "type": "string",
+            "description": "Optional parent type key."
+          },
+          "fields": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "$ref": "#/components/schemas/MetadataField"
+            }
+          },
+          "form": {
+            "$ref": "#/components/schemas/MetadataFormLayout"
+          },
+          "list": {
+            "$ref": "#/components/schemas/MetadataListLayout"
+          }
+        },
+        "required": [
+          "key",
+          "labels",
+          "fields",
+          "form",
+          "list"
+        ]
+      },
+      "MetadataOrganization": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Tenant display name."
+          },
+          "default_locale": {
+            "type": "string",
+            "enum": [
+              "pl",
+              "en"
+            ]
+          },
+          "time_zone": {
+            "type": "string",
+            "description": "IANA time zone."
+          },
+          "date_format": {
+            "type": "string",
+            "enum": [
+              "YYYY-MM-DD",
+              "DD.MM.YYYY",
+              "MM/DD/YYYY"
+            ]
+          },
+          "number_format": {
+            "type": "string",
+            "enum": [
+              "1,234.56",
+              "1.234,56"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 code."
+          },
+          "brand_color": {
+            "type": "string",
+            "description": "Six-digit hexadecimal color."
+          },
+          "logo_url": {
+            "type": "string",
+            "description": "Optional HTTPS logo URL."
+          }
+        },
+        "required": [
+          "name",
+          "default_locale",
+          "time_zone",
+          "date_format",
+          "number_format",
+          "currency",
+          "brand_color"
+        ]
+      },
+      "MetadataConfiguration": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "$ref": "#/components/schemas/MetadataOrganization"
+          },
+          "record_types": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/MetadataRecordType"
+            }
+          },
+          "dictionaries": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "maxItems": 200,
+              "items": {
+                "$ref": "#/components/schemas/MetadataOption"
+              }
+            }
+          },
+          "priority_matrix": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5
+              }
+            }
+          }
+        },
+        "required": [
+          "organization",
+          "record_types",
+          "dictionaries",
+          "priority_matrix"
+        ]
+      },
+      "MetadataSchema": {
+        "type": "object",
+        "properties": {
+          "type_key": {
+            "type": "string",
+            "enum": [
+              "incident",
+              "ci"
+            ]
+          },
+          "version": {
+            "type": "string",
+            "description": "Published schema version as a decimal BIGINT string."
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MetadataField"
+            }
+          },
+          "form": {
+            "$ref": "#/components/schemas/MetadataFormLayout"
+          },
+          "list": {
+            "$ref": "#/components/schemas/MetadataListLayout"
+          },
+          "configuration": {
+            "$ref": "#/components/schemas/MetadataConfiguration"
+          }
+        },
+        "required": [
+          "type_key",
+          "version",
+          "fields",
+          "form",
+          "list"
+        ]
+      },
+      "MetadataHead": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "Optimistic-lock version as a decimal BIGINT string."
+          },
+          "draft_version": {
+            "type": "string",
+            "description": "Draft version as a decimal BIGINT string."
+          },
+          "published_version": {
+            "type": "string",
+            "description": "Published version as a decimal BIGINT string."
+          },
+          "draft": {
+            "$ref": "#/components/schemas/MetadataConfiguration"
+          },
+          "published": {
+            "$ref": "#/components/schemas/MetadataConfiguration"
+          }
+        },
+        "required": [
+          "version",
+          "draft",
+          "published"
+        ]
+      },
+      "MetadataImpactChange": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Affected stable key."
+          },
+          "kind": {
+            "type": "string",
+            "description": "Impact category."
+          },
+          "count": {
+            "type": "string",
+            "description": "Affected-record count as a decimal BIGINT string."
+          },
+          "examples": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "message": {
+            "type": "string",
+            "description": "Actionable impact detail."
+          }
+        },
+        "required": [
+          "key",
+          "kind",
+          "count",
+          "message"
+        ]
+      },
+      "MetadataImpact": {
+        "type": "object",
+        "properties": {
+          "can_publish": {
+            "type": "boolean"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MetadataImpactChange"
+            }
+          }
+        },
+        "required": [
+          "can_publish",
+          "changes"
+        ]
+      },
+      "MetadataVersion": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "Configuration version as a decimal BIGINT string."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "PUBLISHED",
+              "RETIRED"
+            ]
+          },
+          "created_by": {
+            "type": "string",
+            "description": "User ID as a decimal BIGINT string."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "published_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "config": {
+            "$ref": "#/components/schemas/MetadataConfiguration"
+          }
+        },
+        "required": [
+          "version",
+          "state",
+          "created_by",
+          "created_at",
+          "config"
+        ]
+      },
+      "MetadataVersionPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MetadataVersion"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "description": "Version cursor as a decimal BIGINT string."
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "MetadataReferencePage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Record ID as a decimal BIGINT string."
+                },
+                "label": {
+                  "type": "string",
+                  "description": "Authorized display label."
+                }
+              },
+              "required": [
+                "id",
+                "label"
+              ]
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "description": "Record cursor as a decimal BIGINT string."
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "MetadataSaveDraftRequest": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "Expected head version as a decimal BIGINT string."
+          },
+          "configuration": {
+            "$ref": "#/components/schemas/MetadataConfiguration"
+          }
+        },
+        "required": [
+          "version",
+          "configuration"
+        ]
+      },
+      "MetadataVersionRequest": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "Expected head version as a decimal BIGINT string."
+          }
+        },
+        "required": [
+          "version"
+        ]
+      },
+      "MetadataTestRuleRequest": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "incident",
+              "ci"
+            ]
+          },
+          "configuration": {
+            "$ref": "#/components/schemas/MetadataConfiguration"
+          },
+          "expression": {
+            "$ref": "#/components/schemas/MetadataExpression"
+          },
+          "values": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "type",
+          "configuration",
+          "expression",
+          "values"
+        ]
+      },
+      "MetadataRuleTestResult": {
+        "type": "object",
+        "properties": {
+          "valid": {
+            "type": "boolean"
+          },
+          "result": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "valid",
+          "result"
+        ]
+      },
+      "MetadataPreferences": {
+        "type": "object",
+        "properties": {
+          "locale": {
+            "type": "string",
+            "enum": [
+              "pl",
+              "en"
+            ]
+          },
+          "time_zone": {
+            "type": "string",
+            "description": "Optional IANA time zone."
+          },
+          "version": {
+            "type": "string",
+            "description": "Preference version as a decimal BIGINT string."
+          },
+          "organization_name": {
+            "type": "string"
+          },
+          "brand_color": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "logo_url": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://"
+          },
+          "default_locale": {
+            "type": "string",
+            "enum": [
+              "pl",
+              "en"
+            ]
+          },
+          "default_time_zone": {
+            "type": "string",
+            "description": "Organization IANA time zone."
+          },
+          "default_date_format": {
+            "type": "string",
+            "enum": [
+              "YYYY-MM-DD",
+              "DD.MM.YYYY",
+              "MM/DD/YYYY"
+            ]
+          },
+          "default_number_format": {
+            "type": "string",
+            "enum": [
+              "1,234.56",
+              "1.234,56"
+            ]
+          },
+          "default_currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          }
+        },
+        "required": [
+          "version",
+          "organization_name",
+          "brand_color",
+          "default_locale",
+          "default_time_zone",
+          "default_date_format",
+          "default_number_format",
+          "default_currency"
+        ]
+      },
+      "MetadataPreferencesRequest": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "Expected preference version as a decimal BIGINT string."
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "",
+              "pl",
+              "en"
+            ]
+          },
+          "time_zone": {
+            "type": "string",
+            "description": "IANA time zone or empty to inherit organization default."
+          }
+        },
+        "required": [
+          "version",
+          "locale",
+          "time_zone"
+        ]
       },
       "ServicePortfolioItem": {
         "type": "object",
@@ -25242,6 +29491,1794 @@
           },
           "version": {
             "type": "string"
+          }
+        }
+      },
+      "IREDataSource": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "source_key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "source_type": {
+            "type": "string",
+            "enum": [
+              "CSV",
+              "MANUAL",
+              "DISCOVERY",
+              "INTEGRATION"
+            ]
+          },
+          "owner_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "scope_key": {
+            "type": "string"
+          },
+          "connection_ref": {
+            "type": "string"
+          },
+          "source_instance_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "DISABLED"
+            ]
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
+          },
+          "is_system": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "last_successful_read_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "source_key",
+          "name",
+          "source_type",
+          "scope_key",
+          "state",
+          "priority",
+          "is_system",
+          "version"
+        ]
+      },
+      "IREDataSourceInput": {
+        "type": "object",
+        "properties": {
+          "source_key": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 64
+          },
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 160
+          },
+          "source_type": {
+            "type": "string",
+            "enum": [
+              "CSV",
+              "MANUAL",
+              "DISCOVERY",
+              "INTEGRATION"
+            ]
+          },
+          "owner_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "scope_key": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "connection_ref": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "source_instance_id": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "DISABLED"
+            ]
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        },
+        "required": [
+          "source_key",
+          "name",
+          "source_type",
+          "scope_key",
+          "state",
+          "priority",
+          "version"
+        ]
+      },
+      "IREIdentityRule": {
+        "type": "object",
+        "properties": {
+          "class": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "match_keys": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "maxItems": 8
+            },
+            "minItems": 1,
+            "maxItems": 8
+          },
+          "required_attributes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "normalization": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "TRIM",
+                "LOWER_TRIM",
+                "UPPER_TRIM",
+                "UPPER_MAC"
+              ]
+            }
+          },
+          "parent_dependent": {
+            "type": "boolean"
+          },
+          "parent_relation_type": {
+            "type": "string"
+          },
+          "parent_role": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "class",
+          "version",
+          "match_keys",
+          "required_attributes",
+          "normalization",
+          "parent_dependent",
+          "state"
+        ]
+      },
+      "IREIdentityRuleInput": {
+        "type": "object",
+        "properties": {
+          "class": {
+            "type": "string"
+          },
+          "expected_version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "match_keys": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "maxItems": 8
+            },
+            "minItems": 1,
+            "maxItems": 8
+          },
+          "required_attributes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "normalization": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "TRIM",
+                "LOWER_TRIM",
+                "UPPER_TRIM",
+                "UPPER_MAC"
+              ]
+            }
+          },
+          "parent_dependent": {
+            "type": "boolean"
+          },
+          "parent_relation_type": {
+            "type": "string"
+          },
+          "parent_role": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_version",
+          "match_keys",
+          "required_attributes",
+          "normalization",
+          "parent_dependent"
+        ]
+      },
+      "IREFieldPolicy": {
+        "type": "object",
+        "properties": {
+          "class": {
+            "type": "string"
+          },
+          "field_key": {
+            "type": "string"
+          },
+          "strategy": {
+            "type": "string",
+            "enum": [
+              "AUTHORITATIVE",
+              "PRIORITY",
+              "FRESHEST",
+              "FILL_EMPTY"
+            ]
+          },
+          "authoritative_source_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "allow_manual_override": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        },
+        "required": [
+          "class",
+          "field_key",
+          "strategy",
+          "allow_manual_override",
+          "version"
+        ]
+      },
+      "IREObservation": {
+        "type": "object",
+        "properties": {
+          "source_native_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "scope_key": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "parent_ci_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "values": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "source_native_key",
+          "values"
+        ]
+      },
+      "IREMatchRequest": {
+        "type": "object",
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "observation": {
+            "$ref": "#/components/schemas/IREObservation"
+          }
+        },
+        "required": [
+          "source_id",
+          "observation"
+        ]
+      },
+      "IREMatchResult": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "SINGLE_MATCH",
+              "NEW_CI",
+              "INSUFFICIENT_DATA",
+              "MULTIPLE_CANDIDATES",
+              "CONFLICT"
+            ]
+          },
+          "ci_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "candidate_ci_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          },
+          "rule_version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "reason_code": {
+            "type": "string"
+          },
+          "reason_message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "candidate_ci_ids",
+          "rule_version"
+        ]
+      },
+      "IREReconciliationRunInput": {
+        "type": "object",
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "INCREMENTAL",
+              "FULL"
+            ]
+          },
+          "snapshot_scope": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "complete_snapshot": {
+            "type": "boolean"
+          },
+          "observations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IREObservation"
+            },
+            "minItems": 1,
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "source_id",
+          "idempotency_key",
+          "mode",
+          "complete_snapshot",
+          "observations"
+        ]
+      },
+      "IREReconciliationRun": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "source_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "created_by": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "executor_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "snapshot_scope": {
+            "type": "string"
+          },
+          "complete_snapshot": {
+            "type": "boolean"
+          },
+          "state": {
+            "type": "string"
+          },
+          "rule_versions": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "error_code": {
+            "type": "string"
+          },
+          "counts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "source_id",
+          "created_by",
+          "executor_id",
+          "mode",
+          "snapshot_scope",
+          "complete_snapshot",
+          "state",
+          "rule_versions",
+          "version",
+          "counts",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "IREObservationResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "row_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "observation": {
+            "$ref": "#/components/schemas/IREObservation"
+          },
+          "state": {
+            "type": "string"
+          },
+          "ci_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "candidate_ci_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          },
+          "rule_version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "accepted_changes": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "rejected_changes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "reason_code": {
+            "type": "string"
+          },
+          "reason_message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "row_number",
+          "observation",
+          "state",
+          "candidate_ci_ids",
+          "rule_version",
+          "accepted_changes",
+          "rejected_changes"
+        ]
+      },
+      "IREConflict": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "source_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "run_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "observation_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "conflict_type": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "source_key": {
+            "type": "string"
+          },
+          "candidate_ci_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          },
+          "value_diff": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "reference_diff": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "resolution_note": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "source_id",
+          "conflict_type",
+          "state",
+          "source_key",
+          "candidate_ci_ids",
+          "value_diff",
+          "reference_diff",
+          "resolution_note",
+          "version",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "IREConflictAction": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "ci_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "note": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "version",
+          "note"
+        ]
+      },
+      "IRERunAction": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        },
+        "required": [
+          "version"
+        ]
+      },
+      "IREMergePlanRequest": {
+        "type": "object",
+        "properties": {
+          "source_ci_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "canonical_ci_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        },
+        "required": [
+          "source_ci_id",
+          "canonical_ci_id"
+        ]
+      },
+      "IREMergeInput": {
+        "type": "object",
+        "properties": {
+          "source_ci_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "canonical_ci_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "source_version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "canonical_version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "plan_token": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "source_ci_id",
+          "canonical_ci_id",
+          "source_version",
+          "canonical_version",
+          "plan_token",
+          "reason"
+        ]
+      },
+      "IREMergePlan": {
+        "type": "object",
+        "properties": {
+          "source_ci_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "canonical_ci_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "source_version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "canonical_version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "references": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unsupported_references": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "plan_token": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "source_ci_id",
+          "canonical_ci_id",
+          "source_version",
+          "canonical_version",
+          "references",
+          "blockers",
+          "unsupported_references",
+          "plan_token"
+        ]
+      },
+      "IREQualityConfig": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "schedule_hours": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 720
+          },
+          "stale_days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3650
+          },
+          "required_fields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "maxItems": 32
+            }
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "next_run_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "enabled",
+          "schedule_hours",
+          "stale_days",
+          "required_fields",
+          "version",
+          "next_run_at"
+        ]
+      },
+      "IREQualitySummary": {
+        "type": "object",
+        "properties": {
+          "rule_key": {
+            "type": "string"
+          },
+          "valid": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "denominator": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "open": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "rule_key",
+          "valid",
+          "denominator",
+          "open"
+        ]
+      },
+      "IREQualityFinding": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "class": {
+            "type": "string"
+          },
+          "rule_key": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "ci_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "field_key": {
+            "type": "string"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "RESOLVED"
+            ]
+          },
+          "detected_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "checked_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "class",
+          "rule_key",
+          "severity",
+          "ci_id",
+          "field_key",
+          "details",
+          "state",
+          "detected_at",
+          "checked_at"
+        ]
+      },
+      "IREProvenanceEntry": {
+        "type": "object",
+        "properties": {
+          "field_key": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "source_key": {
+            "type": "string"
+          },
+          "source_name": {
+            "type": "string"
+          },
+          "run_type": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "rule_version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "accepted_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "override_type": {
+            "type": "string"
+          },
+          "override_reason": {
+            "type": "string"
+          },
+          "override_until": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "override_allowed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "field_key",
+          "source_id",
+          "source_key",
+          "source_name",
+          "run_type",
+          "rule_version",
+          "observed_at",
+          "accepted_at",
+          "override_allowed"
+        ]
+      },
+      "IREProvenancePage": {
+        "type": "object",
+        "properties": {
+          "ci_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "last_seen_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IREProvenanceEntry"
+            }
+          }
+        },
+        "required": [
+          "ci_id",
+          "version",
+          "items"
+        ]
+      },
+      "IREManualOverrideInput": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "field_key": {
+            "type": "string"
+          },
+          "override_type": {
+            "type": "string",
+            "enum": [
+              "PERMANENT",
+              "TEMPORARY"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "version",
+          "field_key",
+          "override_type",
+          "reason"
+        ]
+      },
+      "IREOverrideClearInput": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "version",
+          "reason"
+        ]
+      },
+      "IREQualityRunResponse": {
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        },
+        "required": [
+          "job_id"
+        ]
+      },
+      "IREDataSourcePage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IREDataSource"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "IREReconciliationRunPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IREReconciliationRun"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "IREObservationPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IREObservationResult"
+            }
+          },
+          "next_after_row": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "items",
+          "next_after_row"
+        ]
+      },
+      "IREConflictPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IREConflict"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "IREQualityFindingPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IREQualityFinding"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "IREEmptyObject": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "IREIdentityRuleList": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/IREIdentityRule"
+        }
+      },
+      "IREFieldPolicyList": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/IREFieldPolicy"
+        }
+      },
+      "IREQualitySummaryList": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/IREQualitySummary"
+        }
+      },
+      "WorkspaceWorkReference": {
+        "type": "object",
+        "required": [
+          "tenant_id",
+          "object_type",
+          "object_id"
+        ],
+        "properties": {
+          "tenant_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "object_type": {
+            "type": "string",
+            "enum": [
+              "incident",
+              "fulfillment_task"
+            ]
+          },
+          "object_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      },
+      "WorkspaceFilterNode": {
+        "type": "object",
+        "description": "Nested AND/OR filter. Maximum depth 5 and 40 nodes. Only registered, visible fields and typed operators are accepted.",
+        "properties": {
+          "operator": {
+            "type": "string",
+            "enum": [
+              "AND",
+              "OR"
+            ]
+          },
+          "children": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceFilterNode"
+            }
+          },
+          "field": {
+            "type": "string"
+          },
+          "compare": {
+            "type": "string"
+          },
+          "value": {
+            "description": "Typed scalar/array filter value; BIGINT references are decimal strings.",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": [
+                    "string",
+                    "number"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      },
+      "WorkspaceQuery": {
+        "type": "object",
+        "properties": {
+          "types": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "incident",
+                "fulfillment_task"
+              ]
+            }
+          },
+          "view": {
+            "type": "string",
+            "enum": [
+              "mine",
+              "group",
+              "unassigned",
+              "watched",
+              "all"
+            ]
+          },
+          "query": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "filters": {
+            "$ref": "#/components/schemas/WorkspaceFilterNode"
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "updated_desc",
+              "created_desc",
+              "priority_asc",
+              "number_asc",
+              "rank"
+            ]
+          },
+          "group_by": {
+            "type": "string",
+            "enum": [
+              "object_type",
+              "state",
+              "state_category",
+              "priority",
+              "assignment_group_id"
+            ]
+          },
+          "columns": {
+            "type": "array",
+            "maxItems": 12,
+            "items": {
+              "type": "string"
+            }
+          },
+          "column_order": {
+            "type": "array",
+            "maxItems": 12,
+            "items": {
+              "type": "string"
+            }
+          },
+          "column_widths": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 80,
+              "maximum": 800
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 512
+          }
+        }
+      },
+      "WorkspaceWorkItem": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkspaceWorkReference"
+          },
+          {
+            "type": "object",
+            "required": [
+              "number",
+              "title",
+              "state",
+              "state_category",
+              "version",
+              "assignment_version",
+              "created_at",
+              "updated_at",
+              "capabilities",
+              "record_path"
+            ],
+            "properties": {
+              "number": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "state_category": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "waiting",
+                  "complete"
+                ]
+              },
+              "category": {
+                "type": "string"
+              },
+              "priority": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5
+              },
+              "assigned_to": {
+                "type": "string"
+              },
+              "assigned_name": {
+                "type": "string"
+              },
+              "assignment_group_id": {
+                "type": "string"
+              },
+              "group_name": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              },
+              "assignment_version": {
+                "type": "string"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "due_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "watched": {
+                "type": "boolean"
+              },
+              "record_path": {
+                "type": "string"
+              },
+              "capabilities": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "search_rank": {
+                "type": "integer"
+              },
+              "custom_fields": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        ]
+      },
+      "WorkspaceQueuePage": {
+        "type": "object",
+        "required": [
+          "items",
+          "limit"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceWorkItem"
+            }
+          },
+          "next_cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        }
+      },
+      "WorkspaceFieldDefinition": {
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "type",
+          "operators"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "operators": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reference_type": {
+            "type": "string"
+          },
+          "object_type": {
+            "type": "string",
+            "enum": [
+              "incident",
+              "fulfillment_task"
+            ]
+          },
+          "filter_only": {
+            "type": "boolean"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceFieldOption"
+            }
+          }
+        }
+      },
+      "WorkspaceFieldOption": {
+        "type": "object",
+        "required": [
+          "value",
+          "label"
+        ],
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      },
+      "WorkspaceFields": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceFieldDefinition"
+            }
+          },
+          "types": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "WorkspaceReferencePage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "next_after_id": {
+            "type": "string"
+          }
+        }
+      },
+      "WorkspaceView": {
+        "type": "object",
+        "required": [
+          "id",
+          "tenant_id",
+          "owner_user_id",
+          "name",
+          "shared",
+          "version",
+          "definition"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "owner_user_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "shared": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "string"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/WorkspaceQuery"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WorkspaceViewList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceView"
+            }
+          }
+        }
+      },
+      "WorkspaceSaveView": {
+        "type": "object",
+        "required": [
+          "name",
+          "shared",
+          "definition"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "shared": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "string"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/WorkspaceQuery"
+          }
+        }
+      },
+      "WorkspaceActionInput": {
+        "type": "object",
+        "required": [
+          "action",
+          "items"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "assign",
+              "transition"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/WorkspaceWorkReference"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "version"
+                  ],
+                  "properties": {
+                    "version": {
+                      "type": "string"
+                    },
+                    "assignment_group_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "assigned_to": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 10000
+          },
+          "resolution_code": {
+            "type": "string"
+          },
+          "resolution_description": {
+            "type": "string",
+            "maxLength": 20000
+          }
+        }
+      },
+      "WorkspaceActionPage": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tenant_id": {
+                  "type": "string"
+                },
+                "object_type": {
+                  "type": "string"
+                },
+                "object_id": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "item": {
+                  "$ref": "#/components/schemas/WorkspaceWorkItem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "WorkspaceExportStatus": {
+        "type": "object",
+        "required": [
+          "job_id",
+          "status",
+          "progress",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "job_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "RUNNING",
+              "RETRYING",
+              "COMPLETED",
+              "FAILED",
+              "CANCELLED"
+            ]
+          },
+          "progress": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "error": {
+            "type": "string"
+          },
+          "download_path": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       }

@@ -1,0 +1,1 @@
+DELETE rp FROM role_permissions rp JOIN permissions p ON p.id=rp.permission_id JOIN roles r ON r.id=rp.role_id WHERE p.permission_key='admin.metadata.manage' AND r.name='platform_admin' AND r.system_role=TRUE;

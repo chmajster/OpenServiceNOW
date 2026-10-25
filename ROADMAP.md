@@ -180,6 +180,12 @@ Exit criteria:
 - cross-tenant and concurrent-operation tests pass,
 - Phase 3 can consume these services without reimplementing its own jobs, events, comments, attachments or timeline.
 
+## Shared data dictionary and configurable forms (partial delivery)
+
+The current worktree adds tenant-scoped, versioned metadata configuration for Incident and CI: typed custom values, configurable dictionaries and priority matrix, backend validation, published form/list layouts, permission-key presentation views, reference lookups, configuration history, locale preferences, catalog validation adapter and metadata-aware CI import. It includes a real administration screen and consumes published custom fields in Incident and CI forms and lists. See docs/metadata.md for APIs, migrations and the supported boundary.
+
+This is a partial foundation, not a completed general-purpose App Engine or all-domain metadata platform. Runtime record adapters currently cover Incident and CI; team-specific views, field ACLs, arbitrary reporting/export, full-app localization and durable large backfills remain future work. Completion requires local Go unit/integration/race/vet/build checks, applying and rolling back migrations against isolated MySQL, EXPLAIN review for typed custom filters, and browser verification against the real API and database. Current environment limits are recorded in STATUS.md.
+
 ## Phase 3 — Incident Management
 
 Core process delivered in PR #17: model/migrations, create/read/update/list, active assignment, category/subcategory catalog, explicit priority matrix/override, backend lifecycle, object RBAC/read-own, idempotency/versioning and agent/reporting UI with real worker history. This is the first complete business process, not completion of every extension below. PR #18 extends the process with public replies/internal notes, files, filtered activity, observers, related/parent-child records and two controlled operator batch actions. CMDB/service fields wait for a real data source; templates and major-incident orchestration remain future work. This does not mark all advanced bulk/workflow capabilities delivered. Verification evidence is maintained in STATUS.md.
@@ -576,3 +582,12 @@ Potential later work should be driven by evidence rather than pre-created comple
 - mobile-specific clients.
 
 Each material architectural shift requires an ADR.
+
+
+## Module 06 - CI identification and reconciliation (partial delivery)
+
+The current worktree adds the IRE library, authenticated API, durable jobs, CSV integration, source/provenance/conflict/merge/quality screens and migrations 000105-000123. The configured quality rules include required fields, duplicate identity, stale sources, missing owners/sources, invalid custom references and invalid relation class pairs. Discovery remains an optional future adapter; no provider is connected. Local Go tests, frontend tests, typecheck and production build pass. Mark this module complete only after isolated MySQL migration/rollback checks and real API/worker/browser acceptance flows cover tenant isolation, concurrency, retries and restart recovery.
+
+## Module 07 — Operator workspace
+
+[P2] [-] Deliver the shared incident and fulfillment-task queue, scoped saved views, typed filters, per-record domain actions, existing record editors in tabs, and asynchronous CSV export. The local frontend tests/typecheck/build pass. Finish the typed adapter seam for future domains, full PL/EN workspace resources and in-place related-record preview; run Go tests, migrations, isolated MySQL/API/worker restart checks, and real desktop/mobile Playwright flows before marking the module verified. See [docs/workspace.md](docs/workspace.md).

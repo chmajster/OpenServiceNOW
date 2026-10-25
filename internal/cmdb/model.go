@@ -6,6 +6,7 @@ import (
 	"github.com/chmajster/OpenServiceNOW/internal/assets"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
 	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
+	"github.com/chmajster/OpenServiceNOW/internal/metadata"
 	"time"
 )
 
@@ -27,6 +28,8 @@ type Fields struct {
 	Environment string                     `json:"environment"`
 	Location    string                     `json:"location"`
 	Attributes  map[string]json.RawMessage `json:"attributes"`
+	CustomFields map[string]json.RawMessage `json:"custom_fields,omitempty"`
+	CustomFieldsVersion uint64 `json:"custom_fields_version,string,omitempty"`
 }
 type Record struct {
 	Fields
@@ -43,8 +46,12 @@ type Page struct {
 }
 type Filter struct {
 	Query, Class, Status, Environment, Location, Archived string
+	Sort                                                  string
 	OwnerID, Before                                       uint64
 	Limit                                                 int
+	CustomFields                                          []metadata.QueryFilter
+	SearchFields                                          []string
+	SearchableTypes                                       map[string]string
 }
 type Reference struct {
 	ID      uint64 `json:"id,string"`

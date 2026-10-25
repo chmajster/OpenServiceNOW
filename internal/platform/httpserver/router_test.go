@@ -34,6 +34,9 @@ func TestRouterSecurityHeaders(t *testing.T) {
 	if got := rr.Header().Get("Permissions-Policy"); got == "" {
 		t.Fatal("Permissions-Policy is missing")
 	}
+	if got := rr.Header().Get("Content-Security-Policy"); !strings.Contains(got, "img-src 'self' https: data:") || !strings.Contains(got, "default-src 'none'") {
+		t.Fatalf("Content-Security-Policy = %q", got)
+	}
 	if got := rr.Header().Get("X-Request-ID"); got == "" {
 		t.Fatal("X-Request-ID is missing")
 	}

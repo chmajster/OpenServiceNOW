@@ -85,3 +85,40 @@ func TestValidateSchemaVersion(t *testing.T) {
 		t.Fatal("expected stale schema version error")
 	}
 }
+
+func TestWorkspaceDownMigrationsRefuseDestructiveDataLoss(t *testing.T) {
+	for _, name := range []string{
+		"000124_workspace_views.down.sql",
+		"000125_workspace_exports.down.sql",
+		"000126_workspace_export_items.down.sql",
+	} {
+		data, err := os.ReadFile(filepath.Join("../../../migrations", name))
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		statement := strings.ToUpper(string(data))
+		if !strings.Contains(statement, "SIGNAL SQLSTATE '45000'") {
+			t.Errorf("%s does not stop a potentially destructive downgrade", name)
+		}
+	}
+}
+
+func TestMajorIncidentDownMigrationsProtectTenantOwnedData(t *testing.T) {
+	for version, name := range map[int]string{
+		130: "000130_incident_major_cases.down.sql",
+		131: "000131_incident_major_decisions.down.sql",
+		132: "000132_incident_major_teams.down.sql",
+		133: "000133_incident_major_links.down.sql",
+		134: "000134_incident_major_updates.down.sql",
+		135: "000135_incident_major_reviews.down.sql",
+		136: "000136_incident_major_actions.down.sql",
+	} {
+		data, err := os.ReadFile(filepath.Join("../../../migrations", name))
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		if !strings.Contains(strings.ToUpper(string(data)), "SIGNAL SQLSTATE '45000'") {
+			t.Errorf("%d %s does not stop a destructive downgrade", version, name)
+		}
+	}
+}

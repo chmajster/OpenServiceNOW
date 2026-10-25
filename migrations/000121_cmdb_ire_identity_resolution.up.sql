@@ -1,0 +1,1 @@
+ALTER TABLE cmdb_ire_external_identities ADD COLUMN manually_resolved BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN resolved_by BIGINT UNSIGNED NULL, ADD COLUMN resolution_note VARCHAR(1000) NOT NULL DEFAULT '', ADD CONSTRAINT cmdb_ire_external_resolver FOREIGN KEY(resolved_by) REFERENCES users(id);

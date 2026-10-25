@@ -3,12 +3,15 @@ package catalog
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/chmajster/OpenServiceNOW/internal/metadata"
 )
 
 var fieldKey = regexp.MustCompile(`^[a-z][a-z0-9_]{0,47}$`)
@@ -141,6 +144,50 @@ func ValidateValues(fields []Field, input map[string]json.RawMessage) (map[strin
 		}
 	}
 	return out, nil
+}
+
+// ValidateValuesWithMetadata adapts versioned catalog snapshots to the shared
+// typed validator. The legacy pass deliberately runs first so existing
+// publications keep their hidden-field and number semantics.
+func ValidateValuesWithMetadata(fields []Field, input map[string]json.RawMessage) (map[string]json.RawMessage, error) {
+	legacy, err := ValidateValues(fields, input)
+	if err != nil { return nil, err }
+	shared := make([]metadata.Field, 0, len(fields))
+	for _, field := range fields {
+		mapped := metadata.Field{Key:field.Key,Labels:map[string]string{"pl":field.Label,"en":field.Label},Required:field.Required,Active:true}
+		switch field.Type {
+		case "text": mapped.Type, mapped.MaxLength = metadata.TypeText, 1000
+		case "longtext": mapped.Type, mapped.MaxLength = metadata.TypeLongText, 10000
+		case "number": mapped.Type, mapped.Precision, mapped.Scale = metadata.TypeDecimal, 20, 6
+		case "date": mapped.Type = metadata.TypeDate
+		case "checkbox": mapped.Type = metadata.TypeBoolean
+		case "select":
+			mapped.Type = metadata.TypeChoice
+			for _, value := range field.Options { mapped.Options = append(mapped.Options, metadata.Option{Value:value,Labels:map[string]string{"pl":value,"en":value}}) }
+		default: return nil, ErrInvalid
+		}
+		mapped.VisibleWhen = catalogCondition(field.VisibleWhen)
+		mapped.RequiredWhen = catalogCondition(field.RequiredWhen)
+		shared = append(shared, mapped)
+	}
+	values, err := metadata.NormalizeValues(shared, legacy, nil, nil)
+	if err == nil { return values, nil }
+	var fieldError metadata.FieldError
+	if errors.As(err, &fieldError) {
+		for _, field := range fields {
+			if field.Key == fieldError.Field && field.Type == "number" {
+				// Historical catalog numbers used float64 with no declared scale.
+				// Keep those already-accepted snapshots usable beyond DECIMAL(20,6).
+				return legacy, nil
+			}
+		}
+	}
+	return nil, invalid(err.Error())
+}
+
+func catalogCondition(condition *Condition) *metadata.Expression {
+	if condition == nil { return nil }
+	return &metadata.Expression{Op:"EQ",Field:condition.Field,Value:append(json.RawMessage{},condition.Equals...)}
 }
 func validateValue(f Field, v json.RawMessage, required bool) (json.RawMessage, error) {
 	if bytes.Equal(bytes.TrimSpace(v), []byte("null")) {

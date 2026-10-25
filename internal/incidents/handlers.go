@@ -9,6 +9,7 @@ import (
 
 	"github.com/chmajster/OpenServiceNOW/internal/attachments"
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
+	"github.com/chmajster/OpenServiceNOW/internal/metadata"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/httpapi"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/requestinfo"
@@ -97,7 +98,7 @@ func respond(w http.ResponseWriter, r *http.Request, status int, value any, err 
 	httpapi.WriteJSON(w, status, value)
 }
 func (h *Handler) Metadata(w http.ResponseWriter, r *http.Request) {
-	result, err := h.service.Metadata(actor(r))
+	result, err := h.service.Metadata(r.Context(),actor(r))
 	respond(w, r, 200, result, err)
 }
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
@@ -236,6 +237,13 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	q := r.URL.Query()
 	f := Filter{Query: q.Get("q"), State: q.Get("state"), Category: q.Get("category"), View: q.Get("view"), Sort: q.Get("sort"), AfterID: after, Limit: limit}
+	if h.service.metadata!=nil {
+		schema,schemaErr:=h.service.metadata.Schema(r.Context(),actor(r).TenantID,"incident")
+		if schemaErr!=nil { writeError(w,r,schemaErr);return }
+		f.CustomFields,err=metadata.ParseFilters(schema,q)
+		if err!=nil { writeError(w,r,err);return }
+		f.SearchFields = schema.List.SearchFields
+	}
 	if f.View == "" {
 		f.View = "all"
 	}
@@ -296,13 +304,18 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		httpapi.WriteError(w, r, 404, "INCIDENT_NOT_FOUND", "Incydent nie istnieje lub nie masz do niego dostępu.")
 	case errors.Is(err, ErrForbidden):
 		httpapi.WriteError(w, r, 403, "FORBIDDEN", "Nie masz uprawnienia do tej operacji incydentu.")
-	case errors.Is(err, ErrConflict), errors.Is(err, workrecords.ErrConflict):
+	case errors.Is(err, ErrConflict), errors.Is(err, workrecords.ErrConflict), errors.Is(err, metadata.ErrConflict):
 		httpapi.WriteError(w, r, 409, "INCIDENT_CONFLICT", "Incydent zmienił się. Odczytaj aktualną wersję i rozstrzygnij konflikt.")
 	case errors.Is(err, ErrIdempotency):
 		httpapi.WriteError(w, r, 409, "INCIDENT_IDEMPOTENCY_CONFLICT", "Ten klucz tworzenia był użyty z innymi danymi.")
 	case errors.Is(err, ErrTransition):
 		httpapi.WriteError(w, r, 422, "INCIDENT_TRANSITION_INVALID", "To przejście stanu lub edycja nie jest dozwolona.")
-	case errors.Is(err, ErrInvalid):
+	case errors.Is(err, ErrInvalid), errors.Is(err, metadata.ErrInvalid):
+		var fieldError metadata.FieldError
+		if errors.As(err,&fieldError) {
+			httpapi.WriteJSON(w,400,map[string]any{"error":map[string]any{"code":"FIELD_VALIDATION","message":fieldError.Error(),"field":fieldError.Field,"reason_code":fieldError.Code,"request_id":middleware.GetReqID(r.Context())}})
+			return
+		}
 		httpapi.WriteError(w, r, 400, "INCIDENT_INVALID", err.Error())
 	case errors.Is(err, database.ErrCommitUncertain):
 		httpapi.WriteError(w, r, 500, "INCIDENT_RESULT_UNKNOWN", "Nie potwierdzono wyniku. Tworzenie sprawdź ponawiając te same dane z tym samym kluczem; aktualizację sprawdź przez odczyt rekordu.")

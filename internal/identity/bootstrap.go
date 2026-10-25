@@ -29,6 +29,7 @@ var platformAdminPermissions = []struct {
 	{Key: "tenant.manage", Description: "Manage tenant configuration"},
 	{Key: "assets.read", Description: "Read IT assets in the tenant"},
 	{Key: "assets.manage", Description: "Create, update and archive IT assets"},
+	{Key: "admin.metadata.manage", Description: "Manage tenant data dictionaries and form configuration"},
 }
 
 type BootstrapInput struct {

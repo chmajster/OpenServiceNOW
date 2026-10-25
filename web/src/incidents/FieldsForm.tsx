@@ -9,6 +9,8 @@ import {
   type Incident,
 } from "./contracts";
 import type { useIncidentForm } from "./hooks";
+import { MetadataFields } from "../metadata/MetadataFields";
+import { useCMDBLocale } from "../cmdb/messages";
 
 export function IncidentFields({
   draft,
@@ -23,6 +25,7 @@ export function IncidentFields({
   disabled: boolean;
   layout?: "standard" | "record";
 }) {
+  const locale = useCMDBLocale();
   const category = metadata.categories.find((c) => c.value === draft.category);
   const recordLayout = layout === "record";
   const labelClassName = recordLayout
@@ -100,7 +103,7 @@ export function IncidentFields({
           >
             {metadata.categories.map((c) => (
               <option key={c.value} value={c.value}>
-                {c.label}
+              {c.labels?.[locale] || c.label}
               </option>
             ))}
           </select>
@@ -114,7 +117,7 @@ export function IncidentFields({
           >
             {category?.subcategories.map((o) => (
               <option key={o.value} value={o.value}>
-                {o.label}
+                {optionLabel([o], o.value)}
               </option>
             ))}
           </select>
@@ -185,6 +188,22 @@ export function IncidentFields({
           </table>
         </div>
       </details>
+      <MetadataFields
+        schema={metadata.custom_fields_schema}
+        values={draft.custom_fields}
+        baseValues={{
+          title: draft.title,
+          description: draft.description,
+          affected_user_id: draft.affected?.id ?? "",
+          category: draft.category,
+          subcategory: draft.subcategory,
+          impact: Number(draft.impact),
+          urgency: Number(draft.urgency),
+        }}
+        onChange={(custom_fields) => change({ ...draft, custom_fields })}
+        locale={locale}
+        disabled={disabled}
+      />
     </fieldset>
   );
 }
@@ -195,6 +214,7 @@ export function FieldSummary({
   draft: FieldDraft;
   metadata: Metadata;
 }) {
+  const locale = useCMDBLocale();
   return (
     <dl className="detail-grid">
       <div>
@@ -226,8 +246,24 @@ export function FieldSummary({
           {draft.impact} / {draft.urgency}
         </dd>
       </div>
+      {metadata.custom_fields_schema.fields
+        .filter((field) => field.active && !field.system && draft.custom_fields[field.key] !== undefined)
+        .map((field) => (
+          <div key={field.key}>
+            <dt>{field.labels[locale] || field.labels.pl || field.key}</dt>
+            <dd>{formatCustomValue(draft.custom_fields[field.key])}</dd>
+          </div>
+        ))}
     </dl>
   );
+}
+
+function formatCustomValue(value: unknown) {
+  if (Array.isArray(value)) return value.join(", ");
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "boolean") return value ? "Tak" : "Nie";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
 }
 export function FormFeedback<T>({
   form,

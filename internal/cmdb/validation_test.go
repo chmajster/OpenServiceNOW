@@ -2,12 +2,49 @@ package cmdb
 
 import (
 	"encoding/json"
+	"github.com/chmajster/OpenServiceNOW/internal/metadata"
 	"strings"
 	"testing"
 )
 
 func validCI() Fields {
 	return Fields{Identifier: "Server-01", Name: "Serwer Łódź", Class: "PHYSICAL_SERVER", Status: "ACTIVE", OwnerID: 9007199254740993, Environment: "PROD", Attributes: map[string]json.RawMessage{"cpu_cores": json.RawMessage(`16`)}}
+}
+
+func TestCSVCustomFieldAdapterUsesPinnedSchemaAndRejectsUndeclaredFields(t *testing.T) {
+	c := csvConfig()
+	c.CustomFieldsVersion = 7
+	c.CustomFields = []string{"managed"}
+	c.Mapping["custom_fields.managed"] = "Managed"
+	if err := ValidateImportConfig(c); err != nil {
+		t.Fatal(err)
+	}
+	c.CustomFields = nil
+	if ValidateImportConfig(c) == nil {
+		t.Fatal("custom field outside the pinned allowlist was accepted")
+	}
+	c.CustomFields = []string{"managed"}
+	configuration := metadata.DefaultConfiguration("Test")
+	typeDef := configuration.RecordTypes["ci"]
+	typeDef.Fields = append(typeDef.Fields, metadata.Field{Key: "managed", Labels: map[string]string{"pl": "Zarządzany", "en": "Managed"}, Type: metadata.TypeBoolean, Required: true, Active: true})
+	configuration.RecordTypes["ci"] = typeDef
+	schema, err := metadata.BuildSchema("ci", 7, configuration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := CSVRow{Values: map[string]string{"identifier": "ci-1", "name": "CI", "class": "PHYSICAL_SERVER", "status": "ACTIVE", "owner_id": "1", "environment": "DEV", "attributes.cpu_cores": "16", "custom_fields.managed": "true"}}
+	raw, err := csvFields(c, row, nil, schema)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields Fields
+	if json.Unmarshal(raw, &fields) != nil || string(fields.CustomFields["managed"]) != "true" || fields.CustomFieldsVersion != 7 {
+		t.Fatalf("custom field import was not typed and versioned: %+v", fields)
+	}
+	row.Values["custom_fields.managed"] = "sometimes"
+	if _, err = csvFields(c, row, nil, schema); err == nil {
+		t.Fatal("invalid custom boolean was accepted")
+	}
 }
 func TestClassAttributesAreStrict(t *testing.T) {
 	f := validCI()
@@ -201,6 +238,19 @@ func TestCSVIdentityLimitsAndMapping(t *testing.T) {
 		t.Fatal("reused column")
 	}
 }
+
+func TestCSVSourceSelectionIsCIOnly(t *testing.T) {
+	config := csvConfig()
+	config.SourceID = 42
+	if err := ValidateImportConfig(config); err != nil {
+		t.Fatalf("configured CI source should be accepted: %v", err)
+	}
+	config.Target = "ASSET"
+	if err := ValidateImportConfig(config); err == nil {
+		t.Fatal("CSV IRE source must not be accepted for an asset import")
+	}
+}
+
 func TestCSVPreservesUnmappedAndRejectsMalformedNumbers(t *testing.T) {
 	c := csvConfig()
 	row := CSVRow{Values: map[string]string{"identifier": "srv1", "name": "Changed", "class": "PHYSICAL_SERVER", "status": "ACTIVE", "owner_id": "9007199254740993", "environment": "PROD", "attributes.cpu_cores": "32"}}

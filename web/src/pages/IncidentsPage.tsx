@@ -9,7 +9,6 @@ import { IncidentFields } from "../incidents/FieldsForm";
 import {
   fieldsOf,
   optionLabel,
-  dateLabel,
   type FieldDraft,
   type Incident,
   type IncidentPage,
@@ -21,8 +20,16 @@ import {
   type Selection,
 } from "../incidents/QueueActions";
 import { IncidentWorkspace } from "../incidents/IncidentWorkspace";
-import { SLASummary } from "../sla/IncidentSLA";
 import type { InstancePage } from "../sla/contracts";
+import { MetadataFields } from "../metadata/MetadataFields";
+import { formatMetadataValue } from "../metadata/format";
+import { useCMDBLocale } from "../cmdb/messages";
+
+function metadataListKeys(schema: Metadata["custom_fields_schema"], hasPermission: (key: string) => boolean) {
+  const views = Object.entries(schema.list.role_views ?? {}).filter(([permission]) => hasPermission(permission));
+  const keys = views.length ? [...new Set(views.flatMap(([, fields]) => fields))] : schema.list.columns;
+  return keys.filter((key) => schema.fields.some((field) => field.key === key && field.active));
+}
 
 export function IncidentsPage() {
   const { session, hasPermission } = useAuth();
@@ -67,12 +74,15 @@ function IncidentContents() {
 }
 function IncidentList({ metadata }: { metadata: Metadata }) {
   const { hasPermission } = useAuth();
+  const locale = useCMDBLocale();
   const heading = useIncidentTitleFocus();
   const [params, setParams] = useSearchParams();
   const [query, setQuery] = useState(params.get("q") ?? "");
   useEffect(() => setQuery(params.get("q") ?? ""), [params.get("q")]);
   const requestParams = new URLSearchParams(params);
   requestParams.delete("tab");
+  if (!requestParams.has("sort")) requestParams.set("sort", metadata.custom_fields_schema.list.default_sort);
+  const listColumns = metadataListKeys(metadata.custom_fields_schema, hasPermission);
   const result = useIncidentQuery<IncidentPage>(
     `/api/v1/incidents/?${requestParams}`,
   );
@@ -101,6 +111,18 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
     for (const [key, value] of Object.entries(values)) {
       if (value) next.set(key, value);
       else next.delete(key);
+    }
+    setParams(next);
+  }
+  function filterCustom(values: Record<string, unknown>) {
+    const next = new URLSearchParams(params);
+    next.delete("after_id");
+    next.delete("after_priority");
+    for (const key of metadata.custom_fields_schema.list.filters) {
+      const value = values[`cf.${key}`];
+      const encoded = value === undefined || value === null ? "" : String(value);
+      if (encoded) next.set(`cf.${key}`, encoded);
+      else next.delete(`cf.${key}`);
     }
     setParams(next);
   }
@@ -207,7 +229,7 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
               <option value="">Wszystkie stany</option>
               {metadata.states.map((o) => (
                 <option key={o.value} value={o.value}>
-                  {o.label}
+                  {optionLabel([o], o.value)}
                 </option>
               ))}
             </select>
@@ -237,7 +259,7 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
               <option value="">Wszystkie kategorie</option>
               {metadata.categories.map((o) => (
                 <option key={o.value} value={o.value}>
-                  {o.label}
+                  {optionLabel([o], o.value)}
                 </option>
               ))}
             </select>
@@ -279,6 +301,15 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
             />
           </label>
         </div>
+        <MetadataFields
+          schema={metadata.custom_fields_schema}
+          values={Object.fromEntries(
+            [...params.entries()].filter(([key]) => key.startsWith("cf.")),
+          )}
+          onChange={filterCustom}
+          locale={locale}
+          filterable
+        />
         <details>
           <summary>Osoby, grupa i liczba wyników</summary>
           <div className="filter-grid">
@@ -411,13 +442,10 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
                       />
                     </th>
                   )}
-                  <th scope="col">Numer i tytuł</th>
-                  <th scope="col">Stan</th>
-                  <th scope="col">Priorytet</th>
-                  <th scope="col">Przypisanie</th>
-                  <th scope="col">Zgłaszający</th>
-                  <th scope="col">Utworzono</th>
-                  <th scope="col">SLA</th>
+                  {listColumns.map((key) => {
+                    const field = metadata.custom_fields_schema.fields.find((item) => item.key === key)!;
+                    return <th key={key} scope="col">{field.labels[locale] || field.labels.pl || key}</th>;
+                  })}
                 </tr>
               </thead>
               <tbody>
@@ -440,44 +468,7 @@ function IncidentList({ metadata }: { metadata: Metadata }) {
                         />
                       </td>
                     )}
-                    <td className="wrap-cell">
-                      <Link
-                        to={`/incidents/${r.id}`}
-                        state={{ listSearch: params.toString() }}
-                      >
-                        <strong>{r.number}</strong>
-                      </Link>
-                      <div>{r.title}</div>
-                    </td>
-                    <td>{optionLabel(metadata.states, r.state)}</td>
-                    <td>
-                      <span
-                        className={`incident-priority priority-${r.priority}`}
-                      >
-                        P{r.priority}
-                      </span>
-                    </td>
-                    <td className="wrap-cell">
-                      {r.assigned_name || "Nieprzypisany"}
-                      <div className="muted">{r.group_name || "Bez grupy"}</div>
-                    </td>
-                    <td className="wrap-cell">{r.reporter_name}</td>
-                    <td>{dateLabel(r.created_at)}</td>
-                    <td className="wrap-cell">
-                      {sla.loading ? (
-                        "Ładowanie SLA…"
-                      ) : sla.error ? (
-                        "SLA chwilowo niedostępne"
-                      ) : (
-                        <SLASummary
-                          items={
-                            sla.data?.items.filter(
-                              (i) => i.incident_id === r.id,
-                            ) ?? []
-                          }
-                        />
-                      )}
-                    </td>
+                    {listColumns.map((key) => <td key={key} className="wrap-cell">{key === "number" ? <Link to={`/incidents/${r.id}`} state={{ listSearch: params.toString() }}><strong>{r.number}</strong></Link> : key === "title" ? <Link to={`/incidents/${r.id}`} state={{ listSearch: params.toString() }}>{r.title}</Link> : key === "state" ? optionLabel(metadata.states, r.state) : key === "priority" ? <span className={`incident-priority priority-${r.priority}`}>P{r.priority}</span> : key === "category" ? optionLabel(metadata.categories, r.category) : key === "subcategory" ? optionLabel(metadata.categories.find((item) => item.value === r.category)?.subcategories ?? [], r.subcategory) : key === "affected_user_id" ? r.affected_user_name : key === "impact" ? r.impact : key === "urgency" ? r.urgency : formatMetadataValue(r.custom_fields?.[key], locale, metadata.custom_fields_schema.fields.find((field) => field.key === key)?.type)}</td>)}
                   </tr>
                 ))}
               </tbody>
@@ -528,6 +519,8 @@ function NewIncident({ metadata }: { metadata: Metadata }) {
     subcategory: "other",
     impact: "3",
     urgency: "3",
+    custom_fields: {},
+    custom_fields_version: metadata.custom_fields_schema.version,
   }));
   const [key] = useState(() => crypto.randomUUID());
   const [busy, setBusy] = useState(false);

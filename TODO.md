@@ -1,6 +1,6 @@
 # OpenServiceNOW TODO
 
-Last reconciled: 2026-10-13
+Last reconciled: 2026-10-23
 
 Legend: `[ ]` not delivered, `[-]` in progress, `[x]` implemented and verified for the stated scope. Completion of a shared library does not imply a public API or UI. Detailed business scope and exit criteria remain in ROADMAP.md; verification evidence is in STATUS.md.
 
@@ -87,6 +87,11 @@ September runner-allocation failures (including run #523) and early deployment f
 
 ## Remaining business roadmap
 
+[P2] [-] Deliver CI identification and reconciliation (Module 06): migrations 000105-000123, API, worker, CSV integration, provenance, conflict/merge controls and quality UI are implemented in the worktree. Run migration/rollback and real API/worker/desktop/mobile acceptance flows against isolated MySQL, including tenant isolation, concurrency and worker restart. See docs/cmdb-ire.md.
+
+
+[P2] [-] Deliver tenant-scoped data dictionaries, typed custom fields, configurable forms/lists and locale settings consumed by Incident and CI. Current worktree includes API/UI/storage/import/catalog adapters and migrations through 000095; finish Go/integration/migration and real API browser verification when Go and isolated MySQL are available. Remaining product boundary is documented in docs/metadata.md.
+
 [P2] [-] Deliver the Service Portfolio and CSDM subset: API, UI, typed CMDB relations, offers, bounded impact, quality checks and lifecycle are implemented through migrations 000097–000104. Run the migrations and complete API/database/worker browser verification against isolated MySQL before marking the scope verified. Boundaries are documented in docs/service-portfolio.md.
 
 [P2] [x] Deliver core Incident Management: transactional model/INC numbering/assignment/audit/outbox, object RBAC/read-own, priority matrix and audited override, backend lifecycle, idempotency/versioning, server list/search/filters and complete React flow. MySQL and desktop/mobile evidence is recorded in STATUS.md and PR #17.
@@ -105,3 +110,5 @@ September runner-allocation failures (including run #523) and early deployment f
 [P2] [ ] Self-Service Portal.
 [P2] [ ] Advanced Administration beyond the delivered foundation.
 [P2] [ ] Production hardening: threat model, broader load/recovery tests, TLS/secure cookies, secret rotation, backups and operational monitoring.
+
+[P2] [-] Finish and verify Module 07 Operator Workspace: add the typed adapter registry and future-domain export hooks, complete PL/EN workspace resources and in-place related-reference preview, then run Go unit/race/vet/build, migration lifecycle, isolated MySQL tenant/concurrency tests, export retry/restart tests, and real desktop/mobile Playwright flows. Current implementation and exact verification boundary: [docs/workspace.md](docs/workspace.md) and [STATUS.md](STATUS.md).

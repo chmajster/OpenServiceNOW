@@ -5,6 +5,9 @@ package integration
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -30,7 +33,11 @@ func TestMigrationLifecycle(t *testing.T) {
 	}
 	defer db.Close()
 
-	m, err := database.NewMigrator(db, "file://../../migrations")
+	migrationsURL, err := lifecycleMigrationSource(t)
+	if err != nil {
+		t.Fatalf("prepare disposable migration source: %v", err)
+	}
+	m, err := database.NewMigrator(db, migrationsURL)
 	if err != nil {
 		t.Fatalf("create migrator: %v", err)
 	}
@@ -125,6 +132,57 @@ func TestMigrationLifecycle(t *testing.T) {
 	if err := database.SchemaReady(ctx, db, cfg.MySQL.PingTimeout); err != nil {
 		t.Fatalf("schema readiness after migration lifecycle: %v", err)
 	}
+}
+
+// The lifecycle test deliberately migrates a disposable integration schema
+// fully down and up. The production down migrations for workspace data refuse
+// to drop persisted views/exports; use DROP only in this test-only source so
+// the older full-schema lifecycle coverage can still run.
+func lifecycleMigrationSource(t *testing.T) (string, error) {
+	t.Helper()
+	files, err := filepath.Glob(filepath.Join("..", "..", "migrations", "*.sql"))
+	if err != nil {
+		return "", err
+	}
+	directory, err := os.MkdirTemp("", "opensnow-migrations-")
+	if err != nil {
+		return "", err
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(directory) })
+	protected := map[string]string{
+		"000124_workspace_views.down.sql":       "DROP TABLE IF EXISTS workspace_views;\n",
+		"000125_workspace_exports.down.sql":     "DROP TABLE IF EXISTS workspace_exports;\n",
+		"000126_workspace_export_items.down.sql": "DROP TABLE IF EXISTS workspace_export_items;\n",
+		"000130_incident_major_cases.down.sql": "DROP TABLE IF EXISTS incident_major_cases;\n",
+		"000131_incident_major_decisions.down.sql": "DROP TABLE IF EXISTS incident_major_decisions;\n",
+		"000132_incident_major_teams.down.sql": "DROP TABLE IF EXISTS incident_major_teams;\n",
+		"000133_incident_major_links.down.sql": "DROP TABLE IF EXISTS incident_major_links;\n",
+		"000134_incident_major_updates.down.sql": "DROP TABLE IF EXISTS incident_major_updates;\n",
+		"000135_incident_major_reviews.down.sql": "DROP TABLE IF EXISTS incident_major_reviews;\n",
+		"000136_incident_major_actions.down.sql": "DROP TABLE IF EXISTS incident_major_actions;\n",
+	}
+	for _, source := range files {
+		name := filepath.Base(source)
+		data, err := os.ReadFile(source)
+		if err != nil {
+			return "", err
+		}
+		if replacement, ok := protected[name]; ok {
+			data = []byte(replacement)
+		}
+		if err := os.WriteFile(filepath.Join(directory, name), data, 0o600); err != nil {
+			return "", err
+		}
+	}
+	absolute, err := filepath.Abs(directory)
+	if err != nil {
+		return "", err
+	}
+	path := filepath.ToSlash(absolute)
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return "file://" + path, nil
 }
 
 func assertMigrationVersion(t *testing.T, m *migrate.Migrate, expected uint64) {

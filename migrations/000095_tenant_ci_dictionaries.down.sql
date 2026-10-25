@@ -1,0 +1,1 @@
+ALTER TABLE cmdb_cis ADD CONSTRAINT ci_status CHECK(status IN('PLANNED','ACTIVE','MAINTENANCE','RETIRED')),ADD CONSTRAINT ci_environment CHECK(environment IN('DEV','TEST','STAGING','PROD'));

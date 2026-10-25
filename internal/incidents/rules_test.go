@@ -36,7 +36,7 @@ func TestLifecycleRules(t *testing.T) {
 		{"NEW", TransitionInput{State: "IN_PROGRESS"}, false, ErrInvalid},
 		{"NEW", TransitionInput{State: "IN_PROGRESS"}, true, nil},
 		{"IN_PROGRESS", TransitionInput{State: "ON_HOLD"}, true, ErrInvalid},
-		{"IN_PROGRESS", TransitionInput{State: "ON_HOLD", Reason: "Oczekiwanie na użytkownika"}, true, nil},
+		{"IN_PROGRESS", TransitionInput{State: "ON_HOLD", HoldReason: "AWAITING_USER"}, true, nil},
 		{"ON_HOLD", TransitionInput{State: "RESOLVED", ResolutionCode: "FIXED"}, true, ErrInvalid},
 		{"ON_HOLD", TransitionInput{State: "RESOLVED", ResolutionCode: "BAD", ResolutionDescription: "Opis"}, true, ErrInvalid},
 		{"ON_HOLD", TransitionInput{State: "RESOLVED", ResolutionCode: "FIXED", ResolutionDescription: "Naprawiono"}, true, nil},

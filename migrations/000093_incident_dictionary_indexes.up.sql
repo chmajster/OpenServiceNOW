@@ -1,0 +1,1 @@
+ALTER TABLE incidents ADD KEY incident_category_impact(tenant_id,category,id),ADD KEY incident_subcategory_impact(tenant_id,category,subcategory,id),ADD KEY incident_resolution_code_impact(tenant_id,resolution_code,id),ADD KEY incident_title_search(tenant_id,title(100),id);

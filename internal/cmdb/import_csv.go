@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/chmajster/OpenServiceNOW/internal/assets"
+	"github.com/chmajster/OpenServiceNOW/internal/metadata"
 	"io"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -15,10 +17,15 @@ const MaxCSVBytes = 1 << 20
 const MaxCSVRows = 500
 const MaxCSVColumns = 40
 
+var importFieldKey = regexp.MustCompile(`^[a-z][a-z0-9_]{0,47}$`)
+
 type ImportConfig struct {
-	Target      string            `json:"target"`
-	IdentityKey string            `json:"identity_key"`
-	Mapping     map[string]string `json:"mapping"`
+	Target              string            `json:"target"`
+	IdentityKey         string            `json:"identity_key"`
+	Mapping             map[string]string `json:"mapping"`
+	SourceID            uint64            `json:"source_id,string,omitempty"`
+	CustomFieldsVersion uint64            `json:"custom_fields_version,string,omitempty"`
+	CustomFields        []string          `json:"custom_fields,omitempty"`
 }
 type CSVRow struct {
 	Number   int
@@ -48,6 +55,9 @@ func ValidateImportConfig(c ImportConfig) error {
 	if c.Target != "CI" && c.Target != "ASSET" || c.Target == "CI" && c.IdentityKey != "identifier" || c.Target == "ASSET" && c.IdentityKey != "asset_tag" && c.IdentityKey != "serial_number" {
 		return ErrInvalid
 	}
+	if c.SourceID > 0 && c.Target != "CI" {
+		return ErrInvalid
+	}
 	required := []string{"name", "owner_id", c.IdentityKey}
 	if c.Target == "CI" {
 		required = append(required, "identifier", "class", "status", "environment")
@@ -57,6 +67,16 @@ func ValidateImportConfig(c ImportConfig) error {
 	allowed := map[string]bool{}
 	for _, key := range ImportFields(c.Target) {
 		allowed[key] = true
+	}
+	customFields := map[string]bool{}
+	for _, key := range c.CustomFields {
+		if !importFieldKey.MatchString(key) || customFields[key] {
+			return fmt.Errorf("%w: nieprawidłowa lista pól własnych", ErrInvalid)
+		}
+		customFields[key] = true
+		if c.Target == "CI" {
+			allowed["custom_fields."+key] = true
+		}
 	}
 	seen := map[string]bool{}
 	for key, header := range c.Mapping {
@@ -144,7 +164,7 @@ func ReadCSV(content []byte, c ImportConfig) ([]CSVRow, error) {
 	}
 	return out, nil
 }
-func csvFields(c ImportConfig, row CSVRow, old any) (json.RawMessage, error) {
+func csvFields(c ImportConfig, row CSVRow, old any, schema ...metadata.Schema) (json.RawMessage, error) {
 	raw, err := json.Marshal(old)
 	if err != nil {
 		return nil, err
@@ -154,12 +174,52 @@ func csvFields(c ImportConfig, row CSVRow, old any) (json.RawMessage, error) {
 		fields = map[string]json.RawMessage{}
 	}
 	var attrs map[string]json.RawMessage
+	var customValues map[string]json.RawMessage
 	if c.Target == "CI" {
 		if json.Unmarshal(fields["attributes"], &attrs) != nil || attrs == nil {
 			attrs = map[string]json.RawMessage{}
 		}
+		if json.Unmarshal(fields["custom_fields"], &customValues) != nil || customValues == nil {
+			customValues = map[string]json.RawMessage{}
+		}
 	}
 	for key, value := range row.Values {
+		if strings.HasPrefix(key, "custom_fields.") {
+			name := strings.TrimPrefix(key, "custom_fields.")
+			var definition *metadata.Field
+			if len(schema) > 0 {
+				for index := range schema[0].Fields {
+					if schema[0].Fields[index].Key == name && schema[0].Fields[index].Active && !schema[0].Fields[index].System {
+						definition = &schema[0].Fields[index]
+						break
+					}
+				}
+			}
+			if definition == nil {
+				return nil, fmt.Errorf("%w: nieaktywne pole własne %s", ErrInvalid, name)
+			}
+			if value == "" {
+				customValues[name] = json.RawMessage("null")
+				continue
+			}
+			switch definition.Type {
+			case metadata.TypeBoolean:
+				parsed, parseErr := strconv.ParseBool(strings.ToLower(value))
+				if parseErr != nil {
+					return nil, fmt.Errorf("%w: pole %s wymaga true lub false", ErrInvalid, name)
+				}
+				customValues[name], _ = json.Marshal(parsed)
+			case metadata.TypeMultiChoice:
+				var selected []string
+				if json.Unmarshal([]byte(value), &selected) != nil {
+					return nil, fmt.Errorf("%w: pole %s wymaga tablicy JSON", ErrInvalid, name)
+				}
+				customValues[name], _ = json.Marshal(selected)
+			default:
+				customValues[name], _ = json.Marshal(value)
+			}
+			continue
+		}
 		if strings.HasPrefix(key, "attributes.") {
 			name := strings.TrimPrefix(key, "attributes.")
 			if value == "" {
@@ -204,6 +264,13 @@ func csvFields(c ImportConfig, row CSVRow, old any) (json.RawMessage, error) {
 		if err != nil {
 			return nil, ErrInvalid
 		}
+		fields["custom_fields"], err = json.Marshal(customValues)
+		if err != nil {
+			return nil, ErrInvalid
+		}
+		if c.CustomFieldsVersion > 0 {
+			fields["custom_fields_version"], _ = json.Marshal(strconv.FormatUint(c.CustomFieldsVersion, 10))
+		}
 		raw, err = json.Marshal(fields)
 		if err != nil {
 			return nil, ErrInvalid
@@ -212,7 +279,11 @@ func csvFields(c ImportConfig, row CSVRow, old any) (json.RawMessage, error) {
 		if json.Unmarshal(raw, &f) != nil {
 			return nil, ErrInvalid
 		}
-		f, err = Normalize(f)
+		if len(schema) > 0 {
+			f, err = NormalizeWithOptions(f, dictionaryValues(schema[0].Configuration, "ci.status", statuses), dictionaryValues(schema[0].Configuration, "ci.environment", environments))
+		} else {
+			f, err = Normalize(f)
+		}
 		if err != nil {
 			return nil, err
 		}

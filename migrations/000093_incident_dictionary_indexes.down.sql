@@ -1,0 +1,1 @@
+ALTER TABLE incidents DROP KEY incident_category_impact,DROP KEY incident_subcategory_impact,DROP KEY incident_resolution_code_impact,DROP KEY incident_title_search;

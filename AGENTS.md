@@ -6,49 +6,6 @@ Przed rozpoczęciem zmian dokładnie przeanalizuj całe repozytorium projektu.
 
 Nie ograniczaj analizy wyłącznie do plików wskazanych w zadaniu. Sprawdź również powiązane moduły, zależności, API, modele danych, UI oraz istniejące testy.
 
-## Git i Pull Request
-
-Każde zadanie wykonuj na osobnym branchu.
-
-Nie wykonuj zmian bezpośrednio na `main`.
-
-Na początku pracy:
-
-1. Utwórz osobny branch roboczy.
-2. Jak najszybciej utwórz Draft Pull Request do `main`.
-3. Nie czekaj z utworzeniem PR do zakończenia implementacji.
-
-Draft PR ma służyć również jako zapis aktualnego stanu pracy na wypadek przerwania sesji.
-
-Opis PR musi zawierać:
-
-```text
-## Goal
-Cel zadania.
-
-## Scope
-Zakres wykonywanych zmian.
-
-## Findings
-Problemy znalezione podczas analizy.
-
-## Completed
-Elementy już ukończone.
-
-## Remaining work
-Elementy, które nadal wymagają wykonania.
-
-## Known issues
-Znane problemy lub blokery.
-
-## Tests
-Wykonane testy i ich wyniki.
-
-## Verification
-Wynik weryfikacji end-to-end.
-```
-
-Aktualizuj opis PR podczas pracy, szczególnie po większych etapach.
 
 Jeżeli praca zostanie przerwana, `Remaining work` musi pozwolić kolejnej sesji dokładnie ustalić, gdzie kontynuować.
 
@@ -339,28 +296,7 @@ Zadanie można uznać za zakończone tylko wtedy, gdy:
 - nie pozostawiono placeholderów ani TODO,
 - opis PR odpowiada rzeczywistemu stanowi projektu.
 
-## Merge
 
-Jeżeli PR jest kompletny i nie ma znanych problemów blokujących:
-
-1. Zaktualizuj opis PR.
-2. Upewnij się, że `Remaining work` jest puste.
-3. Upewnij się, że `Known issues` nie zawiera problemów blokujących.
-4. Wykonaj finalny review.
-5. Upewnij się, że testy i build przechodzą.
-6. Zmerguj PR do `main`.
-7. Sprawdź, czy zmiany rzeczywiście znajdują się w `main`.
-8. Usuń branch roboczy po poprawnym merge.
-
-Nie merguj zmian, jeżeli:
-
-- implementacja jest niekompletna,
-- testy nie przechodzą,
-- build nie przechodzi,
-- istnieje znany blocker,
-- istnieje ryzyko utraty danych,
-- migracja nie została zweryfikowana,
-- podstawowy przepływ end-to-end nie działa.
 
 ## Najważniejsza zasada
 

@@ -52,6 +52,9 @@ const GlobalSearchPage = lazy(() =>
     default: m.GlobalSearchPage,
   })),
 );
+const WorkspacePage = lazy(() =>
+  import("./pages/WorkspacePage").then((m) => ({ default: m.WorkspacePage })),
+);
 const CMDBListPage = lazy(() =>
   import("./pages/CMDBPage").then((m) => ({ default: m.CMDBListPage })),
 );
@@ -66,6 +69,12 @@ const CMDBImportsPage = lazy(() =>
 );
 const CMDBImportDetailPage = lazy(() =>
   import("./pages/CMDBImportsPage").then((m) => ({ default: m.CMDBImportDetailPage })),
+);
+const CMDBIREPage = lazy(() =>
+  import("./pages/CMDBIREPage").then((m) => ({ default: m.CMDBIREPage })),
+);
+const MetadataAdminPage = lazy(() =>
+  import("./pages/MetadataAdminPage").then((m) => ({ default: m.MetadataAdminPage })),
 );
 const ServicePortfolioListPage = lazy(() => import("./pages/ServicePortfolioPage").then((m) => ({ default: m.ServicePortfolioListPage })));
 const ServicePortfolioDetailPage = lazy(() => import("./pages/ServicePortfolioPage").then((m) => ({ default: m.ServicePortfolioDetailPage })));
@@ -97,12 +106,14 @@ const router = createBrowserRouter(
         <Route index element={<OverviewPage />} />
         <Route path="account" element={<AccountPage />} />
         <Route path="search" element={<GlobalSearchPage />} />
+        <Route path="workspace" element={<RequireAnyPermission permissions={["incident.read", "incident.read_own", "request.fulfill", "request.manage"]}><WorkspacePage /></RequireAnyPermission>} />
         <Route path="assets" element={<AssetsPage />} />
         <Route path="assets/:assetID" element={<AssetsPage />} />
         <Route path="cmdb" element={<RequireAnyPermission permissions={["cmdb.read", "cmdb.read_own"]}><CMDBListPage /></RequireAnyPermission>} />
         <Route path="cmdb/new" element={<RequireAnyPermission permissions={["cmdb.read", "cmdb.read_own"]}><CMDBCreatePage /></RequireAnyPermission>} />
         <Route path="cmdb/imports" element={<RequirePermission permission="cmdb.import"><CMDBImportsPage /></RequirePermission>} />
         <Route path="cmdb/imports/:importID" element={<RequirePermission permission="cmdb.import"><CMDBImportDetailPage /></RequirePermission>} />
+        <Route path="cmdb/ire" element={<RequireAnyPermission permissions={["cmdb.ire.manage", "cmdb.quality.read", "cmdb.quality.manage"]}><CMDBIREPage /></RequireAnyPermission>} />
         <Route path="cmdb/:ciID" element={<RequireAnyPermission permissions={["cmdb.read", "cmdb.read_own"]}><CMDBDetailPage /></RequireAnyPermission>} />
         <Route path="service-portfolio" element={<RequireAnyPermission permissions={["service_portfolio.read", "service_portfolio.read_own", "service_portfolio.manage"]}><ServicePortfolioListPage /></RequireAnyPermission>} />
         <Route path="service-portfolio/offers" element={<RequireAnyPermission permissions={["service_portfolio.offer.read", "catalog.read", "service_portfolio.read", "service_portfolio.manage"]}><ServicePortfolioOffersPage /></RequireAnyPermission>} />
@@ -144,6 +155,7 @@ const router = createBrowserRouter(
             </RequirePermission>
           }
         />
+        <Route path="metadata" element={<RequirePermission permission="admin.metadata.manage"><MetadataAdminPage /></RequirePermission>} />
         <Route path="incidents" element={<IncidentsPage />} />
         <Route path="incidents/:incidentID" element={<IncidentsPage />} />
         <Route

@@ -1,0 +1,1 @@
+ALTER TABLE service_requests DROP KEY idx_service_requests_workspace_created;

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { RemoteCombobox, type Choice } from "../components/RemoteCombobox";
@@ -10,10 +10,19 @@ import { LoadState } from "../requests/LoadState";
 import { useEditor } from "../requests/useEditor";
 import { states, type Request, type Task } from "../requests/contracts";
 import { RequestProcesses } from "../workflow/ProcessView";
-export function RequestsPage({ tasks = false }: { tasks?: boolean }) {
+export function RequestsPage({
+  tasks = false,
+  recordIDOverride,
+  onDirtyChange,
+}: {
+  tasks?: boolean;
+  recordIDOverride?: string;
+  onDirtyChange?: (dirty: boolean) => void;
+}) {
   const { recordID } = useParams();
-  return recordID ? (
-    <Details key={`${tasks}:${recordID}`} id={recordID} tasks={tasks} />
+  const id = recordIDOverride ?? recordID;
+  return id ? (
+    <Details key={`${tasks}:${id}`} id={id} tasks={tasks} onDirtyChange={onDirtyChange} />
   ) : (
     <Queue tasks={tasks} />
   );
@@ -153,7 +162,7 @@ function Queue({ tasks }: { tasks: boolean }) {
     </>
   );
 }
-function Details({ id, tasks }: { id: string; tasks: boolean }) {
+function Details({ id, tasks, onDirtyChange }: { id: string; tasks: boolean; onDirtyChange?: (dirty: boolean) => void }) {
   const path = `/api/v1/${tasks ? "fulfillment" : "requests"}/${id}`;
   const query = useIncidentQuery<Request | Task>(path);
   return (
@@ -164,7 +173,7 @@ function Details({ id, tasks }: { id: string; tasks: boolean }) {
         retry={query.reload}
       />
       {query.data ? (
-        <Workspace key={id} initial={query.data} path={path} tasks={tasks} />
+        <Workspace key={id} initial={query.data} path={path} tasks={tasks} onDirtyChange={onDirtyChange} />
       ) : null}
     </>
   );
@@ -173,10 +182,12 @@ function Workspace({
   initial,
   path,
   tasks,
+  onDirtyChange,
 }: {
   initial: Request | Task;
   path: string;
   tasks: boolean;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const { session } = useAuth();
   const editor = useEditor(initial, path);
@@ -204,6 +215,10 @@ function Workspace({
     [],
   );
   const requestID = "title" in r ? r.request_id : r.id;
+  const dirty = !!reason || !!state || assignmentDirty || Object.values(draftTabs).some(Boolean);
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
   const request = useIncidentQuery<Request>(
     tasks ? `/api/v1/requests/${requestID}` : null,
   );
@@ -261,14 +276,7 @@ function Workspace({
   }
   return (
     <>
-      <UnsavedGuard
-        dirty={
-          !!reason ||
-          !!state ||
-          assignmentDirty ||
-          Object.values(draftTabs).some(Boolean)
-        }
-      />
+      {!onDirtyChange ? <UnsavedGuard dirty={dirty} /> : null}
       <h1 ref={heading} tabIndex={-1}>
         {r.number}
         {"title" in r ? ` · ${r.title}` : ""}
