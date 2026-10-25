@@ -1,5 +1,12 @@
 # Current Project Status
 
+## 2026-10-25 — Incident Management and Major Incident (Module 08)
+
+Local verification passed: all Go packages, vet/build, scoped race tests, isolated MySQL process/collaboration/metadata/SLA/notification integrations, actual worker export and download ACL revocation, fresh schema 151 with one migration connection, protected downgrade, and full migration lifecycle (154 s). Frontend: 55 tests, typecheck/build and 4 real Playwright desktop/mobile scenarios, including offline draft retention, CSRF denial and metadata conflict reconciliation. Screenshots were inspected; mobile header overlap and unstyled coordination controls were corrected and rechecked.
+
+Implemented backend services, authenticated API/OpenAPI and PL/EN desktop/mobile screens for tenant process configuration, rules/templates, independent nomination/approval, coordination, communication, linked-child batch outcomes, shared workspace actions/notes and post-incident review. Schema 139–151 preserves legacy references and blocks destructive downgrades. Local MySQL and real Playwright verification are described in [the module guide](docs/incidents.md); SMTP is optional and no production provider was contacted.
+
+
 Last updated: 2026-10-23
 
 ## Current phase

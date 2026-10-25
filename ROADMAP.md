@@ -1,5 +1,10 @@
 # OpenServiceNOW Roadmap
 
+## Module 08 — delivered runtime scope
+
+Tenant incident process configuration and Major Incident coordination are implemented with API, UI, durable communication/reminders, independent child outcomes and shared workspace actions/review. See [the module guide](docs/incidents.md) for configuration, local evidence and product boundaries. Problem Management, Change Management and external alert ingestion remain separate modules; typed integration contracts are available.
+
+
 ## Principles
 
 The roadmap is incremental. A phase is not considered complete because skeleton files, empty endpoints, static mock UI, or placeholder implementations exist.
@@ -188,7 +193,7 @@ This is a partial foundation, not a completed general-purpose App Engine or all-
 
 ## Phase 3 — Incident Management
 
-Core process delivered in PR #17: model/migrations, create/read/update/list, active assignment, category/subcategory catalog, explicit priority matrix/override, backend lifecycle, object RBAC/read-own, idempotency/versioning and agent/reporting UI with real worker history. This is the first complete business process, not completion of every extension below. PR #18 extends the process with public replies/internal notes, files, filtered activity, observers, related/parent-child records and two controlled operator batch actions. CMDB/service fields wait for a real data source; templates and major-incident orchestration remain future work. This does not mark all advanced bulk/workflow capabilities delivered. Verification evidence is maintained in STATUS.md.
+Core process delivered in PR #17: model/migrations, create/read/update/list, active assignment, category/subcategory catalog, explicit priority matrix/override, backend lifecycle, object RBAC/read-own, idempotency/versioning and agent/reporting UI with real worker history. This is the first complete business process, not completion of every extension below. PR #18 extends the process with public replies/internal notes, files, filtered activity, observers, related/parent-child records and two controlled operator batch actions. Module 08 adds local service/CI integration, published templates and complete Major Incident coordination; configuration and local verification are documented in docs/incidents.md. This does not mark all advanced bulk/workflow capabilities delivered. Verification evidence is maintained in STATUS.md.
 
 Goal: production-capable incident lifecycle.
 

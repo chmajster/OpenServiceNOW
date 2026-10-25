@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-25 — Configurable incidents and Major Incident
+
+- Added tenant-published assignment rules, templates, retired dictionaries and pinned lifecycle/closure/reopen policies.
+- Connected Major Incident decisions, coordination, private/public communication, durable reminders, per-child batch checkpoints and post-incident review to real routes and screens.
+- Registered shared workspace coordination actions, private workrecords notes, current-ACL notifications and typed future integration references. Migrations 139–151 retain legacy identities; fresh-install compatibility repairs preserve historical SQL.
+- Added local MySQL, OpenAPI, business-rule, timezone and real desktop/mobile Playwright verification. See [the module guide](docs/incidents.md).
+
+
 All notable repository changes are documented here.
 
 The project is pre-release and currently in architecture/foundation development.

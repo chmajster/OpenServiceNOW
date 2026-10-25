@@ -1,6 +1,6 @@
 # Operator workspace
 
-The operator workspace combines the implemented incident and fulfillment-task queues while keeping record data and commands in their existing domains. A work reference is scoped by tenant, object type, and decimal-string object ID; IDs from different tables therefore do not collide.
+The operator workspace combines the implemented incident, fulfillment-task and incident coordination-action queues while keeping record data and commands in their existing domains. A work reference is scoped by tenant, object type, and decimal-string object ID; IDs from different tables therefore do not collide.
 
 ## Available workflows
 
@@ -38,3 +38,5 @@ Use the normal tenant-local MySQL/Redis configuration; the workspace requires no
 The queue currently registers the incident and fulfillment-task types. Adding a further domain requires a workspace adapter and corresponding authorization, query, detail, action, and export support; no Change, Problem, or arbitrary record type is implied. The right-hand preview is a summary of the selected work item. Related records can be opened through existing domain links, which invoke the unsaved-work guard, but a separate in-place preview for every reference type is not yet provided. Workspace-specific labels are currently Polish; full PL/EN workspace resource coverage remains open.
 
 The repository's current Go toolchain and isolated MySQL/API/worker environment were unavailable during this implementation. Backend compilation, Go tests, migration execution, worker restart recovery, and real desktop/mobile API-backed Playwright flows therefore remain unverified. See [STATUS.md](../STATUS.md) for the exact local checks and remaining acceptance work.
+
+Coordination actions (`incident_action`) use their domain CAS/owner checks, shared work_assignments and private workrecords notes. They remain visible after incident closure. Their root incident ACL is rechecked for query, preview, commands and export download. See [Major Incident configuration](incidents.md).

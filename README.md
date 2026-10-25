@@ -1,5 +1,7 @@
 # OpenServiceNOW
 
+Incident Management supports tenant process configuration and Major Incident coordination, durable communication, shared workspace actions and post-incident reviews. See [configuration and verification](docs/incidents.md).
+
 OpenServiceNOW is an enterprise ITSM / IT Operations platform implemented independently from ServiceNow code, branding, and UI.
 
 ## One-line installation and updates

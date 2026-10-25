@@ -1,5 +1,7 @@
 # Documentation
 
+- [Incident process and Major Incident](incidents.md): tenant policies, coordination, communication, shared actions, review, migration compatibility and local verification.
+
 This directory contains durable technical and architectural documentation for OpenServiceNOW.
 
 ## Core project documents

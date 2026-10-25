@@ -1,5 +1,10 @@
 # OpenServiceNOW TODO
 
+## Module 08 — completed scope and boundaries
+
+Incident process administration, Major Incident coordination, communication, shared actions and review are implemented. See [configuration, tests and limits](docs/incidents.md). Optional future Problem/Change/Alert modules are not part of this delivery; no unavailable action is exposed.
+
+
 Last reconciled: 2026-10-23
 
 Legend: `[ ]` not delivered, `[-]` in progress, `[x]` implemented and verified for the stated scope. Completion of a shared library does not imply a public API or UI. Detailed business scope and exit criteria remain in ROADMAP.md; verification evidence is in STATUS.md.
