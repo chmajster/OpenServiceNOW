@@ -29,8 +29,10 @@ x-local-backend: &backend
 
 services:
   mysql:
+    ports: !reset []
     restart: unless-stopped
   redis:
+    ports: !reset []
     restart: unless-stopped
   api:
     <<: *backend

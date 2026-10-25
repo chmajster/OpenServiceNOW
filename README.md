@@ -237,7 +237,7 @@ OpenServiceNOW includes an executable `install.sh` for the repository's current 
 
 Requirements:
 
-- Docker Engine/Desktop with Docker Compose v2,
+- Docker Engine/Desktop with Docker Compose >= 2.24.4,
 - Go 1.27 or newer,
 - Node.js 22.12 or newer with npm,
 - Bash on Linux or WSL, curl, `flock`/`setsid` (util-linux), `ss` (iproute2) and standard Unix tools,
@@ -314,7 +314,9 @@ Engine service startup requires systemd or a supported existing service manager.
 
 The installer pulls MySQL/Redis images and builds the backend/frontend images from this exact checkout with refreshed base images. Go and Node/npm run inside image builds; they are not required on the host. A build failure leaves the running application available. After successful builds it stops this checkout's previous application, starts infrastructure, applies migrations, optionally performs explicit `--bootstrap`, and starts API, Nginx frontend, worker and scheduler with readiness checks. Fresh databases show the account creation wizard; updates preserve users, passwords, organizations and SQL data.
 
-The WebUI automatically selects an available loopback port in **8080–8100**, saves it in `.opensnow/run/docker-port`, and displays its address. `OPENSNOW_DOCKER_PORT=8090` selects a specific port on installation/restart; an occupied explicit port reports an error. The API is available only through the frontend's `/api` and `/health` proxy. MySQL/Redis retain the loopback mappings configured in `.env`, allowing the same named SQL volume and credentials to be reused when switching between `--local` and `--local-docker`. Each mode's application processes are stopped before the other mode starts, avoiding duplicate workers. Switch modes by installing or restarting with the desired flag; start/status/stop/uninstall require the recorded mode.
+The WebUI automatically selects an available loopback port in **8080–8100**, saves it in `.opensnow/run/docker-port`, and displays its address. `OPENSNOW_DOCKER_PORT=8090` selects a specific port on installation/restart; an occupied explicit port reports an error. The API is available only through the frontend's `/api` and `/health` proxy. MySQL and Redis use private container ports (`mysql:3306` and `redis:6379`); Docker mode does not publish or reserve their host ports, so another service on host port 3306/6379 does not block installation. The overlay removes the development mappings with Compose's [`!reset` merge tag](https://docs.docker.com/reference/compose-file/merge/#reset-value); this mode requires Compose >= 2.24.4.
+
+The same named SQL volume, credentials and `.env` are reused when switching between `--local` and `--local-docker`. Returning to `--local` restores the loopback mappings from `MYSQL_PORT` and `REDIS_ADDR`, which must then be free or owned by this checkout's dependencies. Each mode's application processes are stopped before the other mode starts, avoiding duplicate workers. Switch modes by installing or restarting with the desired flag; start/status/stop/uninstall require the recorded mode.
 
 ```bash
 bash ./install.sh --local-docker --status

@@ -66,9 +66,6 @@ check_docker_runtime_tools() {
   require_command curl "Install curl."
   require_command ss "Install iproute2."
   check_docker
-  local version
-  version=$(docker compose version --short); version=${version#v}
-  version_at_least "$version" 2.20.0 || fail "Docker mode requires Compose >= 2.20.0. Run --local-docker to update it."
 }
 
 stop_docker_application() {
@@ -85,7 +82,6 @@ docker_frontend_owns_port() {
 }
 
 docker_port_available() {
-  [[ "$1" != "${MYSQL_PORT:-3306}" && "$1" != "${REDIS_PORT:-6379}" ]] || return 1
   ! port_busy "$1" || docker_frontend_owns_port "$1" ||
     { [[ "$ACTION" == install || "$ACTION" == restart ]] && { port_owned api "$1" || port_owned web "$1"; }; }
 }
@@ -93,7 +89,7 @@ docker_port_available() {
 select_docker_port() {
   local port
   if docker_port_available "$DOCKER_WEB_PORT"; then return; fi
-  if [[ -n "$REQUESTED_DOCKER_PORT" ]]; then fail "Requested Docker frontend port ${DOCKER_WEB_PORT} is occupied or reserved."; fi
+  if [[ -n "$REQUESTED_DOCKER_PORT" ]]; then fail "Requested Docker frontend port ${DOCKER_WEB_PORT} is occupied."; fi
   for ((port=8080; port<=8100; port++)); do
     if docker_port_available "$port"; then DOCKER_WEB_PORT=$port; info "Selected available Docker WebUI port ${port} (range 8080-8100)."; return; fi
   done

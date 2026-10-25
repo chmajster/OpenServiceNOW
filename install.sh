@@ -99,6 +99,9 @@ version_at_least() { [[ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -n1)" ==
 check_docker() {
   require_command docker "Install Docker Engine/Desktop with Compose v2."
   docker compose version >/dev/null 2>&1 || fail "Docker Compose v2 is required."
+  local version
+  version=$(docker compose version --short); version=${version#v}
+  version_at_least "$version" 2.24.4 || fail "Compose >= 2.24.4 is required to remove infrastructure host port mappings. Run --local-docker to update it."
   docker info >/dev/null 2>&1 || fail "Docker Engine is unavailable or this user cannot access it. Enable Docker and user access to its socket."
 }
 
@@ -198,8 +201,10 @@ prepare_env() {
   valid_port "$REDIS_PORT" || fail "Redis port must be from 1 to 65535."
   export REDIS_PORT
   local mysql_port=${MYSQL_PORT:-3306}
-  [[ "$mysql_port" != "$REDIS_PORT" ]] || fail "MySQL and Redis must use separate ports."
-  if [[ "$MODE" == local ]]; then [[ "$mysql_port" != "$WEB_PORT" && "$REDIS_PORT" != "$WEB_PORT" ]] || fail "MySQL, Redis and frontend must use separate ports."; fi
+  if [[ "$MODE" == local ]]; then
+    [[ "$mysql_port" != "$REDIS_PORT" ]] || fail "MySQL and Redis must use separate ports."
+    [[ "$mysql_port" != "$WEB_PORT" && "$REDIS_PORT" != "$WEB_PORT" ]] || fail "MySQL, Redis and frontend must use separate ports."
+  fi
   [[ "${BOOTSTRAP_ON_START:-false}" == true || "${BOOTSTRAP_ON_START:-false}" == false ]] || fail "BOOTSTRAP_ON_START must be true or false."
   load_instance
 }
@@ -370,6 +375,8 @@ check_ports() {
 }
 
 check_dependency_ports() {
+  # Docker workloads use service DNS and private container ports, not host ports.
+  [[ "$MODE" != local-docker ]] || return 0
   local port
   local service container_port mapped_port state
   for service in mysql redis; do

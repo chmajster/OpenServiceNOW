@@ -68,6 +68,7 @@ jobs:
           shellcheck -x -P SCRIPTDIR bootstrap.sh install.sh docker/*.sh tests/*.sh
           bash tests/bootstrap_test.sh
           bash tests/installer_test.sh
+          bash tests/compose_ports_test.sh
 
       - uses: actions/setup-go@v6
         with:

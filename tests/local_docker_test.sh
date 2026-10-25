@@ -95,12 +95,18 @@ assert_healthy() {
   for service in api worker scheduler; do
     [[ "$(docker inspect --format '{{.Config.User}}' "$(compose ps -aq "$service")")" == 1000:1000 ]]
   done
-  docker inspect --format '{{json .NetworkSettings.Ports}}' "$(compose ps -aq api)" | python3 -c 'import json, sys; assert not any(json.load(sys.stdin).values()), "API has a public port mapping"'
+  for service in mysql redis api worker scheduler; do
+    docker inspect --format '{{json .NetworkSettings.Ports}}' "$(compose ps -aq "$service")" | python3 -c 'import json, sys; assert not any(json.load(sys.stdin).values()), "Private service has a public port mapping"'
+  done
 }
 
 cd /tmp
 occupy_ports 8080 8081
+# The configured infrastructure host ports are occupied too. Docker must leave
+# these listeners alive and connect through mysql:3306 / redis:6379 instead.
+printf '\nMYSQL_PORT=8080\nREDIS_ADDR=127.0.0.1:8081\n' >>"$checkout/.env.example"
 installer
+kill -0 "$listener_pid"
 [[ "$(cat "$checkout/.opensnow/run/docker-port")" == 8082 ]]
 [[ ! -f "$checkout/bin/opensnow-api" && ! -d "$checkout/web/node_modules" ]]
 assert_healthy
