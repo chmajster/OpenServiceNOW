@@ -1,0 +1,1 @@
+ALTER TABLE work_relations ADD incident_parent_source VARCHAR(128) GENERATED ALWAYS AS (CASE WHEN source_type='incident' AND target_type='incident' AND relation_type='PARENT' THEN source_id ELSE NULL END) STORED, ADD UNIQUE KEY incident_single_parent(tenant_id,incident_parent_source);

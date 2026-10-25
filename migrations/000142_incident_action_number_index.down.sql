@@ -1,0 +1,1 @@
+ALTER TABLE incident_major_actions DROP INDEX incident_action_number;

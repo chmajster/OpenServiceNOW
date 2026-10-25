@@ -129,7 +129,7 @@ func (s *Service) ConfigurationAtVersion(ctx context.Context,tenant,version uint
 }
 
 func BuildSchema(typeKey string,version uint64,config Configuration)(Schema,error){
-	schema,err:=config.Schema(typeKey,version);if err!=nil{return schema,err};schema=enrichSchema(schema,config);schema.Configuration=config;return schema,nil
+	schema,err:=config.Schema(typeKey,version);if err!=nil{return schema,err};schema=enrichSchema(schema,config);config.IncidentProcess=nil;schema.Configuration=config;return schema,nil
 }
 
 func enrichSchema(schema Schema, config Configuration) Schema {
@@ -170,6 +170,8 @@ func (s *Service) SaveDraft(ctx context.Context, actor Actor, expected uint64, c
 		err := exec.QueryRowContext(ctx,"SELECT version,draft_version,published_version FROM metadata_config_heads WHERE tenant_id=? FOR UPDATE",actor.TenantID).Scan(&current,&draft,&published)
 		if errors.Is(err,sql.ErrNoRows) { current=0 } else if err!=nil{return err}
 		if current!=expected { return ErrConflict }
+  if published.Valid{previous,err:=readVersion(ctx,exec,actor.TenantID,published.V);if err!=nil{return err};if err=validateTemplateVersions(previous.Config,configuration);err!=nil{return err}}
+
 		var next uint64
 		if err=exec.QueryRowContext(ctx,"SELECT COALESCE(MAX(version),0)+1 FROM metadata_config_versions WHERE tenant_id=?",actor.TenantID).Scan(&next);err!=nil{return err}
 		raw,err:=json.Marshal(configuration);if err!=nil{return err}
@@ -200,6 +202,7 @@ func (s *Service) Publish(ctx context.Context, actor Actor, expected uint64) (He
 		if !draft.Valid{return ErrConflict}
 		candidate,err:=readVersion(ctx,exec,actor.TenantID,draft.V);if err!=nil{return err}
 		if err=ValidateConfiguration(candidate.Config);err!=nil{return err}
+		if err=validateIncidentReferences(ctx,exec,actor.TenantID,candidate.Config);err!=nil{return err}
 		var prior Configuration
 		if published.Valid { version,e:=readVersion(ctx,exec,actor.TenantID,published.V);if e!=nil{return e};prior=version.Config } else { name,e:=tenantName(ctx,exec,actor.TenantID);if e!=nil{return e};prior=DefaultConfiguration(name) }
 		impact,err=s.analyzeAndMigrate(ctx,exec,actor.TenantID,prior,candidate.Config,draft.V,false)

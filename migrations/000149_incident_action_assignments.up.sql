@@ -1,0 +1,1 @@
+INSERT IGNORE INTO work_assignments(tenant_id,object_type,object_id,assigned_to,version,updated_at) SELECT tenant_id,'incident_action',CAST(id AS CHAR),owner_user_id,1,updated_at FROM incident_major_actions;

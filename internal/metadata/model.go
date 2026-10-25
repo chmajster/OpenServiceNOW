@@ -24,15 +24,16 @@ type Actor struct {
 func (a Actor) Has(permission string) bool { return a.Permissions[permission] }
 
 type Option struct {
-	Value  string            `json:"value"`
-	Labels map[string]string `json:"labels"`
+	Value   string            `json:"value"`
+	Labels  map[string]string `json:"labels"`
+	Retired bool              `json:"retired,omitempty"`
 }
 
 type Expression struct {
-	Op       string            `json:"op"`
-	Field    string            `json:"field,omitempty"`
-	Value    json.RawMessage   `json:"value,omitempty"`
-	Children []Expression      `json:"children,omitempty"`
+	Op       string          `json:"op"`
+	Field    string          `json:"field,omitempty"`
+	Value    json.RawMessage `json:"value,omitempty"`
+	Children []Expression    `json:"children,omitempty"`
 }
 
 type Field struct {
@@ -58,34 +59,34 @@ type Field struct {
 }
 
 type FormSection struct {
-	Key     string   `json:"key"`
-	Label   string   `json:"label"`
+	Key     string            `json:"key"`
+	Label   string            `json:"label"`
 	Labels  map[string]string `json:"labels,omitempty"`
-	Fields  []string `json:"fields"`
-	Columns int      `json:"columns"`
+	Fields  []string          `json:"fields"`
+	Columns int               `json:"columns"`
 }
 
 type FormLayout struct {
-	Sections []FormSection `json:"sections"`
-	Tabs     []string      `json:"tabs"`
+	Sections  []FormSection       `json:"sections"`
+	Tabs      []string            `json:"tabs"`
 	RoleViews map[string][]string `json:"role_views,omitempty"`
 }
 
 type ListLayout struct {
-	Columns        []string          `json:"columns"`
-	DefaultSort    string            `json:"default_sort"`
-	SearchFields   []string          `json:"search_fields"`
-	Filters        []string          `json:"filters"`
-	RoleViews      map[string][]string `json:"role_views,omitempty"`
+	Columns      []string            `json:"columns"`
+	DefaultSort  string              `json:"default_sort"`
+	SearchFields []string            `json:"search_fields"`
+	Filters      []string            `json:"filters"`
+	RoleViews    map[string][]string `json:"role_views,omitempty"`
 }
 
 type RecordType struct {
-	Key         string   `json:"key"`
-	Labels      map[string]string `json:"labels"`
-	Parent      string   `json:"parent,omitempty"`
-	Fields      []Field  `json:"fields"`
-	Form        FormLayout `json:"form"`
-	List        ListLayout `json:"list"`
+	Key    string            `json:"key"`
+	Labels map[string]string `json:"labels"`
+	Parent string            `json:"parent,omitempty"`
+	Fields []Field           `json:"fields"`
+	Form   FormLayout        `json:"form"`
+	List   ListLayout        `json:"list"`
 }
 
 type Organization struct {
@@ -100,19 +101,20 @@ type Organization struct {
 }
 
 type Configuration struct {
-	Organization   Organization              `json:"organization"`
-	RecordTypes    map[string]RecordType      `json:"record_types"`
-	Dictionaries   map[string][]Option         `json:"dictionaries"`
-	PriorityMatrix [3][3]int                  `json:"priority_matrix"`
+	IncidentProcess *IncidentProcess      `json:"incident_process,omitempty"`
+	Organization    Organization          `json:"organization"`
+	RecordTypes     map[string]RecordType `json:"record_types"`
+	Dictionaries    map[string][]Option   `json:"dictionaries"`
+	PriorityMatrix  [3][3]int             `json:"priority_matrix"`
 }
 
 type Version struct {
-	Version   uint64         `json:"version,string"`
-	State     string         `json:"state"`
-	CreatedBy uint64         `json:"created_by,string"`
-	CreatedAt time.Time      `json:"created_at"`
-	PublishedAt *time.Time   `json:"published_at,omitempty"`
-	Config    Configuration  `json:"config"`
+	Version     uint64        `json:"version,string"`
+	State       string        `json:"state"`
+	CreatedBy   uint64        `json:"created_by,string"`
+	CreatedAt   time.Time     `json:"created_at"`
+	PublishedAt *time.Time    `json:"published_at,omitempty"`
+	Config      Configuration `json:"config"`
 }
 
 type Head struct {
@@ -124,11 +126,11 @@ type Head struct {
 }
 
 type Change struct {
-	Key      string          `json:"key"`
-	Kind     string          `json:"kind"`
-	Count    uint64          `json:"count,string"`
-	Examples []string        `json:"examples,omitempty"`
-	Message  string          `json:"message"`
+	Key      string   `json:"key"`
+	Kind     string   `json:"kind"`
+	Count    uint64   `json:"count,string"`
+	Examples []string `json:"examples,omitempty"`
+	Message  string   `json:"message"`
 }
 
 type Impact struct {
@@ -137,11 +139,11 @@ type Impact struct {
 }
 
 type Schema struct {
-	TypeKey       string       `json:"type_key"`
-	Version       uint64       `json:"version,string"`
-	Fields        []Field      `json:"fields"`
-	Form          FormLayout   `json:"form"`
-	List          ListLayout   `json:"list"`
+	TypeKey       string        `json:"type_key"`
+	Version       uint64        `json:"version,string"`
+	Fields        []Field       `json:"fields"`
+	Form          FormLayout    `json:"form"`
+	List          ListLayout    `json:"list"`
 	Configuration Configuration `json:"configuration,omitempty"`
 }
 
@@ -159,16 +161,16 @@ var currencyCode = regexp.MustCompile(`^[A-Z]{3}$`)
 var brandColor = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
 
 const (
-	TypeText       = "TEXT"
-	TypeLongText   = "LONG_TEXT"
-	TypeBoolean    = "BOOLEAN"
-	TypeInteger    = "INTEGER"
-	TypeDecimal    = "DECIMAL"
-	TypeDate       = "DATE"
-	TypeDateTime   = "DATETIME"
-	TypeChoice     = "CHOICE"
+	TypeText        = "TEXT"
+	TypeLongText    = "LONG_TEXT"
+	TypeBoolean     = "BOOLEAN"
+	TypeInteger     = "INTEGER"
+	TypeDecimal     = "DECIMAL"
+	TypeDate        = "DATE"
+	TypeDateTime    = "DATETIME"
+	TypeChoice      = "CHOICE"
 	TypeMultiChoice = "MULTI_CHOICE"
-	TypeReference  = "REFERENCE"
+	TypeReference   = "REFERENCE"
 )
 
 var referenceTypes = map[string]bool{
@@ -177,11 +179,13 @@ var referenceTypes = map[string]bool{
 }
 
 func DefaultConfiguration(tenantName string) Configuration {
+	process := DefaultIncidentProcess()
 	return Configuration{
-		Organization: Organization{Name: tenantName, DefaultLocale: "pl", TimeZone: "UTC", DateFormat: "YYYY-MM-DD", NumberFormat: "1,234.56", Currency: "USD", BrandColor: "#0F766E"},
+		IncidentProcess: &process,
+		Organization:    Organization{Name: tenantName, DefaultLocale: "pl", TimeZone: "UTC", DateFormat: "YYYY-MM-DD", NumberFormat: "1,234.56", Currency: "USD", BrandColor: "#0F766E"},
 		RecordTypes: map[string]RecordType{
 			"incident": {Key: "incident", Labels: map[string]string{"pl": "Incydent", "en": "Incident"}, Fields: []Field{}, Form: FormLayout{Sections: []FormSection{}, Tabs: []string{}}, List: ListLayout{Columns: []string{"number", "title", "state", "priority"}, DefaultSort: "newest", SearchFields: []string{"number", "title"}, Filters: []string{"state", "category"}}},
-			"ci": {Key: "ci", Labels: map[string]string{"pl": "Element konfiguracji", "en": "Configuration item"}, Fields: []Field{}, Form: FormLayout{Sections: []FormSection{}, Tabs: []string{}}, List: ListLayout{Columns: []string{"identifier", "name", "class", "status"}, DefaultSort: "newest", SearchFields: []string{"identifier", "name"}, Filters: []string{"class", "status", "environment"}}},
+			"ci":       {Key: "ci", Labels: map[string]string{"pl": "Element konfiguracji", "en": "Configuration item"}, Fields: []Field{}, Form: FormLayout{Sections: []FormSection{}, Tabs: []string{}}, List: ListLayout{Columns: []string{"identifier", "name", "class", "status"}, DefaultSort: "newest", SearchFields: []string{"identifier", "name"}, Filters: []string{"class", "status", "environment"}}},
 		},
 		Dictionaries: map[string][]Option{
 			"incident.category": {
@@ -193,14 +197,14 @@ func DefaultConfiguration(tenantName string) Configuration {
 			},
 			"incident.subcategory.hardware": {{Value: "computer", Labels: map[string]string{"pl": "Komputer", "en": "Computer"}}, {Value: "peripheral", Labels: map[string]string{"pl": "Urządzenie peryferyjne", "en": "Peripheral"}}, {Value: "other", Labels: map[string]string{"pl": "Inne", "en": "Other"}}},
 			"incident.subcategory.software": {{Value: "application", Labels: map[string]string{"pl": "Aplikacja", "en": "Application"}}, {Value: "operating_system", Labels: map[string]string{"pl": "System operacyjny", "en": "Operating system"}}, {Value: "other", Labels: map[string]string{"pl": "Inne", "en": "Other"}}},
-			"incident.subcategory.network": {{Value: "connectivity", Labels: map[string]string{"pl": "Połączenie", "en": "Connectivity"}}, {Value: "vpn", Labels: map[string]string{"pl": "VPN", "en": "VPN"}}, {Value: "other", Labels: map[string]string{"pl": "Inne", "en": "Other"}}},
-			"incident.subcategory.access": {{Value: "account", Labels: map[string]string{"pl": "Konto", "en": "Account"}}, {Value: "permissions", Labels: map[string]string{"pl": "Uprawnienia", "en": "Permissions"}}, {Value: "other", Labels: map[string]string{"pl": "Inne", "en": "Other"}}},
-			"incident.subcategory.other": {{Value: "other", Labels: map[string]string{"pl": "Inne", "en": "Other"}}},
-			"incident.state": {{Value: "NEW", Labels: map[string]string{"pl": "Nowy", "en": "New"}}, {Value: "IN_PROGRESS", Labels: map[string]string{"pl": "W trakcie", "en": "In progress"}}, {Value: "ON_HOLD", Labels: map[string]string{"pl": "Wstrzymany", "en": "On hold"}}, {Value: "RESOLVED", Labels: map[string]string{"pl": "Rozwiązany", "en": "Resolved"}}, {Value: "CLOSED", Labels: map[string]string{"pl": "Zamknięty", "en": "Closed"}}, {Value: "CANCELLED", Labels: map[string]string{"pl": "Anulowany", "en": "Cancelled"}}},
-			"incident.resolution_code": {{Value: "FIXED", Labels: map[string]string{"pl": "Naprawiono", "en": "Fixed"}}, {Value: "WORKAROUND", Labels: map[string]string{"pl": "Zastosowano obejście", "en": "Workaround"}}, {Value: "DUPLICATE", Labels: map[string]string{"pl": "Duplikat", "en": "Duplicate"}}, {Value: "NOT_REPRODUCIBLE", Labels: map[string]string{"pl": "Nie odtworzono", "en": "Not reproducible"}}},
-			"incident.hold_reason": {{Value: "AWAITING_USER", Labels: map[string]string{"pl": "Oczekiwanie na zgłaszającego", "en": "Awaiting requester"}}, {Value: "AWAITING_VENDOR", Labels: map[string]string{"pl": "Oczekiwanie na dostawcę", "en": "Awaiting vendor"}}, {Value: "AWAITING_CHANGE", Labels: map[string]string{"pl": "Oczekiwanie na zmianę", "en": "Awaiting change"}}, {Value: "OTHER", Labels: map[string]string{"pl": "Inny powód", "en": "Other reason"}}},
-			"ci.environment": {{Value: "DEV", Labels: map[string]string{"pl": "Deweloperskie", "en": "Development"}}, {Value: "TEST", Labels: map[string]string{"pl": "Testowe", "en": "Test"}}, {Value: "STAGING", Labels: map[string]string{"pl": "Przedprodukcyjne", "en": "Staging"}}, {Value: "PROD", Labels: map[string]string{"pl": "Produkcyjne", "en": "Production"}}},
-			"ci.status": {{Value: "PLANNED", Labels: map[string]string{"pl": "Planowany", "en": "Planned"}}, {Value: "ACTIVE", Labels: map[string]string{"pl": "Aktywny", "en": "Active"}}, {Value: "MAINTENANCE", Labels: map[string]string{"pl": "Konserwacja", "en": "Maintenance"}}, {Value: "RETIRED", Labels: map[string]string{"pl": "Wycofany", "en": "Retired"}}},
+			"incident.subcategory.network":  {{Value: "connectivity", Labels: map[string]string{"pl": "Połączenie", "en": "Connectivity"}}, {Value: "vpn", Labels: map[string]string{"pl": "VPN", "en": "VPN"}}, {Value: "other", Labels: map[string]string{"pl": "Inne", "en": "Other"}}},
+			"incident.subcategory.access":   {{Value: "account", Labels: map[string]string{"pl": "Konto", "en": "Account"}}, {Value: "permissions", Labels: map[string]string{"pl": "Uprawnienia", "en": "Permissions"}}, {Value: "other", Labels: map[string]string{"pl": "Inne", "en": "Other"}}},
+			"incident.subcategory.other":    {{Value: "other", Labels: map[string]string{"pl": "Inne", "en": "Other"}}},
+			"incident.state":                {{Value: "NEW", Labels: map[string]string{"pl": "Nowy", "en": "New"}}, {Value: "IN_PROGRESS", Labels: map[string]string{"pl": "W trakcie", "en": "In progress"}}, {Value: "ON_HOLD", Labels: map[string]string{"pl": "Wstrzymany", "en": "On hold"}}, {Value: "RESOLVED", Labels: map[string]string{"pl": "Rozwiązany", "en": "Resolved"}}, {Value: "CLOSED", Labels: map[string]string{"pl": "Zamknięty", "en": "Closed"}}, {Value: "CANCELLED", Labels: map[string]string{"pl": "Anulowany", "en": "Cancelled"}}},
+			"incident.resolution_code":      {{Value: "FIXED", Labels: map[string]string{"pl": "Naprawiono", "en": "Fixed"}}, {Value: "WORKAROUND", Labels: map[string]string{"pl": "Zastosowano obejście", "en": "Workaround"}}, {Value: "DUPLICATE", Labels: map[string]string{"pl": "Duplikat", "en": "Duplicate"}}, {Value: "NOT_REPRODUCIBLE", Labels: map[string]string{"pl": "Nie odtworzono", "en": "Not reproducible"}}},
+			"incident.hold_reason":          {{Value: "AWAITING_USER", Labels: map[string]string{"pl": "Oczekiwanie na zgłaszającego", "en": "Awaiting requester"}}, {Value: "AWAITING_VENDOR", Labels: map[string]string{"pl": "Oczekiwanie na dostawcę", "en": "Awaiting vendor"}}, {Value: "AWAITING_CHANGE", Labels: map[string]string{"pl": "Oczekiwanie na zmianę", "en": "Awaiting change"}}, {Value: "OTHER", Labels: map[string]string{"pl": "Inny powód", "en": "Other reason"}}},
+			"ci.environment":                {{Value: "DEV", Labels: map[string]string{"pl": "Deweloperskie", "en": "Development"}}, {Value: "TEST", Labels: map[string]string{"pl": "Testowe", "en": "Test"}}, {Value: "STAGING", Labels: map[string]string{"pl": "Przedprodukcyjne", "en": "Staging"}}, {Value: "PROD", Labels: map[string]string{"pl": "Produkcyjne", "en": "Production"}}},
+			"ci.status":                     {{Value: "PLANNED", Labels: map[string]string{"pl": "Planowany", "en": "Planned"}}, {Value: "ACTIVE", Labels: map[string]string{"pl": "Aktywny", "en": "Active"}}, {Value: "MAINTENANCE", Labels: map[string]string{"pl": "Konserwacja", "en": "Maintenance"}}, {Value: "RETIRED", Labels: map[string]string{"pl": "Wycofany", "en": "Retired"}}},
 		},
 		PriorityMatrix: [3][3]int{{1, 2, 3}, {2, 3, 4}, {3, 4, 5}},
 	}
@@ -209,6 +213,10 @@ func DefaultConfiguration(tenantName string) Configuration {
 // WithDefaults upgrades configuration documents written before newer incident
 // settings were introduced without changing their published version.
 func WithDefaults(configuration Configuration) Configuration {
+	if configuration.IncidentProcess == nil {
+		process := DefaultIncidentProcess()
+		configuration.IncidentProcess = &process
+	}
 	defaults := DefaultConfiguration(configuration.Organization.Name)
 	if configuration.RecordTypes == nil {
 		configuration.RecordTypes = defaults.RecordTypes

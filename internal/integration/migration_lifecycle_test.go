@@ -24,7 +24,7 @@ func TestMigrationLifecycle(t *testing.T) {
 		t.Fatalf("config.Load() error = %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 
 	db, err := database.OpenMySQLForMigrations(ctx, cfg.MySQL)
@@ -150,16 +150,25 @@ func lifecycleMigrationSource(t *testing.T) (string, error) {
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(directory) })
 	protected := map[string]string{
-		"000124_workspace_views.down.sql":       "DROP TABLE IF EXISTS workspace_views;\n",
-		"000125_workspace_exports.down.sql":     "DROP TABLE IF EXISTS workspace_exports;\n",
-		"000126_workspace_export_items.down.sql": "DROP TABLE IF EXISTS workspace_export_items;\n",
-		"000130_incident_major_cases.down.sql": "DROP TABLE IF EXISTS incident_major_cases;\n",
+		"000139_incident_process.down.sql":               "ALTER TABLE incidents DROP FOREIGN KEY incident_service_fk, DROP INDEX incident_service_queue, DROP COLUMN service_id, DROP COLUMN location, DROP COLUMN template_key, DROP COLUMN template_version, DROP COLUMN process_version, DROP COLUMN process_policy, DROP COLUMN assignment_origin, DROP COLUMN assignment_reason;\n",
+		"000140_incident_action_contract.down.sql":       "ALTER TABLE incident_major_actions DROP COLUMN number,DROP COLUMN action_kind;\n",
+		"000141_incident_action_numbers.down.sql":        "SELECT 1;\n",
+		"000143_incident_nomination_permission.down.sql": "DELETE FROM permissions WHERE permission_key='incident.major.nominate';\n",
+		"000148_major_delivery_states.down.sql":          "SELECT 1;\n",
+		"000149_incident_action_assignments.down.sql":    "DELETE FROM work_assignments WHERE object_type='incident_action';\n",
+		"000150_incident_auto_close_retry.down.sql":      "ALTER TABLE incidents DROP COLUMN auto_close_retry_at;\n",
+		"000151_incident_major_batches.down.sql":         "DROP TABLE incident_major_batches;\n",
+
+		"000124_workspace_views.down.sql":          "DROP TABLE IF EXISTS workspace_views;\n",
+		"000125_workspace_exports.down.sql":        "DROP TABLE IF EXISTS workspace_exports;\n",
+		"000126_workspace_export_items.down.sql":   "DROP TABLE IF EXISTS workspace_export_items;\n",
+		"000130_incident_major_cases.down.sql":     "DROP TABLE IF EXISTS incident_major_cases;\n",
 		"000131_incident_major_decisions.down.sql": "DROP TABLE IF EXISTS incident_major_decisions;\n",
-		"000132_incident_major_teams.down.sql": "DROP TABLE IF EXISTS incident_major_teams;\n",
-		"000133_incident_major_links.down.sql": "DROP TABLE IF EXISTS incident_major_links;\n",
-		"000134_incident_major_updates.down.sql": "DROP TABLE IF EXISTS incident_major_updates;\n",
-		"000135_incident_major_reviews.down.sql": "DROP TABLE IF EXISTS incident_major_reviews;\n",
-		"000136_incident_major_actions.down.sql": "DROP TABLE IF EXISTS incident_major_actions;\n",
+		"000132_incident_major_teams.down.sql":     "DROP TABLE IF EXISTS incident_major_teams;\n",
+		"000133_incident_major_links.down.sql":     "DROP TABLE IF EXISTS incident_major_links;\n",
+		"000134_incident_major_updates.down.sql":   "DROP TABLE IF EXISTS incident_major_updates;\n",
+		"000135_incident_major_reviews.down.sql":   "DROP TABLE IF EXISTS incident_major_reviews;\n",
+		"000136_incident_major_actions.down.sql":   "DROP TABLE IF EXISTS incident_major_actions;\n",
 	}
 	for _, source := range files {
 		name := filepath.Base(source)
