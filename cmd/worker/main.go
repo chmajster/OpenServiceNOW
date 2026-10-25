@@ -15,6 +15,7 @@ import (
 
 	"github.com/chmajster/OpenServiceNOW/internal/activity"
 	"github.com/chmajster/OpenServiceNOW/internal/attachments"
+	"github.com/chmajster/OpenServiceNOW/internal/audit"
 	"github.com/chmajster/OpenServiceNOW/internal/cmdb"
 	"github.com/chmajster/OpenServiceNOW/internal/events"
 	"github.com/chmajster/OpenServiceNOW/internal/identity"
@@ -88,6 +89,11 @@ func main() {
 	)
 	if err != nil {
 		logger.Error("event dispatcher configuration invalid", "error", err)
+		os.Exit(1)
+	}
+	incidentMaintenance := incidents.NewService(incidents.NewRepository(db), database.NewTxManager(db), workrecords.NewAllocator(database.NewTxManager(db)), workrecords.NewService(workrecords.NewRepository(db), database.NewTxManager(db), events.NewRepository(db)), audit.NewMySQLRepository(), events.NewRepository(db), activity.NewRepository(db)).WithMetadata(metadata.NewService(db))
+	if err := jobWorker.Register(incidents.MaintenanceJobType, incidentMaintenance.MaintenanceHandler); err != nil {
+		logger.Error("register incident maintenance")
 		os.Exit(1)
 	}
 	projector := activity.NewProjector(database.NewTxManager(db), activity.NewRepository(db))

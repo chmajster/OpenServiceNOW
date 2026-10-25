@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -57,7 +58,7 @@ func (r *Repository) CompleteRequest(ctx context.Context, exec database.Executor
 	return err
 }
 func (r *Repository) Insert(ctx context.Context, exec database.Executor, item Record) (uint64, error) {
-	result, err := exec.ExecContext(ctx, `INSERT INTO incidents(tenant_id,number,title,description,reporter_id,affected_user_id,category,subcategory,impact,urgency,priority,resolution_description,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,'',?,?)`, item.TenantID, item.Number, item.Title, item.Description, item.ReporterID, item.AffectedUserID, item.Category, item.Subcategory, item.Impact, item.Urgency, item.Priority, item.CreatedAt, item.UpdatedAt)
+	result, err := exec.ExecContext(ctx, `INSERT INTO incidents(service_id,location,template_key,template_version,process_version,process_policy,assignment_origin,assignment_reason,tenant_id,number,title,description,reporter_id,affected_user_id,category,subcategory,impact,urgency,priority,resolution_description,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'',?,?)`, item.ServiceID, item.Location, item.TemplateKey, item.TemplateVersion, item.ProcessVersion, policyJSON(item.ProcessPolicy), item.AssignmentOrigin, item.AssignmentReason, item.TenantID, item.Number, item.Title, item.Description, item.ReporterID, item.AffectedUserID, item.Category, item.Subcategory, item.Impact, item.Urgency, item.Priority, item.CreatedAt, item.UpdatedAt)
 	if err != nil {
 		return 0, err
 	}
@@ -65,7 +66,7 @@ func (r *Repository) Insert(ctx context.Context, exec database.Executor, item Re
 	return uint64(id), err
 }
 func (r *Repository) Save(ctx context.Context, exec database.Executor, item Record, expected uint64) error {
-	result, err := exec.ExecContext(ctx, `UPDATE incidents SET title=?,description=?,affected_user_id=?,category=?,subcategory=?,impact=?,urgency=?,priority=?,priority_override=?,priority_reason=?,state=?,hold_reason=?,resolution_code=?,resolution_description=?,cancellation_reason=?,version=version+1,updated_at=?,started_at=?,resolved_at=?,closed_at=?,cancelled_at=? WHERE tenant_id=? AND id=? AND version=?`, item.Title, item.Description, item.AffectedUserID, item.Category, item.Subcategory, item.Impact, item.Urgency, item.Priority, item.PriorityOverride, item.PriorityReason, item.State, item.HoldReason, item.ResolutionCode, item.ResolutionDescription, item.CancellationReason, item.UpdatedAt, item.StartedAt, item.ResolvedAt, item.ClosedAt, item.CancelledAt, item.TenantID, item.ID, expected)
+	result, err := exec.ExecContext(ctx, `UPDATE incidents SET service_id=?,location=?,assignment_origin=?,assignment_reason=?,title=?,description=?,affected_user_id=?,category=?,subcategory=?,impact=?,urgency=?,priority=?,priority_override=?,priority_reason=?,state=?,hold_reason=?,resolution_code=?,resolution_description=?,cancellation_reason=?,version=version+1,updated_at=?,started_at=?,resolved_at=?,closed_at=?,cancelled_at=? WHERE tenant_id=? AND id=? AND version=?`, item.ServiceID, item.Location, item.AssignmentOrigin, item.AssignmentReason, item.Title, item.Description, item.AffectedUserID, item.Category, item.Subcategory, item.Impact, item.Urgency, item.Priority, item.PriorityOverride, item.PriorityReason, item.State, item.HoldReason, item.ResolutionCode, item.ResolutionDescription, item.CancellationReason, item.UpdatedAt, item.StartedAt, item.ResolvedAt, item.ClosedAt, item.CancelledAt, item.TenantID, item.ID, expected)
 	if err != nil {
 		return err
 	}
@@ -79,7 +80,7 @@ func (r *Repository) Save(ctx context.Context, exec database.Executor, item Reco
 	return nil
 }
 
-const recordColumns = `i.id,i.tenant_id,i.number,i.title,i.description,i.reporter_id,reporter.display_name,i.affected_user_id,affected.display_name,i.category,i.subcategory,i.impact,i.urgency,i.priority,i.priority_override,i.priority_reason,i.state,i.hold_reason,i.resolution_code,i.resolution_description,i.cancellation_reason,i.version,i.created_at,i.updated_at,i.started_at,i.resolved_at,i.closed_at,i.cancelled_at,w.assigned_to,w.assignment_group_id,w.version,w.updated_at,COALESCE(assigned.display_name,''),COALESCE(g.name,'')`
+const recordColumns = `i.service_id,i.location,i.template_key,i.template_version,i.process_version,i.process_policy,i.assignment_origin,i.assignment_reason,i.id,i.tenant_id,i.number,i.title,i.description,i.reporter_id,reporter.display_name,i.affected_user_id,affected.display_name,i.category,i.subcategory,i.impact,i.urgency,i.priority,i.priority_override,i.priority_reason,i.state,i.hold_reason,i.resolution_code,i.resolution_description,i.cancellation_reason,i.version,i.created_at,i.updated_at,i.started_at,i.resolved_at,i.closed_at,i.cancelled_at,w.assigned_to,w.assignment_group_id,w.version,w.updated_at,COALESCE(assigned.display_name,''),COALESCE(g.name,'')`
 const recordJoins = " FROM incidents i JOIN users reporter ON reporter.id=i.reporter_id JOIN users affected ON affected.id=i.affected_user_id JOIN work_assignments w ON w.tenant_id=i.tenant_id AND w.object_type='incident' AND w.object_id=CAST(i.id AS CHAR) LEFT JOIN users assigned ON assigned.id=w.assigned_to LEFT JOIN `groups` g ON g.tenant_id=w.tenant_id AND g.id=w.assignment_group_id "
 
 func (r *Repository) Get(ctx context.Context, exec database.Executor, tenantID, id uint64, lock bool) (Record, error) {
@@ -100,15 +101,23 @@ type scanner interface{ Scan(...any) error }
 
 func scanRecord(row scanner) (Record, error) {
 	var item Record
+	var policy []byte
 	var assigned, group sql.Null[uint64]
 	var override sql.Null[int]
 	var started, resolved, closed, cancelled sql.NullTime
-	err := row.Scan(&item.ID, &item.TenantID, &item.Number, &item.Title, &item.Description, &item.ReporterID, &item.ReporterName, &item.AffectedUserID, &item.AffectedUserName, &item.Category, &item.Subcategory, &item.Impact, &item.Urgency, &item.Priority, &override, &item.PriorityReason, &item.State, &item.HoldReason, &item.ResolutionCode, &item.ResolutionDescription, &item.CancellationReason, &item.Version, &item.CreatedAt, &item.UpdatedAt, &started, &resolved, &closed, &cancelled, &assigned, &group, &item.Assignment.Version, &item.Assignment.UpdatedAt, &item.AssignedName, &item.GroupName)
+	err := row.Scan(&item.ServiceID, &item.Location, &item.TemplateKey, &item.TemplateVersion, &item.ProcessVersion, &policy, &item.AssignmentOrigin, &item.AssignmentReason, &item.ID, &item.TenantID, &item.Number, &item.Title, &item.Description, &item.ReporterID, &item.ReporterName, &item.AffectedUserID, &item.AffectedUserName, &item.Category, &item.Subcategory, &item.Impact, &item.Urgency, &item.Priority, &override, &item.PriorityReason, &item.State, &item.HoldReason, &item.ResolutionCode, &item.ResolutionDescription, &item.CancellationReason, &item.Version, &item.CreatedAt, &item.UpdatedAt, &started, &resolved, &closed, &cancelled, &assigned, &group, &item.Assignment.Version, &item.Assignment.UpdatedAt, &item.AssignedName, &item.GroupName)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Record{}, ErrNotFound
 	}
 	if err != nil {
 		return Record{}, err
+	}
+	if len(policy) > 0 {
+		if err = json.Unmarshal(policy, &item.ProcessPolicy); err != nil {
+			return Record{}, err
+		}
+	} else {
+		item.ProcessPolicy = metadata.DefaultIncidentProcess()
 	}
 	item.Assignment.TenantID = item.TenantID
 	item.Assignment.ObjectType = "incident"
@@ -197,22 +206,41 @@ func (r *Repository) List(ctx context.Context, a Actor, f Filter) (Page, error) 
 		}
 	}
 	if f.Query != "" {
-		searches:=[]string{};escaped:=strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(f.Query);systemPattern:=escaped+"%";customPattern:=strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(f.Query)+"%"
-		for _,key:=range f.SearchFields {
+		searches := []string{}
+		escaped := strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(f.Query)
+		systemPattern := escaped + "%"
+		customPattern := strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(f.Query) + "%"
+		for _, key := range f.SearchFields {
 			switch key {
-			case "number","title","category","state": searches=append(searches,"i."+key+" LIKE ? ESCAPE '!'" );args=append(args,systemPattern)
+			case "number", "title", "category", "state":
+				searches = append(searches, "i."+key+" LIKE ? ESCAPE '!'")
+				args = append(args, systemPattern)
 			default:
-				fieldType,ok:=f.SearchableTypes[key];if !ok{return Page{},ErrInvalid};field:=metadata.Field{Key:key,Type:fieldType,Active:true}
-				clause,values,err:=metadata.SearchClause("incident","i",field,a.TenantID,customPattern);if err!=nil{return Page{},err};searches=append(searches,clause);args=append(args,values...)
+				fieldType, ok := f.SearchableTypes[key]
+				if !ok {
+					return Page{}, ErrInvalid
+				}
+				field := metadata.Field{Key: key, Type: fieldType, Active: true}
+				clause, values, err := metadata.SearchClause("incident", "i", field, a.TenantID, customPattern)
+				if err != nil {
+					return Page{}, err
+				}
+				searches = append(searches, clause)
+				args = append(args, values...)
 			}
 		}
-		if len(searches)==0{return Page{},ErrInvalid};query+=" AND ("+strings.Join(searches," OR ")+")"
+		if len(searches) == 0 {
+			return Page{}, ErrInvalid
+		}
+		query += " AND (" + strings.Join(searches, " OR ") + ")"
 	}
-	for _,filter:=range f.CustomFields {
-		clause,values,err:=metadata.QueryClause("incident","i",filter,a.TenantID)
-		if err!=nil{return Page{},err}
-		query+=" AND "+clause
-		args=append(args,values...)
+	for _, filter := range f.CustomFields {
+		clause, values, err := metadata.QueryClause("incident", "i", filter, a.TenantID)
+		if err != nil {
+			return Page{}, err
+		}
+		query += " AND " + clause
+		args = append(args, values...)
 	}
 	if f.AfterID > 0 {
 		switch f.Sort {
@@ -263,3 +291,5 @@ func (r *Repository) List(ctx context.Context, a Actor, f Filter) (Page, error) 
 	}
 	return page, nil
 }
+
+func policyJSON(value metadata.IncidentProcess) []byte { raw, _ := json.Marshal(value); return raw }

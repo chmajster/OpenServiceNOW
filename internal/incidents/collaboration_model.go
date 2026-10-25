@@ -76,6 +76,7 @@ type BatchItem struct {
 	Version uint64 `json:"version,string"`
 }
 type BatchInput struct {
+	Reason string      `json:"reason"`
 	Action string      `json:"action"`
 	Items  []BatchItem `json:"items"`
 }

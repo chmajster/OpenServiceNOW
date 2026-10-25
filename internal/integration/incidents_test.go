@@ -235,7 +235,12 @@ func TestIncidentProcess(t *testing.T) {
 	}
 	transition := func(state, reason, code, description string) {
 		t.Helper()
-		next, err := service.Transition(ctx, agent, item.ID, incidents.TransitionInput{Version: item.Version, State: state, Reason: reason, ResolutionCode: code, ResolutionDescription: description})
+		holdReason := ""
+		if state == "ON_HOLD" {
+			holdReason = "AWAITING_USER"
+			reason = ""
+		}
+		next, err := service.Transition(ctx, agent, item.ID, incidents.TransitionInput{Version: item.Version, State: state, Reason: reason, HoldReason: holdReason, ResolutionCode: code, ResolutionDescription: description})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -496,9 +501,15 @@ func TestIncidentProcess(t *testing.T) {
 		if !sawReopen || !sawOverride {
 			t.Fatal("expected domain history missing")
 		}
+		ordinaryTypes := 0
+		for key := range incidents.EventSummaries {
+			if !strings.HasPrefix(key, "incident.major.") {
+				ordinaryTypes++
+			}
+		}
 		var registeredTypes int
-		if err := db.QueryRowContext(ctx, "SELECT COUNT(DISTINCT entry_type) FROM activity_entries WHERE tenant_id=? AND object_type='incident'", tenantA.TenantID).Scan(&registeredTypes); err != nil || registeredTypes != len(incidents.EventSummaries) {
-			t.Fatalf("projected %d event types, want %d: %v", registeredTypes, len(incidents.EventSummaries), err)
+		if err := db.QueryRowContext(ctx, "SELECT COUNT(DISTINCT entry_type) FROM activity_entries WHERE tenant_id=? AND object_type='incident'", tenantA.TenantID).Scan(&registeredTypes); err != nil || registeredTypes != ordinaryTypes {
+			t.Fatalf("projected %d event types, want %d: %v", registeredTypes, ordinaryTypes, err)
 		}
 		previousVersion := item.Version + 1
 		cursor := uint64(0)

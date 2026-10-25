@@ -10,6 +10,7 @@ import (
 
 	"github.com/chmajster/OpenServiceNOW/internal/attachments"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/httpapi"
+	"github.com/chmajster/OpenServiceNOW/internal/workrecords"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -234,7 +235,7 @@ func errorStatus(err error) int {
 	switch {
 	case errors.Is(err, ErrNotFound):
 		return 404
-	case errors.Is(err, ErrForbidden):
+	case errors.Is(err, ErrForbidden), errors.Is(err, workrecords.ErrForbidden):
 		return 403
 	case errors.Is(err, ErrConflict):
 		return 409
@@ -272,7 +273,7 @@ func (h *Handler) Batch(w http.ResponseWriter, r *http.Request) {
 			var current Record
 			current, err = h.service.Get(r.Context(), a, i.ID)
 			if err == nil {
-				updated, err = h.service.Assign(r.Context(), a, i.ID, AssignmentInput{i.Version, &a.UserID, current.Assignment.AssignmentGroupID})
+				updated, err = h.service.Assign(r.Context(), a, i.ID, AssignmentInput{Version: i.Version, AssignedTo: &a.UserID, AssignmentGroupID: current.Assignment.AssignmentGroupID, Reason: input.Reason})
 			}
 		} else {
 			updated, err = h.service.Transition(r.Context(), a, i.ID, TransitionInput{Version: i.Version, State: "IN_PROGRESS"})

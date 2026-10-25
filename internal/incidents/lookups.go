@@ -2,8 +2,8 @@ package incidents
 
 import (
 	"context"
-	"strings"
 	"github.com/chmajster/OpenServiceNOW/internal/metadata"
+	"strings"
 )
 
 type Choice struct {
@@ -21,7 +21,7 @@ type Choices struct {
 }
 
 func (s *Service) Choices(ctx context.Context, a Actor, kind, purpose, q string, after, group uint64, limit int) (Choices, error) {
-	if !a.Has("read") && !a.Has("read_own") {
+	if !a.Has("read") && !a.Has("read_own") && !(kind == "groups" && a.Permissions[metadata.ManagePermission]) {
 		return Choices{}, ErrForbidden
 	}
 	if limit < 1 || limit > 100 || !validText(q, 0, 200) {
@@ -41,8 +41,11 @@ func (s *Service) Choices(ctx context.Context, a Actor, kind, purpose, q string,
 		}
 		query += " ORDER BY i.id"
 	case "users":
-		if purpose != "affected" && purpose != "assignment" {
+		if purpose != "affected" && purpose != "assignment" && purpose != "coordination" {
 			return Choices{}, ErrInvalid
+		}
+		if purpose == "coordination" && !a.Has("major.manage") {
+			return Choices{}, ErrForbidden
 		}
 		if purpose == "assignment" && !a.Has("assign") {
 			return Choices{}, ErrForbidden
@@ -119,18 +122,24 @@ func (s *Service) Metadata(ctx context.Context, a Actor) (any, error) {
 		return nil, ErrForbidden
 	}
 	version, configuration, err := s.tenantMetadata(ctx, s.repo.db, a)
-	if err != nil { return nil, err }
-	fieldSchema,err:=metadata.BuildSchema("incident",version,configuration);if err!=nil{return nil,err}
+	if err != nil {
+		return nil, err
+	}
+	fieldSchema, err := metadata.BuildSchema("incident", version, configuration)
+	if err != nil {
+		return nil, err
+	}
 	return struct {
-		Categories      []Category `json:"categories"`
-		States          []Option   `json:"states"`
-		ResolutionCodes []Option   `json:"resolution_codes"`
-		HoldReasons     []Option   `json:"hold_reasons"`
-		PriorityMatrix  [3][3]int  `json:"priority_matrix"`
-		CanCreate       bool       `json:"can_create"`
-		FieldSchema metadata.Schema `json:"custom_fields_schema"`
+		Categories      []Category                  `json:"categories"`
+		States          []Option                    `json:"states"`
+		ResolutionCodes []Option                    `json:"resolution_codes"`
+		HoldReasons     []Option                    `json:"hold_reasons"`
+		PriorityMatrix  [3][3]int                   `json:"priority_matrix"`
+		CanCreate       bool                        `json:"can_create"`
+		FieldSchema     metadata.Schema             `json:"custom_fields_schema"`
+		Templates       []metadata.IncidentTemplate `json:"templates"`
 	}{
-		Categories:incidentCategories(configuration),States:incidentOptions(configuration,"incident.state"),ResolutionCodes:incidentOptions(configuration,"incident.resolution_code"),HoldReasons:incidentOptions(configuration,"incident.hold_reason"),PriorityMatrix:configuration.PriorityMatrix,CanCreate:a.Has("create"),
-		FieldSchema:fieldSchema,
+		Categories: incidentCategories(configuration), States: incidentOptions(configuration, "incident.state"), ResolutionCodes: incidentOptions(configuration, "incident.resolution_code"), HoldReasons: incidentOptions(configuration, "incident.hold_reason"), PriorityMatrix: configuration.PriorityMatrix, CanCreate: a.Has("create"),
+		FieldSchema: fieldSchema, Templates: activeTemplates(configuration, a),
 	}, nil
 }

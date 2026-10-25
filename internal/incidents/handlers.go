@@ -34,6 +34,26 @@ func RegisterRoutes(r chi.Router, h *Handler, m *identity.Middleware) {
 		r.Use(m.Authenticate)
 		r.Use(h.context)
 		r.Get("/", h.List)
+		r.Get("/major", h.MajorList)
+		r.Get("/major/actions", h.MyMajorActions)
+		r.Get("/major/actions/{actionID}", h.MajorActionGet)
+		r.Get("/major/actions/{actionID}/messages", h.MajorActionMessages)
+		r.With(m.RequireCSRF).Post("/major/actions/{actionID}/messages", h.MajorActionAddMessage)
+		r.With(m.RequireCSRF).Post("/assignment-preview", h.AssignmentPreview)
+		r.With(m.RequireCSRF).Put("/major/actions/{actionID}", h.MajorActionChange)
+		r.Get("/{incidentID}/major", h.MajorGet)
+		r.Get("/{incidentID}/major/children", h.MajorChildrenList)
+		r.Get("/{incidentID}/major/updates", h.MajorUpdatesList)
+		r.Get("/{incidentID}/major/timeline", h.MajorTimelineList)
+		r.With(m.RequireCSRF).Post("/{incidentID}/major/decisions/{decision}", h.MajorDecision)
+		r.With(m.RequireCSRF).Put("/{incidentID}/major/coordination", h.MajorCoordinate)
+		r.With(m.RequireCSRF).Post("/{incidentID}/major/updates", h.MajorPublish)
+		r.With(m.RequireCSRF).Post("/{incidentID}/major/restoration", h.MajorRestore)
+		r.With(m.RequireCSRF).Put("/{incidentID}/major/review", h.MajorReview)
+		r.With(m.RequireCSRF).Post("/{incidentID}/major/children", h.MajorChildren)
+		r.With(m.RequireCSRF).Post("/{incidentID}/major/actions", h.MajorActionCreate)
+		r.With(m.RequireCSRF).Post("/{incidentID}/assignment-rules", h.AssignmentApply)
+
 		r.Get("/metadata", h.Metadata)
 		r.Get("/lookups/{kind}", h.Choices)
 		r.With(m.RequireCSRF).Post("/batch", h.Batch)
@@ -98,7 +118,7 @@ func respond(w http.ResponseWriter, r *http.Request, status int, value any, err 
 	httpapi.WriteJSON(w, status, value)
 }
 func (h *Handler) Metadata(w http.ResponseWriter, r *http.Request) {
-	result, err := h.service.Metadata(r.Context(),actor(r))
+	result, err := h.service.Metadata(r.Context(), actor(r))
 	respond(w, r, 200, result, err)
 }
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
@@ -237,11 +257,17 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	q := r.URL.Query()
 	f := Filter{Query: q.Get("q"), State: q.Get("state"), Category: q.Get("category"), View: q.Get("view"), Sort: q.Get("sort"), AfterID: after, Limit: limit}
-	if h.service.metadata!=nil {
-		schema,schemaErr:=h.service.metadata.Schema(r.Context(),actor(r).TenantID,"incident")
-		if schemaErr!=nil { writeError(w,r,schemaErr);return }
-		f.CustomFields,err=metadata.ParseFilters(schema,q)
-		if err!=nil { writeError(w,r,err);return }
+	if h.service.metadata != nil {
+		schema, schemaErr := h.service.metadata.Schema(r.Context(), actor(r).TenantID, "incident")
+		if schemaErr != nil {
+			writeError(w, r, schemaErr)
+			return
+		}
+		f.CustomFields, err = metadata.ParseFilters(schema, q)
+		if err != nil {
+			writeError(w, r, err)
+			return
+		}
 		f.SearchFields = schema.List.SearchFields
 	}
 	if f.View == "" {
@@ -302,7 +328,7 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		httpapi.WriteError(w, r, 404, "FILE_NOT_FOUND", "Plik nie istnieje lub nie masz do niego dostępu.")
 	case errors.Is(err, ErrNotFound):
 		httpapi.WriteError(w, r, 404, "INCIDENT_NOT_FOUND", "Incydent nie istnieje lub nie masz do niego dostępu.")
-	case errors.Is(err, ErrForbidden):
+	case errors.Is(err, ErrForbidden), errors.Is(err, workrecords.ErrForbidden):
 		httpapi.WriteError(w, r, 403, "FORBIDDEN", "Nie masz uprawnienia do tej operacji incydentu.")
 	case errors.Is(err, ErrConflict), errors.Is(err, workrecords.ErrConflict), errors.Is(err, metadata.ErrConflict):
 		httpapi.WriteError(w, r, 409, "INCIDENT_CONFLICT", "Incydent zmienił się. Odczytaj aktualną wersję i rozstrzygnij konflikt.")
@@ -312,8 +338,8 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		httpapi.WriteError(w, r, 422, "INCIDENT_TRANSITION_INVALID", "To przejście stanu lub edycja nie jest dozwolona.")
 	case errors.Is(err, ErrInvalid), errors.Is(err, metadata.ErrInvalid):
 		var fieldError metadata.FieldError
-		if errors.As(err,&fieldError) {
-			httpapi.WriteJSON(w,400,map[string]any{"error":map[string]any{"code":"FIELD_VALIDATION","message":fieldError.Error(),"field":fieldError.Field,"reason_code":fieldError.Code,"request_id":middleware.GetReqID(r.Context())}})
+		if errors.As(err, &fieldError) {
+			httpapi.WriteJSON(w, 400, map[string]any{"error": map[string]any{"code": "FIELD_VALIDATION", "message": fieldError.Error(), "field": fieldError.Field, "reason_code": fieldError.Code, "request_id": middleware.GetReqID(r.Context())}})
 			return
 		}
 		httpapi.WriteError(w, r, 400, "INCIDENT_INVALID", err.Error())

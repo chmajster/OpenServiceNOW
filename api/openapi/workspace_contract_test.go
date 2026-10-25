@@ -8,7 +8,7 @@ import (
 func TestWorkspaceContractDocumentsImplementedRoutes(t *testing.T) {
 	raw := loadDocument(t)
 	var doc struct {
-		Paths map[string]map[string]map[string]any `json:"paths"`
+		Paths      map[string]map[string]any `json:"paths"`
 		Components struct {
 			Schemas map[string]json.RawMessage `json:"schemas"`
 		} `json:"components"`
@@ -17,15 +17,15 @@ func TestWorkspaceContractDocumentsImplementedRoutes(t *testing.T) {
 		t.Fatalf("parse OpenAPI: %v", err)
 	}
 	required := map[string][]string{
-		"/api/v1/workspace/fields": {"get"},
+		"/api/v1/workspace/fields":            {"get"},
 		"/api/v1/workspace/references/{kind}": {"get"},
-		"/api/v1/workspace/queue": {"post"},
+		"/api/v1/workspace/queue":             {"post"},
 		"/api/v1/workspace/items/{type}/{id}": {"get"},
-		"/api/v1/workspace/views": {"get", "post"},
-		"/api/v1/workspace/views/{id}": {"put", "delete"},
-		"/api/v1/workspace/actions": {"post"},
-		"/api/v1/workspace/exports": {"post"},
-		"/api/v1/workspace/exports/{id}": {"get"},
+		"/api/v1/workspace/views":             {"get", "post"},
+		"/api/v1/workspace/views/{id}":        {"put", "delete"},
+		"/api/v1/workspace/actions":           {"post"},
+		"/api/v1/workspace/exports":           {"post"},
+		"/api/v1/workspace/exports/{id}":      {"get"},
 		"/api/v1/workspace/exports/{id}/file": {"get"},
 	}
 	for path, methods := range required {
@@ -35,7 +35,7 @@ func TestWorkspaceContractDocumentsImplementedRoutes(t *testing.T) {
 			continue
 		}
 		for _, method := range methods {
-			operation, ok := operations[method]
+			operation, ok := operations[method].(map[string]any)
 			if !ok {
 				t.Errorf("missing %s %s", method, path)
 				continue

@@ -2998,7 +2998,7 @@
           "Incident Management"
         ],
         "operationId": "transitionIncident",
-        "description": "Organization and actor come only from the backend session. incident.read reads records in that organization; incident.read_own reads records reported by or affecting the actor. ACLs apply before results are returned; writes require read access plus the action permission. Temporary-password sessions are denied. NEW → IN_PROGRESS|ON_HOLD|CANCELLED; IN_PROGRESS → ON_HOLD|RESOLVED|CANCELLED; ON_HOLD → IN_PROGRESS|RESOLVED|CANCELLED; RESOLVED → CLOSED|IN_PROGRESS; CLOSED → IN_PROGRESS; CANCELLED is terminal. RESOLVED/CLOSED targets require incident.resolve; other targets require incident.update. Reopening clears current resolution/closure fields while preserving their history.",
+        "description": "Organization and actor come only from the backend session. incident.read reads records in that organization; incident.read_own reads records reported by or affecting the actor. ACLs apply before results are returned; writes require read access plus the action permission. Temporary-password sessions are denied. NEW → IN_PROGRESS|ON_HOLD|CANCELLED; IN_PROGRESS → ON_HOLD|RESOLVED|CANCELLED; ON_HOLD → IN_PROGRESS|RESOLVED|CANCELLED; RESOLVED → CLOSED|IN_PROGRESS; CLOSED → IN_PROGRESS; CANCELLED is terminal. RESOLVED/CLOSED targets require incident.resolve; other targets require incident.update. Reopening clears current resolution/closure fields while preserving their history. New records pin tenant process transitions, required closure fields and reopen window. Requester reopening requires the pinned policy plus read_own and ownership; all reopening requires a reason. Active/candidate major incidents cannot close before restoration/demotion. Existing incident.* events drive the original SLA engine.",
         "security": [
           {
             "sessionCookie": [],
@@ -20858,7 +20858,8 @@
               "type": "string",
               "enum": [
                 "incident",
-                "fulfillment_task"
+                "fulfillment_task",
+                "incident_action"
               ]
             }
           },
@@ -21322,6 +21323,2148 @@
             }
           }
         ]
+      }
+    },
+    "/api/v1/incidents/major": {
+      "get": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "listMajorIncidents",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Tenant and actor derive from the session. Current object ACL and permissions are checked before access. ",
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "200": {
+            "description": "Authorized result; identifiers and versions are decimal strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MajorCasePage"
+                }
+              }
+            }
+          }
+        },
+        "x-permission": "incident.major.read|incident.major.manage",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "after_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+            }
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "active",
+                "candidates"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/major/actions": {
+      "get": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "listMyMajorActions",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Tenant and actor derive from the session. Current object ACL and permissions are checked before access. Tasks owned by the actor with current incident read access, including open tasks after incident closure.",
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "200": {
+            "description": "Authorized result; identifiers and versions are decimal strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MajorActionPage"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "after_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/major/actions/{actionID}": {
+      "parameters": [
+        {
+          "name": "actionID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "getMajorAction",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Tenant and actor derive from the session. Current object ACL and permissions are checked before access. Current owner or major reader/manager plus root incident read access.",
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "200": {
+            "description": "Authorized result; identifiers and versions are decimal strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MajorAction"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "changeMajorAction",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "description": "Tenant and actor derive from the session. Current object ACL and permissions are checked before access. Current owner or major manager; task version CAS. OPEN → IN_PROGRESS|DONE|CANCELLED; IN_PROGRESS → DONE|CANCELLED.",
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "200": {
+            "description": "Authorized result; identifiers and versions are decimal strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MajorAction"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MajorActionChangeInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/major/actions/{actionID}/messages": {
+      "parameters": [
+        {
+          "name": "actionID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "listMajorActionNotes",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Tenant and actor derive from the session. Current object ACL and permissions are checked before access. Private shared workrecords notes; current owner or major reader/manager plus root ACL.",
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "200": {
+            "description": "Authorized result; identifiers and versions are decimal strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentMessagePage"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+            }
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "addMajorActionNote",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "description": "Tenant and actor derive from the session. Private WORK_NOTE in shared workrecords. Current owner or incident.major.manage plus root incident ACL; task version CAS. major.read alone cannot append.",
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "201": {
+            "description": "Authorized result; identifiers and versions are decimal strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentMessage"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MajorActionNoteInput"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "Keep unchanged together with the exact body when reconciling a lost response."
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incidentID}/major": {
+      "parameters": [
+        {
+          "name": "incidentID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "getMajorIncident",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Tenant and actor derive from the session. Current object ACL and permissions are checked before access. ",
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "200": {
+            "description": "Authorized result; identifiers and versions are decimal strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MajorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/{incidentID}/major/decisions/{decision}": {
+      "parameters": [
+        {
+          "name": "incidentID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          }
+        },
+        {
+          "name": "decision",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "enum": [
+              "nominate",
+              "promote",
+              "reject",
+              "demote"
+            ]
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "decideMajorIncident",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "description": "Tenant and actor derive from the session. Current object ACL and permissions are checked before access. nominate requires incident.major.nominate and incident version. promote/reject/demote require incident.major.manage and case version. A P1 incident is never automatically promoted.",
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "200": {
+            "description": "Authorized result; identifiers and versions are decimal strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MajorCase"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MajorDecisionInput"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "Keep unchanged together with the exact body when reconciling a lost response."
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incidentID}/major/coordination": {
+      "parameters": [
+        {
+          "name": "incidentID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          }
+        }
+      ],
+      "put": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "coordinateMajorIncident",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "description": "Tenant and actor derive from the session. Current object ACL and permissions are checked before access. ",
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "200": {
+            "description": "Authorized result; identifiers and versions are decimal strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MajorCase"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MajorCoordinationInput"
+              }
+            }
+          }
+        },
+        "x-permission": "incident.major.manage",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "Keep unchanged together with the exact body when reconciling a lost response."
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incidentID}/major/updates": {
+      "parameters": [
+        {
+          "name": "incidentID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "publishMajorUpdate",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "description": "Tenant and actor derive from the session. Current object ACL and permissions are checked before access. REQUESTERS or OPERATORS. Delivery starts PENDING; worker persists actual in-app delivery or SMTP queue status. SMTP is optional.",
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "201": {
+            "description": "Authorized result; identifiers and versions are decimal strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MajorUpdate"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MajorUpdateInput"
+              }
+            }
+          }
+        },
+        "x-permission": "incident.major.manage",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "Keep unchanged together with the exact body when reconciling a lost response."
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "listMajorUpdates",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Tenant and actor derive from the session. Current object ACL and permissions are checked before access. ",
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "200": {
+            "description": "Authorized result; identifiers and versions are decimal strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MajorUpdatePage"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+            }
+          },
+          {
+            "name": "audience",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "REQUESTERS",
+                "OPERATORS"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incidentID}/major/timeline": {
+      "parameters": [
+        {
+          "name": "incidentID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "listMajorDecisions",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Tenant and actor derive from the session. Current object ACL and permissions are checked before access. ",
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "200": {
+            "description": "Authorized result; identifiers and versions are decimal strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MajorDecisionPage"
+                }
+              }
+            }
+          }
+        },
+        "x-permission": "incident.major.read|incident.major.manage",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incidentID}/major/children": {
+      "parameters": [
+        {
+          "name": "incidentID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "listMajorChildren",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Tenant and actor derive from the session. Current object ACL and permissions are checked before access. ",
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "200": {
+            "description": "Authorized result; identifiers and versions are decimal strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MajorChildPage"
+                }
+              }
+            }
+          }
+        },
+        "x-permission": "incident.major.read|incident.major.manage",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "after_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+            }
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "applyMajorChildren",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "description": "Tenant and actor derive from the session. Current object ACL and permissions are checked before access. ",
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "200": {
+            "description": "Authorized result; identifiers and versions are decimal strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MajorChildResults"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MajorChildrenInput"
+              }
+            }
+          }
+        },
+        "x-permission": "incident.major.manage",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "Keep unchanged together with the exact body when reconciling a lost response."
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incidentID}/major/actions": {
+      "parameters": [
+        {
+          "name": "incidentID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "createMajorAction",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "description": "Tenant and actor derive from the session. Current object ACL and permissions are checked before access. ",
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "201": {
+            "description": "Authorized result; identifiers and versions are decimal strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MajorAction"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MajorActionCreateInput"
+              }
+            }
+          }
+        },
+        "x-permission": "incident.major.manage",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "Keep unchanged together with the exact body when reconciling a lost response."
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incidentID}/major/restoration": {
+      "parameters": [
+        {
+          "name": "incidentID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "restoreMajorIncident",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "description": "Tenant and actor derive from the session. Current object ACL and permissions are checked before access. Root incident must already be RESOLVED. Commander, communication owner and impact are required. Does not complete review or child incidents.",
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "200": {
+            "description": "Authorized result; identifiers and versions are decimal strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MajorCase"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MajorRestoreInput"
+              }
+            }
+          }
+        },
+        "x-permission": "incident.major.manage",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "Keep unchanged together with the exact body when reconciling a lost response."
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incidentID}/major/review": {
+      "parameters": [
+        {
+          "name": "incidentID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          }
+        }
+      ],
+      "put": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "saveMajorReview",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "description": "Tenant and actor derive from the session. Current object ACL and permissions are checked before access. ",
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "200": {
+            "description": "Authorized result; identifiers and versions are decimal strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MajorReview"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MajorReviewInput"
+              }
+            }
+          }
+        },
+        "x-permission": "incident.major.manage",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "Keep unchanged together with the exact body when reconciling a lost response."
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/assignment-preview": {
+      "post": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "previewIncidentAssignment",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "description": "Tenant and actor derive from the session. Current object ACL and permissions are checked before access. Read-only preview of currently published ordered rules; does not mutate assignment.",
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "200": {
+            "description": "Authorized result; identifiers and versions are decimal strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentPreview"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentFields"
+              }
+            }
+          }
+        },
+        "x-permission": "incident.assign|admin.metadata.manage"
+      }
+    },
+    "/api/v1/incidents/{incidentID}/assignment-rules": {
+      "parameters": [
+        {
+          "name": "incidentID",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "Incident Management"
+        ],
+        "operationId": "reapplyIncidentAssignment",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "description": "Tenant and actor derive from the session. Current object ACL and permissions are checked before access. CAS. Preserves manually assigned or owned work by returning conflict.",
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Record absent or unreadable; object existence is not disclosed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed or commit result is uncertain. For creation reconcile with the same body and Idempotency-Key; for updates GET current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/RequestTimeout"
+          },
+          "409": {
+            "description": "INCIDENT_CONFLICT (stale version) or INCIDENT_IDEMPOTENCY_CONFLICT (key reused with different normalized body). Preserve local draft and explicitly reconcile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INCIDENT_TRANSITION_INVALID: forbidden state transition or editing a closed/cancelled incident.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "200": {
+            "description": "Authorized result; identifiers and versions are decimal strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Incident"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentVersionInput"
+              }
+            }
+          }
+        },
+        "x-permission": "incident.assign"
       }
     }
   },
@@ -23741,13 +25884,7 @@
           },
           "category": {
             "type": "string",
-            "enum": [
-              "hardware",
-              "software",
-              "network",
-              "access",
-              "other"
-            ]
+            "description": "Stable key from the tenant published dictionary. Retired keys are accepted only unchanged on historical records."
           },
           "subcategory": {
             "type": "string",
@@ -23762,6 +25899,34 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 3
+          },
+          "service_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$",
+                "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "template_key": {
+            "type": "string"
+          },
+          "template_version": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "custom_fields": {
+            "type": "object",
+            "additionalProperties": true
           }
         },
         "description": "Trimmed Unicode code-point limits. Omitted affected_user_id defaults to the session actor. Category/subcategory pairs come from metadata. Read-own callers can select only themselves."
@@ -23796,13 +25961,7 @@
           },
           "category": {
             "type": "string",
-            "enum": [
-              "hardware",
-              "software",
-              "network",
-              "access",
-              "other"
-            ]
+            "description": "Stable key from the tenant published dictionary. Retired keys are accepted only unchanged on historical records."
           },
           "subcategory": {
             "type": "string",
@@ -23821,6 +25980,34 @@
           "version": {
             "type": "string",
             "pattern": "^[1-9][0-9]*$"
+          },
+          "service_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$",
+                "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "template_key": {
+            "type": "string"
+          },
+          "template_version": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "custom_fields": {
+            "type": "object",
+            "additionalProperties": true
           }
         }
       },
@@ -23850,6 +26037,11 @@
               "null"
             ],
             "pattern": "^[1-9][0-9]*$"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Required for a manual reassignment when an assignment origin exists."
           }
         },
         "description": "Null clears a selection. Selected user and group must be active members of the current organization; if both are given, the user must belong to that group. Update concurrency uses the incident version."
@@ -23962,6 +26154,11 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Required for a manual reassignment when an assignment origin exists."
           }
         }
       },
@@ -24032,13 +26229,7 @@
           },
           "category": {
             "type": "string",
-            "enum": [
-              "hardware",
-              "software",
-              "network",
-              "access",
-              "other"
-            ]
+            "description": "Stable key from the tenant published dictionary. Retired keys are accepted only unchanged on historical records."
           },
           "assignment": {
             "$ref": "#/components/schemas/IncidentAssignment"
@@ -24060,6 +26251,34 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "service_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$",
+                "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "template_key": {
+            "type": "string"
+          },
+          "template_version": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "custom_fields": {
+            "type": "object",
+            "additionalProperties": true
           }
         }
       },
@@ -24147,13 +26366,7 @@
           },
           "category": {
             "type": "string",
-            "enum": [
-              "hardware",
-              "software",
-              "network",
-              "access",
-              "other"
-            ]
+            "description": "Stable key from the tenant published dictionary. Retired keys are accepted only unchanged on historical records."
           },
           "assignment": {
             "$ref": "#/components/schemas/IncidentAssignment"
@@ -24289,6 +26502,45 @@
                 }
               }
             }
+          },
+          "service_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$",
+                "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "template_key": {
+            "type": "string"
+          },
+          "template_version": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "custom_fields": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "process_version": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "assignment_origin": {
+            "type": "string"
+          },
+          "assignment_reason": {
+            "type": "string"
           }
         }
       },
@@ -24388,13 +26640,7 @@
           },
           "category": {
             "type": "string",
-            "enum": [
-              "hardware",
-              "software",
-              "network",
-              "access",
-              "other"
-            ]
+            "description": "Stable key from the tenant published dictionary. Retired keys are accepted only unchanged on historical records."
           },
           "version": {
             "type": "string",
@@ -24491,6 +26737,39 @@
               "null"
             ],
             "pattern": "^[1-9][0-9]*$"
+          },
+          "service_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$",
+                "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "template_key": {
+            "type": "string"
+          },
+          "template_version": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "custom_fields": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Required for a manual reassignment when an assignment origin exists."
           }
         }
       },
@@ -24632,6 +26911,9 @@
           },
           "label": {
             "type": "string"
+          },
+          "retired": {
+            "type": "boolean"
           }
         }
       },
@@ -24662,6 +26944,9 @@
             "items": {
               "$ref": "#/components/schemas/IncidentOption"
             }
+          },
+          "retired": {
+            "type": "boolean"
           }
         }
       },
@@ -24728,6 +27013,18 @@
           },
           "can_create": {
             "type": "boolean"
+          },
+          "templates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncidentTemplate"
+            }
+          },
+          "hold_reasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncidentOption"
+            }
           }
         }
       },
@@ -25185,6 +27482,11 @@
               ],
               "additionalProperties": false
             }
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Reason for manual self-assignment."
           }
         },
         "required": [
@@ -27913,6 +30215,9 @@
               "pl",
               "en"
             ]
+          },
+          "retired": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -28333,6 +30638,9 @@
                 "maximum": 5
               }
             }
+          },
+          "incident_process": {
+            "$ref": "#/components/schemas/IncidentProcess"
           }
         },
         "required": [
@@ -30697,7 +33005,8 @@
             "type": "string",
             "enum": [
               "incident",
-              "fulfillment_task"
+              "fulfillment_task",
+              "incident_action"
             ]
           },
           "object_id": {
@@ -30764,7 +33073,8 @@
               "type": "string",
               "enum": [
                 "incident",
-                "fulfillment_task"
+                "fulfillment_task",
+                "incident_action"
               ]
             }
           },
@@ -30989,7 +33299,8 @@
             "type": "string",
             "enum": [
               "incident",
-              "fulfillment_task"
+              "fulfillment_task",
+              "incident_action"
             ]
           },
           "filter_only": {
@@ -31195,7 +33506,8 @@
           },
           "reason": {
             "type": "string",
-            "maxLength": 10000
+            "maxLength": 10000,
+            "description": "Required for manual incident assignment, cancellation or reopening. Shared command adapter omits unrelated reason fields for other incident transitions."
           },
           "resolution_code": {
             "type": "string"
@@ -31203,6 +33515,10 @@
           "resolution_description": {
             "type": "string",
             "maxLength": 20000
+          },
+          "hold_reason": {
+            "type": "string",
+            "description": "Published tenant incident hold-reason key. Required for incident ON_HOLD; fulfillment tasks use reason."
           }
         }
       },
@@ -31279,6 +33595,1311 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "MajorCase": {
+        "type": "object",
+        "properties": {
+          "people": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "incident_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "number": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "incident_state": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "candidate_reason": {
+            "type": "string"
+          },
+          "decision_reason": {
+            "type": "string"
+          },
+          "nominated_by": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "nominated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "decided_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$",
+                "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "commander_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$",
+                "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deputy_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$",
+                "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "communications_owner_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$",
+                "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bridge_url": {
+            "type": "string"
+          },
+          "impact_summary": {
+            "type": "string"
+          },
+          "impact_confidence": {
+            "type": "string"
+          },
+          "workaround": {
+            "type": "string"
+          },
+          "communication_audience": {
+            "type": "string"
+          },
+          "update_interval_minutes": {
+            "type": "integer"
+          },
+          "next_update_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "detected_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "restored_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "review_status": {
+            "type": "string"
+          },
+          "open_actions": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "unassigned_actions": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_update_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "teams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MajorTeam"
+            }
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MajorLink"
+            }
+          }
+        },
+        "required": [
+          "incident_id",
+          "number",
+          "title",
+          "incident_state",
+          "priority",
+          "status",
+          "nominated_at",
+          "version",
+          "updated_at"
+        ]
+      },
+      "MajorTeam": {
+        "type": "object",
+        "properties": {
+          "group_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "group_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "group_id",
+          "group_name"
+        ]
+      },
+      "MajorLink": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "name"
+        ]
+      },
+      "MajorView": {
+        "type": "object",
+        "properties": {
+          "case": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MajorCase"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "public_updates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MajorUpdate"
+            }
+          },
+          "internal_updates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MajorUpdate"
+            }
+          },
+          "timeline": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MajorDecision"
+            }
+          },
+          "review": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MajorReview"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MajorAction"
+            }
+          },
+          "restricted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "public_updates",
+          "restricted"
+        ],
+        "description": "Case, operator feed, timeline and review require current root incident access and major permission. Child readers receive policy-authorized public updates with coordination/author/delivery details redacted."
+      },
+      "MajorDecision": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "case_version": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "type": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "actor_user_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "actor_name": {
+            "type": "string"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "case_version",
+          "type",
+          "reason",
+          "actor_user_id",
+          "actor_name",
+          "occurred_at"
+        ]
+      },
+      "MajorUpdate": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "audience": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "actor_user_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "actor_name": {
+            "type": "string"
+          },
+          "delivery_state": {
+            "type": "string",
+            "description": "Actual shared notification/SMTP result: PENDING, IN_APP_DELIVERED, SMTP_QUEUED, SMTP_DELIVERED, SMTP_PARTIAL, SMTP_NOT_CONFIGURED, SMTP_UNKNOWN, NO_RECIPIENTS, SKIPPED_BY_PREFERENCE or FAILED. Redacted for requesters."
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "audience",
+          "body",
+          "actor_user_id",
+          "delivery_state",
+          "occurred_at"
+        ]
+      },
+      "MajorDecisionInput": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "MajorCoordinationInput": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "commander_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$",
+                "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deputy_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$",
+                "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "communications_owner_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$",
+                "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bridge_url": {
+            "type": "string"
+          },
+          "impact_summary": {
+            "type": "string"
+          },
+          "impact_confidence": {
+            "type": "string"
+          },
+          "workaround": {
+            "type": "string"
+          },
+          "communication_audience": {
+            "type": "string"
+          },
+          "update_interval_minutes": {
+            "type": "integer"
+          },
+          "next_update_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "detected_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team_group_ids": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+            }
+          },
+          "service_ids": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+            }
+          },
+          "ci_ids": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+            }
+          }
+        },
+        "required": [
+          "version",
+          "commander_user_id",
+          "deputy_user_id",
+          "communications_owner_id",
+          "bridge_url",
+          "impact_summary",
+          "impact_confidence",
+          "workaround",
+          "communication_audience",
+          "update_interval_minutes",
+          "next_update_at",
+          "detected_at",
+          "team_group_ids",
+          "service_ids",
+          "ci_ids"
+        ],
+        "additionalProperties": false,
+        "description": "Version is the major case version. Roles and targets must be active in the same tenant with current read access. Bridge is an HTTPS link without userinfo or fragment. Hidden service/CI links are preserved when the actor cannot read their domain."
+      },
+      "MajorUpdateInput": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "audience": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "audience",
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "MajorRestoreInput": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "detected_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "restored_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "detected_at",
+          "restored_at",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "MajorReview": {
+        "type": "object",
+        "properties": {
+          "detected_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "restored_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "impact_summary": {
+            "type": "string"
+          },
+          "known_causes": {
+            "type": "string"
+          },
+          "what_worked": {
+            "type": "string"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          }
+        },
+        "required": [
+          "detected_at",
+          "restored_at",
+          "impact_summary",
+          "known_causes",
+          "what_worked",
+          "version"
+        ]
+      },
+      "MajorAction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "incident_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "number": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "owner_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$",
+                "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "owner_name": {
+            "type": "string"
+          },
+          "due_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "incident_id",
+          "description",
+          "due_at",
+          "status",
+          "version",
+          "updated_at"
+        ]
+      },
+      "MajorReviewInput": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "detected_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "restored_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "impact_summary": {
+            "type": "string"
+          },
+          "known_causes": {
+            "type": "string"
+          },
+          "what_worked": {
+            "type": "string"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MajorActionInput"
+            }
+          }
+        },
+        "required": [
+          "version",
+          "detected_at",
+          "restored_at",
+          "impact_summary",
+          "known_causes",
+          "what_worked",
+          "complete",
+          "actions"
+        ],
+        "additionalProperties": false,
+        "description": "Version is the review version, or string 0 for creation. Restoration and review completion are separate; corrective actions may remain open after closure."
+      },
+      "MajorActionInput": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "description": {
+            "type": "string"
+          },
+          "owner_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$",
+                "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "due_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "description",
+          "due_at"
+        ],
+        "additionalProperties": false
+      },
+      "MajorActionChangeInput": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "MajorChildrenInput": {
+        "type": "object",
+        "properties": {
+          "update_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "message",
+              "solution"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MajorChildTarget"
+            },
+            "maxItems": 50
+          }
+        },
+        "required": [
+          "version",
+          "action",
+          "message",
+          "items"
+        ],
+        "additionalProperties": false,
+        "description": "Durable per-item outcomes. message requires an approved REQUESTERS update_id; the server derives its body. solution creates a public proposal and never closes children. Replay the identical body and key after a lost response."
+      },
+      "MajorChildTarget": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          }
+        },
+        "required": [
+          "id",
+          "version"
+        ]
+      },
+      "MajorChildResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "status": {
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "message"
+        ]
+      },
+      "IncidentProcess": {
+        "type": "object",
+        "properties": {
+          "default_group_id": {
+            "type": "string"
+          },
+          "assignment_rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncidentAssignmentRule"
+            }
+          },
+          "templates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncidentTemplate"
+            }
+          },
+          "transitions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "auto_close_hours": {
+            "type": "integer"
+          },
+          "reopen_hours": {
+            "type": "integer"
+          },
+          "requester_can_reopen": {
+            "type": "boolean"
+          },
+          "close_required_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "default_group_id",
+          "assignment_rules",
+          "templates",
+          "transitions",
+          "auto_close_hours",
+          "reopen_hours",
+          "requester_can_reopen",
+          "close_required_fields"
+        ],
+        "additionalProperties": false,
+        "description": "Tenant metadata draft/publish lifecycle. New incidents pin the process snapshot/version. Publishing never recalculates historical SLA. Empty default queue means explicitly unassigned. Auto closure 0 disables the durable policy."
+      },
+      "IncidentAssignmentRule": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "group_id": {
+            "type": "string"
+          },
+          "service_id": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "contains": {
+            "type": "string"
+          },
+          "custom_field": {
+            "type": "string"
+          },
+          "custom_value": {}
+        },
+        "required": [
+          "key",
+          "name",
+          "active",
+          "group_id",
+          "service_id",
+          "category",
+          "location",
+          "priority",
+          "contains",
+          "custom_field"
+        ],
+        "additionalProperties": false
+      },
+      "IncidentTemplate": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "labels": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "retired": {
+            "type": "boolean"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "description": "Stable key from the tenant published dictionary. Retired keys are accepted only unchanged on historical records."
+          },
+          "subcategory": {
+            "type": "string"
+          },
+          "impact": {
+            "type": "integer"
+          },
+          "urgency": {
+            "type": "integer"
+          },
+          "service_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$",
+                "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "custom_fields": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "template_key": {
+            "type": "string"
+          },
+          "template_version": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          }
+        },
+        "required": [
+          "key",
+          "version",
+          "labels",
+          "retired",
+          "title",
+          "description",
+          "category",
+          "subcategory",
+          "impact",
+          "urgency",
+          "service_id",
+          "location"
+        ],
+        "additionalProperties": false
+      },
+      "MajorActionCreateInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MajorActionInput"
+          },
+          {
+            "type": "object",
+            "required": [
+              "version"
+            ],
+            "properties": {
+              "version": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$",
+                "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+              }
+            }
+          }
+        ]
+      },
+      "MajorActionNoteInput": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          },
+          "body": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "AssignmentPreview": {
+        "type": "object",
+        "properties": {
+          "rule_key": {
+            "type": "string"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$",
+                "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "group_name": {
+            "type": "string"
+          },
+          "preserves_assignment": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "rule_key",
+          "group_id",
+          "group_name",
+          "preserves_assignment"
+        ]
+      },
+      "MajorChildResults": {
+        "type": "object",
+        "required": [
+          "results"
+        ],
+        "properties": {
+          "results": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/MajorChildResult"
+            }
+          }
+        }
+      },
+      "IncidentVersionInput": {
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          }
+        }
+      },
+      "MajorCasePage": {
+        "type": "object",
+        "required": [
+          "items",
+          "next_after_id"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/MajorCase"
+            }
+          },
+          "next_after_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          }
+        }
+      },
+      "MajorActionPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "next_after_id"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/MajorAction"
+            }
+          },
+          "next_after_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          }
+        }
+      },
+      "MajorUpdatePage": {
+        "type": "object",
+        "required": [
+          "items",
+          "next_before_id"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/MajorUpdate"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          }
+        }
+      },
+      "MajorDecisionPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "next_before_id"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/MajorDecision"
+            }
+          },
+          "next_before_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          }
+        }
+      },
+      "MajorChildPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "next_after_id"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/MajorChildSummary"
+            }
+          },
+          "next_after_id": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Unsigned BIGINT as a decimal string; never a JSON number."
+          }
+        }
+      },
+      "MajorChildSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "number",
+          "title",
+          "version",
+          "state"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "number": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "state": {
+            "type": "string"
           }
         }
       }

@@ -123,7 +123,7 @@ func (s *Service) AddRelation(ctx context.Context, a Actor, id uint64, input Rel
 		}
 		if input.Type == "PARENT" {
 			var parent bool
-			if err := e.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM work_relations WHERE tenant_id=? AND source_type='incident' AND target_type='incident' AND relation_type='PARENT' AND target_id=?)`, a.TenantID, fmt.Sprint(destination)).Scan(&parent); err != nil {
+			if err := e.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM work_relations WHERE tenant_id=? AND source_type='incident' AND target_type='incident' AND relation_type='PARENT' AND source_id=?)`, a.TenantID, fmt.Sprint(source)).Scan(&parent); err != nil {
 				return err
 			}
 			if parent {

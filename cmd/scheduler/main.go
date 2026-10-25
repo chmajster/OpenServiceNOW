@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/chmajster/OpenServiceNOW/internal/attachments"
+	"github.com/chmajster/OpenServiceNOW/internal/incidents"
 	"github.com/chmajster/OpenServiceNOW/internal/jobs"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/config"
 	"github.com/chmajster/OpenServiceNOW/internal/platform/database"
@@ -44,6 +45,9 @@ func main() {
 	slaService := sla.NewService(db)
 	workflowService := workflow.NewService(db, nil)
 	run := func(ctx context.Context, now time.Time) error {
+		if err := incidents.EnqueueMaintenance(ctx, jobRepo, now); err != nil {
+			return err
+		}
 		bucket := now.UTC().Truncate(cfg.Session.CleanupInterval)
 		key := "session-cleanup:" + bucket.Format("20060102T150405.000000000Z")
 		job, created, err := systemjobs.EnqueueSessionCleanup(
